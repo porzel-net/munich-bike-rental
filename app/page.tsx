@@ -9,6 +9,11 @@ import {
   GraduationCap,
   Package,
   MapPin,
+  Ruler,
+  ShieldCheck,
+  Wrench,
+  Weight,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,7 +23,12 @@ type PortfolioItem = {
   price: string;
   description: string;
   image: string;
-  href: string;
+  gallery: string[];
+  facts: Array<{
+    label: string;
+    value: string;
+  }>;
+  equipment: string[];
 };
 
 type ServiceItem = {
@@ -65,7 +75,16 @@ const portfolioItems: PortfolioItem[] = [
     price: "39€/Tag",
     description: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
     image: "/bikes/endurance-cf-sl-8-di2/preview.png",
-    href: "/bikes/endurance-cf-sl-8-di2/preview.png",
+    gallery: [
+      "/bikes/endurance-cf-sl-8-di2/real1.png",
+      "/bikes/endurance-cf-sl-8-di2/real2.png",
+    ],
+    facts: [
+      { label: "Einsatz", value: "Touren, Training, Tagestouren" },
+      { label: "Schaltung", value: "Shimano Di2 2x12" },
+      { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
+    ],
+    equipment: ["Flaschenhalter", "Pedale", "Laufradsatz für Straße", "Sattelstütze mit Komfort"],
   },
   {
     title: "Ultimate CF SL 7 eTap AXS",
@@ -73,7 +92,17 @@ const portfolioItems: PortfolioItem[] = [
     price: "45€/Tag",
     description: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
     image: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
-    href: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
+    gallery: [
+      "/bikes/ultimate-cf-sl-7eTap-axs/real1.png",
+      "/bikes/ultimate-cf-sl-7eTap-axs/real2.png",
+      "/bikes/ultimate-cf-sl-7eTap-axs/real3.png",
+    ],
+    facts: [
+      { label: "Einsatz", value: "Sportlich, schnell, vielseitig" },
+      { label: "Schaltung", value: "SRAM eTap AXS 2x12" },
+      { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
+    ],
+    equipment: ["Flaschenhalter", "Leichte Laufräder", "Pedale", "Sportliche Sitzposition"],
   },
   {
     title: "Aeroad CF SL 8 Disc",
@@ -81,7 +110,18 @@ const portfolioItems: PortfolioItem[] = [
     price: "80€/Tag",
     description: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
     image: "/bikes/aeroad-cf-sl-8-disc/preview.png",
-    href: "/bikes/aeroad-cf-sl-8-disc/preview.png",
+    gallery: [
+      "/bikes/aeroad-cf-sl-8-disc/real1.png",
+      "/bikes/aeroad-cf-sl-8-disc/real2.png",
+      "/bikes/aeroad-cf-sl-8-disc/real3.png",
+      "/bikes/aeroad-cf-sl-8-disc/real4.png",
+    ],
+    facts: [
+      { label: "Einsatz", value: "Rennen, Tempo, schnelle Kanten" },
+      { label: "Schaltung", value: "Shimano 2x12" },
+      { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
+    ],
+    equipment: ["Aerowheels", "Flaschenhalter", "Race Cockpit", "Direktes Handling"],
   },
 ];
 
@@ -161,9 +201,111 @@ function SectionHeading({
   );
 }
 
+function BikeModal({
+  bike,
+  onClose,
+}: {
+  bike: PortfolioItem;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="bike-modal" role="presentation" onClick={onClose}>
+      <div
+        className="bike-modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${bike.title} details`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="bike-modal__close" aria-label="Close details" onClick={onClose}>
+          <X />
+        </button>
+
+        <div className="bike-modal__layout">
+          <div className="bike-modal__visuals">
+            <div className="bike-modal__hero">
+              <img src={bike.image} alt={bike.title} />
+            </div>
+
+            <div className="bike-modal__gallery">
+              {bike.gallery.map((image, index) => (
+                <div key={image} className="bike-modal__thumb">
+                  <img src={image} alt={`${bike.title} detail ${index + 1}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bike-modal__content">
+            <span className="bike-modal__eyebrow">Verfügbares Rad</span>
+            <h3>{bike.title}</h3>
+            <p className="bike-modal__description">{bike.description}</p>
+
+            <div className="bike-modal__pricing">
+              <span>Preis pro Tag</span>
+              <strong>{bike.price}</strong>
+            </div>
+
+            <div className="bike-modal__chiprow">
+              <span className="bike-modal__chip">
+                <Ruler size={16} />
+                {bike.subtitle}
+              </span>
+              <span className="bike-modal__chip">
+                <ShieldCheck size={16} />
+                Geprüft & gepflegt
+              </span>
+              <span className="bike-modal__chip">
+                <Weight size={16} />
+                Leichtes Setup
+              </span>
+            </div>
+
+            <div className="bike-modal__section">
+              <h4>Wichtige Daten</h4>
+              <div className="bike-modal__facts">
+                {bike.facts.map((fact) => (
+                  <div key={fact.label} className="bike-modal__fact">
+                    <span>{fact.label}</span>
+                    <strong>{fact.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bike-modal__section">
+              <h4>Ausrüstung</h4>
+              <ul className="bike-modal__equipment">
+                {bike.equipment.map((item) => (
+                  <li key={item}>
+                    <Wrench size={16} />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 48);
@@ -176,6 +318,11 @@ export default function Home() {
     document.body.classList.toggle("menu-open", menuOpen);
     return () => document.body.classList.remove("menu-open");
   }, [menuOpen]);
+
+  useEffect(() => {
+    document.body.classList.toggle("modal-open", Boolean(activeBike));
+    return () => document.body.classList.remove("modal-open");
+  }, [activeBike]);
 
   return (
     <main className="site-shell">
@@ -283,12 +430,12 @@ export default function Home() {
 
           <div className="portfolio-grid">
             {portfolioItems.map((item) => (
-              <a
+              <button
                 key={item.title}
-                href={item.href}
-                target={item.href.startsWith("http") ? "_blank" : undefined}
-                rel={item.href.startsWith("http") ? "noreferrer" : undefined}
                 className="portfolio-card"
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setActiveBike(item)}
               >
                 <div className="portfolio-card__media">
                   <img src="/assets/img/portfolio/410-460.jpg" alt="" className="portfolio-card__ratio" />
@@ -311,7 +458,7 @@ export default function Home() {
                     <span>{item.price}</span>
                   </div>
                 </div>
-              </a>
+              </button>
             ))}
           </div>
         </div>
@@ -412,6 +559,8 @@ export default function Home() {
           </ul>
         </div>
       </footer>
+
+      {activeBike ? <BikeModal bike={activeBike} onClose={() => setActiveBike(null)} /> : null}
     </main>
   );
 }
