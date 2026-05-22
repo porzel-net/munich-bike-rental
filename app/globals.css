@@ -71,6 +71,7 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 96px;
+  overflow-x: clip;
 }
 
 *,
@@ -87,7 +88,8 @@ body {
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100vw;
   background:
     radial-gradient(circle at 14% 16%, var(--bg-cool) 0 18%, transparent 42%),
     radial-gradient(circle at 84% 18%, var(--bg-mint) 0 16%, transparent 38%),
@@ -137,7 +139,7 @@ button {
 }
 
 .site-shell {
-  overflow: visible;
+  overflow-x: clip;
 }
 
 .container {
@@ -1144,7 +1146,7 @@ button {
 
 @media (max-width: 780px) {
   .container {
-    width: min(100% - 28px, 1200px);
+    width: min(100% - 32px, 1200px);
   }
 
   .topbar {
@@ -1192,6 +1194,14 @@ button {
     padding-top: 112px;
   }
 
+  .section--portfolio,
+  .section--about,
+  .section--price,
+  .section--contact {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
   .hero__grid {
     gap: 42px;
   }
@@ -1215,12 +1225,39 @@ button {
 }
 
 @media (max-width: 540px) {
+  .container {
+    width: min(100% - 20px, 1200px);
+  }
+
+  .hero {
+    padding-top: 104px;
+  }
+
+  .hero__visual {
+    justify-content: center;
+  }
+
+  .hero-frame {
+    width: min(100%, 340px);
+  }
+
   .hero-stats {
     gap: 14px 22px;
   }
 
   .hero-stats__item {
     width: 100%;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .hero-stats__item strong {
+    font-size: clamp(2.7rem, 14vw, 3.35rem);
+  }
+
+  .hero-stats__item span {
+    padding-top: 0;
+    font-size: 13px;
   }
 
   .hero-profile__item {
@@ -1241,8 +1278,8 @@ button {
   }
 
   .portfolio-card__details {
-    left: 28px;
-    bottom: 28px;
+    left: 22px;
+    bottom: 22px;
   }
 
   .portfolio-card__arrow {
