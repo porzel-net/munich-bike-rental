@@ -1,125 +1,128 @@
 "use client";
 
+import mainImage from "../main.png";
 import { useEffect, useState } from "react";
+import {
+  Bike,
+  CalendarClock,
+  CalendarRange,
+  GraduationCap,
+  Package,
+  MapPin,
+  type LucideIcon,
+} from "lucide-react";
 
 type PortfolioItem = {
   title: string;
   subtitle: string;
   image: string;
   href: string;
+  tone: "blue" | "peach" | "mint";
 };
 
 type ServiceItem = {
   title: string;
-  image: string;
+  text: string;
 };
 
 type PriceItem = {
   title: string;
   cost: string;
-  icon: string;
+  icon: LucideIcon;
 };
 
 const navItems = [
-  { href: "#home", label: "Home" },
-  { href: "#portfolio", label: "Portfolio" },
-  { href: "#skills", label: "Skills" },
-  { href: "#timeline", label: "Timeline" },
-  { href: "#price", label: "Price" },
-  { href: "#news", label: "News" },
-  { href: "#contact", label: "Contact" },
+  { href: "#home", label: "Start" },
+  { href: "#portfolio", label: "Räder" },
+  { href: "#price", label: "Preise" },
+  { href: "#contact", label: "Kontakt" },
 ];
 
 const services: ServiceItem[] = [
-  { title: "Web Development", image: "/assets/img/service/1.jpg" },
-  { title: "Digital Marketing", image: "/assets/img/service/2.jpg" },
-  { title: "Graphic Design", image: "/assets/img/service/3.jpg" },
+  {
+    title: "Wer wir sind",
+    text: "Wir sind Julius und Justus, beide 20 Jahre alt, und stecken unsere ganze Fahrradleidenschaft in den Verleih.",
+  },
+  {
+    title: "Was wir machen",
+    text: "Wir verleihen ausschließlich unsere eigenen Fahrräder in München und sorgen dafür, dass jedes Rad sofort startklar ist.",
+  },
+  {
+    title: "Warum wir",
+    text: "Weil wir selbst leidenschaftliche Fahrer sind, wollten wir einen Verleih aufbauen, dem man seine Bikes gerne anvertraut.",
+  },
+  {
+    title: "Wofür wir stehen",
+    text: "Perfekt gepflegte Räder, Zuverlässigkeit und ehrlicher persönlicher Kontakt statt anonymer Massenverleih.",
+  },
 ];
 
 const portfolioItems: PortfolioItem[] = [
   {
-    title: "Magic Art",
-    subtitle: "Vimeo",
-    image: "/assets/img/portfolio/1.jpg",
-    href: "https://vimeo.com/337292310",
+    title: "Endurance CF SL 8 Di2",
+    subtitle: "Rahmengrößen: S / M / L",
+    image: "/bikes/endurance-cf-sl-8-di2/preview.png",
+    href: "/bikes/endurance-cf-sl-8-di2/preview.png",
+    tone: "blue",
   },
   {
-    title: "Bona Green",
-    subtitle: "Youtube",
-    image: "/assets/img/portfolio/2.jpg",
-    href: "https://www.youtube.com/watch?v=7e90gBu4pas",
+    title: "Ultimate CF SL 7 eTap AXS",
+    subtitle: "Rahmengrößen: S / M / L",
+    image: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
+    href: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
+    tone: "peach",
   },
   {
-    title: "Leo Dandora",
-    subtitle: "Soundcloud",
-    image: "/assets/img/portfolio/3.jpg",
-    href:
-      "https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/471954807&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true",
-  },
-  {
-    title: "Folio Grasia",
-    subtitle: "Detail",
-    image: "/assets/img/portfolio/4.jpg",
-    href: "#contact",
-  },
-  {
-    title: "Viva Mercury",
-    subtitle: "Image",
-    image: "/assets/img/portfolio/5.jpg",
-    href: "/assets/img/portfolio/5.jpg",
-  },
-  {
-    title: "Santa Onera",
-    subtitle: "Image",
-    image: "/assets/img/portfolio/6.jpg",
-    href: "/assets/img/portfolio/6.jpg",
+    title: "Aeroad CF SL 8 Disc",
+    subtitle: "Rahmengröße: M",
+    image: "/bikes/aeroad-cf-sl-8-disc/preview.png",
+    href: "/bikes/aeroad-cf-sl-8-disc/preview.png",
+    tone: "mint",
   },
 ];
 
 const priceItems: PriceItem[] = [
   {
-    title: "WordPress Development",
-    cost: "$500",
-    icon: "/assets/img/svg/wordpress.svg",
+    title: "Rennräder",
+    cost: "ab 39€",
+    icon: Bike,
   },
   {
-    title: "HTML Development",
-    cost: "$400",
-    icon: "/assets/img/svg/html.svg",
+    title: "Wochenenderabatt",
+    cost: "10%",
+    icon: CalendarRange,
   },
   {
-    title: "Content Writing",
-    cost: "$300",
-    icon: "/assets/img/svg/edit.svg",
+    title: "Ab 3 Tagen",
+    cost: "20%",
+    icon: CalendarClock,
   },
   {
-    title: "Brand Identity",
-    cost: "$200",
-    icon: "/assets/img/svg/design.svg",
+    title: "Studentenrabatt",
+    cost: "20%",
+    icon: GraduationCap,
   },
   {
-    title: "PSD Design",
-    cost: "$100",
-    icon: "/assets/img/svg/photoshop.svg",
+    title: "Zubehör",
+    cost: "ab 5€",
+    icon: Package,
   },
 ];
 
 const contactItems = [
   {
-    label: "44 Place, Tokyo, Japan",
+    label: "Reservierung per Nachricht",
     icon: "/assets/img/svg/placeholder.svg",
   },
   {
-    label: "+77 033 442 55 57",
+    label: "WhatsApp: +49 152 51330962",
     icon: "/assets/img/svg/phone.svg",
+    href: "https://wa.me/4915251330962",
   },
   {
-    label: "dodo@gmail.com",
+    label: "Anrufen: +49 152 51330962",
     icon: "/assets/img/svg/mail.svg",
-  },
-  {
-    label: "www.domain.com",
-    icon: "/assets/img/svg/globe.svg",
+    href: "tel:+4915251330962",
   },
 ];
 
@@ -174,8 +177,8 @@ export default function Home() {
     <main className="site-shell">
       <header className={`topbar ${scrolled ? "is-scrolled" : ""}`}>
         <div className="container topbar__inner">
-          <a className="brand" href="#home" aria-label="Kura home">
-            <img src="/assets/img/logo/dark.png" alt="Kura logo" className="brand__logo" />
+          <a className="brand" href="#home" aria-label="BikeRental München home">
+            <img src="/assets/img/logo/dark.png" alt="BikeRental München logo" className="brand__logo" />
           </a>
 
           <nav className="nav nav--desktop" aria-label="Primary">
@@ -221,40 +224,32 @@ export default function Home() {
       <section id="home" className="hero section">
         <div className="container hero__grid">
           <div className="hero__copy">
-            <span className="hero__eyebrow">Bernard Smith</span>
-            <h1 className="hero__title">Creative Designer based in Japan</h1>
-
-            <ul className="service-list">
-              {services.map((service) => (
-                <li key={service.title} className="service-list__item">
-                  <a href="#portfolio" className="service-link">
-                    <img src={service.image} alt="" className="service-link__thumb" />
-                    <span className="service-link__label">{service.title}</span>
-                    <img
-                      src="/assets/img/svg/right-arrow.svg"
-                      alt=""
-                      className="service-link__arrow"
-                    />
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <span className="hero__location">
+              <MapPin className="hero__location-icon" aria-hidden="true" />
+              <span>München - Maxvorstadt</span>
+            </span>
+            <h1 className="hero__title">Fahrradverleih aus Leidenschaft</h1>
+            <p className="hero__intro">
+              Wir sind zwei junge Burschen aus München, die schon immer von einem eigenen Fahrradverleih
+              geträumt haben. Weil wir selbst begeisterte Fahrer sind, kümmern wir uns mit viel Herz um
+              unsere Bikes und verleihen ausschließlich unsere eigenen Räder.
+            </p>
 
             <ul className="hero-stats">
               <li className="hero-stats__item">
-                <strong>10+</strong>
+                <strong>2</strong>
                 <span>
-                  Years of
+                  Inhaber
                   <br />
-                  Experience
+                  mit Bike-Leidenschaft
                 </span>
               </li>
               <li className="hero-stats__item">
-                <strong>3K+</strong>
+                <strong>Perfekt</strong>
                 <span>
-                  Happy
+                  gepflegte
                   <br />
-                  Customers
+                  Räder
                 </span>
               </li>
             </ul>
@@ -262,8 +257,12 @@ export default function Home() {
 
           <div className="hero__visual">
             <div className="hero-frame">
-              <img src="/assets/img/thumbs/3-4.jpg" alt="" className="hero-frame__ratio" />
-              <div className="hero-frame__image" aria-hidden="true" />
+              <img src={mainImage.src} alt="" className="hero-frame__ratio" />
+              <div
+                className="hero-frame__image"
+                aria-hidden="true"
+                style={{ backgroundImage: `url(${mainImage.src})` }}
+              />
               <span className="hero-frame__shape" aria-hidden="true" />
             </div>
           </div>
@@ -276,7 +275,7 @@ export default function Home() {
 
       <section id="portfolio" className="section section--portfolio">
         <div className="container">
-          <SectionHeading eyebrow="Portfolio" title="Selected Works" />
+          <SectionHeading eyebrow="Unsere Bikes" title="Verfügbare Räder" />
 
           <div className="portfolio-grid">
             {portfolioItems.map((item) => (
@@ -285,9 +284,19 @@ export default function Home() {
                 href={item.href}
                 target={item.href.startsWith("http") ? "_blank" : undefined}
                 rel={item.href.startsWith("http") ? "noreferrer" : undefined}
-                className="portfolio-card"
+                className={`portfolio-card portfolio-card--${item.tone}`}
               >
                 <div className="portfolio-card__media">
+                  <div className="portfolio-card__decor" aria-hidden="true">
+                    <span className="portfolio-card__blob portfolio-card__blob--one" />
+                    <span className="portfolio-card__blob portfolio-card__blob--two" />
+                    <span className="portfolio-card__blob portfolio-card__blob--three" />
+                    <span className="portfolio-card__blob portfolio-card__blob--four" />
+                    <span className="portfolio-card__blob portfolio-card__blob--five" />
+                    <span className="portfolio-card__blob portfolio-card__blob--six" />
+                    <span className="portfolio-card__blob portfolio-card__blob--seven" />
+                    <span className="portfolio-card__blob portfolio-card__blob--eight" />
+                  </div>
                   <img src="/assets/img/portfolio/410-460.jpg" alt="" className="portfolio-card__ratio" />
                   <div
                     className="portfolio-card__image"
@@ -309,20 +318,34 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="about" className="section section--about">
+        <div className="container">
+          <SectionHeading eyebrow="Über uns" title="Was uns ausmacht" />
+
+          <ul className="hero-profile hero-profile--section">
+            {services.map((service) => (
+              <li key={service.title} className="hero-profile__item">
+                <span className="hero-profile__label">{service.title}</span>
+                <span className="hero-profile__text">{service.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       <section id="price" className="section section--price">
         <div className="container price-grid">
           <div className="price-grid__copy">
-            <SectionHeading eyebrow="Pricing" title="Service Prices" />
+            <SectionHeading eyebrow="Preise" title="Miete & Tarife" />
             <p className="section-copy">
-              For more than 20 years our experts have been accomplishing enough with modern Web Development,
-              new generation web and app programming language.
+              Klare Preise, unkomplizierte Rabatte und Zubehör für deine Tour.
             </p>
           </div>
 
           <div className="price-grid__list">
             {priceItems.map((item) => (
               <article key={item.title} className="price-item">
-                <img src={item.icon} alt="" className="price-item__icon" />
+                <item.icon className="price-item__icon" aria-hidden="true" />
                 <div className="price-item__title">{item.title}</div>
                 <div className="price-item__cost">{item.cost}</div>
               </article>
@@ -334,17 +357,27 @@ export default function Home() {
       <section id="contact" className="section section--contact">
         <div className="container contact-grid">
           <div className="contact-grid__copy">
-            <SectionHeading eyebrow="Contact" title="Get in Touch" />
+            <SectionHeading eyebrow="Kontakt" title="Kontakt aufnehmen" />
             <p className="section-copy">
-              Please fill out the form on this section to contact with me. Or call between 9:00 a.m. and
-              8:00 p.m. ET, Monday through Friday
+              Schreib uns einfach, wenn du ein Rad reservieren möchtest. Du kannst uns direkt per
+              Nachricht anschreiben, über WhatsApp unter +49 152 51330962 kontaktieren oder uns einfach
+              anrufen.
             </p>
 
             <ul className="contact-list">
               {contactItems.map((item) => (
                 <li key={item.label} className="contact-list__item">
-                  <img src={item.icon} alt="" className="contact-list__icon" />
-                  <span>{item.label}</span>
+                  {item.href ? (
+                    <a href={item.href} className="contact-list__link">
+                      <img src={item.icon} alt="" className="contact-list__icon" />
+                      <span>{item.label}</span>
+                    </a>
+                  ) : (
+                    <>
+                      <img src={item.icon} alt="" className="contact-list__icon" />
+                      <span>{item.label}</span>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -353,12 +386,12 @@ export default function Home() {
           <form className="contact-form">
             <div className="contact-form__fields">
               <input id="name" name="name" type="text" placeholder="Name" />
-              <input id="email" name="email" type="email" placeholder="Email" />
+              <input id="email" name="email" type="email" placeholder="E-Mail" />
             </div>
-            <textarea id="message" name="message" placeholder="Message" />
+            <textarea id="message" name="message" placeholder="Worum geht es?" />
 
             <button type="submit" className="button button--arrow">
-              <span>Submit</span>
+              <span>Anfrage senden</span>
               <img src="/assets/img/svg/right-arrow.svg" alt="" />
             </button>
           </form>
@@ -367,7 +400,7 @@ export default function Home() {
 
       <footer className="footer">
         <div className="container footer__inner">
-          <p>Copyright © 2023. All rights reserved.</p>
+          <p>Copyright © BikeRental München. Alle Rechte vorbehalten.</p>
 
           <ul className="socials">
             {socials.map((item) => (

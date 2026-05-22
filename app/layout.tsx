@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Kura | Home",
-  description: "Kura-inspired Next.js portfolio rewrite",
+  title: "BikeRental München",
+  description: "Lokaler Münchner Fahrradverleih mit eigenen und privaten Rädern",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="de">
       <body>{children}</body>
     </html>
   );
