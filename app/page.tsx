@@ -208,6 +208,8 @@ function BikeModal({
   bike: PortfolioItem;
   onClose: () => void;
 }) {
+  const [selectedImage, setSelectedImage] = useState(bike.image);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -235,14 +237,29 @@ function BikeModal({
         <div className="bike-modal__layout">
           <div className="bike-modal__visuals">
             <div className="bike-modal__hero">
-              <img src={bike.image} alt={bike.title} />
+              <img src={selectedImage} alt={bike.title} />
             </div>
 
             <div className="bike-modal__gallery">
+              <button
+                type="button"
+                className={`bike-modal__thumb ${selectedImage === bike.image ? "is-active" : ""}`}
+                onClick={() => setSelectedImage(bike.image)}
+                aria-label={`${bike.title} preview image`}
+              >
+                <img src={bike.image} alt={`${bike.title} preview`} />
+              </button>
+
               {bike.gallery.map((image, index) => (
-                <div key={image} className="bike-modal__thumb">
+                <button
+                  key={image}
+                  type="button"
+                  className={`bike-modal__thumb ${selectedImage === image ? "is-active" : ""}`}
+                  onClick={() => setSelectedImage(image)}
+                  aria-label={`${bike.title} detail image ${index + 1}`}
+                >
                   <img src={image} alt={`${bike.title} detail ${index + 1}`} />
-                </div>
+                </button>
               ))}
             </div>
           </div>
