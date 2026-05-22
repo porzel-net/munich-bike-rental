@@ -58,6 +58,9 @@
   --accent: #4169e1;
   --bg-light: #f9f9f9;
   --bg-dark: #111111;
+  --bg-cool: rgba(65, 105, 225, 0.14);
+  --bg-mint: rgba(45, 212, 191, 0.12);
+  --bg-peach: rgba(255, 159, 115, 0.14);
   --text: #111111;
   --text-muted: #777777;
   --surface: #ffffff;
@@ -84,7 +87,18 @@ body {
 }
 
 body {
-  background: var(--surface);
+  background:
+    radial-gradient(circle at 14% 16%, var(--bg-cool) 0 18%, transparent 42%),
+    radial-gradient(circle at 84% 18%, var(--bg-mint) 0 16%, transparent 38%),
+    radial-gradient(circle at 100% 0%,
+      rgba(65, 105, 225, 0.24) 0 10px,
+      rgba(65, 105, 225, 0.18) 10px 20px,
+      rgba(65, 105, 225, 0.12) 20px 32px,
+      rgba(65, 105, 225, 0.08) 32px 46px,
+      rgba(65, 105, 225, 0.04) 46px 62px,
+      transparent 62px 100%),
+    radial-gradient(circle at 58% 88%, var(--bg-peach) 0 18%, transparent 44%),
+    linear-gradient(180deg, #f9f7f1 0%, #f6f7fb 100%);
   color: var(--text);
   font-family: "Mulish", Arial, Helvetica, sans-serif;
   text-rendering: optimizeLegibility;
@@ -198,9 +212,13 @@ button {
   flex: 0 0 auto;
 }
 
-.brand__logo {
-  width: 74px;
-  height: auto;
+.brand__text {
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .nav {
@@ -495,24 +513,6 @@ button {
     box-shadow 0.25s ease;
 }
 
-.portfolio-card--blue {
-  --decor-a: rgba(65, 105, 225, 0.34);
-  --decor-b: rgba(29, 78, 216, 0.16);
-  --decor-c: rgba(255, 255, 255, 0.58);
-}
-
-.portfolio-card--peach {
-  --decor-a: rgba(255, 159, 115, 0.36);
-  --decor-b: rgba(251, 113, 133, 0.14);
-  --decor-c: rgba(255, 255, 255, 0.56);
-}
-
-.portfolio-card--mint {
-  --decor-a: rgba(45, 212, 191, 0.34);
-  --decor-b: rgba(16, 185, 129, 0.14);
-  --decor-c: rgba(255, 255, 255, 0.56);
-}
-
 .portfolio-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 30px 65px rgba(17, 17, 17, 0.12);
@@ -521,11 +521,7 @@ button {
 .portfolio-card__media {
   position: relative;
   aspect-ratio: 410 / 460;
-  background:
-    radial-gradient(circle at 18% 20%, var(--decor-a) 0 14%, transparent 15%),
-    radial-gradient(circle at 82% 18%, var(--decor-b) 0 12%, transparent 13%),
-    radial-gradient(circle at 68% 78%, var(--decor-c) 0 18%, transparent 19%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(245, 247, 255, 0.92));
+  background: linear-gradient(135deg, rgba(247, 247, 244, 0.98), rgba(241, 243, 248, 0.98));
   overflow: hidden;
 }
 
@@ -535,87 +531,9 @@ button {
   opacity: 0;
 }
 
-.portfolio-card__decor {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-.portfolio-card__blob {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(2px);
-  opacity: 0.9;
-}
-
-.portfolio-card__blob--one {
-  left: -18px;
-  top: 20px;
-  width: 142px;
-  height: 142px;
-  background: radial-gradient(circle at 30% 30%, var(--decor-a), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--two {
-  right: -8px;
-  top: 34px;
-  width: 120px;
-  height: 120px;
-  background: radial-gradient(circle at 40% 40%, var(--decor-b), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--three {
-  left: 50%;
-  bottom: -24px;
-  width: 170px;
-  height: 170px;
-  transform: translateX(-50%);
-  background: radial-gradient(circle at 50% 50%, var(--decor-c), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--four {
-  left: 18%;
-  top: 56%;
-  width: 44px;
-  height: 44px;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--five {
-  right: 22%;
-  top: 52%;
-  width: 56px;
-  height: 56px;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 183, 3, 0.82), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--six {
-  left: 8%;
-  bottom: 18%;
-  width: 68px;
-  height: 68px;
-  background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.78), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--seven {
-  right: 10%;
-  bottom: 10%;
-  width: 72px;
-  height: 72px;
-  background: radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.7), rgba(255, 255, 255, 0));
-}
-
-.portfolio-card__blob--eight {
-  left: 42%;
-  top: 16%;
-  width: 34px;
-  height: 34px;
-  background: radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.7), rgba(255, 255, 255, 0));
-}
-
 .portfolio-card__image {
   position: absolute;
-  inset: 12px;
+  inset: 14px;
   background-position: center;
   background-size: contain;
   background-repeat: no-repeat;
@@ -630,11 +548,23 @@ button {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.96);
   opacity: 0;
+  display: flex;
+  align-items: flex-start;
+  padding: 22px;
   transition: opacity 0.25s ease;
 }
 
 .portfolio-card:hover .portfolio-card__overlay {
   opacity: 1;
+}
+
+.portfolio-card__overlay p {
+  margin: 0;
+  max-width: 220px;
+  color: #111;
+  font-family: "Mulish", Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
 .portfolio-card__arrow {
@@ -653,22 +583,36 @@ button {
   left: 48px;
   bottom: 38px;
   z-index: 2;
+  width: calc(100% - 96px);
 }
 
 .portfolio-card__details h3 {
   margin: 0 0 4px;
-  color: #fff;
+  color: #111111;
   font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
 }
 
 .portfolio-card__details span {
-  color: rgba(255, 255, 255, 0.9);
+  color: #111111;
   font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 15px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.portfolio-card__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.portfolio-card__meta span:last-child {
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .section--price {

@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BikeRental München",
-  description: "Lokaler Münchner Fahrradverleih mit eigenen und privaten Rädern",
+  title: "Munich Rental",
+  description: "Lokaler Münchner Fahrradverleih mit eigenen Rädern",
 };
 
 export default function RootLayout({

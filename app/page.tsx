@@ -15,9 +15,10 @@ import {
 type PortfolioItem = {
   title: string;
   subtitle: string;
+  price: string;
+  description: string;
   image: string;
   href: string;
-  tone: "blue" | "peach" | "mint";
 };
 
 type ServiceItem = {
@@ -60,24 +61,27 @@ const services: ServiceItem[] = [
 const portfolioItems: PortfolioItem[] = [
   {
     title: "Endurance CF SL 8 Di2",
-    subtitle: "Rahmengrößen: S / M / L",
+    subtitle: "S / M / L",
+    price: "39€/Tag",
+    description: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
     image: "/bikes/endurance-cf-sl-8-di2/preview.png",
     href: "/bikes/endurance-cf-sl-8-di2/preview.png",
-    tone: "blue",
   },
   {
     title: "Ultimate CF SL 7 eTap AXS",
-    subtitle: "Rahmengrößen: S / M / L",
+    subtitle: "M / L",
+    price: "45€/Tag",
+    description: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
     image: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
     href: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
-    tone: "peach",
   },
   {
     title: "Aeroad CF SL 8 Disc",
-    subtitle: "Rahmengröße: M",
+    subtitle: "S / M",
+    price: "80€/Tag",
+    description: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
     image: "/bikes/aeroad-cf-sl-8-disc/preview.png",
     href: "/bikes/aeroad-cf-sl-8-disc/preview.png",
-    tone: "mint",
   },
 ];
 
@@ -177,8 +181,8 @@ export default function Home() {
     <main className="site-shell">
       <header className={`topbar ${scrolled ? "is-scrolled" : ""}`}>
         <div className="container topbar__inner">
-          <a className="brand" href="#home" aria-label="BikeRental München home">
-            <img src="/assets/img/logo/dark.png" alt="BikeRental München logo" className="brand__logo" />
+          <a className="brand" href="#home" aria-label="Munich Rental home">
+            <span className="brand__text">Munich Rental</span>
           </a>
 
           <nav className="nav nav--desktop" aria-label="Primary">
@@ -284,19 +288,9 @@ export default function Home() {
                 href={item.href}
                 target={item.href.startsWith("http") ? "_blank" : undefined}
                 rel={item.href.startsWith("http") ? "noreferrer" : undefined}
-                className={`portfolio-card portfolio-card--${item.tone}`}
+                className="portfolio-card"
               >
                 <div className="portfolio-card__media">
-                  <div className="portfolio-card__decor" aria-hidden="true">
-                    <span className="portfolio-card__blob portfolio-card__blob--one" />
-                    <span className="portfolio-card__blob portfolio-card__blob--two" />
-                    <span className="portfolio-card__blob portfolio-card__blob--three" />
-                    <span className="portfolio-card__blob portfolio-card__blob--four" />
-                    <span className="portfolio-card__blob portfolio-card__blob--five" />
-                    <span className="portfolio-card__blob portfolio-card__blob--six" />
-                    <span className="portfolio-card__blob portfolio-card__blob--seven" />
-                    <span className="portfolio-card__blob portfolio-card__blob--eight" />
-                  </div>
                   <img src="/assets/img/portfolio/410-460.jpg" alt="" className="portfolio-card__ratio" />
                   <div
                     className="portfolio-card__image"
@@ -305,12 +299,17 @@ export default function Home() {
                   />
                 </div>
 
-                <div className="portfolio-card__overlay" aria-hidden="true" />
+                <div className="portfolio-card__overlay" aria-hidden="true">
+                  <p>{item.description}</p>
+                </div>
                 <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
 
                 <div className="portfolio-card__details">
                   <h3>{item.title}</h3>
-                  <span>{item.subtitle}</span>
+                  <div className="portfolio-card__meta">
+                    <span>{item.subtitle}</span>
+                    <span>{item.price}</span>
+                  </div>
                 </div>
               </a>
             ))}
@@ -400,7 +399,7 @@ export default function Home() {
 
       <footer className="footer">
         <div className="container footer__inner">
-          <p>Copyright © BikeRental München. Alle Rechte vorbehalten.</p>
+          <p>Copyright © Munich Rental. Alle Rechte vorbehalten.</p>
 
           <ul className="socials">
             {socials.map((item) => (
