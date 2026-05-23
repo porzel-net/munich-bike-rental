@@ -1134,6 +1134,38 @@ button {
   margin-bottom: 18px;
 }
 
+.contact-form__period {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.contact-form__hint {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.contact-form__period-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.contact-form__period-field {
+  display: grid;
+  gap: 8px;
+}
+
+.contact-form__period-field label {
+  color: #222;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .contact-form input,
 .contact-form textarea {
   width: 100%;
@@ -1151,6 +1183,10 @@ button {
 .contact-form textarea {
   min-height: 180px;
   resize: vertical;
+}
+
+.contact-form input[type="date"] {
+  appearance: none;
 }
 
 .contact-form input:focus,
@@ -1546,6 +1582,10 @@ button {
 
   .contact-form {
     padding-left: 0;
+  }
+
+  .contact-form__period-fields {
+    grid-template-columns: 1fr;
   }
 
   .contact-form__checkbox {

@@ -337,6 +337,9 @@ const translations = {
     form: {
       name: "Name",
       contact: "E-Mail oder WhatsApp-Nummer",
+      periodFrom: "Zeitraum von",
+      periodTo: "bis",
+      periodHint: "Bitte wähle den Zeitraum, in dem du das Rad buchen möchtest.",
       message: "Worum geht es?",
       privacy: "Ich akzeptiere die Datenschutzbestimmungen.",
       submit: "Anfrage senden",
@@ -401,6 +404,9 @@ const translations = {
     form: {
       name: "Name",
       contact: "Email or WhatsApp number",
+      periodFrom: "Rental period from",
+      periodTo: "to",
+      periodHint: "Please choose the period in which you want to book the bike.",
       message: "What is it about?",
       privacy: "I accept the privacy policy.",
       submit: "Send inquiry",
@@ -599,6 +605,8 @@ export default function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
   const [contactMessage, setContactMessage] = useState("");
+  const [periodFrom, setPeriodFrom] = useState("");
+  const [periodTo, setPeriodTo] = useState("");
   const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -634,8 +642,8 @@ export default function Home() {
       const contactSection = document.getElementById("contact");
       contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-      const messageField = document.getElementById("message") as HTMLTextAreaElement | null;
-      messageField?.focus({ preventScroll: true });
+      const periodField = document.getElementById("period-from") as HTMLInputElement | null;
+      periodField?.focus({ preventScroll: true });
 
       setPendingReservationBike(null);
     });
@@ -650,6 +658,8 @@ export default function Home() {
     const formData = new FormData(form);
     const name = String(formData.get("name") ?? "").trim();
     const contact = String(formData.get("contact") ?? "").trim();
+    const periodFromValue = String(formData.get("periodFrom") ?? "").trim();
+    const periodToValue = String(formData.get("periodTo") ?? "").trim();
     const message = String(formData.get("message") ?? "").trim();
 
     setContactStatus("sending");
@@ -663,6 +673,8 @@ export default function Home() {
         body: JSON.stringify({
           name,
           contact,
+          periodFrom: periodFromValue,
+          periodTo: periodToValue,
           message,
           bikeTitle: pendingReservationBike ?? "",
           locale: lang,
@@ -677,6 +689,8 @@ export default function Home() {
 
       form.reset();
       setContactMessage("");
+      setPeriodFrom("");
+      setPeriodTo("");
       setPendingReservationBike(null);
       setPrivacyAccepted(false);
       setContactStatus("success");
@@ -968,6 +982,39 @@ export default function Home() {
                 inputMode="text"
               />
             </div>
+            <div className="contact-form__period">
+              <span className="contact-form__hint">{t.form.periodHint}</span>
+              <div className="contact-form__period-fields">
+                <div className="contact-form__period-field">
+                  <label htmlFor="period-from">{t.form.periodFrom}</label>
+                  <input
+                    id="period-from"
+                    name="periodFrom"
+                    type="date"
+                    value={periodFrom}
+                    onChange={(event) => {
+                      setPeriodFrom(event.target.value);
+                      setContactStatus("idle");
+                    }}
+                    required
+                  />
+                </div>
+                <div className="contact-form__period-field">
+                  <label htmlFor="period-to">{t.form.periodTo}</label>
+                  <input
+                    id="period-to"
+                    name="periodTo"
+                    type="date"
+                    value={periodTo}
+                    onChange={(event) => {
+                      setPeriodTo(event.target.value);
+                      setContactStatus("idle");
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
             <textarea
               id="message"
               name="message"
@@ -977,6 +1024,7 @@ export default function Home() {
                 setContactMessage(event.target.value);
                 setContactStatus("idle");
               }}
+              required
             />
 
             <label className="contact-form__checkbox">
@@ -991,7 +1039,13 @@ export default function Home() {
               <span>{t.form.privacy}</span>
             </label>
 
-            <button type="submit" className="button button--arrow" disabled={contactStatus === "sending" || !privacyAccepted}>
+            <button
+              type="submit"
+              className="button button--arrow"
+              disabled={
+                contactStatus === "sending" || !privacyAccepted || !periodFrom || !periodTo
+              }
+            >
               <span>{contactStatus === "sending" ? t.form.sending : t.form.submit}</span>
               <img src="/assets/img/svg/right-arrow.svg" alt="" />
             </button>

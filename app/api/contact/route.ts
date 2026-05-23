@@ -6,6 +6,8 @@ export const runtime = "nodejs";
 type ContactPayload = {
   name?: string;
   contact?: string;
+  periodFrom?: string;
+  periodTo?: string;
   message?: string;
   bikeTitle?: string;
   locale?: "de" | "en";
@@ -28,14 +30,22 @@ function isPhoneNumber(value: string) {
 }
 
 function createMailBody(
-  payload: Required<Pick<ContactPayload, "name" | "contact" | "message" | "bikeTitle" | "locale">>,
+  payload: Required<
+    Pick<ContactPayload, "name" | "contact" | "periodFrom" | "periodTo" | "message" | "bikeTitle" | "locale">
+  >,
 ) {
+  const periodLine =
+    payload.periodFrom && payload.periodTo
+      ? `${payload.periodFrom} - ${payload.periodTo}`
+      : payload.periodFrom || payload.periodTo || "-";
+
   if (payload.locale === "de") {
     return [
       "Neue Bike-Anfrage",
       "",
       `Name: ${payload.name}`,
       `Kontakt: ${payload.contact}`,
+      `Zeitraum: ${periodLine}`,
       payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
       "",
       "Nachricht:",
@@ -48,6 +58,7 @@ function createMailBody(
     "",
     `Name: ${payload.name}`,
     `Contact: ${payload.contact}`,
+    `Rental period: ${periodLine}`,
     payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
     "",
     "Message:",
@@ -60,6 +71,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as ContactPayload;
     const name = sanitizeLine(asText(body?.name), 120);
     const contact = sanitizeLine(asText(body?.contact), 254);
+    const periodFrom = sanitizeLine(asText(body?.periodFrom), 32);
+    const periodTo = sanitizeLine(asText(body?.periodTo), 32);
     const message = asText(body?.message).slice(0, 4000);
     const bikeTitle = sanitizeLine(asText(body?.bikeTitle), 120);
     const locale = body?.locale === "en" ? "en" : "de";
@@ -67,7 +80,7 @@ export async function POST(request: Request) {
     const contactIsEmail = isEmail(contact);
     const contactIsPhone = isPhoneNumber(contact);
 
-    if (!contact || (!contactIsEmail && !contactIsPhone) || !message) {
+    if (!contact || (!contactIsEmail && !contactIsPhone) || !periodFrom || !periodTo || !message) {
       return NextResponse.json({ ok: false, error: "Missing required fields" }, { status: 400 });
     }
 
@@ -101,6 +114,8 @@ export async function POST(request: Request) {
       text: createMailBody({
         name,
         contact,
+        periodFrom,
+        periodTo,
         message,
         bikeTitle,
         locale,
