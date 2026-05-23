@@ -325,6 +325,7 @@ const translations = {
       pricePerDay: "Preis pro Tag",
       facts: "Wichtige Daten",
       equipment: "Ausrüstung",
+      reserve: "Reservieren",
       checked: "Geprüft & gepflegt",
       setup: "Leichtes Setup",
       close: "Details schließen",
@@ -384,6 +385,7 @@ const translations = {
       pricePerDay: "Price per day",
       facts: "Key details",
       equipment: "Equipment",
+      reserve: "Reserve",
       checked: "Checked & maintained",
       setup: "Light setup",
       close: "Close details",
@@ -432,13 +434,35 @@ function SectionHeading({
   );
 }
 
+function createReservationMessage(lang: Locale, bikeTitle: string) {
+  if (lang === "de") {
+    return `Hallo Munich Rental,
+
+ich würde gerne das Bike "${bikeTitle}" reservieren.
+
+Ich freue mich über eine kurze Rückmeldung zu Verfügbarkeit und Abholung.
+
+Viele Grüße`;
+  }
+
+  return `Hello Munich Rental,
+
+I would like to reserve the "${bikeTitle}" bike.
+
+Please let me know about availability and pickup.
+
+Best regards`;
+}
+
 function BikeModal({
   bike,
   onClose,
+  onReserve,
   lang,
 }: {
   bike: PortfolioItem;
   onClose: () => void;
+  onReserve: (bikeTitle: string) => void;
   lang: Locale;
 }) {
   const [selectedImage, setSelectedImage] = useState(bike.image);
@@ -508,6 +532,11 @@ function BikeModal({
               <strong>{bike.price[lang]}</strong>
             </div>
 
+            <button type="button" className="button button--arrow bike-modal__reserve" onClick={() => onReserve(bike.title)}>
+              <span>{t.modal.reserve}</span>
+              <img src="/assets/img/svg/right-arrow.svg" alt="" />
+            </button>
+
             <div className="bike-modal__chiprow">
               <span className="bike-modal__chip">
                 <Ruler size={16} />
@@ -546,6 +575,7 @@ function BikeModal({
                 ))}
               </ul>
             </div>
+
           </div>
         </div>
       </div>
@@ -558,6 +588,8 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
+  const [contactMessage, setContactMessage] = useState("");
+  const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
   const t = translations[lang];
 
   useEffect(() => {
@@ -581,6 +613,24 @@ export default function Home() {
     return () => document.body.classList.remove("modal-open");
   }, [activeBike]);
 
+  useEffect(() => {
+    if (!pendingReservationBike || activeBike) {
+      return;
+    }
+
+    const raf = window.requestAnimationFrame(() => {
+      const contactSection = document.getElementById("contact");
+      contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      const messageField = document.getElementById("message") as HTMLTextAreaElement | null;
+      messageField?.focus({ preventScroll: true });
+
+      setPendingReservationBike(null);
+    });
+
+    return () => window.cancelAnimationFrame(raf);
+  }, [activeBike, pendingReservationBike]);
+
   const handleContactSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -600,6 +650,12 @@ export default function Home() {
     );
 
     window.location.href = `mailto:hallo@munich-bike-rental.de?subject=${subject}&body=${body}`;
+  };
+
+  const handleBikeReserve = (bikeTitle: string) => {
+    setContactMessage(createReservationMessage(lang, bikeTitle));
+    setPendingReservationBike(bikeTitle);
+    setActiveBike(null);
   };
 
   return (
@@ -872,7 +928,13 @@ export default function Home() {
               <input id="name" name="name" type="text" placeholder={t.form.name} />
               <input id="email" name="email" type="email" placeholder={t.form.email} />
             </div>
-            <textarea id="message" name="message" placeholder={t.form.message} />
+            <textarea
+              id="message"
+              name="message"
+              placeholder={t.form.message}
+              value={contactMessage}
+              onChange={(event) => setContactMessage(event.target.value)}
+            />
 
             <button type="submit" className="button button--arrow">
               <span>{t.form.submit}</span>
@@ -898,7 +960,9 @@ export default function Home() {
         </div>
       </footer>
 
-      {activeBike ? <BikeModal bike={activeBike} lang={lang} onClose={() => setActiveBike(null)} /> : null}
+      {activeBike ? (
+        <BikeModal bike={activeBike} lang={lang} onClose={() => setActiveBike(null)} onReserve={handleBikeReserve} />
+      ) : null}
     </main>
   );
 }
