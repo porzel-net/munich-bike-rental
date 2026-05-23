@@ -898,6 +898,88 @@ button {
   background: var(--bg-light);
 }
 
+.section--faq {
+  padding: 75px 0;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  gap: 76px;
+  align-items: center;
+}
+
+.faq-grid__copy {
+  padding-top: 0;
+}
+
+.faq-grid__list {
+  display: grid;
+  gap: 14px;
+}
+
+.faq-item {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  box-shadow: 0 12px 36px rgba(17, 17, 17, 0.05);
+  overflow: hidden;
+}
+
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  list-style: none;
+  cursor: pointer;
+  padding: 20px 22px;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: #111;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item__icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.faq-item__icon::before,
+.faq-item__icon::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #111;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.faq-item__icon::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.faq-item[open] .faq-item__icon::after {
+  opacity: 0;
+}
+
+.faq-item p {
+  margin: 0;
+  padding: 0 22px 20px;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.8;
+}
+
 .price-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1159,6 +1241,14 @@ button {
     padding-left: 0;
     padding-right: 0;
   }
+
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .faq-grid__copy {
+    padding-top: 0;
+  }
 }
 
 @media (max-width: 780px) {
@@ -1243,6 +1333,10 @@ button {
     display: none;
   }
 
+  .faq-grid {
+    gap: 28px;
+  }
+
   .footer__inner {
     flex-direction: column;
     align-items: flex-start;
@@ -1299,6 +1393,16 @@ button {
 
   .hero-profile--section {
     grid-template-columns: 1fr;
+  }
+
+  .faq-item summary {
+    padding: 18px 18px;
+    font-size: 16px;
+  }
+
+  .faq-item p {
+    padding: 0 18px 18px;
+    font-size: 15px;
   }
 
   .price-item {

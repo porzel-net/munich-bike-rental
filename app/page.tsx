@@ -1,7 +1,7 @@
 "use client";
 
 import mainImage from "../main.png";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Bike,
   CalendarClock,
@@ -46,6 +46,7 @@ const navItems = [
   { href: "#home", label: "Start" },
   { href: "#portfolio", label: "Räder" },
   { href: "#price", label: "Preise" },
+  { href: "#faq", label: "FAQ" },
   { href: "#contact", label: "Kontakt" },
 ];
 
@@ -60,7 +61,7 @@ const services: ServiceItem[] = [
   },
   {
     title: "Warum wir",
-    text: "Weil wir selbst leidenschaftliche Fahrer sind, wollten wir einen Verleih aufbauen, dem man seine Bikes gerne anvertraut.",
+    text: "Weil man lieber zu uns Studenten geht, die sich aus Leidenschaft um die Fahrräder kümmern, statt ein Bike bei einem großen Konzern zu mieten.",
   },
   {
     title: "Wofür wir stehen",
@@ -80,11 +81,11 @@ const portfolioItems: PortfolioItem[] = [
       "/bikes/endurance-cf-sl-8-di2/real2.png",
     ],
     facts: [
-      { label: "Einsatz", value: "Touren, Training, Tagestouren" },
-      { label: "Schaltung", value: "Shimano Di2 2x12" },
+      { label: "Schaltung", value: "Shimano Ultegra Di2" },
       { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
+      { label: "Laufräder", value: "DT Swiss Laufräder" },
     ],
-    equipment: ["Flaschenhalter", "Pedale", "Laufradsatz für Straße", "Sattelstütze mit Komfort"],
+    equipment: ["Elektronische Schaltung", "Sportliche Sitzposition", "Direktes Handling", "Pannensichere Bereifung"],
   },
   {
     title: "Ultimate CF SL 7 eTap AXS",
@@ -98,11 +99,12 @@ const portfolioItems: PortfolioItem[] = [
       "/bikes/ultimate-cf-sl-7eTap-axs/real3.png",
     ],
     facts: [
-      { label: "Einsatz", value: "Sportlich, schnell, vielseitig" },
-      { label: "Schaltung", value: "SRAM eTap AXS 2x12" },
+      { label: "Rahmen", value: "Carbonrahmen" },
+      { label: "Schaltung", value: "SRAM Rival eTap AXS 2x12" },
       { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
+      { label: "Laufräder", value: "DT Swiss Laufräder" },
     ],
-    equipment: ["Flaschenhalter", "Leichte Laufräder", "Pedale", "Sportliche Sitzposition"],
+    equipment: ["Elektronische Schaltung", "Tubeless-ready", "Leichte Bauweise", "Sportliche Geometrie"],
   },
   {
     title: "Aeroad CF SL 8 Disc",
@@ -117,11 +119,12 @@ const portfolioItems: PortfolioItem[] = [
       "/bikes/aeroad-cf-sl-8-disc/real4.png",
     ],
     facts: [
-      { label: "Einsatz", value: "Rennen, Tempo, schnelle Kanten" },
-      { label: "Schaltung", value: "Shimano 2x12" },
-      { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
+      { label: "Antrieb", value: "Shimano Ultegra R8000 2x11" },
+      { label: "Kassette", value: "11-34, neuwertig" },
+      { label: "Schaltwerk", value: "Shimano Ultegra Longcage" },
+      { label: "Laufräder", value: "DT Swiss ARC 1600, 62 / 50 mm" },
     ],
-    equipment: ["Aerowheels", "Flaschenhalter", "Race Cockpit", "Direktes Handling"],
+    equipment: ["Continental Grand Prix S TR 28 mm", "Tanwall-Reifen", "Bergtaugliche Übersetzung", "Aero-orientiertes Setup"],
   },
 ];
 
@@ -159,6 +162,11 @@ const contactItems = [
     icon: "/assets/img/svg/placeholder.svg",
   },
   {
+    label: "hallo@munich-bike-rental.de",
+    icon: "/assets/img/svg/mail.svg",
+    href: "mailto:hallo@munich-bike-rental.de",
+  },
+  {
     label: "WhatsApp: +49 152 51330962",
     icon: "/assets/img/svg/phone.svg",
     href: "https://wa.me/4915251330962",
@@ -167,6 +175,29 @@ const contactItems = [
     label: "Anrufen: +49 152 51330962",
     icon: "/assets/img/svg/mail.svg",
     href: "tel:+4915251330962",
+  },
+];
+
+const faqItems = [
+  {
+    question: "Wie läuft die Anfrage und Miete ab?",
+    answer:
+      "Alle Fahrräder können online angefragt und gemietet werden. Wir klären anschließend alles per E-Mail, WhatsApp oder Telefon, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
+  },
+  {
+    question: "Wo werden die Fahrräder abgeholt?",
+    answer:
+      "Die Abholung findet vor Ort in München-Maxvorstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
+  },
+  {
+    question: "Sind die Fahrräder versichert?",
+    answer:
+      "Ja, alle Fahrräder sind über eine gewerbliche Versicherung abgesichert. Die Versicherung umfasst Diebstahl, Schäden und Zerstörung.",
+  },
+  {
+    question: "Was passiert, wenn etwas beschädigt wird?",
+    answer:
+      "Auch in diesem Fall bist du nicht allein. Wir arbeiten mit einer gewerblichen Versicherung, damit Diebstahl, Schäden und Zerstörung abgesichert sind und wir gemeinsam eine saubere Lösung haben.",
   },
 ];
 
@@ -340,6 +371,18 @@ export default function Home() {
     document.body.classList.toggle("modal-open", Boolean(activeBike));
     return () => document.body.classList.remove("modal-open");
   }, [activeBike]);
+
+  const handleContactSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+    const subject = encodeURIComponent(`Bike-Anfrage${name ? ` von ${name}` : ""}`);
+    const body = encodeURIComponent([name ? `Name: ${name}` : "", email ? `E-Mail: ${email}` : "", "", message].filter(Boolean).join("\n"));
+
+    window.location.href = `mailto:hallo@munich-bike-rental.de?subject=${subject}&body=${body}`;
+  };
 
   return (
     <main className="site-shell">
@@ -517,6 +560,29 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="faq" className="section section--faq">
+        <div className="container faq-grid">
+          <div className="faq-grid__copy">
+            <SectionHeading eyebrow="FAQ" title="Häufige Fragen" />
+            <p className="section-copy">
+              Die wichtigsten Punkte zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.
+            </p>
+          </div>
+
+          <div className="faq-grid__list">
+            {faqItems.map((item) => (
+              <details key={item.question} className="faq-item">
+                <summary>
+                  <span>{item.question}</span>
+                  <span className="faq-item__icon" aria-hidden="true" />
+                </summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="contact" className="section section--contact">
         <div className="container contact-grid">
           <div className="contact-grid__copy">
@@ -546,7 +612,7 @@ export default function Home() {
             </ul>
           </div>
 
-          <form className="contact-form">
+          <form className="contact-form" onSubmit={handleContactSubmit}>
             <div className="contact-form__fields">
               <input id="name" name="name" type="text" placeholder="Name" />
               <input id="email" name="email" type="email" placeholder="E-Mail" />
