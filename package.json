@@ -11,11 +11,13 @@
   "dependencies": {
     "lucide-react": "^1.16.0",
     "next": "latest",
+    "nodemailer": "^8.0.7",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/nodemailer": "^8.0.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",

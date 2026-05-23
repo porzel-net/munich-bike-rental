@@ -46,6 +46,8 @@ type PriceItem = {
   icon: LucideIcon;
 };
 
+type ContactStatus = "idle" | "sending" | "success" | "error";
+
 const services: ServiceItem[] = [
   {
     title: "Wer wir sind",
@@ -334,10 +336,14 @@ const translations = {
     },
     form: {
       name: "Name",
-      email: "E-Mail",
+      contact: "E-Mail oder WhatsApp-Nummer",
       message: "Worum geht es?",
+      privacy: "Ich akzeptiere die Datenschutzbestimmungen.",
       submit: "Anfrage senden",
       subject: "Fahrradanfrage",
+      sending: "Senden...",
+      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns per E-Mail.",
+      error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
     },
     footer: "Copyright © Munich Rental. Alle Rechte vorbehalten.",
   },
@@ -394,10 +400,14 @@ const translations = {
     },
     form: {
       name: "Name",
-      email: "Email",
+      contact: "Email or WhatsApp number",
       message: "What is it about?",
+      privacy: "I accept the privacy policy.",
       submit: "Send inquiry",
       subject: "Bike inquiry",
+      sending: "Sending...",
+      success: "Thanks, your inquiry has been sent. We will reply by email.",
+      error: "The message could not be sent. Please try again.",
     },
     footer: "Copyright © Munich Rental. All rights reserved.",
   },
@@ -590,6 +600,8 @@ export default function Home() {
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
   const [contactMessage, setContactMessage] = useState("");
   const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
+  const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const t = translations[lang];
 
   useEffect(() => {
@@ -631,30 +643,52 @@ export default function Home() {
     return () => window.cancelAnimationFrame(raf);
   }, [activeBike, pendingReservationBike]);
 
-  const handleContactSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const name = String(formData.get("name") ?? "").trim();
-    const email = String(formData.get("email") ?? "").trim();
-    const message = String(formData.get("message") ?? "").trim();
-    const subject = encodeURIComponent(`${t.form.subject}${name ? ` ${name}` : ""}`);
-    const body = encodeURIComponent(
-      [
-        name ? `${t.form.name}: ${name}` : "",
-        email ? `${t.form.email}: ${email}` : "",
-        "",
-        message ? `${t.form.message}: ${message}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    );
 
-    window.location.href = `mailto:hallo@munich-bike-rental.de?subject=${subject}&body=${body}`;
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("name") ?? "").trim();
+    const contact = String(formData.get("contact") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+
+    setContactStatus("sending");
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          contact,
+          message,
+          bikeTitle: pendingReservationBike ?? "",
+          locale: lang,
+        }),
+      });
+
+      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error ?? "contact_failed");
+      }
+
+      form.reset();
+      setContactMessage("");
+      setPendingReservationBike(null);
+      setPrivacyAccepted(false);
+      setContactStatus("success");
+    } catch {
+      setContactStatus("error");
+    }
   };
 
   const handleBikeReserve = (bikeTitle: string) => {
     setContactMessage(createReservationMessage(lang, bikeTitle));
     setPendingReservationBike(bikeTitle);
+    setContactStatus("idle");
     setActiveBike(null);
   };
 
@@ -926,20 +960,44 @@ export default function Home() {
           <form className="contact-form" onSubmit={handleContactSubmit}>
             <div className="contact-form__fields">
               <input id="name" name="name" type="text" placeholder={t.form.name} />
-              <input id="email" name="email" type="email" placeholder={t.form.email} />
+              <input
+                id="contact"
+                name="contact"
+                type="text"
+                placeholder={t.form.contact}
+                inputMode="text"
+              />
             </div>
             <textarea
               id="message"
               name="message"
               placeholder={t.form.message}
               value={contactMessage}
-              onChange={(event) => setContactMessage(event.target.value)}
+              onChange={(event) => {
+                setContactMessage(event.target.value);
+                setContactStatus("idle");
+              }}
             />
 
-            <button type="submit" className="button button--arrow">
-              <span>{t.form.submit}</span>
+            <label className="contact-form__checkbox">
+              <input
+                type="checkbox"
+                checked={privacyAccepted}
+                onChange={(event) => {
+                  setPrivacyAccepted(event.target.checked);
+                  setContactStatus("idle");
+                }}
+              />
+              <span>{t.form.privacy}</span>
+            </label>
+
+            <button type="submit" className="button button--arrow" disabled={contactStatus === "sending" || !privacyAccepted}>
+              <span>{contactStatus === "sending" ? t.form.sending : t.form.submit}</span>
               <img src="/assets/img/svg/right-arrow.svg" alt="" />
             </button>
+
+            {contactStatus === "success" ? <p className="contact-form__status is-success">{t.form.success}</p> : null}
+            {contactStatus === "error" ? <p className="contact-form__status is-error">{t.form.error}</p> : null}
           </form>
         </div>
       </section>
