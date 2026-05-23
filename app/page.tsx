@@ -48,6 +48,12 @@ type PriceItem = {
 
 type ContactStatus = "idle" | "sending" | "success" | "error";
 
+const footerLinks = [
+  { href: "/", label: "Startseite" },
+  { href: "/impressum", label: "Impressum" },
+  { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
+];
+
 const services: ServiceItem[] = [
   {
     title: "Wer wir sind",
@@ -290,6 +296,8 @@ const translations = {
       prices: "Preise",
       faq: "FAQ",
       contact: "Kontakt",
+      imprint: "Impressum",
+      privacy: "Datenschutz",
     },
     languageToggle: "EN",
     menuButton: "Menü öffnen",
@@ -359,6 +367,8 @@ const translations = {
       prices: "Prices",
       faq: "FAQ",
       contact: "Contact",
+      imprint: "Imprint",
+      privacy: "Privacy",
     },
     languageToggle: "DE",
     menuButton: "Open menu",
@@ -422,18 +432,6 @@ const translations = {
     footer: "Copyright © Munich Rental. All rights reserved.",
   },
 } as const;
-
-const socials = [
-  { href: "#", icon: "/assets/img/svg/social/facebook.svg", label: "Facebook" },
-  { href: "#", icon: "/assets/img/svg/social/twitter.svg", label: "Twitter" },
-  {
-    href: "#",
-    icon: "/assets/img/svg/social/instagram.svg",
-    label: "Instagram",
-  },
-  { href: "#", icon: "/assets/img/svg/social/dribbble.svg", label: "Dribbble" },
-  { href: "#", icon: "/assets/img/svg/social/tik-tok.svg", label: "TikTok" },
-];
 
 function SectionHeading({
   eyebrow,
@@ -746,6 +744,16 @@ export default function Home() {
                     {t.nav.contact}
                   </a>
                 </li>
+                <li className="nav__item">
+                  <a href="/impressum" className="nav__link nav__link--legal">
+                    {t.nav.imprint}
+                  </a>
+                </li>
+                <li className="nav__item">
+                  <a href="/datenschutzerklaerung" className="nav__link nav__link--legal">
+                    {t.nav.privacy}
+                  </a>
+                </li>
               </ul>
             </nav>
 
@@ -800,6 +808,20 @@ export default function Home() {
               <li className="nav__item nav__item--mobile">
                 <a href="#contact" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                   {t.nav.contact}
+                </a>
+              </li>
+              <li className="nav__item nav__item--mobile">
+                <a href="/impressum" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                  {t.nav.imprint}
+                </a>
+              </li>
+              <li className="nav__item nav__item--mobile">
+                <a
+                  href="/datenschutzerklaerung"
+                  className="nav__link nav__link--mobile"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {t.nav.privacy}
                 </a>
               </li>
             </ul>
@@ -1063,16 +1085,23 @@ export default function Home() {
 
       <footer className="footer">
         <div className="container footer__inner">
-          <p>{t.footer}</p>
+          <div className="footer__brand">
+            <span className="footer__title">Munich Bike Rental</span>
+          </div>
 
-          <ul className="socials">
-            {socials.map((item) => (
-              <li key={item.label} className="socials__item">
-                <a href={item.href} aria-label={item.label}>
-                  <img src={item.icon} alt="" />
-                </a>
+          <ul className="footer-links">
+            {footerLinks.map((item) => (
+              <li key={item.href} className="footer-links__item">
+                <a href={item.href}>{item.label}</a>
               </li>
             ))}
+          </ul>
+
+          <ul className="footer-meta">
+            <li className="footer-meta__item footer-meta__item--location">
+              <MapPin className="footer-meta__icon" aria-hidden="true" />
+              <span>München, Maxvorstadt</span>
+            </li>
           </ul>
         </div>
       </footer>
