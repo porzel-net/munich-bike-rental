@@ -17,81 +17,107 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+type Locale = "de" | "en";
+
+type LocalizedText = Record<Locale, string>;
+
 type PortfolioItem = {
   title: string;
-  subtitle: string;
-  price: string;
-  description: string;
+  subtitle: LocalizedText;
+  price: LocalizedText;
+  description: LocalizedText;
   image: string;
   gallery: string[];
   facts: Array<{
-    label: string;
-    value: string;
+    label: LocalizedText;
+    value: LocalizedText;
   }>;
-  equipment: string[];
+  equipment: Record<Locale, string[]>;
 };
 
 type ServiceItem = {
   title: string;
-  text: string;
+  text: LocalizedText;
 };
 
 type PriceItem = {
-  title: string;
-  cost: string;
+  title: LocalizedText;
+  cost: LocalizedText;
   icon: LucideIcon;
 };
-
-const navItems = [
-  { href: "#home", label: "Start" },
-  { href: "#portfolio", label: "Räder" },
-  { href: "#price", label: "Preise" },
-  { href: "#faq", label: "FAQ" },
-  { href: "#contact", label: "Kontakt" },
-];
 
 const services: ServiceItem[] = [
   {
     title: "Wer wir sind",
-    text: "Wir sind Julius und Justus, beide 20 Jahre alt, und stecken unsere ganze Fahrradleidenschaft in den Verleih.",
+    text: {
+      de: "Wir sind Julius und Justus, beide 20 Jahre alt, und stecken unsere ganze Fahrradleidenschaft in den Verleih.",
+      en: "We are Julius and Justus, both 20 years old, and we put all our cycling passion into the rental.",
+    },
   },
   {
     title: "Was wir machen",
-    text: "Wir verleihen ausschließlich unsere eigenen Fahrräder in München und sorgen dafür, dass jedes Rad sofort startklar ist.",
+    text: {
+      de: "Wir verleihen ausschließlich unsere eigenen Fahrräder in München und sorgen dafür, dass jedes Rad sofort startklar ist.",
+      en: "We rent out only our own bikes in Munich and make sure every bike is ready to go right away.",
+    },
   },
   {
     title: "Warum wir",
-    text: "Weil man lieber zu uns Studenten geht, die sich aus Leidenschaft um die Fahrräder kümmern, statt ein Bike bei einem großen Konzern zu mieten.",
+    text: {
+      de: "Weil man lieber zu uns Studenten geht, die sich aus Leidenschaft um die Fahrräder kümmern, statt ein Bike bei einem großen Konzern zu mieten.",
+      en: "Because it feels better to rent from two students who care for the bikes with real passion instead of going to a large corporation.",
+    },
   },
   {
     title: "Wofür wir stehen",
-    text: "Perfekt gepflegte Räder, Zuverlässigkeit und ehrlicher persönlicher Kontakt statt anonymer Massenverleih.",
+    text: {
+      de: "Perfekt gepflegte Räder, Zuverlässigkeit und ehrlicher persönlicher Kontakt statt anonymer Massenverleih.",
+      en: "Perfectly maintained bikes, reliability and honest personal contact instead of anonymous mass rental.",
+    },
   },
 ];
 
 const portfolioItems: PortfolioItem[] = [
   {
     title: "Endurance CF SL 8 Di2",
-    subtitle: "S / M / L",
-    price: "39€/Tag",
-    description: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
+    subtitle: { de: "S / M / L", en: "S / M / L" },
+    price: { de: "39€/Tag", en: "39€/day" },
+    description: {
+      de: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
+      en: "Balanced road bike for fast, long rides and relaxed outings with plenty of comfort.",
+    },
     image: "/bikes/endurance-cf-sl-8-di2/preview.png",
     gallery: [
       "/bikes/endurance-cf-sl-8-di2/real1.png",
       "/bikes/endurance-cf-sl-8-di2/real2.png",
     ],
     facts: [
-      { label: "Schaltung", value: "Shimano Ultegra Di2" },
-      { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
-      { label: "Laufräder", value: "DT Swiss Laufräder" },
+      {
+        label: { de: "Schaltung", en: "Groupset" },
+        value: { de: "Shimano Ultegra Di2", en: "Shimano Ultegra Di2" },
+      },
+      {
+        label: { de: "Bremsen", en: "Brakes" },
+        value: { de: "Hydraulische Scheibenbremsen", en: "Hydraulic disc brakes" },
+      },
+      {
+        label: { de: "Laufräder", en: "Wheels" },
+        value: { de: "DT Swiss Laufräder", en: "DT Swiss wheels" },
+      },
     ],
-    equipment: ["Elektronische Schaltung", "Sportliche Sitzposition", "Direktes Handling", "Pannensichere Bereifung"],
+    equipment: {
+      de: ["Elektronische Schaltung", "Sportliche Sitzposition", "Direktes Handling", "Pannensichere Bereifung"],
+      en: ["Electronic shifting", "Sporty riding position", "Direct handling", "Puncture-resistant tires"],
+    },
   },
   {
     title: "Ultimate CF SL 7 eTap AXS",
-    subtitle: "M / L",
-    price: "45€/Tag",
-    description: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
+    subtitle: { de: "M / L", en: "M / L" },
+    price: { de: "45€/Tag", en: "45€/day" },
+    description: {
+      de: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
+      en: "Light all-round bike for sporty rides, training and quick city trips.",
+    },
     image: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
     gallery: [
       "/bikes/ultimate-cf-sl-7eTap-axs/real1.png",
@@ -99,18 +125,36 @@ const portfolioItems: PortfolioItem[] = [
       "/bikes/ultimate-cf-sl-7eTap-axs/real3.png",
     ],
     facts: [
-      { label: "Rahmen", value: "Carbonrahmen" },
-      { label: "Schaltung", value: "SRAM Rival eTap AXS 2x12" },
-      { label: "Bremsen", value: "Hydraulische Scheibenbremsen" },
-      { label: "Laufräder", value: "DT Swiss Laufräder" },
+      {
+        label: { de: "Rahmen", en: "Frame" },
+        value: { de: "Carbonrahmen", en: "Carbon frame" },
+      },
+      {
+        label: { de: "Schaltung", en: "Groupset" },
+        value: { de: "SRAM Rival eTap AXS 2x12", en: "SRAM Rival eTap AXS 2x12 electronic shifting" },
+      },
+      {
+        label: { de: "Bremsen", en: "Brakes" },
+        value: { de: "Hydraulische Scheibenbremsen", en: "Hydraulic disc brakes" },
+      },
+      {
+        label: { de: "Laufräder", en: "Wheels" },
+        value: { de: "DT Swiss Laufräder", en: "DT Swiss wheels" },
+      },
     ],
-    equipment: ["Elektronische Schaltung", "Tubeless-ready", "Leichte Bauweise", "Sportliche Geometrie"],
+    equipment: {
+      de: ["Elektronische Schaltung", "Tubeless-ready", "Leichte Bauweise", "Sportliche Geometrie"],
+      en: ["Electronic shifting", "Tubeless-ready", "Lightweight build", "Sporty geometry"],
+    },
   },
   {
     title: "Aeroad CF SL 8 Disc",
-    subtitle: "S / M",
-    price: "80€/Tag",
-    description: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
+    subtitle: { de: "S / M", en: "S / M" },
+    price: { de: "80€/Tag", en: "80€/day" },
+    description: {
+      de: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
+      en: "Aero bike for maximum speed on the road and a direct, sporty ride feel.",
+    },
     image: "/bikes/aeroad-cf-sl-8-disc/preview.png",
     gallery: [
       "/bikes/aeroad-cf-sl-8-disc/real1.png",
@@ -119,60 +163,75 @@ const portfolioItems: PortfolioItem[] = [
       "/bikes/aeroad-cf-sl-8-disc/real4.png",
     ],
     facts: [
-      { label: "Antrieb", value: "Shimano Ultegra R8000 2x11" },
-      { label: "Kassette", value: "11-34, neuwertig" },
-      { label: "Schaltwerk", value: "Shimano Ultegra Longcage" },
-      { label: "Laufräder", value: "DT Swiss ARC 1600, 62 / 50 mm" },
+      {
+        label: { de: "Antrieb", en: "Drivetrain" },
+        value: { de: "Shimano Ultegra R8000 2x11", en: "Shimano Ultegra R8000 2x11" },
+      },
+      {
+        label: { de: "Kassette", en: "Cassette" },
+        value: { de: "11-34, neuwertig", en: "11-34, like new" },
+      },
+      {
+        label: { de: "Schaltwerk", en: "Rear derailleur" },
+        value: { de: "Shimano Ultegra Longcage", en: "Shimano Ultegra long cage" },
+      },
+      {
+        label: { de: "Laufräder", en: "Wheels" },
+        value: { de: "DT Swiss ARC 1600, 62 / 50 mm", en: "DT Swiss ARC 1600, 62 / 50 mm" },
+      },
     ],
-    equipment: ["Continental Grand Prix S TR 28 mm", "Tanwall-Reifen", "Bergtaugliche Übersetzung", "Aero-orientiertes Setup"],
+    equipment: {
+      de: ["Continental Grand Prix S TR 28 mm", "Tanwall-Reifen", "Bergtaugliche Übersetzung", "Aero-orientiertes Setup"],
+      en: ["Continental Grand Prix S TR 28 mm", "Tanwall tires", "Climb-friendly gearing", "Aero-oriented setup"],
+    },
   },
 ];
 
 const priceItems: PriceItem[] = [
   {
-    title: "Rennräder",
-    cost: "ab 39€",
+    title: { de: "Rennräder", en: "Road bikes" },
+    cost: { de: "ab 39€", en: "from 39€" },
     icon: Bike,
   },
   {
-    title: "Wochenenderabatt",
-    cost: "10%",
+    title: { de: "Wochenenderabatt", en: "Weekend discount" },
+    cost: { de: "10%", en: "10%" },
     icon: CalendarRange,
   },
   {
-    title: "Ab 3 Tagen",
-    cost: "20%",
+    title: { de: "Ab 3 Tagen", en: "From 3 days" },
+    cost: { de: "20%", en: "20%" },
     icon: CalendarClock,
   },
   {
-    title: "Studentenrabatt",
-    cost: "20%",
+    title: { de: "Studentenrabatt", en: "Student discount" },
+    cost: { de: "20%", en: "20%" },
     icon: GraduationCap,
   },
   {
-    title: "Zubehör",
-    cost: "ab 5€",
+    title: { de: "Zubehör", en: "Accessories" },
+    cost: { de: "ab 5€", en: "from 5€" },
     icon: Package,
   },
 ];
 
 const contactItems = [
   {
-    label: "Reservierung per Nachricht",
+    label: { de: "Reservierung per Nachricht", en: "Reserve by message" },
     icon: "/assets/img/svg/placeholder.svg",
   },
   {
-    label: "hallo@munich-bike-rental.de",
+    label: { de: "hallo@munich-bike-rental.de", en: "hallo@munich-bike-rental.de" },
     icon: "/assets/img/svg/mail.svg",
     href: "mailto:hallo@munich-bike-rental.de",
   },
   {
-    label: "WhatsApp: +49 152 51330962",
+    label: { de: "WhatsApp: +49 152 51330962", en: "WhatsApp: +49 152 51330962" },
     icon: "/assets/img/svg/phone.svg",
     href: "https://wa.me/4915251330962",
   },
   {
-    label: "Anrufen: +49 152 51330962",
+    label: { de: "Anrufen: +49 152 51330962", en: "Call: +49 152 51330962" },
     icon: "/assets/img/svg/mail.svg",
     href: "tel:+4915251330962",
   },
@@ -180,26 +239,167 @@ const contactItems = [
 
 const faqItems = [
   {
-    question: "Wie läuft die Anfrage und Miete ab?",
-    answer:
-      "Alle Fahrräder können online angefragt und gemietet werden. Wir klären anschließend alles per E-Mail, WhatsApp oder Telefon, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
+    question: {
+      de: "Wie läuft die Anfrage und Miete ab?",
+      en: "How does the inquiry and rental process work?",
+    },
+    answer: {
+      de: "Alle Fahrräder können online angefragt und gemietet werden. Wir klären anschließend alles per E-Mail, WhatsApp oder Telefon, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
+      en: "All bikes can be requested and rented online. We then sort out everything via email, WhatsApp or phone so that price, rental period and pickup fit perfectly in the end.",
+    },
   },
   {
-    question: "Wo werden die Fahrräder abgeholt?",
-    answer:
-      "Die Abholung findet vor Ort in München-Maxvorstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
+    question: {
+      de: "Wo werden die Fahrräder abgeholt?",
+      en: "Where do I pick up the bikes?",
+    },
+    answer: {
+      de: "Die Abholung findet vor Ort in München-Maxvorstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
+      en: "Pickup takes place on site in Munich-Maxvorstadt. We will coordinate the exact process with you by email after the inquiry.",
+    },
   },
   {
-    question: "Sind die Fahrräder versichert?",
-    answer:
-      "Ja, alle Fahrräder sind über eine gewerbliche Versicherung abgesichert. Die Versicherung umfasst Diebstahl, Schäden und Zerstörung.",
+    question: {
+      de: "Sind die Fahrräder versichert?",
+      en: "Are the bikes insured?",
+    },
+    answer: {
+      de: "Ja, alle Fahrräder sind über eine gewerbliche Versicherung abgesichert. Die Versicherung umfasst Diebstahl, Schäden und Zerstörung.",
+      en: "Yes, all bikes are covered by commercial insurance. The coverage includes theft, damage and destruction.",
+    },
   },
   {
-    question: "Was passiert, wenn etwas beschädigt wird?",
-    answer:
-      "Auch in diesem Fall bist du nicht allein. Wir arbeiten mit einer gewerblichen Versicherung, damit Diebstahl, Schäden und Zerstörung abgesichert sind und wir gemeinsam eine saubere Lösung haben.",
+    question: {
+      de: "Was passiert, wenn etwas beschädigt wird?",
+      en: "What happens if something gets damaged?",
+    },
+    answer: {
+      de: "Auch in diesem Fall bist du nicht allein. Wir arbeiten mit einer gewerblichen Versicherung, damit Diebstahl, Schäden und Zerstörung abgesichert sind und wir gemeinsam eine saubere Lösung haben.",
+      en: "Even in that case you're not on your own. We work with commercial insurance so that theft, damage and destruction are covered and we can sort out a clean solution together.",
+    },
   },
 ];
+
+const translations = {
+  de: {
+    nav: {
+      start: "Start",
+      bikes: "Räder",
+      prices: "Preise",
+      faq: "FAQ",
+      contact: "Kontakt",
+    },
+    languageToggle: "EN",
+    menuButton: "Menü öffnen",
+    location: "München - Maxvorstadt",
+    hero: {
+      title: "Fahrradverleih aus Leidenschaft",
+      intro:
+        "Wir sind zwei junge Burschen aus München, die schon immer von einem eigenen Fahrradverleih geträumt haben. Weil wir selbst begeisterte Fahrer sind, kümmern wir uns mit viel Herz um unsere Bikes und verleihen ausschließlich unsere eigenen Räder.",
+      scroll: "Zu den Rädern scrollen",
+      stats: [
+        { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
+        { value: "Perfekt", top: "gepflegte", bottom: "Räder" },
+      ],
+    },
+    portfolio: { eyebrow: "Unsere Bikes", title: "Verfügbare Räder" },
+    about: { eyebrow: "Über uns", title: "Was uns ausmacht" },
+    price: {
+      eyebrow: "Preise",
+      title: "Miete & Tarife",
+      intro: "Klare Preise, unkomplizierte Rabatte und Zubehör für deine Tour.",
+    },
+    faq: {
+      eyebrow: "FAQ",
+      title: "Häufige Fragen",
+      intro: "Die wichtigsten Punkte zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.",
+    },
+    contact: {
+      eyebrow: "Kontakt",
+      title: "Kontakt aufnehmen",
+      intro:
+        "Schreib uns einfach, wenn du ein Rad reservieren möchtest. Du kannst uns direkt per Nachricht anschreiben, über WhatsApp unter +49 152 51330962 kontaktieren oder uns einfach anrufen.",
+    },
+    modal: {
+      bike: "Verfügbares Rad",
+      pricePerDay: "Preis pro Tag",
+      facts: "Wichtige Daten",
+      equipment: "Ausrüstung",
+      checked: "Geprüft & gepflegt",
+      setup: "Leichtes Setup",
+      close: "Details schließen",
+      preview: "Vorschaubild",
+      detailImage: "Detailbild",
+    },
+    form: {
+      name: "Name",
+      email: "E-Mail",
+      message: "Worum geht es?",
+      submit: "Anfrage senden",
+      subject: "Fahrradanfrage",
+    },
+    footer: "Copyright © Munich Rental. Alle Rechte vorbehalten.",
+  },
+  en: {
+    nav: {
+      start: "Start",
+      bikes: "Bikes",
+      prices: "Prices",
+      faq: "FAQ",
+      contact: "Contact",
+    },
+    languageToggle: "DE",
+    menuButton: "Open menu",
+    location: "Munich - Maxvorstadt",
+    hero: {
+      title: "Bike rental with passion",
+      intro:
+        "We are two young guys from Munich who have always dreamed of running our own bike rental. Since we are passionate riders ourselves, we care for our bikes with a lot of heart and rent out only our own bikes.",
+      scroll: "Scroll to the bikes",
+      stats: [
+        { value: "2", top: "Owners", bottom: "with bike passion" },
+        { value: "Perfectly", top: "maintained", bottom: "bikes" },
+      ],
+    },
+    portfolio: { eyebrow: "Our bikes", title: "Available bikes" },
+    about: { eyebrow: "About us", title: "What makes us special" },
+    price: {
+      eyebrow: "Prices",
+      title: "Rental & rates",
+      intro: "Clear prices, simple discounts and accessories for your ride.",
+    },
+    faq: {
+      eyebrow: "FAQ",
+      title: "Frequently asked questions",
+      intro: "Here we've gathered the most important points about the inquiry, pickup and coverage.",
+    },
+    contact: {
+      eyebrow: "Contact",
+      title: "Get in touch",
+      intro:
+        "Just write to us if you want to reserve a bike. You can contact us directly by message, via WhatsApp at +49 152 51330962 or simply call us.",
+    },
+    modal: {
+      bike: "Available bike",
+      pricePerDay: "Price per day",
+      facts: "Key details",
+      equipment: "Equipment",
+      checked: "Checked & maintained",
+      setup: "Light setup",
+      close: "Close details",
+      preview: "Preview image",
+      detailImage: "Detail image",
+    },
+    form: {
+      name: "Name",
+      email: "Email",
+      message: "What is it about?",
+      submit: "Send inquiry",
+      subject: "Bike inquiry",
+    },
+    footer: "Copyright © Munich Rental. All rights reserved.",
+  },
+} as const;
 
 const socials = [
   { href: "#", icon: "/assets/img/svg/social/facebook.svg", label: "Facebook" },
@@ -235,11 +435,14 @@ function SectionHeading({
 function BikeModal({
   bike,
   onClose,
+  lang,
 }: {
   bike: PortfolioItem;
   onClose: () => void;
+  lang: Locale;
 }) {
   const [selectedImage, setSelectedImage] = useState(bike.image);
+  const t = translations[lang];
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -261,7 +464,7 @@ function BikeModal({
         aria-label={`${bike.title} details`}
         onClick={(event) => event.stopPropagation()}
       >
-        <button type="button" className="bike-modal__close" aria-label="Close details" onClick={onClose}>
+        <button type="button" className="bike-modal__close" aria-label={t.modal.close} onClick={onClose}>
           <X />
         </button>
 
@@ -276,7 +479,7 @@ function BikeModal({
                 type="button"
                 className={`bike-modal__thumb ${selectedImage === bike.image ? "is-active" : ""}`}
                 onClick={() => setSelectedImage(bike.image)}
-                aria-label={`${bike.title} preview image`}
+                aria-label={`${bike.title} ${t.modal.preview}`}
               >
                 <img src={bike.image} alt={`${bike.title} preview`} />
               </button>
@@ -287,7 +490,7 @@ function BikeModal({
                   type="button"
                   className={`bike-modal__thumb ${selectedImage === image ? "is-active" : ""}`}
                   onClick={() => setSelectedImage(image)}
-                  aria-label={`${bike.title} detail image ${index + 1}`}
+                  aria-label={`${bike.title} ${t.modal.detailImage} ${index + 1}`}
                 >
                   <img src={image} alt={`${bike.title} detail ${index + 1}`} />
                 </button>
@@ -296,46 +499,46 @@ function BikeModal({
           </div>
 
           <div className="bike-modal__content">
-            <span className="bike-modal__eyebrow">Verfügbares Rad</span>
+            <span className="bike-modal__eyebrow">{t.modal.bike}</span>
             <h3>{bike.title}</h3>
-            <p className="bike-modal__description">{bike.description}</p>
+            <p className="bike-modal__description">{bike.description[lang]}</p>
 
             <div className="bike-modal__pricing">
-              <span>Preis pro Tag</span>
-              <strong>{bike.price}</strong>
+              <span>{t.modal.pricePerDay}</span>
+              <strong>{bike.price[lang]}</strong>
             </div>
 
             <div className="bike-modal__chiprow">
               <span className="bike-modal__chip">
                 <Ruler size={16} />
-                {bike.subtitle}
+                {bike.subtitle[lang]}
               </span>
               <span className="bike-modal__chip">
                 <ShieldCheck size={16} />
-                Geprüft & gepflegt
+                {t.modal.checked}
               </span>
               <span className="bike-modal__chip">
                 <Weight size={16} />
-                Leichtes Setup
+                {t.modal.setup}
               </span>
             </div>
 
             <div className="bike-modal__section">
-              <h4>Wichtige Daten</h4>
+              <h4>{t.modal.facts}</h4>
               <div className="bike-modal__facts">
                 {bike.facts.map((fact) => (
-                  <div key={fact.label} className="bike-modal__fact">
-                    <span>{fact.label}</span>
-                    <strong>{fact.value}</strong>
+                  <div key={fact.label.de} className="bike-modal__fact">
+                    <span>{fact.label[lang]}</span>
+                    <strong>{fact.value[lang]}</strong>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="bike-modal__section">
-              <h4>Ausrüstung</h4>
+              <h4>{t.modal.equipment}</h4>
               <ul className="bike-modal__equipment">
-                {bike.equipment.map((item) => (
+                {bike.equipment[lang].map((item) => (
                   <li key={item}>
                     <Wrench size={16} />
                     <span>{item}</span>
@@ -351,9 +554,15 @@ function BikeModal({
 }
 
 export default function Home() {
+  const [lang, setLang] = useState<Locale>("de");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
+  const t = translations[lang];
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 48);
@@ -378,8 +587,17 @@ export default function Home() {
     const name = String(formData.get("name") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const message = String(formData.get("message") ?? "").trim();
-    const subject = encodeURIComponent(`Bike-Anfrage${name ? ` von ${name}` : ""}`);
-    const body = encodeURIComponent([name ? `Name: ${name}` : "", email ? `E-Mail: ${email}` : "", "", message].filter(Boolean).join("\n"));
+    const subject = encodeURIComponent(`${t.form.subject}${name ? ` ${name}` : ""}`);
+    const body = encodeURIComponent(
+      [
+        name ? `${t.form.name}: ${name}` : "",
+        email ? `${t.form.email}: ${email}` : "",
+        "",
+        message ? `${t.form.message}: ${message}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
 
     window.location.href = `mailto:hallo@munich-bike-rental.de?subject=${subject}&body=${body}`;
   };
@@ -392,41 +610,90 @@ export default function Home() {
             <span className="brand__text">Munich Rental</span>
           </a>
 
-          <nav className="nav nav--desktop" aria-label="Primary">
-            <ul className="nav__list">
-              {navItems.map((item) => (
-                <li key={item.href} className="nav__item">
-                  <a href={item.href} className="nav__link">
-                    {item.label}
+          <div className="topbar__right">
+            <nav className="nav nav--desktop" aria-label="Primary">
+              <ul className="nav__list">
+                <li className="nav__item">
+                  <a href="#home" className="nav__link">
+                    {t.nav.start}
                   </a>
                 </li>
-              ))}
-            </ul>
-          </nav>
+                <li className="nav__item">
+                  <a href="#portfolio" className="nav__link">
+                    {t.nav.bikes}
+                  </a>
+                </li>
+                <li className="nav__item">
+                  <a href="#price" className="nav__link">
+                    {t.nav.prices}
+                  </a>
+                </li>
+                <li className="nav__item">
+                  <a href="#faq" className="nav__link">
+                    {t.nav.faq}
+                  </a>
+                </li>
+                <li className="nav__item">
+                  <a href="#contact" className="nav__link">
+                    {t.nav.contact}
+                  </a>
+                </li>
+              </ul>
+            </nav>
 
-          <button
-            type="button"
-            className={`hamburger ${menuOpen ? "is-active" : ""}`}
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((value) => !value)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
+            <div className="topbar__actions">
+              <button
+                type="button"
+                className="lang-switch"
+                aria-label={`Switch language to ${lang === "de" ? "English" : "Deutsch"}`}
+                onClick={() => setLang((current) => (current === "de" ? "en" : "de"))}
+              >
+                {t.languageToggle}
+              </button>
+
+              <button
+                type="button"
+                className={`hamburger ${menuOpen ? "is-active" : ""}`}
+                aria-label={t.menuButton}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((value) => !value)}
+              >
+                <span />
+                <span />
+                <span />
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className={`mobile-drawer ${menuOpen ? "is-open" : ""}`}>
           <nav className="nav nav--mobile" aria-label="Mobile primary">
             <ul className="nav__list nav__list--mobile">
-              {navItems.map((item) => (
-                <li key={item.href} className="nav__item nav__item--mobile">
-                  <a href={item.href} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
-                    {item.label}
-                  </a>
-                </li>
-              ))}
+              <li className="nav__item nav__item--mobile">
+                <a href="#home" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                  {t.nav.start}
+                </a>
+              </li>
+              <li className="nav__item nav__item--mobile">
+                <a href="#portfolio" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                  {t.nav.bikes}
+                </a>
+              </li>
+              <li className="nav__item nav__item--mobile">
+                <a href="#price" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                  {t.nav.prices}
+                </a>
+              </li>
+              <li className="nav__item nav__item--mobile">
+                <a href="#faq" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                  {t.nav.faq}
+                </a>
+              </li>
+              <li className="nav__item nav__item--mobile">
+                <a href="#contact" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                  {t.nav.contact}
+                </a>
+              </li>
             </ul>
           </nav>
         </div>
@@ -437,30 +704,26 @@ export default function Home() {
           <div className="hero__copy">
             <span className="hero__location">
               <MapPin className="hero__location-icon" aria-hidden="true" />
-              <span>München - Maxvorstadt</span>
+              <span>{t.location}</span>
             </span>
-            <h1 className="hero__title">Fahrradverleih aus Leidenschaft</h1>
-            <p className="hero__intro">
-              Wir sind zwei junge Burschen aus München, die schon immer von einem eigenen Fahrradverleih
-              geträumt haben. Weil wir selbst begeisterte Fahrer sind, kümmern wir uns mit viel Herz um
-              unsere Bikes und verleihen ausschließlich unsere eigenen Räder.
-            </p>
+            <h1 className="hero__title">{t.hero.title}</h1>
+            <p className="hero__intro">{t.hero.intro}</p>
 
             <ul className="hero-stats">
               <li className="hero-stats__item">
-                <strong>2</strong>
+                <strong>{t.hero.stats[0].value}</strong>
                 <span>
-                  Inhaber
+                  {t.hero.stats[0].top}
                   <br />
-                  mit Bike-Leidenschaft
+                  {t.hero.stats[0].bottom}
                 </span>
               </li>
               <li className="hero-stats__item">
-                <strong>Perfekt</strong>
+                <strong>{t.hero.stats[1].value}</strong>
                 <span>
-                  gepflegte
+                  {t.hero.stats[1].top}
                   <br />
-                  Räder
+                  {t.hero.stats[1].bottom}
                 </span>
               </li>
             </ul>
@@ -478,7 +741,7 @@ export default function Home() {
             </div>
           </div>
 
-          <a className="hero__down" href="#portfolio" aria-label="Scroll to portfolio">
+          <a className="hero__down" href="#portfolio" aria-label={t.hero.scroll}>
             <img src="/assets/img/svg/down-arrow.svg" alt="" />
           </a>
         </div>
@@ -486,7 +749,7 @@ export default function Home() {
 
       <section id="portfolio" className="section section--portfolio">
         <div className="container">
-          <SectionHeading eyebrow="Unsere Bikes" title="Verfügbare Räder" />
+          <SectionHeading eyebrow={t.portfolio.eyebrow} title={t.portfolio.title} />
 
           <div className="portfolio-grid">
             {portfolioItems.map((item) => (
@@ -507,15 +770,15 @@ export default function Home() {
                 </div>
 
                 <div className="portfolio-card__overlay" aria-hidden="true">
-                  <p>{item.description}</p>
+                  <p>{item.description[lang]}</p>
                 </div>
                 <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
 
                 <div className="portfolio-card__details">
                   <h3>{item.title}</h3>
                   <div className="portfolio-card__meta">
-                    <span>{item.subtitle}</span>
-                    <span>{item.price}</span>
+                    <span>{item.subtitle[lang]}</span>
+                    <span>{item.price[lang]}</span>
                   </div>
                 </div>
               </button>
@@ -526,13 +789,13 @@ export default function Home() {
 
       <section id="about" className="section section--about">
         <div className="container">
-          <SectionHeading eyebrow="Über uns" title="Was uns ausmacht" />
+          <SectionHeading eyebrow={t.about.eyebrow} title={t.about.title} />
 
           <ul className="hero-profile hero-profile--section">
             {services.map((service) => (
               <li key={service.title} className="hero-profile__item">
                 <span className="hero-profile__label">{service.title}</span>
-                <span className="hero-profile__text">{service.text}</span>
+                <span className="hero-profile__text">{service.text[lang]}</span>
               </li>
             ))}
           </ul>
@@ -542,18 +805,16 @@ export default function Home() {
       <section id="price" className="section section--price">
         <div className="container price-grid">
           <div className="price-grid__copy">
-            <SectionHeading eyebrow="Preise" title="Miete & Tarife" />
-            <p className="section-copy">
-              Klare Preise, unkomplizierte Rabatte und Zubehör für deine Tour.
-            </p>
+            <SectionHeading eyebrow={t.price.eyebrow} title={t.price.title} />
+            <p className="section-copy">{t.price.intro}</p>
           </div>
 
           <div className="price-grid__list">
             {priceItems.map((item) => (
-              <article key={item.title} className="price-item">
+              <article key={item.title.de} className="price-item">
                 <item.icon className="price-item__icon" aria-hidden="true" />
-                <div className="price-item__title">{item.title}</div>
-                <div className="price-item__cost">{item.cost}</div>
+                <div className="price-item__title">{item.title[lang]}</div>
+                <div className="price-item__cost">{item.cost[lang]}</div>
               </article>
             ))}
           </div>
@@ -563,20 +824,18 @@ export default function Home() {
       <section id="faq" className="section section--faq">
         <div className="container faq-grid">
           <div className="faq-grid__copy">
-            <SectionHeading eyebrow="FAQ" title="Häufige Fragen" />
-            <p className="section-copy">
-              Die wichtigsten Punkte zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.
-            </p>
+            <SectionHeading eyebrow={t.faq.eyebrow} title={t.faq.title} />
+            <p className="section-copy">{t.faq.intro}</p>
           </div>
 
           <div className="faq-grid__list">
             {faqItems.map((item) => (
-              <details key={item.question} className="faq-item">
+              <details key={item.question.de} className="faq-item">
                 <summary>
-                  <span>{item.question}</span>
+                  <span>{item.question[lang]}</span>
                   <span className="faq-item__icon" aria-hidden="true" />
                 </summary>
-                <p>{item.answer}</p>
+                <p>{item.answer[lang]}</p>
               </details>
             ))}
           </div>
@@ -586,25 +845,21 @@ export default function Home() {
       <section id="contact" className="section section--contact">
         <div className="container contact-grid">
           <div className="contact-grid__copy">
-            <SectionHeading eyebrow="Kontakt" title="Kontakt aufnehmen" />
-            <p className="section-copy">
-              Schreib uns einfach, wenn du ein Rad reservieren möchtest. Du kannst uns direkt per
-              Nachricht anschreiben, über WhatsApp unter +49 152 51330962 kontaktieren oder uns einfach
-              anrufen.
-            </p>
+            <SectionHeading eyebrow={t.contact.eyebrow} title={t.contact.title} />
+            <p className="section-copy">{t.contact.intro}</p>
 
             <ul className="contact-list">
               {contactItems.map((item) => (
-                <li key={item.label} className="contact-list__item">
+                <li key={item.label.de} className="contact-list__item">
                   {item.href ? (
                     <a href={item.href} className="contact-list__link">
                       <img src={item.icon} alt="" className="contact-list__icon" />
-                      <span>{item.label}</span>
+                      <span>{item.label[lang]}</span>
                     </a>
                   ) : (
                     <>
                       <img src={item.icon} alt="" className="contact-list__icon" />
-                      <span>{item.label}</span>
+                      <span>{item.label[lang]}</span>
                     </>
                   )}
                 </li>
@@ -614,13 +869,13 @@ export default function Home() {
 
           <form className="contact-form" onSubmit={handleContactSubmit}>
             <div className="contact-form__fields">
-              <input id="name" name="name" type="text" placeholder="Name" />
-              <input id="email" name="email" type="email" placeholder="E-Mail" />
+              <input id="name" name="name" type="text" placeholder={t.form.name} />
+              <input id="email" name="email" type="email" placeholder={t.form.email} />
             </div>
-            <textarea id="message" name="message" placeholder="Worum geht es?" />
+            <textarea id="message" name="message" placeholder={t.form.message} />
 
             <button type="submit" className="button button--arrow">
-              <span>Anfrage senden</span>
+              <span>{t.form.submit}</span>
               <img src="/assets/img/svg/right-arrow.svg" alt="" />
             </button>
           </form>
@@ -629,7 +884,7 @@ export default function Home() {
 
       <footer className="footer">
         <div className="container footer__inner">
-          <p>Copyright © Munich Rental. Alle Rechte vorbehalten.</p>
+          <p>{t.footer}</p>
 
           <ul className="socials">
             {socials.map((item) => (
@@ -643,7 +898,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {activeBike ? <BikeModal bike={activeBike} onClose={() => setActiveBike(null)} /> : null}
+      {activeBike ? <BikeModal bike={activeBike} lang={lang} onClose={() => setActiveBike(null)} /> : null}
     </main>
   );
 }
