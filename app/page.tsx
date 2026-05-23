@@ -341,11 +341,13 @@ const translations = {
       periodTo: "bis",
       periodHint: "Bitte wähle den Zeitraum, in dem du das Rad buchen möchtest.",
       message: "Worum geht es?",
+      messageHint:
+        "Tipp: Du kannst auch oben bei einem Bike auf Reservieren klicken. Dann wird hier automatisch ein Vorschlag mit dem Bike-Namen eingefügt.",
       privacy: "Ich akzeptiere die Datenschutzbestimmungen.",
       submit: "Anfrage senden",
       subject: "Fahrradanfrage",
       sending: "Senden...",
-      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns per E-Mail.",
+      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns per E-Mail oder WhatsApp.",
       error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
     },
     footer: "Copyright © Munich Rental. Alle Rechte vorbehalten.",
@@ -408,11 +410,13 @@ const translations = {
       periodTo: "to",
       periodHint: "Please choose the period in which you want to book the bike.",
       message: "What is it about?",
+      messageHint:
+        "Tip: You can also click Reserve on a bike above. That will automatically insert a message draft with the bike name here.",
       privacy: "I accept the privacy policy.",
       submit: "Send inquiry",
       subject: "Bike inquiry",
       sending: "Sending...",
-      success: "Thanks, your inquiry has been sent. We will reply by email.",
+      success: "Thanks, your inquiry has been sent. We will reply by email or WhatsApp.",
       error: "The message could not be sent. Please try again.",
     },
     footer: "Copyright © Munich Rental. All rights reserved.",
@@ -1026,6 +1030,7 @@ export default function Home() {
               }}
               required
             />
+            <p className="contact-form__hint">{t.form.messageHint}</p>
 
             <label className="contact-form__checkbox">
               <input
