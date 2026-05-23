@@ -11,7 +11,6 @@ import {
   MapPin,
   Ruler,
   ShieldCheck,
-  Wrench,
   Weight,
   X,
   type LucideIcon,
@@ -566,7 +565,17 @@ function BikeModal({
               </span>
               <span className="bike-modal__chip">
                 <Weight size={16} />
-                {t.modal.setup}
+                {bike.title === "Endurance CF SL 8 Di2"
+                  ? lang === "de"
+                    ? "Komfortables Setup"
+                    : "Comfort setup"
+                  : bike.title === "Ultimate CF SL 7 eTap AXS"
+                    ? lang === "de"
+                      ? "Sportliches Setup"
+                      : "Sport setup"
+                    : lang === "de"
+                      ? "Aggressives Setup"
+                      : "Aggressive setup"}
               </span>
             </div>
 
@@ -580,18 +589,6 @@ function BikeModal({
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div className="bike-modal__section">
-              <h4>{t.modal.equipment}</h4>
-              <ul className="bike-modal__equipment">
-                {bike.equipment[lang].map((item) => (
-                  <li key={item}>
-                    <Wrench size={16} />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
 
           </div>
