@@ -1,6 +1,6 @@
 @font-face {
   font-family: "Poppins";
-  src: url("/fonts/7a78f1ce0329757f-s.p.woff2") format("woff2");
+  src: url("/fonts/poppins-100.ttf") format("truetype");
   font-weight: 100;
   font-style: normal;
   font-display: swap;
@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("/fonts/c04551857776278f-s.p.woff2") format("woff2");
+  src: url("/fonts/poppins-300.ttf") format("truetype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -16,7 +16,7 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("/fonts/916d3686010a8de2-s.p.woff2") format("woff2");
+  src: url("/fonts/poppins-400.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -24,7 +24,7 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("/fonts/7777133e901cd5ed-s.p.woff2") format("woff2");
+  src: url("/fonts/poppins-500.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -32,7 +32,7 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("/fonts/9a881e2ac07d406b-s.p.woff2") format("woff2");
+  src: url("/fonts/poppins-700.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -40,7 +40,7 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("/fonts/bd427f25ac24d036-s.p.woff2") format("woff2");
+  src: url("/fonts/poppins-900.ttf") format("truetype");
   font-weight: 900;
   font-style: normal;
   font-display: swap;
@@ -48,7 +48,7 @@
 
 @font-face {
   font-family: "Mulish";
-  src: url("/fonts/f7040064460a9b21-s.p.woff2") format("woff2");
+  src: url("/fonts/mulish-400.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
