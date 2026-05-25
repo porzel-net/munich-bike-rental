@@ -1,7 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
-export const metadata = {
-  title: "Datenschutzerklärung | Munich Rental",
+import { siteConfig } from "../../lib/site";
+
+export const metadata: Metadata = {
+  title: "Datenschutzerklärung",
+  description: `Datenschutzerklärung von ${siteConfig.name}.`,
+  alternates: {
+    canonical: "/datenschutzerklaerung",
+  },
 };
 
 export default function DatenschutzerklaerungPage() {

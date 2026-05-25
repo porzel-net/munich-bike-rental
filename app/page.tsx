@@ -15,6 +15,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { siteConfig } from "../lib/site";
 
 type Locale = "de" | "en";
 
@@ -610,6 +611,63 @@ export default function Home() {
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const t = translations[lang];
+  const faqStructuredData = faqItems.map((item) => ({
+    "@type": "Question",
+    name: item.question.de,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer.de,
+    },
+  }));
+
+  const offerCatalog = portfolioItems.map((item, index) => {
+    const price = Number(item.price.de.match(/\d+/)?.[0] ?? 0);
+
+    return {
+      "@type": "Offer",
+      position: index + 1,
+      name: item.title,
+      description: item.description.de,
+      price,
+      priceCurrency: "EUR",
+      availability: "https://schema.org/InStock",
+    };
+  });
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "LocalBusiness",
+        name: siteConfig.name,
+        description: translations.de.hero.intro,
+        url: siteConfig.url,
+        telephone: siteConfig.phoneE164,
+        email: siteConfig.email,
+        image: `${siteConfig.url}${mainImage.src}`,
+        priceRange: siteConfig.priceRange,
+        areaServed: siteConfig.areaServed,
+        serviceType: "Fahrradverleih",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: siteConfig.address.streetAddress,
+          postalCode: siteConfig.address.postalCode,
+          addressLocality: siteConfig.address.addressLocality,
+          addressRegion: siteConfig.address.addressRegion,
+          addressCountry: siteConfig.address.addressCountry,
+        },
+        hasOfferCatalog: {
+          "@type": "OfferCatalog",
+          name: "Bike rental offers",
+          itemListElement: offerCatalog,
+        },
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faqStructuredData,
+      },
+    ],
+  };
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -707,6 +765,10 @@ export default function Home() {
 
   return (
     <main className="site-shell">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <header className={`topbar ${scrolled ? "is-scrolled" : ""}`}>
         <div className="container topbar__inner">
           <a className="brand" href="#home" aria-label="Munich Rental home">
@@ -858,7 +920,11 @@ export default function Home() {
 
           <div className="hero__visual">
             <div className="hero-frame">
-              <img src={mainImage.src} alt="" className="hero-frame__ratio" />
+            <img
+              src={mainImage.src}
+              alt="Munich Rental Fahrradverleih mit gepflegten Rennraedern in Muenchen"
+              className="hero-frame__ratio"
+            />
               <div
                 className="hero-frame__image"
                 aria-hidden="true"
@@ -888,7 +954,11 @@ export default function Home() {
                 onClick={() => setActiveBike(item)}
               >
                 <div className="portfolio-card__media">
-                  <img src="/assets/img/portfolio/410-460.jpg" alt="" className="portfolio-card__ratio" />
+                  <img
+                    src="/assets/img/portfolio/410-460.jpg"
+                    alt={`${item.title} bei Munich Rental`}
+                    className="portfolio-card__ratio"
+                  />
                   <div
                     className="portfolio-card__image"
                     style={{ backgroundImage: `url(${item.image})` }}
@@ -1083,7 +1153,7 @@ export default function Home() {
       <footer className="footer">
         <div className="container footer__inner">
           <div className="footer__brand">
-            <span className="footer__title">Munich Bike Rental</span>
+            <span className="footer__title">Munich Rental</span>
           </div>
 
           <ul className="footer-links">

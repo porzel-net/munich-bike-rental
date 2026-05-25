@@ -1,7 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
-export const metadata = {
-  title: "Impressum | Munich Rental",
+import { siteConfig } from "../../lib/site";
+
+export const metadata: Metadata = {
+  title: "Impressum",
+  description: `Impressum von ${siteConfig.name}.`,
+  alternates: {
+    canonical: "/impressum",
+  },
 };
 
 export default function ImpressumPage() {
