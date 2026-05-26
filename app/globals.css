@@ -1680,7 +1680,8 @@ button {
   }
 
   .bike-modal__gallery {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .contact-form {
