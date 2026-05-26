@@ -25,6 +25,9 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV SITE_URL=${SITE_URL}
 
+LABEL org.opencontainers.image.source=https://github.com/porzel-net/munich-bike-rental
+LABEL org.opencontainers.image.description="BikeRental Next.js application"
+
 RUN groupadd --gid 1001 nodejs \
   && useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nextjs
 

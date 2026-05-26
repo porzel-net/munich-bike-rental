@@ -18,41 +18,20 @@ Das Ziel-Setup ist:
 - der Container veröffentlicht keine `80`/`443`-Ports
 - der Container läuft als Non-Root-User, mit Read-Only-Filesystem und ohne zusätzliche Capabilities
 
-## Lokaler Build und Transfer
+## Deployment-Flow
 
-Das empfohlene Deployment ist:
+Der produktive Weg ist:
 
-1. Image lokal aus dem Repo bauen
-2. Image als `.tar` exportieren
-3. Datei per `scp` auf den Ubuntu-Server kopieren
-4. Image auf dem Server mit `docker load` importieren
-5. Stack mit Compose starten
+1. Docker-Image in GitHub bauen und in eine Registry pushen
+2. Auf dem Ubuntu-Server die Registry-Zugangsdaten hinterlegen
+3. Das Image per `docker compose pull` holen
+4. Den Stack mit den produktiven Env-Variablen starten
 
-Lokal bauen:
+Wichtig:
 
-```bash
-docker build -t bikerental:1.0.0 .
-```
-
-Als Datei exportieren:
-
-```bash
-docker save -o bikerental_1.0.0.tar bikerental:1.0.0
-```
-
-Auf den Server kopieren:
-
-```bash
-scp bikerental_1.0.0.tar user@dein-server:/tmp/
-```
-
-Auf dem Server importieren:
-
-```bash
-docker load -i /tmp/bikerental_1.0.0.tar
-```
-
-Wenn du später eine neue Version baust, wiederhole den Prozess mit einem neuen Tag.
+- `docker compose pull` funktioniert nur, wenn das Image wirklich in einer Registry liegt, z. B. GitHub Container Registry
+- der lokale Build `docker build` ist nur für Tests oder ein manuelles Release-Image
+- das Image selbst enthält keine SMTP- oder Domain-Konfiguration; die kommt erst zur Laufzeit über die `.env`
 
 ## Voraussetzungen auf dem Server
 
@@ -64,10 +43,10 @@ Wenn du später eine neue Version baust, wiederhole den Prozess mit einem neuen 
 
 ## Umgebungsvariablen
 
-Lege auf dem Server eine `.env`-Datei neben der Compose-Datei an.
+Lege auf dem Server eine `.env`-Datei neben der Compose-Datei an. Diese Datei steuert sowohl das zu ziehende Image als auch die produktive Laufzeitkonfiguration.
 
 ```dotenv
-APP_IMAGE=bikerental:1.0.0
+APP_IMAGE=ghcr.io/porzel-net/munich-bike-rental:latest
 SITE_URL=https://www.deine-domain.tld
 APP_ORIGIN=https://www.deine-domain.tld
 SMTP_HOST=smtp.example.com
@@ -84,13 +63,26 @@ Wichtig:
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL` und `APP_ORIGIN` müssen zur echten Domain passen
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
+- der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
+- wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
 
-## Container holen und starten
-
-Dann den Stack starten:
+Wenn du GitHub Container Registry verwendest, melde dich auf dem Server einmal an:
 
 ```bash
+docker login ghcr.io
+```
+
+Danach kannst du das Image ziehen und den Stack starten:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml pull
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml up -d
+```
+
+Wenn du eine neue Version veröffentlichst, ziehst du sie mit demselben Befehl erneut:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml pull
 ```
 
 Das kombiniert:
@@ -102,6 +94,7 @@ Ergebnis:
 
 - der App-Container ist nur auf `127.0.0.1:3000` erreichbar
 - von außen ist nichts direkt aus dem Container exposed
+- `docker compose pull` aktualisiert nur das Image, `up -d` startet den neuen Container mit den aktuellen Env-Werten
 
 ## Nginx Reverse Proxy
 
@@ -159,7 +152,7 @@ Zusätzlich sollte der Server so betrieben werden:
 
 ## Prüfen
 
-Gesundheitscheck:
+Gesundheitscheck auf dem Server:
 
 ```bash
 curl http://127.0.0.1:3000/api/health
@@ -177,8 +170,18 @@ Logs:
 docker compose -f docker-compose.yml -f docker-compose.server.yml logs -f
 ```
 
+Registry-Status prüfen:
+
+```bash
+docker images | grep bikerental
+```
+
 ## Hinweise
 
 - Die App nutzt SSR und Node-Runtime für den Kontakt-Endpoint.
 - `next dev` und Production sind getrennt gehärtet.
 - Die Production-CSP ist aktiv, Dev bleibt für HMR entspannt.
+
+## Optionaler Offline-Transfer
+
+Falls du kein Registry-Setup nutzen willst, kannst du das Image auch weiterhin als Tar-Datei exportieren und auf den Server kopieren. Das ist aber nur die Fallback-Variante und nicht der empfohlene Produktionsweg.
