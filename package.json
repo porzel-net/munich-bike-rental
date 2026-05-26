@@ -10,18 +10,18 @@
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
-    "next": "latest",
+    "next": "16.2.6",
     "nodemailer": "^8.0.7",
-    "react": "latest",
-    "react-dom": "latest"
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@types/node": "latest",
+    "@types/node": "25.9.1",
     "@types/nodemailer": "^8.0.0",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
-    "typescript": "latest"
+    "@types/react": "19.2.15",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "typescript": "6.0.3"
   }
 }
