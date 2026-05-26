@@ -17,6 +17,8 @@ if (isProduction) {
 
 const nextConfig = {
   allowedDevOrigins: ["192.168.178.167", "localhost", "127.0.0.1"],
+  output: "standalone",
+  compress: true,
   poweredByHeader: false,
   async headers() {
     return [

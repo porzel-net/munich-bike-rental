@@ -1,7 +1,12 @@
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
 
+import { siteConfig } from "../../../lib/site";
+
 export const runtime = "nodejs";
+
+const MAX_BODY_BYTES = 16 * 1024;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type ContactPayload = {
   name?: string;
@@ -30,11 +35,27 @@ function isPhoneNumber(value: string) {
 }
 
 function getExpectedOrigin(request: Request) {
+  const configuredOrigin = process.env.APP_ORIGIN ?? new URL(siteConfig.url).origin;
+  const localhostOrigins = new Set([
+    "http://localhost",
+    "https://localhost",
+    "http://localhost:3000",
+    "https://localhost:3000",
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "http://127.0.0.1:3000",
+    "https://127.0.0.1:3000",
+  ]);
   const url = new URL(request.url);
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? url.protocol.slice(0, -1);
   const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+  const forwardedOrigin = `${forwardedProto}://${forwardedHost}`;
 
-  return `${forwardedProto}://${forwardedHost}`;
+  if (localhostOrigins.has(forwardedOrigin)) {
+    return forwardedOrigin;
+  }
+
+  return configuredOrigin;
 }
 
 function createMailBody(
@@ -86,7 +107,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as ContactPayload;
+    const contentType = request.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      return NextResponse.json(
+        { ok: false, error: "Unsupported content type" },
+        { status: 415, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const contentLength = Number(request.headers.get("content-length") ?? "0");
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "Payload too large" },
+        { status: 413, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "Payload too large" },
+        { status: 413, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const body = JSON.parse(rawBody) as ContactPayload;
     const name = sanitizeLine(asText(body?.name), 120);
     const contact = sanitizeLine(asText(body?.contact), 254);
     const periodFrom = sanitizeLine(asText(body?.periodFrom), 32);
@@ -98,7 +143,15 @@ export async function POST(request: Request) {
     const contactIsEmail = isEmail(contact);
     const contactIsPhone = isPhoneNumber(contact);
 
-    if (!contact || (!contactIsEmail && !contactIsPhone) || !periodFrom || !periodTo || !message) {
+    if (
+      !contact ||
+      (!contactIsEmail && !contactIsPhone) ||
+      !periodFrom ||
+      !periodTo ||
+      !DATE_PATTERN.test(periodFrom) ||
+      !DATE_PATTERN.test(periodTo) ||
+      !message
+    ) {
       return NextResponse.json(
         { ok: false, error: "Missing required fields" },
         { status: 400, headers: { "Cache-Control": "no-store" } },

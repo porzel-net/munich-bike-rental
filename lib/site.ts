@@ -1,6 +1,8 @@
+const siteUrl = process.env.SITE_URL ?? "https://www.munich-bike-rental.de";
+
 export const siteConfig = {
   name: "Munich Rental",
-  url: "https://www.munich-bike-rental.de",
+  url: siteUrl,
   description:
     "Persoenlicher Fahrradverleih in Muenchen-Maxvorstadt mit gepflegten Rennraedern, direktem Kontakt und klaren Tarifen.",
   descriptionEn:
