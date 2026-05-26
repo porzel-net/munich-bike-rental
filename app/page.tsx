@@ -14,9 +14,9 @@ import {
 } from "../lib/home-content";
 
 type PageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     lang?: string | string[];
-  };
+  }>;
 };
 
 function SectionHeading({
@@ -36,8 +36,9 @@ function SectionHeading({
   );
 }
 
-export default function Home({ searchParams }: PageProps) {
-  const lang = resolveLocale(searchParams?.lang);
+export default async function Home({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const lang = resolveLocale(params?.lang);
   const t = translations[lang];
 
   return (

@@ -16,11 +16,15 @@ if (isProduction) {
 }
 
 const nextConfig = {
-  allowedDevOrigins: ["192.168.178.167", "localhost", "127.0.0.1"],
+  allowedDevOrigins: ["192.168.2.229", "192.168.178.167", "localhost", "127.0.0.1"],
   output: "standalone",
   compress: true,
   poweredByHeader: false,
   async headers() {
+    if (!isProduction) {
+      return [];
+    }
+
     return [
       {
         source: "/:path*",

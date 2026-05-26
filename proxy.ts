@@ -47,6 +47,7 @@ function buildContentSecurityPolicy(nonce: string) {
 export function proxy(request: NextRequest) {
   const nonce = createNonce();
   const requestHeaders = new Headers(request.headers);
+  const isProduction = process.env.NODE_ENV === "production";
 
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
@@ -57,7 +58,9 @@ export function proxy(request: NextRequest) {
     },
   });
 
-  response.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+  if (isProduction) {
+    response.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+  }
 
   return response;
 }
