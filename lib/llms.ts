@@ -2,7 +2,7 @@ import { siteConfig } from "./site";
 
 const bikes = [
   {
-    name: "Endurance CF SL 8 Di2",
+    name: "Endurace CF SL 8 Di2",
     size: "S / M / L",
     price: "39 EUR/day",
     summary:
@@ -131,7 +131,7 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 
 ## Bikes and pricing
 
-### Endurance CF SL 8 Di2
+### Endurace CF SL 8 Di2
 
 - Sizes: S / M / L
 - Price: 39 EUR/day

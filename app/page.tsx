@@ -87,17 +87,17 @@ const services: ServiceItem[] = [
 
 const portfolioItems: PortfolioItem[] = [
   {
-    title: "Endurance CF SL 8 Di2",
+    title: "Endurace CF SL 8 Di2",
     subtitle: { de: "S / M / L", en: "S / M / L" },
     price: { de: "39€/Tag", en: "39€/day" },
     description: {
       de: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
       en: "Balanced road bike for fast, long rides and relaxed outings with plenty of comfort.",
     },
-    image: "/bikes/endurance-cf-sl-8-di2/preview.png",
+    image: "/bikes/endurace-cf-sl-8-di2/preview.png",
     gallery: [
-      "/bikes/endurance-cf-sl-8-di2/real1.png",
-      "/bikes/endurance-cf-sl-8-di2/real2.png",
+      "/bikes/endurace-cf-sl-8-di2/real1.png",
+      "/bikes/endurace-cf-sl-8-di2/real2.png",
     ],
     facts: [
       {
@@ -566,7 +566,7 @@ function BikeModal({
               </span>
               <span className="bike-modal__chip">
                 <Weight size={16} />
-                {bike.title === "Endurance CF SL 8 Di2"
+                {bike.title === "Endurace CF SL 8 Di2"
                   ? lang === "de"
                     ? "Komfortables Setup"
                     : "Comfort setup"
