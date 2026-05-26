@@ -2,10 +2,9 @@ ARG SITE_URL=https://www.munich-bike-rental.de
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
-ARG SITE_URL
-ENV SITE_URL=${SITE_URL}
-COPY package*.json ./
-RUN npm install --no-audit --no-fund
+RUN npm install -g npm@11.11.0
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
