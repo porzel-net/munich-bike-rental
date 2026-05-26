@@ -18,42 +18,41 @@ Das Ziel-Setup ist:
 - der Container veröffentlicht keine `80`/`443`-Ports
 - der Container läuft als Non-Root-User, mit Read-Only-Filesystem und ohne zusätzliche Capabilities
 
-## Build und Publish per GitHub Actions
+## Lokaler Build und Transfer
 
 Das empfohlene Deployment ist:
 
-1. Code nach GitHub pushen
-2. GitHub Actions baut das Image aus [`Dockerfile`](/Users/juliusporzel/Development/NextJS/BikeRental/Dockerfile)
-3. GitHub Actions pusht das Image nach GHCR (`ghcr.io`)
-4. Der Ubuntu-Server zieht später nur noch das fertige Image per `docker pull`
+1. Image lokal aus dem Repo bauen
+2. Image als `.tar` exportieren
+3. Datei per `scp` auf den Ubuntu-Server kopieren
+4. Image auf dem Server mit `docker load` importieren
+5. Stack mit Compose starten
 
-Der Workflow liegt unter:
-
-- [`.github/workflows/docker-publish.yml`](/Users/juliusporzel/Development/NextJS/BikeRental/.github/workflows/docker-publish.yml)
-
-Das Image wird in GHCR als privates Package publiziert. GitHub legt neue Container-Packages beim ersten Publish standardmäßig privat an, wenn sie deinem Account oder einer Organisation zugeordnet sind. Der Workflow setzt zusätzlich die Source-Referenz, damit das Package sauber mit dem Repository verknüpft ist.
-
-Er erzeugt Image-Tags für:
-
-- den Branch
-- Git-Tags wie `v1.0.0`
-- den Commit-SHA
-- `latest` auf dem Default-Branch
-
-Auf dem Server kannst du dann zum Beispiel so ziehen:
+Lokal bauen:
 
 ```bash
-docker login ghcr.io
-docker pull ghcr.io/juliusporzel/bikerental:latest
+docker build -t bikerental:1.0.0 .
 ```
 
-Für den Login brauchst du auf dem Server einen GitHub Personal Access Token mit `read:packages`. Ein normales GitHub-Passwort reicht nicht.
+Als Datei exportieren:
 
 ```bash
-echo "$GHCR_TOKEN" | docker login ghcr.io -u "dein-github-username" --password-stdin
+docker save -o bikerental_1.0.0.tar bikerental:1.0.0
 ```
 
-Wenn du das Package im GitHub-Web-UI nachträglich prüfst, findest du die Visibility in den Package-Settings. Für den Serverbetrieb solltest du das Image aber immer als private Registry-Ressource behandeln.
+Auf den Server kopieren:
+
+```bash
+scp bikerental_1.0.0.tar user@dein-server:/tmp/
+```
+
+Auf dem Server importieren:
+
+```bash
+docker load -i /tmp/bikerental_1.0.0.tar
+```
+
+Wenn du später eine neue Version baust, wiederhole den Prozess mit einem neuen Tag.
 
 ## Voraussetzungen auf dem Server
 
@@ -68,7 +67,7 @@ Wenn du das Package im GitHub-Web-UI nachträglich prüfst, findest du die Visib
 Lege auf dem Server eine `.env`-Datei neben der Compose-Datei an.
 
 ```dotenv
-APP_IMAGE=ghcr.io/juliusporzel/bikerental:tag
+APP_IMAGE=bikerental:1.0.0
 SITE_URL=https://www.deine-domain.tld
 APP_ORIGIN=https://www.deine-domain.tld
 SMTP_HOST=smtp.example.com
@@ -87,12 +86,6 @@ Wichtig:
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
 
 ## Container holen und starten
-
-Wenn das Image in einer Registry liegt, ziehe es auf dem Server:
-
-```bash
-docker pull ghcr.io/juliusporzel/bikerental:tag
-```
 
 Dann den Stack starten:
 
