@@ -77,7 +77,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Endurace CF SL 8 Di2",
     subtitle: { de: "S / M / L", en: "S / M / L" },
-    price: { de: "39€/Tag", en: "39€/day" },
+    price: { de: "49€/Tag", en: "49€/day" },
     description: {
       de: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
       en: "Balanced road bike for fast, long rides and relaxed outings with plenty of comfort.",
@@ -106,7 +106,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Ultimate CF SL 7 eTap AXS",
     subtitle: { de: "M / L", en: "M / L" },
-    price: { de: "45€/Tag", en: "45€/day" },
+    price: { de: "49€/Tag", en: "49€/day" },
     description: {
       de: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
       en: "Light all-round bike for sporty rides, training and quick city trips.",
@@ -143,7 +143,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Aeroad CF SL 8 Disc",
     subtitle: { de: "S / M", en: "S / M" },
-    price: { de: "80€/Tag", en: "80€/day" },
+    price: { de: "69€/Tag", en: "69€/day" },
     description: {
       de: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
       en: "Aero bike for maximum speed on the road and a direct, sporty ride feel.",
@@ -183,7 +183,7 @@ export const portfolioItems: PortfolioItem[] = [
 export const priceItems: PriceItem[] = [
   {
     title: { de: "Rennräder", en: "Road bikes" },
-    cost: { de: "ab 39€", en: "from 39€" },
+    cost: { de: "ab 49€", en: "from 49€" },
     icon: Bike,
   },
   {
