@@ -31,7 +31,6 @@ Munich Rental
 Julius Porzel
 Josephine-Lang-Weg 3
 81245 München
-Tel.: +49 (0) 176 24742317
 E-Mail: hallo@munich-bike-rental.de
 Datenschutz
 Munich Rental

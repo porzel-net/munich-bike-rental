@@ -32,7 +32,6 @@ export default function ImpressumPage() {
         <section>
           <h2>Kontakt</h2>
           <p>E-Mail: hallo@munich-bike-rental.de</p>
-          <p>Telefon: +4917624742317</p>
         </section>
 
         <section>

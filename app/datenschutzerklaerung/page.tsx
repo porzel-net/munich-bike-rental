@@ -50,7 +50,6 @@ export default function DatenschutzerklaerungPage() {
           <p>Julius Porzel</p>
           <p>Josephine-Lang-Weg 3</p>
           <p>81245 München</p>
-          <p>Tel.: +49 (0) 176 24742317</p>
           <p>E-Mail: hallo@munich-bike-rental.de</p>
           <p>Weitere Verantwortliche</p>
           <p>
