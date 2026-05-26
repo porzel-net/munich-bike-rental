@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, type FormEvent } from "react";
 import { Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -151,7 +152,14 @@ function BikeModal({
         <div className="bike-modal__layout">
           <div className="bike-modal__visuals">
             <div className="bike-modal__hero">
-              <img src={selectedImage} alt={bike.title} />
+              <Image
+                src={selectedImage}
+                alt={bike.title}
+                fill
+                placeholder="blur"
+                sizes="(max-width: 1100px) 100vw, 640px"
+                className="bike-modal__hero-image"
+              />
             </div>
 
             <div className="bike-modal__gallery">
@@ -161,18 +169,32 @@ function BikeModal({
                 onClick={() => setSelectedImage(bike.image)}
                 aria-label={`${bike.title} ${translations.preview}`}
               >
-                <img src={bike.image} alt={`${bike.title} preview`} />
+                <Image
+                  src={bike.image}
+                  alt={`${bike.title} preview`}
+                  fill
+                  placeholder="blur"
+                  sizes="180px"
+                  className="bike-modal__thumb-image"
+                />
               </button>
 
               {bike.gallery.map((image, index) => (
                 <button
-                  key={image}
+                  key={image.src}
                   type="button"
                   className={`bike-modal__thumb ${selectedImage === image ? "is-active" : ""}`}
                   onClick={() => setSelectedImage(image)}
                   aria-label={`${bike.title} ${translations.detailImage} ${index + 1}`}
                 >
-                  <img src={image} alt={`${bike.title} detail ${index + 1}`} />
+                  <Image
+                    src={image}
+                    alt={`${bike.title} detail ${index + 1}`}
+                    fill
+                    placeholder="blur"
+                    sizes="180px"
+                    className="bike-modal__thumb-image"
+                  />
                 </button>
               ))}
             </div>
@@ -404,7 +426,14 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
               onClick={() => setActiveBike(item)}
             >
               <div className="portfolio-card__media">
-                <img src={item.image} alt={`${item.title} bei Munich Rental`} className="portfolio-card__image" />
+                <Image
+                  src={item.image}
+                  alt={`${item.title} bei Munich Rental`}
+                  fill
+                  placeholder="blur"
+                  sizes="(max-width: 780px) calc(100vw - 32px), (max-width: 1100px) calc((100vw - 64px) / 2), 384px"
+                  className="portfolio-card__image"
+                />
               </div>
 
               <div className="portfolio-card__overlay" aria-hidden="true">

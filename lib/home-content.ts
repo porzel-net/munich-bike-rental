@@ -1,3 +1,4 @@
+import type { StaticImageData } from "next/image";
 import {
   Bike,
   CalendarClock,
@@ -6,6 +7,19 @@ import {
   Package,
   type LucideIcon,
 } from "lucide-react";
+
+import aeroadPreview from "../public/bikes/aeroad-cf-sl-8-disc/preview.png";
+import aeroadReal1 from "../public/bikes/aeroad-cf-sl-8-disc/real1.png";
+import aeroadReal2 from "../public/bikes/aeroad-cf-sl-8-disc/real2.png";
+import aeroadReal3 from "../public/bikes/aeroad-cf-sl-8-disc/real3.png";
+import aeroadReal4 from "../public/bikes/aeroad-cf-sl-8-disc/real4.png";
+import enduracePreview from "../public/bikes/endurace-cf-sl-8-di2/preview.png";
+import enduraceReal1 from "../public/bikes/endurace-cf-sl-8-di2/real1.png";
+import enduraceReal2 from "../public/bikes/endurace-cf-sl-8-di2/real2.png";
+import ultimatePreview from "../public/bikes/ultimate-cf-sl-7eTap-axs/preview.png";
+import ultimateReal1 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real1.png";
+import ultimateReal2 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real2.png";
+import ultimateReal3 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real3.png";
 
 export type Locale = "de" | "en";
 
@@ -16,8 +30,8 @@ export type PortfolioItem = {
   subtitle: LocalizedText;
   price: LocalizedText;
   description: LocalizedText;
-  image: string;
-  gallery: string[];
+  image: StaticImageData;
+  gallery: StaticImageData[];
   facts: Array<{
     label: LocalizedText;
     value: LocalizedText;
@@ -82,8 +96,8 @@ export const portfolioItems: PortfolioItem[] = [
       de: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
       en: "Balanced road bike for fast, long rides and relaxed outings with plenty of comfort.",
     },
-    image: "/bikes/endurace-cf-sl-8-di2/preview.png",
-    gallery: ["/bikes/endurace-cf-sl-8-di2/real1.png", "/bikes/endurace-cf-sl-8-di2/real2.png"],
+    image: enduracePreview,
+    gallery: [enduraceReal1, enduraceReal2],
     facts: [
       {
         label: { de: "Schaltung", en: "Groupset" },
@@ -111,12 +125,8 @@ export const portfolioItems: PortfolioItem[] = [
       de: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
       en: "Light all-round bike for sporty rides, training and quick city trips.",
     },
-    image: "/bikes/ultimate-cf-sl-7eTap-axs/preview.png",
-    gallery: [
-      "/bikes/ultimate-cf-sl-7eTap-axs/real1.png",
-      "/bikes/ultimate-cf-sl-7eTap-axs/real2.png",
-      "/bikes/ultimate-cf-sl-7eTap-axs/real3.png",
-    ],
+    image: ultimatePreview,
+    gallery: [ultimateReal1, ultimateReal2, ultimateReal3],
     facts: [
       {
         label: { de: "Rahmen", en: "Frame" },
@@ -148,13 +158,8 @@ export const portfolioItems: PortfolioItem[] = [
       de: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
       en: "Aero bike for maximum speed on the road and a direct, sporty ride feel.",
     },
-    image: "/bikes/aeroad-cf-sl-8-disc/preview.png",
-    gallery: [
-      "/bikes/aeroad-cf-sl-8-disc/real1.png",
-      "/bikes/aeroad-cf-sl-8-disc/real2.png",
-      "/bikes/aeroad-cf-sl-8-disc/real3.png",
-      "/bikes/aeroad-cf-sl-8-disc/real4.png",
-    ],
+    image: aeroadPreview,
+    gallery: [aeroadReal1, aeroadReal2, aeroadReal3, aeroadReal4],
     facts: [
       {
         label: { de: "Antrieb", en: "Drivetrain" },

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import mainImage from "../main.png";
 import { MapPin } from "lucide-react";
 
@@ -93,10 +94,14 @@ export default async function Home({ searchParams }: PageProps) {
 
           <div className="hero__visual">
             <div className="hero-frame">
-              <img
-                src={mainImage.src}
+              <Image
+                src={mainImage}
                 alt="Munich Rental Fahrradverleih mit gepflegten Rennraedern in Muenchen"
                 className="hero-frame__image"
+                fill
+                preload
+                placeholder="blur"
+                sizes="(max-width: 540px) 340px, (max-width: 1100px) 420px, 470px"
               />
               <span className="hero-frame__shape" aria-hidden="true" />
             </div>
