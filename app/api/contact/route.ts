@@ -29,6 +29,14 @@ function isPhoneNumber(value: string) {
   return /^[+\d][\d\s()./-]{5,}$/.test(value);
 }
 
+function getExpectedOrigin(request: Request) {
+  const url = new URL(request.url);
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? url.protocol.slice(0, -1);
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
+
+  return `${forwardedProto}://${forwardedHost}`;
+}
+
 function createMailBody(
   payload: Required<
     Pick<ContactPayload, "name" | "contact" | "periodFrom" | "periodTo" | "message" | "bikeTitle" | "locale">
@@ -68,6 +76,16 @@ function createMailBody(
 
 export async function POST(request: Request) {
   try {
+    const origin = request.headers.get("origin");
+    const expectedOrigin = getExpectedOrigin(request);
+
+    if (!origin || origin !== expectedOrigin) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid request origin" },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     const body = (await request.json()) as ContactPayload;
     const name = sanitizeLine(asText(body?.name), 120);
     const contact = sanitizeLine(asText(body?.contact), 254);
@@ -81,7 +99,10 @@ export async function POST(request: Request) {
     const contactIsPhone = isPhoneNumber(contact);
 
     if (!contact || (!contactIsEmail && !contactIsPhone) || !periodFrom || !periodTo || !message) {
-      return NextResponse.json({ ok: false, error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Missing required fields" },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const smtpHost = process.env.SMTP_HOST;
@@ -93,7 +114,10 @@ export async function POST(request: Request) {
     const toAddress = process.env.MAIL_TO_ADDRESS ?? "hallo@munich-bike-rental.de";
 
     if (!smtpHost || !smtpUser || !smtpPassword) {
-      return NextResponse.json({ ok: false, error: "Mail configuration is incomplete" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "Mail configuration is incomplete" },
+        { status: 500, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const transporter = nodemailer.createTransport({
@@ -122,8 +146,11 @@ export async function POST(request: Request) {
       }),
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return NextResponse.json({ ok: false, error: "Unable to send message" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "Unable to send message" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

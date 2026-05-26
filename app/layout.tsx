@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+import { getHomeStructuredDataJson } from "../lib/structured-data";
 import { siteConfig } from "../lib/site";
 
 export const metadata: Metadata = {
@@ -69,14 +71,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  const pathname = requestHeaders.get("x-pathname");
+  const structuredDataJson = pathname === "/" ? getHomeStructuredDataJson() : null;
+
   return (
     <html lang="de">
-      <body>{children}</body>
+      <body>
+        {structuredDataJson ? (
+          <script
+            nonce={nonce}
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: structuredDataJson }}
+          />
+        ) : null}
+        {children}
+      </body>
     </html>
   );
 }
