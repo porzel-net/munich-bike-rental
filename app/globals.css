@@ -401,6 +401,10 @@ button {
   text-transform: uppercase;
 }
 
+.hero__title-line {
+  display: inline;
+}
+
 .hero__intro {
   margin: 0 0 28px;
   max-width: 620px;
@@ -1491,7 +1495,7 @@ button {
 
 @media (max-width: 780px) {
   .container {
-    width: min(100% - 20px, 1200px);
+    width: min(100% - 32px, 1200px);
   }
 
   .topbar {
@@ -1554,20 +1558,16 @@ button {
     padding-top: 112px;
   }
 
-  .section--portfolio,
-  .section--about,
-  .section--price,
-  .section--contact {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-
   .hero__grid {
     gap: 42px;
   }
 
   .hero__title {
     font-size: clamp(2.5rem, 10vw, 3.4rem);
+  }
+
+  .hero__title-line {
+    display: block;
   }
 
   .hero__intro {
@@ -1593,10 +1593,6 @@ button {
 }
 
 @media (max-width: 540px) {
-  .container {
-    width: min(100% - 16px, 1200px);
-  }
-
   .hero {
     padding-top: 104px;
   }
@@ -1607,14 +1603,6 @@ button {
 
   .hero-frame {
     width: min(100%, 340px);
-  }
-
-  .section--portfolio,
-  .section--about,
-  .section--price,
-  .section--contact {
-    padding-left: 12px;
-    padding-right: 12px;
   }
 
   .hero-stats {

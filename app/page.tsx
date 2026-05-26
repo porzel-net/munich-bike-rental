@@ -59,7 +59,16 @@ export default async function Home({ searchParams }: PageProps) {
               <MapPin className="hero__location-icon" aria-hidden="true" />
               <span>{t.location}</span>
             </span>
-            <h1 className="hero__title">{t.hero.title}</h1>
+            <h1 className="hero__title">
+              {lang === "de" ? (
+                <>
+                  Fahrrad
+                  <span className="hero__title-line">verleih aus Leidenschaft</span>
+                </>
+              ) : (
+                t.hero.title
+              )}
+            </h1>
             <p className="hero__intro">{t.hero.intro}</p>
 
             <ul className="hero-stats">

@@ -383,10 +383,9 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
     window.dispatchEvent(new CustomEvent("bike-reservation", { detail: bikeTitle }));
     setActiveBike(null);
     window.requestAnimationFrame(() => {
-      const contactSection = document.getElementById("contact");
-      contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
-      const periodField = document.getElementById("period-from") as HTMLInputElement | null;
-      periodField?.focus({ preventScroll: true });
+      const messageField = document.getElementById("message") as HTMLTextAreaElement | null;
+      messageField?.scrollIntoView({ behavior: "smooth", block: "center" });
+      messageField?.focus({ preventScroll: true });
     });
   };
 
