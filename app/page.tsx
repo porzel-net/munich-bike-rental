@@ -212,7 +212,8 @@ export default async function Home({ searchParams }: PageProps) {
                 src="/assets/img/location/google-maps.png"
                 alt={`Google Maps Standort für ${t.locationSection.address}`}
                 fill
-                sizes="(max-width: 1100px) 100vw, 560px"
+                sizes="(max-width: 632px) calc(100vw - 32px), 600px"
+                quality={72}
                 className="location-map__image"
               />
             </div>
