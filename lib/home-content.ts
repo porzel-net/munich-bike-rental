@@ -192,7 +192,7 @@ export const priceItems: PriceItem[] = [
     icon: Bike,
   },
   {
-    title: { de: "Wochenenderabatt", en: "Weekend discount" },
+    title: { de: "Mo-Do Rabatt", en: "Mon-Thu discount" },
     cost: { de: "10%", en: "10%" },
     icon: CalendarRange,
   },
@@ -307,7 +307,7 @@ export const translations = {
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro: "Klare Preise, unkomplizierte Rabatte und Zubehör für deine Tour.",
+      intro: "Klare Preise, Mo-Do-Rabatt und Zubehör für deine Tour.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -319,6 +319,16 @@ export const translations = {
       title: "Kontakt aufnehmen",
       intro:
         "Schreib uns einfach, wenn du ein Rad reservieren möchtest. Du kannst uns direkt per Nachricht anschreiben, über WhatsApp unter +49 152 51330962 kontaktieren oder uns einfach anrufen.",
+    },
+    locationSection: {
+      eyebrow: "Standort",
+      title: "So findest du uns",
+      intro:
+        "Die Abholung und Rückgabe findet vor Ort in der Maxvorstadt statt. Hier siehst du den Standort auf der Karte und direkt darunter die genaue Adresse.",
+      addressLabel: "Adresse",
+      address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
+      mapsLink: "https://maps.app.goo.gl/yviXEPStNkii88pn7",
+      mapsLabel: "Google Maps öffnen",
     },
     modal: {
       bike: "Verfügbares Rad",
@@ -378,7 +388,7 @@ export const translations = {
     price: {
       eyebrow: "Prices",
       title: "Rental & rates",
-      intro: "Clear prices, simple discounts and accessories for your ride.",
+      intro: "Clear prices, Mon-Thu discounts and accessories for your ride.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -390,6 +400,16 @@ export const translations = {
       title: "Get in touch",
       intro:
         "Just write to us if you want to reserve a bike. You can contact us directly by message, via WhatsApp at +49 152 51330962 or simply call us.",
+    },
+    locationSection: {
+      eyebrow: "Location",
+      title: "How to find us",
+      intro:
+        "Pickup and return take place on site in Maxvorstadt. Here you can see the location on the map and directly below the exact address.",
+      addressLabel: "Address",
+      address: "Gabelsbergerstraße 79a, 80333 Munich, Maxvorstadt",
+      mapsLink: "https://maps.app.goo.gl/yviXEPStNkii88pn7",
+      mapsLabel: "Open Google Maps",
     },
     modal: {
       bike: "Available bike",

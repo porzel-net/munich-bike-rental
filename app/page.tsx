@@ -1,6 +1,6 @@
 import Image from "next/image";
 import mainImage from "../main.png";
-import { MapPin } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 
 import { ContactForm, HomeTopbar, PortfolioSection } from "../components/home-interactive";
 import {
@@ -175,6 +175,47 @@ export default async function Home({ searchParams }: PageProps) {
                 <p>{item.answer[lang]}</p>
               </details>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="location" className="section section--location">
+        <div className="container location-grid">
+          <div className="location-grid__copy">
+            <SectionHeading eyebrow={t.locationSection.eyebrow} title={t.locationSection.title} />
+            <p className="section-copy">{t.locationSection.intro}</p>
+
+            <div className="location-card">
+              <div className="location-card__address">
+                <MapPin className="location-card__icon" aria-hidden="true" />
+                <div className="location-card__address-copy">
+                  <span className="location-card__label">{t.locationSection.addressLabel}</span>
+                  <p className="location-card__text">{t.locationSection.address}</p>
+                </div>
+              </div>
+
+              <a
+                className="location-card__link"
+                href={t.locationSection.mapsLink}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span>{t.locationSection.mapsLabel}</span>
+                <ArrowUpRight aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+
+          <div className="location-grid__visual">
+            <div className="location-map">
+              <Image
+                src="/assets/img/location/google-maps.png"
+                alt={`Google Maps Standort für ${t.locationSection.address}`}
+                fill
+                sizes="(max-width: 1100px) 100vw, 560px"
+                className="location-map__image"
+              />
+            </div>
           </div>
         </div>
       </section>
