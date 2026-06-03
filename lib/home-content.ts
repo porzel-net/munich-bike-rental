@@ -67,7 +67,7 @@ export const services: ServiceItem[] = [
   {
     title: "Was wir machen",
     text: {
-      de: "Wir verleihen ausschließlich unsere eigenen Fahrräder in München und sorgen dafür, dass jedes Rad sofort startklar ist.",
+      de: "Wir sind ein persönlicher Rennradverleih in München und verleihen ausschließlich unsere eigenen Rennräder, damit jedes Rad sofort startklar ist.",
       en: "We rent out only our own bikes in Munich and make sure every bike is ready to go right away.",
     },
   },
@@ -81,7 +81,7 @@ export const services: ServiceItem[] = [
   {
     title: "Wofür wir stehen",
     text: {
-      de: "Perfekt gepflegte Räder, Zuverlässigkeit und ehrlicher persönlicher Kontakt statt anonymer Massenverleih.",
+      de: "Perfekt gepflegte Rennräder, Zuverlässigkeit und ehrlicher persönlicher Kontakt statt anonymer Massenverleih.",
       en: "Perfectly maintained bikes, reliability and honest personal contact instead of anonymous mass rental.",
     },
   },
@@ -293,9 +293,9 @@ export const translations = {
     menuButton: "Menü öffnen",
     location: "München - Maxvorstadt",
     hero: {
-      title: "Fahrradverleih aus Leidenschaft",
+      title: "Rennradverleih in München",
       intro:
-        "Wir sind zwei junge Burschen aus München, die schon immer von einem eigenen Fahrradverleih geträumt haben. Weil wir selbst begeisterte Fahrer sind, kümmern wir uns mit viel Herz um unsere Bikes und verleihen ausschließlich unsere eigenen Räder.",
+        "Wir sind ein persönlicher Rennradverleih in München-Maxvorstadt und verleihen gepflegte Rennräder, Carbon-Rennräder und sportliche Straßenräder für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
       stats: [
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
@@ -307,12 +307,12 @@ export const translations = {
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro: "Klare Preise, Mo-Do-Rabatt und Zubehör für deine Tour.",
+      intro: "Klare Preise für deinen Rennradverleih in München, dazu Mo-Do-Rabatt und Zubehör für deine Tour.",
     },
     faq: {
       eyebrow: "FAQ",
       title: "Häufige Fragen",
-      intro: "Die wichtigsten Punkte zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.",
+      intro: "Die wichtigsten Punkte zum Rennradverleih, zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.",
     },
     contact: {
       eyebrow: "Kontakt",
@@ -324,7 +324,7 @@ export const translations = {
       eyebrow: "Standort",
       title: "So findest du uns",
       intro:
-        "Die Abholung und Rückgabe findet vor Ort in der Maxvorstadt statt. Hier siehst du den Standort auf der Karte und direkt darunter die genaue Adresse.",
+        "Die Abholung und Rückgabe für deinen Rennradverleih findet vor Ort in der Maxvorstadt statt. Hier siehst du den Standort auf der Karte und direkt darunter die genaue Adresse.",
       addressLabel: "Adresse",
       address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
       mapsLink: "https://maps.app.goo.gl/yviXEPStNkii88pn7",
@@ -374,9 +374,9 @@ export const translations = {
     menuButton: "Open menu",
     location: "Munich - Maxvorstadt",
     hero: {
-      title: "Bike rental with passion",
+      title: "Road bike rental in Munich",
       intro:
-        "We are two young guys from Munich who have always dreamed of running our own bike rental. Since we are passionate riders ourselves, we care for our bikes with a lot of heart and rent out only our own bikes.",
+        "We are a personal road bike rental in Munich-Maxvorstadt and rent out well-maintained road bikes, carbon road bikes and sporty bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice and clear pricing.",
       scroll: "Scroll to the bikes",
       stats: [
         { value: "2", top: "Owners", bottom: "with bike passion" },
@@ -388,12 +388,12 @@ export const translations = {
     price: {
       eyebrow: "Prices",
       title: "Rental & rates",
-      intro: "Clear prices, Mon-Thu discounts and accessories for your ride.",
+      intro: "Clear prices for your road bike rental in Munich, plus Mon-Thu discounts and accessories for your ride.",
     },
     faq: {
       eyebrow: "FAQ",
       title: "Frequently asked questions",
-      intro: "Here we've gathered the most important points about the inquiry, pickup and coverage.",
+      intro: "Here we've gathered the most important points about road bike rental, inquiries, pickup and coverage.",
     },
     contact: {
       eyebrow: "Contact",
@@ -405,7 +405,7 @@ export const translations = {
       eyebrow: "Location",
       title: "How to find us",
       intro:
-        "Pickup and return take place on site in Maxvorstadt. Here you can see the location on the map and directly below the exact address.",
+        "Pickup and return for your road bike rental take place on site in Maxvorstadt. Here you can see the location on the map and directly below the exact address.",
       addressLabel: "Address",
       address: "Gabelsbergerstraße 79a, 80333 Munich, Maxvorstadt",
       mapsLink: "https://maps.app.goo.gl/yviXEPStNkii88pn7",

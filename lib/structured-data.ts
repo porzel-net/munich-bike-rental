@@ -79,7 +79,7 @@ export function getHomeStructuredDataJson() {
         image: `${siteConfig.url}/assets/img/hero/1.jpg`,
         priceRange: siteConfig.priceRange,
         areaServed: siteConfig.areaServed,
-        serviceType: "Fahrradverleih",
+        serviceType: "Rennradverleih",
         address: {
           "@type": "PostalAddress",
           streetAddress: siteConfig.address.streetAddress,
@@ -90,7 +90,7 @@ export function getHomeStructuredDataJson() {
         },
         hasOfferCatalog: {
           "@type": "OfferCatalog",
-          name: "Bike rental offers",
+          name: "Rennradverleih Angebote",
           itemListElement: offerCatalog,
         },
       },

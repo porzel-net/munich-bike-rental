@@ -4,7 +4,7 @@ import { siteConfig } from "../lib/site";
 
 export const runtime = "edge";
 
-export const alt = `${siteConfig.name} - Fahrradverleih in Muenchen`;
+export const alt = `${siteConfig.name} - Rennradverleih in München`;
 export const size = {
   width: 1200,
   height: 630,
@@ -66,7 +66,7 @@ export default function OpenGraphImage() {
                 letterSpacing: "-0.03em",
               }}
             >
-              Fahrradverleih in Muenchen
+              Rennradverleih in München
             </div>
             <div
               style={{
