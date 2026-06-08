@@ -127,18 +127,27 @@ export default async function Home({ searchParams }: PageProps) {
       <section id="bestprice" className="section section--promise">
         <div className="container">
           <div className="promise-card">
-            <div className="promise-card__header">
-              <span className="promise-card__eyebrow">{t.pricePromise.eyebrow}</span>
-              <h2 className="promise-card__title">{t.pricePromise.title}</h2>
+            <div className="promise-card__content">
+              <div className="promise-card__header">
+                <span className="promise-card__eyebrow">{t.pricePromise.eyebrow}</span>
+                <h2 className="promise-card__title">{t.pricePromise.title}</h2>
+              </div>
+
+              <blockquote className="promise-card__quote">
+                <p>{t.pricePromise.quote}</p>
+              </blockquote>
+
+              <div className="promise-card__footer">
+                <span className="promise-card__badge">{t.pricePromise.badge}</span>
+                <p>{t.pricePromise.note}</p>
+              </div>
             </div>
 
-            <blockquote className="promise-card__quote">
-              <p>{t.pricePromise.quote}</p>
-            </blockquote>
-
-            <div className="promise-card__footer">
-              <span className="promise-card__badge">{t.pricePromise.badge}</span>
-              <p>{t.pricePromise.note}</p>
+            <div className="promise-card__visual" aria-hidden="true">
+              <span className="promise-card__visual-quote promise-card__visual-quote--left">“</span>
+              <span className="promise-card__visual-quote promise-card__visual-quote--right">”</span>
+              <span className="promise-card__visual-line" />
+              <span className="promise-card__visual-dot" />
             </div>
           </div>
         </div>

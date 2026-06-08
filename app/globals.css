@@ -558,13 +558,22 @@ button {
 .promise-card {
   position: relative;
   display: grid;
-  gap: 22px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: clamp(20px, 3vw, 36px);
   padding: clamp(24px, 3vw, 40px);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid rgba(17, 17, 17, 0.08);
   box-shadow: 0 16px 40px rgba(17, 17, 17, 0.06);
   backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.promise-card__content {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+  min-width: 0;
 }
 
 .promise-card__header {
@@ -626,7 +635,8 @@ button {
 .promise-card__footer {
   display: grid;
   gap: 10px;
-  padding-top: 6px;
+  padding-top: 2px;
+  max-width: 700px;
 }
 
 .promise-card__footer p {
@@ -634,6 +644,58 @@ button {
   color: var(--text-muted);
   font-size: 14px;
   line-height: 1.65;
+}
+
+.promise-card__visual {
+  position: relative;
+  min-height: 280px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 28% 24%, rgba(65, 105, 225, 0.09) 0 16%, transparent 17%),
+    radial-gradient(circle at 74% 30%, rgba(65, 105, 225, 0.06) 0 20%, transparent 21%),
+    linear-gradient(135deg, rgba(246, 248, 252, 0.98), rgba(252, 253, 255, 0.96));
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  overflow: hidden;
+}
+
+.promise-card__visual-quote {
+  position: absolute;
+  color: rgba(65, 105, 225, 0.2);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(9rem, 12vw, 12rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.08em;
+}
+
+.promise-card__visual-quote--left {
+  left: 10%;
+  top: 4%;
+}
+
+.promise-card__visual-quote--right {
+  right: 10%;
+  bottom: 6%;
+}
+
+.promise-card__visual-line {
+  position: absolute;
+  left: 34%;
+  top: 42%;
+  width: 34%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(65, 105, 225, 0), rgba(65, 105, 225, 0.28), rgba(65, 105, 225, 0));
+}
+
+.promise-card__visual-dot {
+  position: absolute;
+  right: 22%;
+  bottom: 24%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 12px rgba(65, 105, 225, 0.07);
 }
 
 .portfolio-grid {
@@ -1802,9 +1864,9 @@ button {
   }
 
   .promise-card {
-    gap: 24px;
     padding: 24px;
     border-radius: 20px;
+    grid-template-columns: 1fr;
   }
 
   .promise-card__title {
@@ -1973,5 +2035,29 @@ button {
 
   .promise-card__footer p {
     font-size: 13px;
+  }
+
+  .promise-card__visual {
+    min-height: 180px;
+  }
+
+  .promise-card__visual-quote {
+    font-size: clamp(6.5rem, 24vw, 8rem);
+  }
+
+  .promise-card__visual-quote--left {
+    left: 8%;
+    top: 6%;
+  }
+
+  .promise-card__visual-quote--right {
+    right: 8%;
+    bottom: 8%;
+  }
+
+  .promise-card__visual-line {
+    left: 28%;
+    top: 46%;
+    width: 44%;
   }
 }
