@@ -124,6 +124,26 @@ export default async function Home({ searchParams }: PageProps) {
         portfolioItems={portfolioItems}
       />
 
+      <section id="bestprice" className="section section--promise">
+        <div className="container">
+          <div className="promise-card">
+            <div className="promise-card__header">
+              <span className="promise-card__eyebrow">{t.pricePromise.eyebrow}</span>
+              <h2 className="promise-card__title">{t.pricePromise.title}</h2>
+            </div>
+
+            <blockquote className="promise-card__quote">
+              <p>{t.pricePromise.quote}</p>
+            </blockquote>
+
+            <div className="promise-card__footer">
+              <span className="promise-card__badge">{t.pricePromise.badge}</span>
+              <p>{t.pricePromise.note}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="about" className="section section--about">
         <div className="container">
           <SectionHeading eyebrow={t.about.eyebrow} title={t.about.title} />

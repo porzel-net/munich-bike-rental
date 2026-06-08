@@ -303,6 +303,14 @@ export const translations = {
       ],
     },
     portfolio: { eyebrow: "Unsere Bikes", title: "Verfügbare Räder" },
+    pricePromise: {
+      eyebrow: "Preisversprechen",
+      title: "Findest du es günstiger, ziehen wir mit.",
+      quote:
+        "Findest du in München ein vergleichbares Rennrad mit ähnlicher Ausstattung günstiger, bekommst du bei uns den besseren Preis.",
+      note: "Vergleichbar heißt: gleiche Klasse, ähnliche Ausstattung und gleicher Mietzeitraum.",
+      badge: "Preis anfragen",
+    },
     about: { eyebrow: "Über uns", title: "Was uns ausmacht" },
     price: {
       eyebrow: "Preise",
@@ -384,6 +392,14 @@ export const translations = {
       ],
     },
     portfolio: { eyebrow: "Our bikes", title: "Available bikes" },
+    pricePromise: {
+      eyebrow: "Price promise",
+      title: "Find it cheaper and we will match it.",
+      quote:
+        "If you find a comparable road bike in Munich with similar equipment for less somewhere else, you get the better price with us.",
+      note: "Comparable means: same class, similar equipment and the same rental period.",
+      badge: "Ask for the price",
+    },
     about: { eyebrow: "About us", title: "What makes us special" },
     price: {
       eyebrow: "Prices",
