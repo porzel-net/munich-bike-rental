@@ -748,9 +748,9 @@ button {
 
 .portfolio-card__image {
   position: absolute;
-  inset: 14px;
-  width: calc(100% - 28px);
-  height: calc(100% - 28px);
+  inset: 28px;
+  width: calc(100% - 56px);
+  height: calc(100% - 56px);
   object-fit: contain;
   border-radius: 14px;
 }
