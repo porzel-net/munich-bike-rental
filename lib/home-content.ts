@@ -276,6 +276,16 @@ export const faqItems = [
       en: "Even in that case you're not on your own. We work with commercial insurance so that theft, damage and destruction are covered and we can sort out a clean solution together.",
     },
   },
+  {
+    question: {
+      de: "Kann ich ein Rad auch für Wettkämpfe mieten?",
+      en: "Can I rent a bike for competitions?",
+    },
+    answer: {
+      de: "Nein, eine Miete für Wettkämpfe ist nicht möglich, weil unsere Versicherung Einsätze bei Rennen und Wettbewerben nicht abdeckt.",
+      en: "No, we cannot rent bikes for competitions, because our insurance does not cover race or competition use.",
+    },
+  },
 ];
 
 export const translations = {
