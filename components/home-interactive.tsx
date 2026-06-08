@@ -39,6 +39,13 @@ type ModalTranslations = {
 type FormTranslations = {
   name: string;
   contact: string;
+  height: string;
+  bikeSize: string;
+  bikeSizeOptions: {
+    s: string;
+    m: string;
+    l: string;
+  };
   periodFrom: string;
   periodTo: string;
   periodHint: string;
@@ -503,6 +510,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     const formData = new FormData(form);
     const name = String(formData.get("name") ?? "").trim();
     const contact = String(formData.get("contact") ?? "").trim();
+    const height = String(formData.get("height") ?? "").trim();
+    const bikeSize = String(formData.get("bikeSize") ?? "").trim();
     const periodFromValue = String(formData.get("periodFrom") ?? "").trim();
     const periodToValue = String(formData.get("periodTo") ?? "").trim();
     const message = String(formData.get("message") ?? "").trim();
@@ -518,6 +527,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         body: JSON.stringify({
           name,
           contact,
+          height,
+          bikeSize,
           periodFrom: periodFromValue,
           periodTo: periodToValue,
           message,
@@ -556,6 +567,31 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           inputMode="text"
           required
         />
+        <div className="contact-form__bike-fields">
+          <div className="contact-form__field">
+            <label htmlFor="height">{translations.form.height}</label>
+            <input
+              id="height"
+              name="height"
+              type="number"
+              min="100"
+              max="250"
+              inputMode="numeric"
+              required
+            />
+          </div>
+          <div className="contact-form__field">
+            <label htmlFor="bike-size">{translations.form.bikeSize}</label>
+            <select id="bike-size" name="bikeSize" defaultValue="" required>
+              <option value="" disabled>
+                {translations.form.bikeSize}
+              </option>
+              <option value="S">{translations.form.bikeSizeOptions.s}</option>
+              <option value="M">{translations.form.bikeSizeOptions.m}</option>
+              <option value="L">{translations.form.bikeSizeOptions.l}</option>
+            </select>
+          </div>
+        </div>
       </div>
       <div className="contact-form__period">
         <span className="contact-form__hint">{translations.form.periodHint}</span>

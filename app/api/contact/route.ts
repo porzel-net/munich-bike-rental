@@ -11,6 +11,8 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 type ContactPayload = {
   name?: string;
   contact?: string;
+  height?: string;
+  bikeSize?: string;
   periodFrom?: string;
   periodTo?: string;
   message?: string;
@@ -60,7 +62,10 @@ function getExpectedOrigin(request: Request) {
 
 function createMailBody(
   payload: Required<
-    Pick<ContactPayload, "name" | "contact" | "periodFrom" | "periodTo" | "message" | "bikeTitle" | "locale">
+    Pick<
+      ContactPayload,
+      "name" | "contact" | "height" | "bikeSize" | "periodFrom" | "periodTo" | "message" | "bikeTitle" | "locale"
+    >
   >,
 ) {
   const periodLine =
@@ -74,6 +79,8 @@ function createMailBody(
       "",
       `Name: ${payload.name}`,
       `Kontakt: ${payload.contact}`,
+      `Körpergröße: ${payload.height}`,
+      `Rennradgröße: ${payload.bikeSize}`,
       `Zeitraum: ${periodLine}`,
       payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
       "",
@@ -87,6 +94,8 @@ function createMailBody(
     "",
     `Name: ${payload.name}`,
     `Contact: ${payload.contact}`,
+    `Height: ${payload.height}`,
+    `Bike size: ${payload.bikeSize}`,
     `Rental period: ${periodLine}`,
     payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
     "",
@@ -134,6 +143,8 @@ export async function POST(request: Request) {
     const body = JSON.parse(rawBody) as ContactPayload;
     const name = sanitizeLine(asText(body?.name), 120);
     const contact = sanitizeLine(asText(body?.contact), 254);
+    const height = sanitizeLine(asText(body?.height), 8);
+    const bikeSize = sanitizeLine(asText(body?.bikeSize), 2);
     const periodFrom = sanitizeLine(asText(body?.periodFrom), 32);
     const periodTo = sanitizeLine(asText(body?.periodTo), 32);
     const message = asText(body?.message).slice(0, 4000);
@@ -146,6 +157,10 @@ export async function POST(request: Request) {
     if (
       !contact ||
       (!contactIsEmail && !contactIsPhone) ||
+      !height ||
+      !/^\d{2,3}$/.test(height) ||
+      !bikeSize ||
+      !["S", "M", "L"].includes(bikeSize) ||
       !periodFrom ||
       !periodTo ||
       !DATE_PATTERN.test(periodFrom) ||
@@ -191,6 +206,8 @@ export async function POST(request: Request) {
       text: createMailBody({
         name,
         contact,
+        height,
+        bikeSize,
         periodFrom,
         periodTo,
         message,

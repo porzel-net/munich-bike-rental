@@ -353,6 +353,13 @@ export const translations = {
     form: {
       name: "Name",
       contact: "E-Mail oder WhatsApp-Nummer",
+      height: "Körpergröße in cm",
+      bikeSize: "Rennradgröße",
+      bikeSizeOptions: {
+        s: "S",
+        m: "M",
+        l: "L",
+      },
       periodFrom: "Zeitraum von",
       periodTo: "bis",
       periodHint: "Bitte wähle den Zeitraum, in dem du das Rad buchen möchtest.",
@@ -442,6 +449,13 @@ export const translations = {
     form: {
       name: "Name",
       contact: "Email or WhatsApp number",
+      height: "Height in cm",
+      bikeSize: "Road bike size",
+      bikeSizeOptions: {
+        s: "S",
+        m: "M",
+        l: "L",
+      },
       periodFrom: "Rental period from",
       periodTo: "to",
       periodHint: "Please choose the period in which you want to book the bike.",
