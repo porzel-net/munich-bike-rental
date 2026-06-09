@@ -91,6 +91,10 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
     return lang === "de" ? "Komfortables Setup" : "Comfort setup";
   }
 
+  if (bikeTitle === "Canyon Grail CF SL 7") {
+    return lang === "de" ? "Gravel Setup" : "Gravel setup";
+  }
+
   if (bikeTitle === "Ultimate CF SL 7 eTap AXS") {
     return lang === "de" ? "Sportliches Setup" : "Sport setup";
   }
@@ -163,7 +167,7 @@ function BikeModal({
                 src={selectedImage}
                 alt={bike.title}
                 fill
-                placeholder="blur"
+                placeholder={typeof selectedImage === "string" ? "empty" : "blur"}
                 sizes="(max-width: 1100px) 100vw, 640px"
                 className="bike-modal__hero-image"
               />
@@ -180,7 +184,7 @@ function BikeModal({
                   src={bike.image}
                   alt={`${bike.title} preview`}
                   fill
-                  placeholder="blur"
+                  placeholder={typeof bike.image === "string" ? "empty" : "blur"}
                   sizes="180px"
                   className="bike-modal__thumb-image"
                 />
@@ -188,7 +192,7 @@ function BikeModal({
 
               {bike.gallery.map((image, index) => (
                 <button
-                  key={image.src}
+                  key={typeof image === "string" ? image : image.src}
                   type="button"
                   className={`bike-modal__thumb ${selectedImage === image ? "is-active" : ""}`}
                   onClick={() => setSelectedImage(image)}
@@ -198,7 +202,7 @@ function BikeModal({
                     src={image}
                     alt={`${bike.title} detail ${index + 1}`}
                     fill
-                    placeholder="blur"
+                    placeholder={typeof image === "string" ? "empty" : "blur"}
                     sizes="180px"
                     className="bike-modal__thumb-image"
                   />
@@ -437,7 +441,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   src={item.image}
                   alt={`${item.title} bei Munich Rental`}
                   fill
-                  placeholder="blur"
+                  placeholder={typeof item.image === "string" ? "empty" : "blur"}
                   sizes="(max-width: 780px) calc(100vw - 32px), (max-width: 1100px) calc((100vw - 64px) / 2), 384px"
                   className="portfolio-card__image"
                 />

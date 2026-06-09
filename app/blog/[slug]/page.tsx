@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 
 import { BlogArticle } from "../../../components/blog-content";
-import { blogPosts, getBlogImageSrc, getBlogPostBySlug } from "../../../lib/blog-content";
+import {
+  blogPosts,
+  getBlogImageSrc,
+  getBlogPostBySlug,
+  getCanonicalBlogSlug,
+} from "../../../lib/blog-content";
 import { resolveLocale } from "../../../lib/home-content";
 import { getBlogPostStructuredDataJson } from "../../../lib/structured-data";
 import { siteConfig } from "../../../lib/site";
@@ -26,7 +31,8 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const lang = resolveLocale(resolvedSearchParams?.lang);
-  const post = getBlogPostBySlug(resolvedParams.slug);
+  const canonicalSlug = getCanonicalBlogSlug(resolvedParams.slug);
+  const post = getBlogPostBySlug(canonicalSlug);
 
   if (!post) {
     return {
@@ -56,14 +62,20 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
       title: post.title[lang],
       description: post.excerpt[lang],
       url: `${siteConfig.url}/blog/${post.slug}`,
-          images: [
-            {
-              url: `${siteConfig.url}${getBlogImageSrc(post.heroImage)}`,
-              width: 1200,
-              height: 630,
-              alt: post.heroAlt[lang],
+      images: [
+        {
+          url: `${siteConfig.url}${getBlogImageSrc(post.heroImage)}`,
+          width: 1200,
+          height: 630,
+          alt: post.heroAlt[lang],
         },
       ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title[lang],
+      description: post.excerpt[lang],
+      images: [`${siteConfig.url}${getBlogImageSrc(post.heroImage)}`],
     },
   };
 }
@@ -73,7 +85,12 @@ export default async function BlogPostPage({ params, searchParams }: PageProps) 
   const resolvedSearchParams = await searchParams;
   const lang = resolveLocale(resolvedSearchParams?.lang);
   const nextLang = lang === "de" ? "en" : "de";
-  const post = getBlogPostBySlug(resolvedParams.slug);
+  const canonicalSlug = getCanonicalBlogSlug(resolvedParams.slug);
+  const post = getBlogPostBySlug(canonicalSlug);
+
+  if (resolvedParams.slug !== canonicalSlug) {
+    permanentRedirect(`/blog/${canonicalSlug}?lang=${lang}`);
+  }
 
   if (!post) {
     notFound();
@@ -95,9 +112,6 @@ export default async function BlogPostPage({ params, searchParams }: PageProps) 
           <div className="blog-topbar__actions">
             <Link className="blog-topbar__home" href={`/?lang=${lang}`}>
               {lang === "de" ? "Zur Startseite" : "Back to homepage"}
-            </Link>
-            <Link className="blog-topbar__link" href={`/blog?lang=${lang}`}>
-              {lang === "de" ? "Zur Übersicht" : "Back to overview"}
             </Link>
             <Link className="lang-switch" href={`/blog/${post.slug}?lang=${nextLang}`}>
               {nextLang.toUpperCase()}

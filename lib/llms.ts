@@ -9,6 +9,13 @@ const bikes = [
       "Balanced road bike for fast long rides and comfortable touring in and around Munich.",
   },
   {
+    name: "Canyon Grail CF SL 7",
+    size: "S / M / L",
+    price: "59 EUR/day",
+    summary:
+      "Carbon gravel bike for mixed routes, longer rides and riders who want a versatile setup.",
+  },
+  {
     name: "Ultimate CF SL 7 eTap AXS",
     size: "M / L",
     price: "59 EUR/day",
@@ -42,13 +49,14 @@ const faq = [
 export function buildLlmsTxt() {
   return `# ${siteConfig.name}
 
-> Personal bike rental in Munich-Maxvorstadt. The site offers well-maintained road bikes, direct contact, clear pricing and a simple reservation flow.
+> Personal bike rental in Munich-Maxvorstadt. The site offers well-maintained road and gravel bikes, direct contact, clear pricing and a simple reservation flow.
 
 This website is for a local bicycle rental service. The most useful pages are the home page, the legal pages, and the contact section. If you need location, prices, or bike details, use the home page sections below.
 
 ## Core pages
 
 - [Home](${siteConfig.url}/): Overview, available bikes, prices, FAQ and contact.
+- [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Data processing and privacy information.
 - [Sitemap](${siteConfig.url}/sitemap.xml): Machine-readable list of indexable pages.
@@ -61,7 +69,7 @@ This website is for a local bicycle rental service. The most useful pages are th
 - Phone: ${siteConfig.phone}
 - Website: ${siteConfig.url}
 - Positioning: personal, owner-run bike rental with only owned bikes
-- Primary audience: people looking to rent a road bike in Munich
+- Primary audience: people looking to rent a road or gravel bike in Munich
 
 ## Bikes
 
@@ -128,6 +136,7 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - carefully maintained bikes
 - only owned bikes, not third-party inventory
 - simple reservation flow
+- road and gravel bike options
 
 ## Bikes and pricing
 
@@ -137,6 +146,13 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - Price: 59 EUR/day
 - Summary: balanced road bike for fast long rides and comfortable touring
 - Key details on site: Shimano Ultegra Di2, hydraulic disc brakes, DT Swiss wheels
+
+### Canyon Grail CF SL 7
+
+- Sizes: S / M / L
+- Price: 59 EUR/day
+- Summary: carbon gravel bike for mixed routes and longer rides
+- Key details on site: Carbon frame, GRX 800 groupset, Shimano GRX 600 hydraulic disc brakes, DT Swiss GR1600 Spline wheels, Schwalbe G-One R Evo tires
 
 ### Ultimate CF SL 7 eTap AXS
 
@@ -155,6 +171,7 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 ## Prices and discounts
 
 - Road bikes start from 59 EUR.
+- Gravel bike starts from 59 EUR.
 - Weekend discount: 10 percent.
 - From 3 days: 20 percent.
 - Student discount: 10 percent.

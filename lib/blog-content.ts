@@ -43,9 +43,17 @@ export type BlogPost = {
   blocks: BlogBlock[];
 };
 
+export const blogSlugRedirects: Record<string, string> = {
+  "lorem-ipsum-dolor-sit-amet": "rennradtouren-rund-um-muenchen",
+};
+
+export function getCanonicalBlogSlug(slug: string) {
+  return blogSlugRedirects[slug] ?? slug;
+}
+
 export const blogPosts: BlogPost[] = [
   {
-    slug: "lorem-ipsum-dolor-sit-amet",
+    slug: "rennradtouren-rund-um-muenchen",
     title: {
       de: "Die schönsten Rennradtouren rund um München, nach Gefühl sortiert",
       en: "The best road bike tours around Munich, sorted by feel",

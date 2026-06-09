@@ -4,9 +4,9 @@ export const siteConfig = {
   name: "Munich Rental",
   url: siteUrl,
   description:
-    "Persoenlicher Rennradverleih in Muenchen-Maxvorstadt mit gepflegten Rennraedern, direktem Kontakt, klaren Tarifen und Fokus auf sportliche Rennraeder.",
+    "Persoenlicher Rennrad- und Gravelbike-Verleih in Muenchen-Maxvorstadt mit gepflegten Bikes, direktem Kontakt, klaren Tarifen und Fokus auf sportliche Touren.",
   descriptionEn:
-    "Personal road bike rental in Munich-Maxvorstadt with well-maintained road bikes, direct contact and clear pricing.",
+    "Personal road and gravel bike rental in Munich-Maxvorstadt with well-maintained bikes, direct contact and clear pricing.",
   email: "hallo@munich-bike-rental.de",
   phone: "+49 152 51330962",
   phoneE164: "+4915251330962",
@@ -20,6 +20,6 @@ export const siteConfig = {
   areaServed: ["Muenchen", "Maxvorstadt", "Bayern"],
   priceRange: "59 EUR-79 EUR",
   locale: "de_DE",
-  title: "Rennradverleih München",
+  title: "Rennrad- und Gravelbike-Verleih München",
   titleTemplate: "%s | Munich Rental",
 };

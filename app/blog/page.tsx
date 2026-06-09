@@ -16,9 +16,36 @@ type PageProps = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: "Blog",
-  description: "Blog mit Beiträgen rund um Rennrad, Passform und Touren.",
+  description: "Blog mit Touren, Routentipps und Bike-Infos rund um Rennradfahren in München.",
   alternates: {
     canonical: "/blog",
+  },
+  keywords: [
+    "Rennrad Blog München",
+    "Routentipps München",
+    "Rennradtouren München",
+    "Gravelbike München",
+  ],
+  openGraph: {
+    type: "website",
+    title: "Blog | Munich Rental",
+    description: "Touren, Bike-Infos und Routentipps rund um Rennradfahren in München.",
+    url: `${siteConfig.url}/blog`,
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Blog von Munich Rental",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Blog | Munich Rental",
+    description: "Touren, Bike-Infos und Routentipps rund um Rennradfahren in München.",
+    images: ["/opengraph-image"],
   },
 };
 

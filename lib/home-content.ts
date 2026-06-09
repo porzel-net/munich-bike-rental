@@ -30,8 +30,8 @@ export type PortfolioItem = {
   subtitle: LocalizedText;
   price: LocalizedText;
   description: LocalizedText;
-  image: StaticImageData;
-  gallery: StaticImageData[];
+  image: string | StaticImageData;
+  gallery: Array<string | StaticImageData>;
   facts: Array<{
     label: LocalizedText;
     value: LocalizedText;
@@ -116,6 +116,39 @@ export const portfolioItems: PortfolioItem[] = [
     equipment: {
       de: ["Elektronische Schaltung", "Sportliche Sitzposition", "Direktes Handling", "Pannensichere Bereifung"],
       en: ["Electronic shifting", "Sporty riding position", "Direct handling", "Puncture-resistant tires"],
+    },
+  },
+  {
+    title: "Canyon Grail CF SL 7",
+    subtitle: { de: "S / M / L", en: "S / M / L" },
+    price: { de: "59€/Tag", en: "59€/day" },
+    description: {
+      de: "Carbon-Gravelbike mit Shimano-Schaltung und hydraulischen Scheibenbremsen für gemischte Strecken und längere Ausfahrten.",
+      en: "Carbon gravel bike with Shimano shifting and hydraulic disc brakes for mixed routes and longer rides.",
+    },
+    image: "/bikes/canyon-grail-cf-sl-7/preview.webp",
+    gallery: ["/bikes/canyon-grail-cf-sl-7/real1.avif"],
+    facts: [
+      {
+        label: { de: "Rahmen", en: "Frame" },
+        value: { de: "Carbon", en: "Carbon" },
+      },
+      {
+        label: { de: "Schaltung", en: "Groupset" },
+        value: { de: "GRX 800", en: "GRX 800" },
+      },
+      {
+        label: { de: "Bremsen", en: "Brakes" },
+        value: { de: "Shimano GRX 600 hydraulische Scheibe", en: "Shimano GRX 600 hydraulic disc brake" },
+      },
+      {
+        label: { de: "Laufräder", en: "Wheels" },
+        value: { de: "DT Swiss GR1600 Spline", en: "DT Swiss GR1600 Spline" },
+      },
+    ],
+    equipment: {
+      de: ["Schwalbe Gravel Faltreifen G-One R Evo", "Gravel-taugliches Setup", "Frisches Hinterrad", "S / M / L verfügbar"],
+      en: ["Schwalbe G-One R Evo folding gravel tires", "Gravel-ready setup", "Fresh rear wheel", "Available in S / M / L"],
     },
   },
   {
@@ -306,7 +339,7 @@ export const translations = {
     hero: {
       title: "Rennradverleih in München",
       intro:
-        "Wir sind ein persönlicher Rennradverleih in München-Maxvorstadt und verleihen gepflegte Rennräder, Carbon-Rennräder und sportliche Straßenräder für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
+        "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt und verleihen gepflegte Rennräder, Carbon-Rennräder, Gravelbikes und sportliche Straßenräder für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
       stats: [
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
@@ -409,7 +442,7 @@ export const translations = {
     hero: {
       title: "Road bike rental in Munich",
       intro:
-        "We are a personal road bike rental in Munich-Maxvorstadt and rent out well-maintained road bikes, carbon road bikes and sporty bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice and clear pricing.",
+        "We are a personal road and gravel bike rental in Munich-Maxvorstadt and rent out well-maintained road bikes, carbon road bikes, gravel bikes and sporty bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice and clear pricing.",
       scroll: "Scroll to the bikes",
       stats: [
         { value: "2", top: "Owners", bottom: "with bike passion" },
