@@ -1,3 +1,6 @@
+import type { Locale } from "./home-content";
+import type { BlogPost } from "./blog-content";
+import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
 
 const offerCatalog = [
@@ -6,7 +9,7 @@ const offerCatalog = [
     position: 1,
     name: "Endurace CF SL 8 Di2",
     description: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
-    price: 39,
+    price: 59,
     priceCurrency: "EUR",
     availability: "https://schema.org/InStock",
   },
@@ -15,7 +18,7 @@ const offerCatalog = [
     position: 2,
     name: "Ultimate CF SL 7 eTap AXS",
     description: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
-    price: 45,
+    price: 59,
     priceCurrency: "EUR",
     availability: "https://schema.org/InStock",
   },
@@ -24,7 +27,7 @@ const offerCatalog = [
     position: 3,
     name: "Aeroad CF SL 8 Disc",
     description: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
-    price: 80,
+    price: 79,
     priceCurrency: "EUR",
     availability: "https://schema.org/InStock",
   },
@@ -97,6 +100,81 @@ export function getHomeStructuredDataJson() {
       {
         "@type": "FAQPage",
         mainEntity: faqEntries,
+      },
+    ],
+  });
+}
+
+export function getBlogPostStructuredDataJson(post: BlogPost, locale: Locale) {
+  const title = post.title[locale];
+  const description = post.excerpt[locale];
+  const articleBody = getBlogPostPlainText(post, locale);
+  const language = locale === "de" ? "de-DE" : "en-US";
+  const url = `${siteConfig.url}/blog/${post.slug}`;
+
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: locale === "de" ? "Startseite" : "Home",
+            item: siteConfig.url,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: locale === "de" ? "Blog" : "Blog",
+            item: `${siteConfig.url}/blog`,
+          },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: title,
+            item: url,
+          },
+        ],
+      },
+      {
+        "@type": "BlogPosting",
+        headline: title,
+        description,
+        articleSection: post.category[locale],
+        inLanguage: language,
+        datePublished: post.publishedAt,
+        dateModified: post.publishedAt,
+        image: `${siteConfig.url}${getBlogImageSrc(post.heroImage)}`,
+        author: {
+          "@type": "Organization",
+          name: siteConfig.name,
+          url: siteConfig.url,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: siteConfig.name,
+          url: siteConfig.url,
+          logo: {
+            "@type": "ImageObject",
+            url: `${siteConfig.url}/favicon.png`,
+          },
+        },
+        mainEntityOfPage: {
+          "@type": "WebPage",
+          "@id": url,
+        },
+        url,
+        keywords: [
+          "Rennradtouren München",
+          "Rennrad München",
+          "Touren rund um München",
+          "Fünfseenland",
+          "Starnberger See",
+        ],
+        wordCount: articleBody.split(/\s+/).filter(Boolean).length,
+        articleBody,
       },
     ],
   });

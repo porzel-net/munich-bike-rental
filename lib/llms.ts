@@ -4,21 +4,21 @@ const bikes = [
   {
     name: "Endurace CF SL 8 Di2",
     size: "S / M / L",
-    price: "39 EUR/day",
+    price: "59 EUR/day",
     summary:
       "Balanced road bike for fast long rides and comfortable touring in and around Munich.",
   },
   {
     name: "Ultimate CF SL 7 eTap AXS",
     size: "M / L",
-    price: "45 EUR/day",
+    price: "59 EUR/day",
     summary:
       "Light all-round bike for training rides, sporty city use and quick weekend trips.",
   },
   {
     name: "Aeroad CF SL 8 Disc",
     size: "S / M",
-    price: "80 EUR/day",
+    price: "79 EUR/day",
     summary:
       "Aero road bike for maximum speed and a direct, race-oriented ride feel.",
   },
@@ -134,30 +134,30 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 ### Endurace CF SL 8 Di2
 
 - Sizes: S / M / L
-- Price: 39 EUR/day
+- Price: 59 EUR/day
 - Summary: balanced road bike for fast long rides and comfortable touring
 - Key details on site: Shimano Ultegra Di2, hydraulic disc brakes, DT Swiss wheels
 
 ### Ultimate CF SL 7 eTap AXS
 
 - Sizes: M / L
-- Price: 45 EUR/day
+- Price: 59 EUR/day
 - Summary: lightweight all-round bike for training and sporty city rides
 - Key details on site: SRAM Rival eTap AXS 2x12, hydraulic disc brakes, DT Swiss wheels
 
 ### Aeroad CF SL 8 Disc
 
 - Sizes: S / M
-- Price: 80 EUR/day
+- Price: 79 EUR/day
 - Summary: aero bike for maximum speed and a race-oriented ride feel
 - Key details on site: Shimano Ultegra R8000 2x11, DT Swiss ARC 1600 wheels
 
 ## Prices and discounts
 
-- Road bikes start from 39 EUR.
+- Road bikes start from 59 EUR.
 - Weekend discount: 10 percent.
 - From 3 days: 20 percent.
-- Student discount: 20 percent.
+- Student discount: 10 percent.
 - Accessories start from 5 EUR.
 
 ## FAQ summary

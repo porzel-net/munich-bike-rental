@@ -1,8 +1,10 @@
 import Image from "next/image";
+import Link from "next/link";
 import mainImage from "../main.png";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
 import { ContactForm, HomeTopbar, PortfolioSection } from "../components/home-interactive";
+import { BlogPreviewCard } from "../components/blog-content";
 import {
   contactItems,
   faqItems,
@@ -13,6 +15,7 @@ import {
   services,
   translations,
 } from "../lib/home-content";
+import { blogPosts } from "../lib/blog-content";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -41,6 +44,7 @@ export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
   const t = translations[lang];
+  const featuredPost = blogPosts[0];
 
   return (
     <main className="site-shell">
@@ -284,6 +288,31 @@ export default async function Home({ searchParams }: PageProps) {
               location: t.location,
             }}
           />
+        </div>
+      </section>
+
+      <section id="blog" className="section section--blog">
+        <div className="container blog-section">
+          <div className="section-heading">
+            <span className="section-heading__eyebrow">{t.blogSection.eyebrow}</span>
+            <h2 className="section-heading__title">{t.blogSection.title}</h2>
+          </div>
+
+          <p className="section-copy">{t.blogSection.intro}</p>
+
+          <BlogPreviewCard
+            post={featuredPost}
+            lang={lang}
+            href={`/blog/${featuredPost.slug}?lang=${lang}`}
+            ctaLabel={t.blogSection.cta}
+          />
+
+          <div className="blog-section__footer">
+            <Link className="blog-section__link" href={`/blog?lang=${lang}`}>
+              <span>{t.blogSection.archive}</span>
+              <ArrowUpRight aria-hidden="true" />
+            </Link>
+          </div>
         </div>
       </section>
 

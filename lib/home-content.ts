@@ -52,6 +52,7 @@ export type PriceItem = {
 
 export const footerLinks = [
   { href: "/", label: "Startseite" },
+  { href: "/blog", label: "Blog" },
   { href: "/impressum", label: "Impressum" },
   { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
 ];
@@ -91,7 +92,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Endurace CF SL 8 Di2",
     subtitle: { de: "S / M / L", en: "S / M / L" },
-    price: { de: "49€/Tag", en: "49€/day" },
+    price: { de: "59€/Tag", en: "59€/day" },
     description: {
       de: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
       en: "Balanced road bike for fast, long rides and relaxed outings with plenty of comfort.",
@@ -120,7 +121,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Ultimate CF SL 7 eTap AXS",
     subtitle: { de: "M / L", en: "M / L" },
-    price: { de: "49€/Tag", en: "49€/day" },
+    price: { de: "59€/Tag", en: "59€/day" },
     description: {
       de: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
       en: "Light all-round bike for sporty rides, training and quick city trips.",
@@ -153,7 +154,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Aeroad CF SL 8 Disc",
     subtitle: { de: "S / M", en: "S / M" },
-    price: { de: "69€/Tag", en: "69€/day" },
+    price: { de: "79€/Tag", en: "79€/day" },
     description: {
       de: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
       en: "Aero bike for maximum speed on the road and a direct, sporty ride feel.",
@@ -188,7 +189,7 @@ export const portfolioItems: PortfolioItem[] = [
 export const priceItems: PriceItem[] = [
   {
     title: { de: "Rennräder", en: "Road bikes" },
-    cost: { de: "ab 49€", en: "from 49€" },
+    cost: { de: "ab 59€", en: "from 59€" },
     icon: Bike,
   },
   {
@@ -203,7 +204,7 @@ export const priceItems: PriceItem[] = [
   },
   {
     title: { de: "Studentenrabatt", en: "Student discount" },
-    cost: { de: "20%", en: "20%" },
+    cost: { de: "10%", en: "10%" },
     icon: GraduationCap,
   },
   {
@@ -321,11 +322,18 @@ export const translations = {
       note: "Vergleichbar heißt: gleiche Klasse, ähnliche Ausstattung und gleicher Mietzeitraum.",
       badge: "Preis anfragen",
     },
+    blogSection: {
+      eyebrow: "Blog",
+      title: "UNSERE KLEINEN BEITRÄGE",
+      intro: "Kurze, praktische Einblicke rund um Rennrad, Passform und Touren in und um München.",
+      cta: "Beitrag lesen",
+      archive: "Alle Beiträge",
+    },
     about: { eyebrow: "Über uns", title: "Was uns ausmacht" },
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro: "Klare Preise für deinen Rennradverleih in München, dazu Mo-Do-Rabatt und Zubehör für deine Tour.",
+      intro: "Klare Preise für deinen Rennradverleih in München, dazu Mo-Do-Rabatt und Zubehör für deine Tour. Erhalte insgesamt bis zu 25% Rabatt pro Tag!",
     },
     faq: {
       eyebrow: "FAQ",
@@ -417,11 +425,18 @@ export const translations = {
       note: "Comparable means: same class, similar equipment and the same rental period.",
       badge: "Ask for the price",
     },
+    blogSection: {
+      eyebrow: "Blog",
+      title: "OUR SMALL POSTS",
+      intro: "Short, practical insights about road bikes, fit and routes in and around Munich.",
+      cta: "Read post",
+      archive: "All posts",
+    },
     about: { eyebrow: "About us", title: "What makes us special" },
     price: {
       eyebrow: "Prices",
       title: "Rental & rates",
-      intro: "Clear prices for your road bike rental in Munich, plus Mon-Thu discounts and accessories for your ride.",
+      intro: "Clear prices for your road bike rental in Munich, plus Mon-Thu discounts and accessories for your ride. Get up to 25% off per day!",
     },
     faq: {
       eyebrow: "FAQ",

@@ -18,7 +18,7 @@ export const siteConfig = {
     addressCountry: "DE",
   },
   areaServed: ["Muenchen", "Maxvorstadt", "Bayern"],
-  priceRange: "39 EUR-80 EUR",
+  priceRange: "59 EUR-79 EUR",
   locale: "de_DE",
   title: "Rennradverleih München",
   titleTemplate: "%s | Munich Rental",
