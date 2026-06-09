@@ -1475,6 +1475,12 @@ button {
     box-shadow 0.2s ease;
 }
 
+.contact-form__field input,
+.contact-form__field select {
+  min-height: 58px;
+  box-sizing: border-box;
+}
+
 .contact-form textarea {
   min-height: 180px;
   resize: vertical;

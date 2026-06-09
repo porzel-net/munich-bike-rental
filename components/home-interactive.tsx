@@ -474,12 +474,25 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 }
 
 export function ContactForm({ lang, translations }: ContactFormProps) {
+  const [name, setName] = useState("");
+  const [contact, setContact] = useState("");
+  const [height, setHeight] = useState("");
+  const [bikeSize, setBikeSize] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
   const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const isContactFormComplete =
+    name.trim() &&
+    contact.trim() &&
+    height.trim() &&
+    bikeSize.trim() &&
+    periodFrom.trim() &&
+    periodTo.trim() &&
+    contactMessage.trim() &&
+    privacyAccepted;
 
   useEffect(() => {
     const applyPendingBike = (bikeTitle: string | null) => {
@@ -508,10 +521,10 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const name = String(formData.get("name") ?? "").trim();
-    const contact = String(formData.get("contact") ?? "").trim();
-    const height = String(formData.get("height") ?? "").trim();
-    const bikeSize = String(formData.get("bikeSize") ?? "").trim();
+    const nameValue = String(formData.get("name") ?? "").trim();
+    const contactValue = String(formData.get("contact") ?? "").trim();
+    const heightValue = String(formData.get("height") ?? "").trim();
+    const bikeSizeValue = String(formData.get("bikeSize") ?? "").trim();
     const periodFromValue = String(formData.get("periodFrom") ?? "").trim();
     const periodToValue = String(formData.get("periodTo") ?? "").trim();
     const message = String(formData.get("message") ?? "").trim();
@@ -525,10 +538,10 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name,
-          contact,
-          height,
-          bikeSize,
+          name: nameValue,
+          contact: contactValue,
+          height: heightValue,
+          bikeSize: bikeSizeValue,
           periodFrom: periodFromValue,
           periodTo: periodToValue,
           message,
@@ -544,6 +557,10 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       }
 
       form.reset();
+      setName("");
+      setContact("");
+      setHeight("");
+      setBikeSize("");
       setContactMessage("");
       setPeriodFrom("");
       setPeriodTo("");
@@ -558,12 +575,28 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   return (
     <form className="contact-form" onSubmit={handleContactSubmit}>
       <div className="contact-form__fields">
-        <input id="name" name="name" type="text" placeholder={translations.form.name} />
+        <input
+          id="name"
+          name="name"
+          type="text"
+          placeholder={translations.form.name}
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            setContactStatus("idle");
+          }}
+          required
+        />
         <input
           id="contact"
           name="contact"
           type="text"
           placeholder={translations.form.contact}
+          value={contact}
+          onChange={(event) => {
+            setContact(event.target.value);
+            setContactStatus("idle");
+          }}
           inputMode="text"
           required
         />
@@ -576,13 +609,27 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               type="number"
               min="100"
               max="250"
+              value={height}
+              onChange={(event) => {
+                setHeight(event.target.value);
+                setContactStatus("idle");
+              }}
               inputMode="numeric"
               required
             />
           </div>
           <div className="contact-form__field">
             <label htmlFor="bike-size">{translations.form.bikeSize}</label>
-            <select id="bike-size" name="bikeSize" defaultValue="" required>
+            <select
+              id="bike-size"
+              name="bikeSize"
+              value={bikeSize}
+              onChange={(event) => {
+                setBikeSize(event.target.value);
+                setContactStatus("idle");
+              }}
+              required
+            >
               <option value="" disabled>
                 {translations.form.bikeSize}
               </option>
@@ -651,7 +698,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         <span>{translations.form.privacy}</span>
       </label>
 
-      <button type="submit" className="button button--arrow" disabled={contactStatus === "sending" || !privacyAccepted || !periodFrom || !periodTo}>
+      <button type="submit" className="button button--arrow" disabled={contactStatus === "sending" || !isContactFormComplete}>
         <span>{contactStatus === "sending" ? translations.form.sending : translations.form.submit}</span>
         <img src="/assets/img/svg/right-arrow.svg" alt="" />
       </button>
