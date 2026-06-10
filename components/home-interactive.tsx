@@ -58,6 +58,25 @@ type FormTranslations = {
   sending: string;
   success: string;
   error: string;
+  validation: {
+    contactHint: string;
+    nameRequired: string;
+    contactRequired: string;
+    contactInvalid: string;
+    heightRequired: string;
+    heightInvalid: string;
+    bikeSizeRequired: string;
+    periodFromRequired: string;
+    periodToRequired: string;
+    periodInvalid: string;
+    messageRequired: string;
+    privacyRequired: string;
+    submitFailed: string;
+    submitOriginError: string;
+    submitConfigError: string;
+    submitPayloadError: string;
+    submitValidationError: string;
+  };
 };
 
 type SharedTranslations = {
@@ -92,6 +111,15 @@ type ContactFormProps = {
 
 type ContactStatus = "idle" | "sending" | "success" | "error";
 
+type ContactField = "name" | "contact" | "height" | "bikeSize" | "periodFrom" | "periodTo" | "message" | "privacy";
+
+type ContactFieldErrors = Partial<Record<ContactField, string>>;
+
+type ContactFormValidation = {
+  fieldErrors: ContactFieldErrors;
+  submitError: string | null;
+};
+
 function getSetupLabel(lang: Locale, bikeTitle: string) {
   if (bikeTitle === "Endurace CF SL 8 Di2") {
     return lang === "de" ? "Komfortables Setup" : "Comfort setup";
@@ -106,6 +134,78 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
   }
 
   return lang === "de" ? "Aggressives Setup" : "Aggressive setup";
+}
+
+function isValidContactValue(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^[+\d][\d\s()./-]{5,}$/.test(value);
+}
+
+function validateContactForm(
+  translations: SharedTranslations,
+  values: {
+    name: string;
+    contact: string;
+    height: string;
+    bikeSize: string;
+    periodFrom: string;
+    periodTo: string;
+    message: string;
+    privacyAccepted: boolean;
+  },
+): ContactFormValidation {
+  const validation = translations.form.validation;
+  const fieldErrors: ContactFieldErrors = {};
+  const heightValue = values.height.trim();
+  const periodFromValue = values.periodFrom.trim();
+  const periodToValue = values.periodTo.trim();
+
+  if (!values.name.trim()) {
+    fieldErrors.name = validation.nameRequired;
+  }
+
+  if (!values.contact.trim()) {
+    fieldErrors.contact = validation.contactRequired;
+  } else if (!isValidContactValue(values.contact.trim())) {
+    fieldErrors.contact = validation.contactInvalid;
+  }
+
+  if (!heightValue) {
+    fieldErrors.height = validation.heightRequired;
+  } else {
+    const heightNumber = Number(heightValue);
+    if (!/^\d{2,3}$/.test(heightValue) || !Number.isFinite(heightNumber) || heightNumber < 100 || heightNumber > 250) {
+      fieldErrors.height = validation.heightInvalid;
+    }
+  }
+
+  if (!values.bikeSize.trim()) {
+    fieldErrors.bikeSize = validation.bikeSizeRequired;
+  }
+
+  if (!periodFromValue) {
+    fieldErrors.periodFrom = validation.periodFromRequired;
+  }
+
+  if (!periodToValue) {
+    fieldErrors.periodTo = validation.periodToRequired;
+  }
+
+  if (periodFromValue && periodToValue && new Date(periodFromValue).getTime() > new Date(periodToValue).getTime()) {
+    fieldErrors.periodTo = validation.periodInvalid;
+  }
+
+  if (!values.message.trim()) {
+    fieldErrors.message = validation.messageRequired;
+  }
+
+  if (!values.privacyAccepted) {
+    fieldErrors.privacy = validation.privacyRequired;
+  }
+
+  return {
+    fieldErrors,
+    submitError: Object.keys(fieldErrors).length > 0 ? validation.submitValidationError : null,
+  };
 }
 
 function SectionHeading({
@@ -298,30 +398,35 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
         <div className="topbar__right">
           <nav className="nav nav--desktop" aria-label="Primary">
             <ul className="nav__list">
-            <li className="nav__item">
+              <li className="nav__item">
                 <a href={homeHref("#home")} className="nav__link">
                   {topbar.nav.start}
                 </a>
               </li>
               <li className="nav__item">
-                <a href={homeHref("#portfolio")} className="nav__link">
+                <a href={homeHref("#portfolio")} className="nav__link nav__link--anchor">
                   {topbar.nav.bikes}
                 </a>
               </li>
               <li className="nav__item">
-                <a href={homeHref("#price")} className="nav__link">
+                <a href={homeHref("#price")} className="nav__link nav__link--anchor">
                   {topbar.nav.prices}
                 </a>
               </li>
               <li className="nav__item">
-                <a href={homeHref("#faq")} className="nav__link">
+                <a href={homeHref("#faq")} className="nav__link nav__link--anchor">
                   {topbar.nav.faq}
                 </a>
               </li>
               <li className="nav__item">
-                <a href={homeHref("#contact")} className="nav__link">
+                <a href={homeHref("#contact")} className="nav__link nav__link--anchor">
                   {topbar.nav.contact}
                 </a>
+              </li>
+              <li className="nav__item">
+                <Link href={`/blog?lang=${lang}`} className="nav__link">
+                  {topbar.nav.blog}
+                </Link>
               </li>
               <li className="nav__item">
                 <a href="/impressum" className="nav__link nav__link--legal">
@@ -522,15 +627,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const isContactFormComplete =
-    name.trim() &&
-    contact.trim() &&
-    height.trim() &&
-    bikeSize.trim() &&
-    periodFrom.trim() &&
-    periodTo.trim() &&
-    contactMessage.trim() &&
-    privacyAccepted;
+  const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const applyPendingBike = (bikeTitle: string | null) => {
@@ -554,8 +652,40 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     return () => window.removeEventListener("bike-reservation", onBikeReservation);
   }, [lang]);
 
+  const clearFieldError = (field: ContactField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+    setSubmitError(null);
+    setContactStatus("idle");
+  };
+
   const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const validation = validateContactForm(translations, {
+      name,
+      contact,
+      height,
+      bikeSize,
+      periodFrom,
+      periodTo,
+      message: contactMessage,
+      privacyAccepted,
+    });
+
+    if (Object.keys(validation.fieldErrors).length > 0) {
+      setFieldErrors(validation.fieldErrors);
+      setSubmitError(validation.submitError);
+      setContactStatus("error");
+      return;
+    }
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -568,6 +698,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     const message = String(formData.get("message") ?? "").trim();
 
     setContactStatus("sending");
+    setFieldErrors({});
+    setSubmitError(null);
 
     try {
       const response = await fetch("/api/contact", {
@@ -588,10 +720,23 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         }),
       });
 
-      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; code?: string } | null;
 
       if (!response.ok || !result?.ok) {
-        throw new Error(result?.error ?? "contact_failed");
+        const validationTexts = translations.form.validation;
+        const code = result?.code ?? result?.error ?? "contact_failed";
+        const errorMessage =
+          code === "invalid_origin"
+            ? validationTexts.submitOriginError
+            : code === "payload_too_large"
+              ? validationTexts.submitPayloadError
+              : code === "config_incomplete"
+                ? validationTexts.submitConfigError
+                : code === "validation_error"
+                  ? validationTexts.submitValidationError
+                  : validationTexts.submitFailed;
+
+        throw new Error(errorMessage);
       }
 
       form.reset();
@@ -604,40 +749,64 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setPeriodTo("");
       setPendingReservationBike(null);
       setPrivacyAccepted(false);
+      setFieldErrors({});
+      setSubmitError(null);
       setContactStatus("success");
-    } catch {
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : translations.form.validation.submitFailed);
       setContactStatus("error");
     }
   };
 
   return (
-    <form className="contact-form" onSubmit={handleContactSubmit}>
+    <form className="contact-form" onSubmit={handleContactSubmit} noValidate>
       <div className="contact-form__fields">
-        <input
-          id="name"
-          name="name"
-          type="text"
-          placeholder={translations.form.name}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setContactStatus("idle");
-          }}
-          required
-        />
-        <input
-          id="contact"
-          name="contact"
-          type="text"
-          placeholder={translations.form.contact}
-          value={contact}
-          onChange={(event) => {
-            setContact(event.target.value);
-            setContactStatus("idle");
-          }}
-          inputMode="text"
-          required
-        />
+        <div className="contact-form__field">
+          <label htmlFor="name">{translations.form.name}</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            placeholder={translations.form.name}
+            value={name}
+            aria-invalid={Boolean(fieldErrors.name)}
+            aria-describedby={fieldErrors.name ? "name-error" : undefined}
+            onChange={(event) => {
+              setName(event.target.value);
+              clearFieldError("name");
+            }}
+          />
+          {fieldErrors.name ? (
+            <p className="contact-form__error" id="name-error">
+              {fieldErrors.name}
+            </p>
+          ) : null}
+        </div>
+        <div className="contact-form__field">
+          <label htmlFor="contact">{translations.form.contact}</label>
+          <input
+            id="contact"
+            name="contact"
+            type="text"
+            placeholder={translations.form.contact}
+            value={contact}
+            aria-invalid={Boolean(fieldErrors.contact)}
+            aria-describedby={fieldErrors.contact ? "contact-hint contact-error" : "contact-hint"}
+            onChange={(event) => {
+              setContact(event.target.value);
+              clearFieldError("contact");
+            }}
+            inputMode="text"
+          />
+          <p className="contact-form__hint" id="contact-hint">
+            {translations.form.validation.contactHint}
+          </p>
+          {fieldErrors.contact ? (
+            <p className="contact-form__error" id="contact-error">
+              {fieldErrors.contact}
+            </p>
+          ) : null}
+        </div>
         <div className="contact-form__bike-fields">
           <div className="contact-form__field">
             <label htmlFor="height">{translations.form.height}</label>
@@ -648,13 +817,19 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               min="100"
               max="250"
               value={height}
+              aria-invalid={Boolean(fieldErrors.height)}
+              aria-describedby={fieldErrors.height ? "height-error" : undefined}
               onChange={(event) => {
                 setHeight(event.target.value);
-                setContactStatus("idle");
+                clearFieldError("height");
               }}
               inputMode="numeric"
-              required
             />
+            {fieldErrors.height ? (
+              <p className="contact-form__error" id="height-error">
+                {fieldErrors.height}
+              </p>
+            ) : null}
           </div>
           <div className="contact-form__field">
             <label htmlFor="bike-size">{translations.form.bikeSize}</label>
@@ -662,11 +837,12 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               id="bike-size"
               name="bikeSize"
               value={bikeSize}
+              aria-invalid={Boolean(fieldErrors.bikeSize)}
+              aria-describedby={fieldErrors.bikeSize ? "bike-size-error" : undefined}
               onChange={(event) => {
                 setBikeSize(event.target.value);
-                setContactStatus("idle");
+                clearFieldError("bikeSize");
               }}
-              required
             >
               <option value="" disabled>
                 {translations.form.bikeSize}
@@ -675,6 +851,11 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               <option value="M">{translations.form.bikeSizeOptions.m}</option>
               <option value="L">{translations.form.bikeSizeOptions.l}</option>
             </select>
+            {fieldErrors.bikeSize ? (
+              <p className="contact-form__error" id="bike-size-error">
+                {fieldErrors.bikeSize}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -688,12 +869,18 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               name="periodFrom"
               type="date"
               value={periodFrom}
+              aria-invalid={Boolean(fieldErrors.periodFrom)}
+              aria-describedby={fieldErrors.periodFrom ? "period-from-error" : undefined}
               onChange={(event) => {
                 setPeriodFrom(event.target.value);
-                setContactStatus("idle");
+                clearFieldError("periodFrom");
               }}
-              required
             />
+            {fieldErrors.periodFrom ? (
+              <p className="contact-form__error" id="period-from-error">
+                {fieldErrors.periodFrom}
+              </p>
+            ) : null}
           </div>
           <div className="contact-form__period-field">
             <label htmlFor="period-to">{translations.form.periodTo}</label>
@@ -702,12 +889,18 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               name="periodTo"
               type="date"
               value={periodTo}
+              aria-invalid={Boolean(fieldErrors.periodTo)}
+              aria-describedby={fieldErrors.periodTo ? "period-to-error" : undefined}
               onChange={(event) => {
                 setPeriodTo(event.target.value);
-                setContactStatus("idle");
+                clearFieldError("periodTo");
               }}
-              required
             />
+            {fieldErrors.periodTo ? (
+              <p className="contact-form__error" id="period-to-error">
+                {fieldErrors.periodTo}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -716,13 +909,19 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         name="message"
         placeholder={translations.form.message}
         value={contactMessage}
+        aria-invalid={Boolean(fieldErrors.message)}
+        aria-describedby={fieldErrors.message ? "message-error" : undefined}
         onChange={(event) => {
           setContactMessage(event.target.value);
-          setContactStatus("idle");
+          clearFieldError("message");
         }}
-        required
       />
       <p className="contact-form__hint">{translations.form.messageHint}</p>
+      {fieldErrors.message ? (
+        <p className="contact-form__error" id="message-error">
+          {fieldErrors.message}
+        </p>
+      ) : null}
 
       <label className="contact-form__checkbox">
         <input
@@ -730,19 +929,28 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           checked={privacyAccepted}
           onChange={(event) => {
             setPrivacyAccepted(event.target.checked);
-            setContactStatus("idle");
+            clearFieldError("privacy");
           }}
+          aria-invalid={Boolean(fieldErrors.privacy)}
+          aria-describedby={fieldErrors.privacy ? "privacy-error" : undefined}
         />
         <span>{translations.form.privacy}</span>
       </label>
+      {fieldErrors.privacy ? (
+        <p className="contact-form__error" id="privacy-error">
+          {fieldErrors.privacy}
+        </p>
+      ) : null}
 
-      <button type="submit" className="button button--arrow" disabled={contactStatus === "sending" || !isContactFormComplete}>
+      <button type="submit" className="button button--arrow" disabled={contactStatus === "sending"}>
         <span>{contactStatus === "sending" ? translations.form.sending : translations.form.submit}</span>
         <img src="/assets/img/svg/right-arrow.svg" alt="" />
       </button>
 
       {contactStatus === "success" ? <p className="contact-form__status is-success">{translations.form.success}</p> : null}
-      {contactStatus === "error" ? <p className="contact-form__status is-error">{translations.form.error}</p> : null}
+      {contactStatus === "error" ? (
+        <p className="contact-form__status is-error">{submitError ?? translations.form.error}</p>
+      ) : null}
     </form>
   );
 }

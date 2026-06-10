@@ -87,8 +87,8 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
 
           <p className="section-copy">
             {lang === "de"
-              ? "Hier findest du kurze Beiträge mit Bild, Textvorschau und einer eigenen Detailseite."
-              : "Here you will find short posts with an image, text preview and a dedicated detail page."}
+              ? "Kurze Beiträge mit praktischen Tipps rund ums Rennradfahren in München."
+              : "Short posts with practical tips about road cycling in Munich."}
           </p>
 
           <div className="blog-archive__list">

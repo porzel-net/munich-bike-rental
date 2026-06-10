@@ -25,6 +25,26 @@ export type Locale = "de" | "en";
 
 export type LocalizedText = Record<Locale, string>;
 
+export type FormValidationText = {
+  contactHint: string;
+  nameRequired: string;
+  contactRequired: string;
+  contactInvalid: string;
+  heightRequired: string;
+  heightInvalid: string;
+  bikeSizeRequired: string;
+  periodFromRequired: string;
+  periodToRequired: string;
+  periodInvalid: string;
+  messageRequired: string;
+  privacyRequired: string;
+  submitFailed: string;
+  submitOriginError: string;
+  submitConfigError: string;
+  submitPayloadError: string;
+  submitValidationError: string;
+};
+
 export type PortfolioItem = {
   title: string;
   subtitle: LocalizedText;
@@ -424,6 +444,25 @@ export const translations = {
       sending: "Senden...",
       success: "Danke, deine Anfrage wurde gesendet. Wir melden uns per E-Mail oder WhatsApp.",
       error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
+      validation: {
+        contactHint: "Format: name@domain.de oder +49 152 12345678",
+        nameRequired: "Bitte gib deinen Namen an.",
+        contactRequired: "Bitte gib eine E-Mail-Adresse oder WhatsApp-Nummer an.",
+        contactInvalid: "Bitte nutze ein gültiges Format, zum Beispiel name@domain.de oder +49 152 12345678.",
+        heightRequired: "Bitte gib deine Körpergröße an.",
+        heightInvalid: "Bitte gib eine Zahl zwischen 100 und 250 cm an.",
+        bikeSizeRequired: "Bitte wähle deine Rennradgröße aus.",
+        periodFromRequired: "Bitte wähle den Start des Zeitraums.",
+        periodToRequired: "Bitte wähle das Ende des Zeitraums.",
+        periodInvalid: "Das Ende des Zeitraums muss nach dem Start liegen.",
+        messageRequired: "Bitte schreibe eine kurze Nachricht.",
+        privacyRequired: "Bitte akzeptiere die Datenschutzbestimmungen.",
+        submitFailed: "Die Anfrage konnte nicht gesendet werden. Bitte prüfe die Eingaben und versuche es erneut.",
+        submitOriginError: "Die Anfrage konnte nicht gesendet werden, weil der Aufruf als ungültig erkannt wurde.",
+        submitConfigError: "Das Formular ist derzeit nicht korrekt eingerichtet. Bitte versuche es später noch einmal.",
+        submitPayloadError: "Die Nachricht ist zu lang. Bitte kürze sie etwas und versuche es erneut.",
+        submitValidationError: "Bitte prüfe die markierten Felder und versuche es erneut.",
+      },
     },
     footer: "Copyright © Munich Rental. Alle Rechte vorbehalten.",
   },
@@ -528,6 +567,25 @@ export const translations = {
       sending: "Sending...",
       success: "Thanks, your inquiry has been sent. We will reply by email or WhatsApp.",
       error: "The message could not be sent. Please try again.",
+      validation: {
+        contactHint: "Format: name@domain.com or +49 152 12345678",
+        nameRequired: "Please enter your name.",
+        contactRequired: "Please enter an email address or WhatsApp number.",
+        contactInvalid: "Please use a valid format, for example name@domain.com or +49 152 12345678.",
+        heightRequired: "Please enter your height.",
+        heightInvalid: "Please enter a number between 100 and 250 cm.",
+        bikeSizeRequired: "Please choose your road bike size.",
+        periodFromRequired: "Please choose the start of the rental period.",
+        periodToRequired: "Please choose the end of the rental period.",
+        periodInvalid: "The end of the rental period must be after the start.",
+        messageRequired: "Please write a short message.",
+        privacyRequired: "Please accept the privacy policy.",
+        submitFailed: "The request could not be sent. Please check the fields and try again.",
+        submitOriginError: "The request could not be sent because the call was marked as invalid.",
+        submitConfigError: "The form is not configured correctly right now. Please try again later.",
+        submitPayloadError: "The message is too long. Please shorten it and try again.",
+        submitValidationError: "Please check the highlighted fields and try again.",
+      },
     },
     footer: "Copyright © Munich Rental. All rights reserved.",
   },

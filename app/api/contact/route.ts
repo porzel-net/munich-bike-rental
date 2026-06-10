@@ -36,6 +36,10 @@ function isPhoneNumber(value: string) {
   return /^[+\d][\d\s()./-]{5,}$/.test(value);
 }
 
+function jsonError(status: number, code: string, error: string) {
+  return NextResponse.json({ ok: false, code, error }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
 function getExpectedOrigin(request: Request) {
   const configuredOrigin = process.env.APP_ORIGIN ?? new URL(siteConfig.url).origin;
   const localhostOrigins = new Set([
@@ -110,37 +114,31 @@ export async function POST(request: Request) {
     const expectedOrigin = getExpectedOrigin(request);
 
     if (!origin || origin !== expectedOrigin) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid request origin" },
-        { status: 403, headers: { "Cache-Control": "no-store" } },
-      );
+      return jsonError(403, "invalid_origin", "Invalid request origin");
     }
 
     const contentType = request.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
-      return NextResponse.json(
-        { ok: false, error: "Unsupported content type" },
-        { status: 415, headers: { "Cache-Control": "no-store" } },
-      );
+      return jsonError(415, "unsupported_content_type", "Unsupported content type");
     }
 
     const contentLength = Number(request.headers.get("content-length") ?? "0");
     if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-      return NextResponse.json(
-        { ok: false, error: "Payload too large" },
-        { status: 413, headers: { "Cache-Control": "no-store" } },
-      );
+      return jsonError(413, "payload_too_large", "Payload too large");
     }
 
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
-      return NextResponse.json(
-        { ok: false, error: "Payload too large" },
-        { status: 413, headers: { "Cache-Control": "no-store" } },
-      );
+      return jsonError(413, "payload_too_large", "Payload too large");
     }
 
-    const body = JSON.parse(rawBody) as ContactPayload;
+    let body: ContactPayload;
+    try {
+      body = JSON.parse(rawBody) as ContactPayload;
+    } catch {
+      return jsonError(400, "invalid_json", "Invalid JSON");
+    }
+
     const name = sanitizeLine(asText(body?.name), 120);
     const contact = sanitizeLine(asText(body?.contact), 254);
     const height = sanitizeLine(asText(body?.height), 8);
@@ -167,10 +165,11 @@ export async function POST(request: Request) {
       !DATE_PATTERN.test(periodTo) ||
       !message
     ) {
-      return NextResponse.json(
-        { ok: false, error: "Missing required fields" },
-        { status: 400, headers: { "Cache-Control": "no-store" } },
-      );
+      return jsonError(400, "validation_error", "Missing required fields");
+    }
+
+    if (new Date(periodFrom).getTime() > new Date(periodTo).getTime()) {
+      return jsonError(400, "validation_error", "The end of the rental period must be after the start");
     }
 
     const smtpHost = process.env.SMTP_HOST;
@@ -182,10 +181,7 @@ export async function POST(request: Request) {
     const toAddress = process.env.MAIL_TO_ADDRESS ?? "hallo@munich-bike-rental.de";
 
     if (!smtpHost || !smtpUser || !smtpPassword) {
-      return NextResponse.json(
-        { ok: false, error: "Mail configuration is incomplete" },
-        { status: 500, headers: { "Cache-Control": "no-store" } },
-      );
+      return jsonError(500, "config_incomplete", "Mail configuration is incomplete");
     }
 
     const transporter = nodemailer.createTransport({
@@ -218,9 +214,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "Unable to send message" },
-      { status: 500, headers: { "Cache-Control": "no-store" } },
-    );
+    return jsonError(500, "send_failed", "Unable to send message");
   }
 }
