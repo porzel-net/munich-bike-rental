@@ -269,6 +269,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const homeHref = (hash: string) => (pathname === "/" ? hash : `/?lang=${lang}${hash}`);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -288,37 +289,37 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   };
 
   return (
-    <header className="topbar">
+      <header className="topbar">
       <div className="container topbar__inner">
-        <a className="brand" href="#home" aria-label="Munich Rental home">
+        <a className="brand" href={homeHref("#home")} aria-label="Munich Rental home">
           <span className="brand__text">Munich Rental</span>
         </a>
 
         <div className="topbar__right">
           <nav className="nav nav--desktop" aria-label="Primary">
             <ul className="nav__list">
-              <li className="nav__item">
-                <a href="#home" className="nav__link">
+            <li className="nav__item">
+                <a href={homeHref("#home")} className="nav__link">
                   {topbar.nav.start}
                 </a>
               </li>
               <li className="nav__item">
-                <a href="#portfolio" className="nav__link">
+                <a href={homeHref("#portfolio")} className="nav__link">
                   {topbar.nav.bikes}
                 </a>
               </li>
               <li className="nav__item">
-                <a href="#price" className="nav__link">
+                <a href={homeHref("#price")} className="nav__link">
                   {topbar.nav.prices}
                 </a>
               </li>
               <li className="nav__item">
-                <a href="#faq" className="nav__link">
+                <a href={homeHref("#faq")} className="nav__link">
                   {topbar.nav.faq}
                 </a>
               </li>
               <li className="nav__item">
-                <a href="#contact" className="nav__link">
+                <a href={homeHref("#contact")} className="nav__link">
                   {topbar.nav.contact}
                 </a>
               </li>
@@ -370,17 +371,13 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
         <nav className="nav nav--mobile" aria-label="Mobile primary">
           <ul className="nav__list nav__list--mobile">
             <li className="nav__item nav__item--mobile">
-              <a
-                href="#home"
-                className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                onClick={() => setMenuOpen(false)}
-              >
+              <a href={homeHref("#home")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                 {topbar.nav.start}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
               <a
-                href="#portfolio"
+                href={homeHref("#portfolio")}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
@@ -389,7 +386,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
             </li>
             <li className="nav__item nav__item--mobile">
               <a
-                href="#price"
+                href={homeHref("#price")}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
@@ -398,7 +395,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
             </li>
             <li className="nav__item nav__item--mobile">
               <a
-                href="#faq"
+                href={homeHref("#faq")}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
@@ -407,7 +404,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
             </li>
             <li className="nav__item nav__item--mobile">
               <a
-                href="#contact"
+                href={homeHref("#contact")}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >

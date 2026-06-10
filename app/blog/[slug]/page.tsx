@@ -4,13 +4,14 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 
 import { BlogArticle } from "../../../components/blog-content";
+import { HomeTopbar } from "../../../components/home-interactive";
 import {
   blogPosts,
   getBlogImageSrc,
   getBlogPostBySlug,
   getCanonicalBlogSlug,
 } from "../../../lib/blog-content";
-import { resolveLocale } from "../../../lib/home-content";
+import { resolveLocale, translations } from "../../../lib/home-content";
 import { getBlogPostStructuredDataJson } from "../../../lib/structured-data";
 import { siteConfig } from "../../../lib/site";
 
@@ -84,7 +85,7 @@ export default async function BlogPostPage({ params, searchParams }: PageProps) 
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const lang = resolveLocale(resolvedSearchParams?.lang);
-  const nextLang = lang === "de" ? "en" : "de";
+  const t = translations[lang];
   const canonicalSlug = getCanonicalBlogSlug(resolvedParams.slug);
   const post = getBlogPostBySlug(canonicalSlug);
 
@@ -103,22 +104,14 @@ export default async function BlogPostPage({ params, searchParams }: PageProps) 
         dangerouslySetInnerHTML={{ __html: getBlogPostStructuredDataJson(post, lang) }}
       />
 
-      <header className="blog-topbar">
-        <div className="container blog-topbar__inner">
-          <Link className="brand" href="/">
-            <span className="brand__text">Munich Rental</span>
-          </Link>
-
-          <div className="blog-topbar__actions">
-            <Link className="blog-topbar__home" href={`/?lang=${lang}`}>
-              {lang === "de" ? "Zur Startseite" : "Back to homepage"}
-            </Link>
-            <Link className="lang-switch" href={`/blog/${post.slug}?lang=${nextLang}`}>
-              {nextLang.toUpperCase()}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <HomeTopbar
+        lang={lang}
+        topbar={{
+          nav: t.nav,
+          languageToggle: t.languageToggle,
+          menuButton: t.menuButton,
+        }}
+      />
 
       <section className="section blog-post">
         <div className="container blog-post__inner">

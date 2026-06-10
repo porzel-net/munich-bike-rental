@@ -2686,6 +2686,14 @@ button {
     font-size: 14px;
   }
 
+  .legal-page h1 {
+    font-size: clamp(2rem, 10vw, 2.8rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
   .blog-preview-card__image {
     padding: 12px;
   }

@@ -64,10 +64,6 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
           languageToggle: t.languageToggle,
           menuButton: t.menuButton,
         }}
-        backLink={{
-          href: `/?lang=${lang}`,
-          label: lang === "de" ? "Zur Startseite raus" : "Back to homepage",
-        }}
       />
 
       <section className="section blog-archive">
