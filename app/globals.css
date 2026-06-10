@@ -2360,6 +2360,10 @@ button {
     padding: 14px 8px;
   }
 
+  .nav__link--mobile-anchor {
+    padding-left: 22px;
+  }
+
   .lang-switch {
     min-width: 48px;
     height: 42px;

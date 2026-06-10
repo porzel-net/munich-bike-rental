@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ type TopbarTranslations = {
     prices: string;
     faq: string;
     contact: string;
+    blog: string;
     imprint: string;
     privacy: string;
   };
@@ -358,29 +360,54 @@ export function HomeTopbar({ lang, topbar }: HomeTopbarProps) {
         <nav className="nav nav--mobile" aria-label="Mobile primary">
           <ul className="nav__list nav__list--mobile">
             <li className="nav__item nav__item--mobile">
-              <a href="#home" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href="#home"
+                className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.start}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
-              <a href="#portfolio" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href="#portfolio"
+                className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.bikes}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
-              <a href="#price" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href="#price"
+                className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.prices}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
-              <a href="#faq" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href="#faq"
+                className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.faq}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
-              <a href="#contact" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href="#contact"
+                className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.contact}
               </a>
+            </li>
+            <li className="nav__item nav__item--mobile">
+              <Link href="/blog" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                {topbar.nav.blog}
+              </Link>
             </li>
             <li className="nav__item nav__item--mobile">
               <a href="/impressum" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
