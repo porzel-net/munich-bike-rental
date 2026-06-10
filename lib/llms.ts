@@ -34,7 +34,7 @@ const bikes = [
 const faq = [
   [
     "How does booking work?",
-    "Customers send a request through the contact form, email, WhatsApp or phone. The rental period, pickup and price are then confirmed directly.",
+    "Customers send a request through the contact form first. Depending on the details provided, the follow-up happens by email or WhatsApp and the rental period, pickup and price are then confirmed directly.",
   ],
   [
     "Where is pickup?",
@@ -83,7 +83,7 @@ ${bikes
 ## Rental and contact
 
 - Reservations start from the contact form on the home page.
-- The site supports email, WhatsApp and telephone contact.
+- The first contact happens through the form; follow-up may happen by email or WhatsApp.
 - The reservation flow asks for name, contact details, date range and a message.
 - The site emphasizes direct owner contact instead of anonymous marketplace-style renting.
 
@@ -188,7 +188,7 @@ ${faq
 
 ## Contact flow
 
-- Visitors can contact the business via the form, email, WhatsApp, or phone.
+- Visitors contact the business via the form first; follow-up happens by email or WhatsApp depending on the details provided.
 - The form requests name, contact details, rental dates, and a message.
 - When a specific bike is reserved from the site, the contact form is prefilled with a booking draft.
 

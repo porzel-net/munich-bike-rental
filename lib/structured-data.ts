@@ -48,7 +48,7 @@ const faqEntries = [
     name: "Wie läuft die Anfrage und Miete ab?",
     acceptedAnswer: {
       "@type": "Answer",
-      text: "Alle Fahrräder können online angefragt und gemietet werden. Wir klären anschließend alles per E-Mail, WhatsApp oder Telefon, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
+      text: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail oder WhatsApp und melden uns immer innerhalb von 24 Stunden, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
     },
   },
   {

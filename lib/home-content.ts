@@ -278,13 +278,8 @@ export const contactItems = [
     href: "mailto:hallo@munich-bike-rental.de",
   },
   {
-    label: { de: "WhatsApp: +49 152 51330962", en: "WhatsApp: +49 152 51330962" },
-    icon: "/assets/img/svg/phone.svg",
-    href: "https://wa.me/4915251330962",
-  },
-  {
     label: { de: "Anrufen: +49 152 51330962", en: "Call: +49 152 51330962" },
-    icon: "/assets/img/svg/mail.svg",
+    icon: "/assets/img/svg/phone.svg",
     href: "tel:+4915251330962",
   },
 ];
@@ -296,8 +291,8 @@ export const faqItems = [
       en: "How does the inquiry and rental process work?",
     },
     answer: {
-      de: "Alle Fahrräder können online angefragt und gemietet werden. Wir klären anschließend alles per E-Mail, WhatsApp oder Telefon, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
-      en: "All bikes can be requested and rented online. We then sort out everything via email, WhatsApp or phone so that price, rental period and pickup fit perfectly in the end.",
+      de: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail oder WhatsApp und melden uns immer innerhalb von 24 Stunden, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
+      en: "All bikes can be requested and rented online via the contact form. We then sort out everything directly by email or WhatsApp and always reply within 24 hours so that price, rental period and pickup fit perfectly in the end.",
     },
   },
   {
@@ -398,7 +393,7 @@ export const translations = {
       eyebrow: "Kontakt",
       title: "Kontakt aufnehmen",
       intro:
-        "Schreib uns einfach, wenn du ein Rad reservieren möchtest. Du kannst uns direkt per Nachricht anschreiben, über WhatsApp unter +49 152 51330962 kontaktieren oder uns einfach anrufen.",
+        "Schreib uns einfach über das Kontaktfeld, wenn du ein Rad reservieren möchtest. Der Erstkontakt läuft über das Formular. Je nachdem, was du angibst, melden wir uns danach per WhatsApp oder E-Mail - immer innerhalb von 24 Stunden.",
     },
     locationSection: {
       eyebrow: "Standort",
@@ -442,7 +437,7 @@ export const translations = {
       submit: "Anfrage senden",
       subject: "Fahrradanfrage",
       sending: "Senden...",
-      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns per E-Mail oder WhatsApp.",
+      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail oder WhatsApp.",
       error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
       validation: {
         contactHint: "Format: name@domain.de oder +49 152 12345678",
@@ -521,7 +516,7 @@ export const translations = {
       eyebrow: "Contact",
       title: "Get in touch",
       intro:
-        "Just write to us if you want to reserve a bike. You can contact us directly by message, via WhatsApp at +49 152 51330962 or simply call us.",
+        "Just write to us via the contact form if you want to reserve a bike. The first contact happens through the form. Depending on what you provide, we'll get back to you by WhatsApp or email - always within 24 hours.",
     },
     locationSection: {
       eyebrow: "Location",
@@ -565,7 +560,7 @@ export const translations = {
       submit: "Send inquiry",
       subject: "Bike inquiry",
       sending: "Sending...",
-      success: "Thanks, your inquiry has been sent. We will reply by email or WhatsApp.",
+      success: "Thanks, your inquiry has been sent. We will reply within 24 hours by email or WhatsApp.",
       error: "The message could not be sent. Please try again.",
       validation: {
         contactHint: "Format: name@domain.com or +49 152 12345678",
