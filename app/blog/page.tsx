@@ -3,8 +3,9 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
 import { BlogPreviewCard } from "../../components/blog-content";
+import { HomeTopbar } from "../../components/home-interactive";
 import { blogPosts } from "../../lib/blog-content";
-import { resolveLocale } from "../../lib/home-content";
+import { resolveLocale, translations } from "../../lib/home-content";
 import { siteConfig } from "../../lib/site";
 
 type PageProps = {
@@ -52,26 +53,22 @@ export const metadata: Metadata = {
 export default async function BlogIndexPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
-  const nextLang = lang === "de" ? "en" : "de";
+  const t = translations[lang];
 
   return (
     <main className="site-shell blog-shell">
-      <header className="blog-topbar">
-        <div className="container blog-topbar__inner">
-          <Link className="brand" href="/">
-            <span className="brand__text">Munich Rental</span>
-          </Link>
-
-          <div className="blog-topbar__actions">
-            <Link className="blog-topbar__home" href={`/?lang=${lang}`}>
-              {lang === "de" ? "Zur Startseite" : "Back to homepage"}
-            </Link>
-            <Link className="lang-switch" href={`/blog?lang=${nextLang}`}>
-              {nextLang.toUpperCase()}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <HomeTopbar
+        lang={lang}
+        topbar={{
+          nav: t.nav,
+          languageToggle: t.languageToggle,
+          menuButton: t.menuButton,
+        }}
+        backLink={{
+          href: `/?lang=${lang}`,
+          label: lang === "de" ? "Zur Startseite raus" : "Back to homepage",
+        }}
+      />
 
       <section className="section blog-archive">
         <div className="container blog-archive__inner">

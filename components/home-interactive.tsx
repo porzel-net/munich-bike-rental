@@ -73,6 +73,10 @@ type SharedTranslations = {
 type HomeTopbarProps = {
   lang: Locale;
   topbar: TopbarTranslations;
+  backLink?: {
+    href: string;
+    label: string;
+  };
 };
 
 type PortfolioSectionProps = {
@@ -261,7 +265,7 @@ function BikeModal({
   );
 }
 
-export function HomeTopbar({ lang, topbar }: HomeTopbarProps) {
+export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -332,6 +336,12 @@ export function HomeTopbar({ lang, topbar }: HomeTopbarProps) {
           </nav>
 
           <div className="topbar__actions">
+            {backLink ? (
+              <Link className="topbar__home-link" href={backLink.href}>
+                {backLink.label}
+              </Link>
+            ) : null}
+
             <button
               type="button"
               className="lang-switch"
