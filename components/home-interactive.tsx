@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { useConsent } from "./consent-manager";
 import {
   createReservationMessage,
   type Locale,
@@ -617,6 +618,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 }
 
 export function ContactForm({ lang, translations }: ContactFormProps) {
+  const { trackLead, analyticsAllowed } = useConsent();
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [height, setHeight] = useState("");
@@ -752,6 +754,18 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setFieldErrors({});
       setSubmitError(null);
       setContactStatus("success");
+
+      if (analyticsAllowed) {
+        trackLead({
+          bikeTitle: pendingReservationBike ?? undefined,
+          language: lang,
+          contactMethod: contactValue.includes("@")
+            ? "email"
+            : contactValue.startsWith("+")
+              ? "phone"
+              : "other",
+        });
+      }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : translations.form.validation.submitFailed);
       setContactStatus("error");

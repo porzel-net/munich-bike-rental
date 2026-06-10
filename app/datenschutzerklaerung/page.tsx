@@ -21,7 +21,7 @@ export default function DatenschutzerklaerungPage() {
 
         <h1>Datenschutzerklärung</h1>
         <p>Information zur Verarbeitung Ihrer Daten nach Art. 13 Datenschutzgrundverordnung (DSGVO)</p>
-        <p>Stand: 24.05.2026</p>
+        <p>Stand: 10.06.2026</p>
 
         <section>
           <h2>1. Allgemeines</h2>
@@ -142,24 +142,30 @@ export default function DatenschutzerklaerungPage() {
           </p>
           <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
           <p>
-            Von uns verwendete Cookies sind sogenannte „Session Cookies“. Durch Session-Cookies werden Informationen
-            über die aktuelle Sitzung hinterlegt. Diese dienen dazu, Einstellungen eines Nutzers auf einer Seite
-            dessen Sitzung zuzuordnen. Wenn Sie in einem Browser in zwei Fenstern die Homepage besuchen, wird am
+            Von uns verwendete Cookies sind technisch notwendige Session-Cookies sowie ein Consent-Cookie, mit dem
+            Ihre Auswahl im Cookie-Banner gespeichert wird. Durch Session-Cookies werden Informationen über die
+            aktuelle Sitzung hinterlegt. Diese dienen dazu, Einstellungen eines Nutzers auf einer Seite dessen
+            Sitzung zuzuordnen. Wenn Sie in einem Browser in zwei Fenstern die Homepage besuchen, wird am
             Session Cookie erkannt, dass es sich bei beiden Aufrufen um Ihre Sitzung handelt.
           </p>
           <p>
             Sofern wir Schutz- und Routingdienste von Cloudflare einsetzen, können zusätzlich technisch notwendige
             Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren gesetzt werden. Genauere Details
-            sind im Abschnitt „Schutz- und Routingdienste“ zu finden.
+            sind im Abschnitt „Schutz- und Routingdienste“ zu finden. Cookies oder ähnliche Technologien von Google
+            Analytics werden erst nach Ihrer ausdrücklichen Einwilligung geladen.
           </p>
           <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
-          <p>Technisch notwendige Cookies sind zwingend erforderlich um die Website anzuzeigen.</p>
-          <p>Rechtsgrundlage für die vorübergehende Speicherung der Daten ist: Art. 6 Abs. 1 lit. f DSGVO: Berechtigtes Interesse, in allen übrigen Fällen</p>
+          <p>Technisch notwendige Cookies sind zwingend erforderlich, um die Website anzuzeigen und Ihre Auswahl zu speichern.</p>
+          <p>
+            Rechtsgrundlage für die vorübergehende Speicherung der Daten ist Art. 6 Abs. 1 lit. f DSGVO
+            (berechtigtes Interesse) bzw. bei optionalen Cookies Art. 6 Abs. 1 lit. a DSGVO (Einwilligung).
+          </p>
           <p>c) Dauer der Speicherung und Widerspruchsmöglichkeit</p>
           <p>
             Session-Cookies werden nach Ende Ihres Besuchs der Webseite automatisch gelöscht. Technisch notwendige
             Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren werden nur so lange gespeichert,
-            wie dies für den jeweiligen Sicherheitszweck erforderlich ist.
+            wie dies für den jeweiligen Sicherheitszweck erforderlich ist. Der Consent-Cookie wird gespeichert,
+            bis Sie Ihre Auswahl ändern oder den Cookie-Speicher Ihres Browsers löschen.
           </p>
           <p>
             Es besteht seitens des Nutzers keine Widerspruchsmöglichkeit, eine Deaktivierung dieser Cookies kann durch
@@ -237,6 +243,31 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>5. Weitere Technologien</h2>
+          <p>Google Analytics</p>
+          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <p>
+            Diese Website kann Google Analytics einsetzen, um die Nutzung der Internetseite auszuwerten, die
+            Reichweite zu messen und den Erfolg von Anfragen nachzuvollziehen. Google Analytics wird erst geladen,
+            nachdem Sie im Cookie-Banner ausdrücklich zugestimmt haben.
+          </p>
+          <p>
+            Beim Einsatz können insbesondere Seitenaufrufe, Interaktionen, Zeitstempel, Geräteinformationen,
+            Browserinformationen, ungefähre Standortdaten, Referrer-Informationen und eine gekürzte IP-Adresse
+            verarbeitet werden. Die Datenverarbeitung erfolgt durch Google Ireland Limited, Gordon House, Barrow
+            Street, Dublin 4, Irland. Eine Übermittlung in Drittländer, insbesondere in die USA, kann dabei nicht
+            ausgeschlossen werden.
+          </p>
+          <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
+          <p>
+            Rechtsgrundlage ist Ihre Einwilligung nach Art. 6 Abs. 1 S. 1 lit. a DSGVO. Zweck ist die Analyse des
+            Nutzerverhaltens, die Messung von Leads und die Verbesserung unserer Website und Werbemaßnahmen.
+          </p>
+          <p>c) Dauer der Speicherung und Widerrufsmöglichkeit</p>
+          <p>
+            Sie können Ihre Einwilligung jederzeit über die Cookie-Einstellungen widerrufen. Die Speicherdauer der
+            von Google gesetzten Cookies richtet sich nach den jeweiligen Google-Einstellungen und der von Google
+            verwendeten Konfiguration.
+          </p>
           <p>Verschlüsselte Übertragung</p>
           <p>
             Wir verwenden zur sicheren Übertragung der Inhalte eine Verschlüsselung (SSL bzw. TLS). Ob eine

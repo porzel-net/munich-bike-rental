@@ -399,11 +399,9 @@ export const translations = {
       eyebrow: "Standort",
       title: "So findest du uns",
       intro:
-        "Die Abholung und Rückgabe für deinen Rennradverleih findet vor Ort in der Maxvorstadt statt. Hier siehst du den Standort auf der Karte und direkt darunter die genaue Adresse.",
+        "Die Abholung und Rückgabe für deinen Rennradverleih findet vor Ort in der Maxvorstadt statt. Unterhalb findest du eine Ansicht des Standorts und direkt darunter die genaue Adresse.",
       addressLabel: "Adresse",
       address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
-      mapsLink: "https://maps.app.goo.gl/yviXEPStNkii88pn7",
-      mapsLabel: "Google Maps öffnen",
     },
     modal: {
       bike: "Verfügbares Rad",
@@ -522,11 +520,9 @@ export const translations = {
       eyebrow: "Location",
       title: "How to find us",
       intro:
-        "Pickup and return for your road bike rental take place on site in Maxvorstadt. Here you can see the location on the map and directly below the exact address.",
+        "Pickup and return for your road bike rental take place on site in Maxvorstadt. Below you'll find a visual location image and directly beneath it the exact address.",
       addressLabel: "Address",
       address: "Gabelsbergerstraße 79a, 80333 Munich, Maxvorstadt",
-      mapsLink: "https://maps.app.goo.gl/yviXEPStNkii88pn7",
-      mapsLabel: "Open Google Maps",
     },
     modal: {
       bike: "Available bike",

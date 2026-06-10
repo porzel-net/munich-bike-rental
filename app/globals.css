@@ -1239,6 +1239,244 @@ button {
   object-fit: cover;
 }
 
+.location-map__iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.location-map__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(16, 18, 24, 0.02) 0%, rgba(16, 18, 24, 0.06) 45%, rgba(16, 18, 24, 0.52) 100%);
+}
+
+.location-map__card {
+  max-width: 360px;
+  padding: 18px 18px 16px;
+  border-radius: 22px;
+  background: rgba(10, 12, 17, 0.86);
+  color: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(16px);
+}
+
+.location-map__eyebrow {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.location-map__intro {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.location-map__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff, #e8ecf7);
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.location-map__button:hover,
+.location-map__button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(255, 255, 255, 0.12);
+}
+
+.cookie-banner {
+  position: fixed;
+  inset: auto 18px 18px auto;
+  z-index: 80;
+  width: min(440px, calc(100vw - 20px));
+}
+
+.cookie-banner__panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(65, 105, 225, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(12, 15, 22, 0.96), rgba(9, 11, 17, 0.96));
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 28px 80px rgba(10, 12, 18, 0.38);
+  backdrop-filter: blur(18px);
+}
+
+.cookie-banner__header {
+  display: grid;
+  gap: 6px;
+}
+
+.cookie-banner__eyebrow {
+  display: inline-flex;
+  color: rgba(255, 255, 255, 0.64);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cookie-banner__title {
+  margin: 0;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.cookie-banner__intro {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cookie-banner__choices {
+  display: grid;
+  gap: 8px;
+}
+
+.cookie-banner__choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cookie-banner__choice-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.cookie-banner__choice-copy strong {
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cookie-banner__choice-copy span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cookie-banner__choice input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.cookie-banner__choice input:disabled {
+  opacity: 0.95;
+}
+
+.cookie-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cookie-banner__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.cookie-banner__button:hover,
+.cookie-banner__button:focus-visible {
+  transform: translateY(-1px);
+}
+
+.cookie-banner__button--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.cookie-banner__button--primary {
+  background: linear-gradient(135deg, #ffffff 0%, #dfe7ff 100%);
+  color: #111;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+}
+
+.cookie-banner__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.cookie-banner__link {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cookie-settings-trigger {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  box-shadow: 0 14px 36px rgba(17, 17, 17, 0.12);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .faq-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
@@ -2330,6 +2568,11 @@ button {
   .location-map {
     width: min(100%, 600px);
   }
+
+  .cookie-banner {
+    inset: auto 12px 12px 12px;
+    width: auto;
+  }
 }
 
 @media (max-width: 780px) {
@@ -2576,6 +2819,52 @@ button {
   .location-card__link {
     width: fit-content;
     margin-left: 34px;
+  }
+
+  .location-map__overlay {
+    padding: 16px;
+  }
+
+  .location-map__card {
+    max-width: min(100%, 320px);
+    padding: 16px;
+  }
+
+  .cookie-banner__panel {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .cookie-banner__choice {
+    align-items: flex-start;
+  }
+
+  .cookie-banner__choice input {
+    margin-top: 4px;
+  }
+
+  .cookie-banner__actions {
+    flex-direction: column;
+  }
+
+  .cookie-banner__button {
+    width: 100%;
+  }
+
+  .cookie-banner__footer {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .cookie-banner__link {
+    width: 100%;
+  }
+
+  .cookie-settings-trigger {
+    display: none;
   }
 
   .footer__inner {

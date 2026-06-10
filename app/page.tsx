@@ -226,16 +226,6 @@ export default async function Home({ searchParams }: PageProps) {
                   <p className="location-card__text">{t.locationSection.address}</p>
                 </div>
               </div>
-
-              <a
-                className="location-card__link"
-                href={t.locationSection.mapsLink}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span>{t.locationSection.mapsLabel}</span>
-                <ArrowUpRight aria-hidden="true" />
-              </a>
             </div>
           </div>
 
@@ -243,7 +233,7 @@ export default async function Home({ searchParams }: PageProps) {
             <div className="location-map">
               <Image
                 src="/assets/img/location/google-maps.png"
-                alt={`Google Maps Standort für ${t.locationSection.address}`}
+                alt={`Standortbild für ${t.locationSection.address}`}
                 fill
                 sizes="(max-width: 632px) calc(100vw - 32px), 600px"
                 quality={72}

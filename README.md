@@ -56,6 +56,9 @@ SMTP_USER=dein-user
 SMTP_PASSWORD=dein-passwort
 MAIL_FROM_ADDRESS=anfrage@deine-domain.tld
 MAIL_TO_ADDRESS=hallo@deine-domain.tld
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-RSPEH19Q6Y
+NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
+NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
 ```
 
 Wichtig:
@@ -63,6 +66,8 @@ Wichtig:
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL` und `APP_ORIGIN` müssen zur echten Domain passen
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst, wenn der Nutzer im Cookie-Banner zugestimmt hat
+- `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional und aktivieren die direkte Google-Ads-Conversion für das Lead-Event
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
 

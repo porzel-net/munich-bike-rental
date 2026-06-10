@@ -3,7 +3,10 @@ import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+import { ConsentProvider } from "../components/consent-manager";
+import { parseConsentCookie } from "../lib/consent";
 import { getHomeStructuredDataJson } from "../lib/structured-data";
+import { resolveLocale } from "../lib/home-content";
 import { siteConfig } from "../lib/site";
 
 export const metadata: Metadata = {
@@ -96,10 +99,16 @@ export default async function RootLayout({
   const requestHeaders = await headers();
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const pathname = requestHeaders.get("x-pathname");
+  const searchParams = new URLSearchParams(requestHeaders.get("x-search") ?? "");
+  const locale = resolveLocale(searchParams.get("lang") ?? undefined);
+  const initialConsent = parseConsentCookie(requestHeaders.get("cookie"));
   const structuredDataJson = pathname === "/" ? getHomeStructuredDataJson() : null;
+  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "G-RSPEH19Q6Y";
+  const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID ?? "";
+  const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL ?? "";
 
   return (
-    <html lang="de">
+    <html lang={locale}>
       <body>
         {structuredDataJson ? (
           <script
@@ -108,7 +117,16 @@ export default async function RootLayout({
             dangerouslySetInnerHTML={{ __html: structuredDataJson }}
           />
         ) : null}
-        {children}
+        <ConsentProvider
+          initialConsent={initialConsent}
+          initialLocale={locale}
+          nonce={nonce}
+          googleAnalyticsId={googleAnalyticsId}
+          googleAdsConversionId={googleAdsConversionId}
+          googleAdsConversionLabel={googleAdsConversionLabel}
+        >
+          {children}
+        </ConsentProvider>
       </body>
     </html>
   );

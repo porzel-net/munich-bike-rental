@@ -21,10 +21,10 @@ function buildContentSecurityPolicy(nonce: string) {
       "frame-ancestors 'none'",
       "object-src 'none'",
       "form-action 'self'",
-      "img-src 'self'",
+      "img-src 'self' data: https://www.google-analytics.com https://*.google-analytics.com https://stats.g.doubleclick.net",
       "font-src 'self'",
-      "connect-src 'self'",
-      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+      "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://googleads.g.doubleclick.net",
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://www.googletagmanager.com https://www.google-analytics.com`,
       `style-src 'self' 'nonce-${nonce}'`,
       "upgrade-insecure-requests",
     ].join("; ");
@@ -51,6 +51,7 @@ export function proxy(request: NextRequest) {
 
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  requestHeaders.set("x-search", request.nextUrl.search);
 
   const response = NextResponse.next({
     request: {
