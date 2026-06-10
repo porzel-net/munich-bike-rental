@@ -2470,6 +2470,10 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .portfolio-card__media {
+    background: #fff;
+  }
+
   .section--promise {
     padding-bottom: 104px;
   }

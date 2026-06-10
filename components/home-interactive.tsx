@@ -441,7 +441,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   src={item.image}
                   alt={`${item.title} bei Munich Rental`}
                   fill
-                  placeholder={typeof item.image === "string" ? "empty" : "blur"}
+                  placeholder="empty"
                   sizes="(max-width: 780px) calc(100vw - 32px), (max-width: 1100px) calc((100vw - 64px) / 2), 384px"
                   className="portfolio-card__image"
                 />
