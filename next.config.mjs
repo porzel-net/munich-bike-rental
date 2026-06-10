@@ -16,7 +16,7 @@ if (isProduction) {
 }
 
 const nextConfig = {
-  allowedDevOrigins: ["192.168.2.229", "192.168.178.167", "localhost", "127.0.0.1"],
+  allowedDevOrigins: ["192.168.2.229", "192.168.178.167", "192.168.178.122", "localhost", "127.0.0.1"],
   images: {
     formats: ["image/avif", "image/webp"],
     imageSizes: [32, 48, 64, 96, 128, 160, 192, 256, 320, 384],

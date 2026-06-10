@@ -2305,6 +2305,7 @@ button {
 
   .topbar {
     padding: 14px 0;
+    overflow: visible;
   }
 
   .nav--desktop {
@@ -2317,10 +2318,17 @@ button {
 
   .hamburger {
     display: inline-flex;
+    cursor: pointer;
+    touch-action: manipulation;
   }
 
   .mobile-drawer {
     display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1;
     max-height: 0;
     overflow: hidden;
     margin-top: 0;
