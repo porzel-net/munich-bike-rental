@@ -1475,7 +1475,42 @@ button {
 }
 
 .blog-shell {
+  position: relative;
+  isolation: isolate;
   padding: 24px 0 110px;
+  background:
+    radial-gradient(circle at 12% 2%, rgba(65, 105, 225, 0.12) 0 14%, transparent 36%),
+    radial-gradient(circle at 88% 4%, rgba(45, 212, 191, 0.12) 0 12%, transparent 32%),
+    radial-gradient(circle at 82% 92%, rgba(255, 159, 115, 0.14) 0 16%, transparent 40%),
+    linear-gradient(180deg, #f6f8fe 0%, #fbfaf7 44%, #f4f7fb 100%);
+  overflow: clip;
+}
+
+.blog-shell::before,
+.blog-shell::after {
+  content: "";
+  position: absolute;
+  inset: auto;
+  pointer-events: none;
+  z-index: -1;
+  border-radius: 999px;
+  filter: blur(18px);
+}
+
+.blog-shell::before {
+  top: 180px;
+  left: -8%;
+  width: 260px;
+  height: 260px;
+  background: rgba(65, 105, 225, 0.08);
+}
+
+.blog-shell::after {
+  right: -6%;
+  bottom: 220px;
+  width: 320px;
+  height: 320px;
+  background: rgba(45, 212, 191, 0.08);
 }
 
 .blog-topbar {
