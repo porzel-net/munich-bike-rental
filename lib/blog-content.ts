@@ -285,6 +285,7 @@ export function formatBlogDate(date: string, locale: Locale) {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: "UTC",
   }).format(new Date(date));
 }
 
