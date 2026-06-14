@@ -157,7 +157,7 @@ export function ConsentProvider({
           return;
         }
 
-        gtag("event", "generate_lead", {
+        gtag("event", "qualify_lead", {
           event_category: "contact",
           event_label: bikeTitle || "contact_form",
           language,
