@@ -16,7 +16,7 @@ const offerCatalog = [
   {
     "@type": "Offer",
     position: 2,
-    name: "Canyon Grail CF SL 7",
+    name: "Grail CF SL 7",
     description: "Carbon-Gravelbike mit GRX 800, Shimano GRX 600 hydraulischen Scheibenbremsen, DT Swiss GR1600 Spline Laufrädern und Schwalbe G-One R Evo Reifen für gemischte Strecken und längere Ausfahrten.",
     price: 59,
     priceCurrency: "EUR",

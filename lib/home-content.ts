@@ -139,7 +139,7 @@ export const portfolioItems: PortfolioItem[] = [
     },
   },
   {
-    title: "Canyon Grail CF SL 7",
+    title: "Grail CF SL 7",
     subtitle: { de: "S / M / L", en: "S / M / L" },
     price: { de: "59€/Tag", en: "59€/day" },
     description: {

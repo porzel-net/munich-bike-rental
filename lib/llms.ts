@@ -9,7 +9,7 @@ const bikes = [
       "Balanced road bike for fast long rides and comfortable touring in and around Munich.",
   },
   {
-    name: "Canyon Grail CF SL 7",
+    name: "Grail CF SL 7",
     size: "S / M / L",
     price: "59 EUR/day",
     summary:
@@ -147,7 +147,7 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - Summary: balanced road bike for fast long rides and comfortable touring
 - Key details on site: Shimano Ultegra Di2, hydraulic disc brakes, DT Swiss wheels
 
-### Canyon Grail CF SL 7
+### Grail CF SL 7
 
 - Sizes: S / M / L
 - Price: 59 EUR/day

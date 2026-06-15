@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     "Rennraeder mieten Muenchen",
     "Gravelbike mieten München",
     "Gravelbike rental Munich",
-    "Canyon Grail mieten München",
+    "Grail mieten München",
     "Rennradverleih Maxvorstadt",
     "Rennradverleih München Maxvorstadt",
     "Rennradverleih Schwabing",

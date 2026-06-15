@@ -126,7 +126,7 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
     return lang === "de" ? "Komfortables Setup" : "Comfort setup";
   }
 
-  if (bikeTitle === "Canyon Grail CF SL 7") {
+  if (bikeTitle === "Grail CF SL 7") {
     return lang === "de" ? "Gravel Setup" : "Gravel setup";
   }
 
