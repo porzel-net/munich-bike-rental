@@ -58,6 +58,7 @@ type FormTranslations = {
   submit: string;
   sending: string;
   success: string;
+  orderNumberLabel: string;
   error: string;
   validation: {
     contactHint: string;
@@ -631,6 +632,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
   useEffect(() => {
     const applyPendingBike = (bikeTitle: string | null) => {
@@ -702,6 +704,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     setContactStatus("sending");
     setFieldErrors({});
     setSubmitError(null);
+    setOrderNumber(null);
 
     try {
       const response = await fetch("/api/contact", {
@@ -722,7 +725,12 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         }),
       });
 
-      const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; code?: string } | null;
+      const result = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        orderNumber?: string;
+      } | null;
 
       if (!response.ok || !result?.ok) {
         const validationTexts = translations.form.validation;
@@ -753,6 +761,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setPrivacyAccepted(false);
       setFieldErrors({});
       setSubmitError(null);
+      setOrderNumber(result?.orderNumber ?? null);
       setContactStatus("success");
 
       if (analyticsAllowed) {
@@ -961,7 +970,16 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         <img src="/assets/img/svg/right-arrow.svg" alt="" />
       </button>
 
-      {contactStatus === "success" ? <p className="contact-form__status is-success">{translations.form.success}</p> : null}
+      {contactStatus === "success" ? (
+        <div className="contact-form__status is-success">
+          <p>{translations.form.success}</p>
+          {orderNumber ? (
+            <p>
+              {translations.form.orderNumberLabel}: {orderNumber}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {contactStatus === "error" ? (
         <p className="contact-form__status is-error">{submitError ?? translations.form.error}</p>
       ) : null}

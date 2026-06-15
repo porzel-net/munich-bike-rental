@@ -436,6 +436,7 @@ export const translations = {
       subject: "Fahrradanfrage",
       sending: "Senden...",
       success: "Danke, deine Anfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail oder WhatsApp.",
+      orderNumberLabel: "Auftragsnummer",
       error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
       validation: {
         contactHint: "Format: name@domain.de oder +49 152 12345678",
@@ -557,6 +558,7 @@ export const translations = {
       subject: "Bike inquiry",
       sending: "Sending...",
       success: "Thanks, your inquiry has been sent. We will reply within 24 hours by email or WhatsApp.",
+      orderNumberLabel: "Order number",
       error: "The message could not be sent. Please try again.",
       validation: {
         contactHint: "Format: name@domain.com or +49 152 12345678",

@@ -28,6 +28,27 @@ function sanitizeLine(value: string, maxLength = 200) {
   return value.replace(/[\r\n]+/g, " ").trim().slice(0, maxLength);
 }
 
+function createOrderNumber(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const values = parts.reduce<Record<string, string>>((acc, part) => {
+    if (part.type !== "literal") {
+      acc[part.type] = part.value;
+    }
+
+    return acc;
+  }, {});
+
+  return `#${values.year}${values.month}${values.day}${values.second}`;
+}
+
 function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -66,11 +87,13 @@ function getExpectedOrigin(request: Request) {
 
 function createMailBody(
   payload: Required<
-    Pick<
+      Pick<
       ContactPayload,
       "name" | "contact" | "height" | "bikeSize" | "periodFrom" | "periodTo" | "message" | "bikeTitle" | "locale"
     >
-  >,
+  > & {
+    orderNumber: string;
+  },
 ) {
   const periodLine =
     payload.periodFrom && payload.periodTo
@@ -81,6 +104,7 @@ function createMailBody(
     return [
       "Neue Bike-Anfrage",
       "",
+      `Auftragsnummer: ${payload.orderNumber}`,
       `Name: ${payload.name}`,
       `Kontakt: ${payload.contact}`,
       `Körpergröße: ${payload.height}`,
@@ -96,6 +120,7 @@ function createMailBody(
   return [
     "New bike inquiry",
     "",
+    `Order number: ${payload.orderNumber}`,
     `Name: ${payload.name}`,
     `Contact: ${payload.contact}`,
     `Height: ${payload.height}`,
@@ -179,6 +204,7 @@ export async function POST(request: Request) {
     const smtpSecure = process.env.SMTP_SECURE === "true";
     const fromAddress = process.env.MAIL_FROM_ADDRESS ?? "anfrage@munich-bike-rental.de";
     const toAddress = process.env.MAIL_TO_ADDRESS ?? "hallo@munich-bike-rental.de";
+    const orderNumber = createOrderNumber();
 
     if (!smtpHost || !smtpUser || !smtpPassword) {
       return jsonError(500, "config_incomplete", "Mail configuration is incomplete");
@@ -198,7 +224,14 @@ export async function POST(request: Request) {
       from: `Munich Rental <${fromAddress}>`,
       to: toAddress,
       replyTo: contactIsEmail ? contact : undefined,
-      subject: bikeTitle ? `Bike inquiry - ${bikeTitle}` : "Bike inquiry",
+      subject:
+        locale === "de"
+          ? bikeTitle
+            ? `Neue Bike-Anfrage ${orderNumber} - ${bikeTitle}`
+            : `Neue Bike-Anfrage ${orderNumber}`
+          : bikeTitle
+            ? `New bike inquiry ${orderNumber} - ${bikeTitle}`
+            : `New bike inquiry ${orderNumber}`,
       text: createMailBody({
         name,
         contact,
@@ -209,10 +242,11 @@ export async function POST(request: Request) {
         message,
         bikeTitle,
         locale,
+        orderNumber,
       }),
     });
 
-    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, orderNumber }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return jsonError(500, "send_failed", "Unable to send message");
   }
