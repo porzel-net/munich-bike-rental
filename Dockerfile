@@ -2,18 +2,19 @@ ARG SITE_URL=https://www.munich-bike-rental.de
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
-RUN npm install -g npm@11.11.0
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+RUN corepack enable && corepack prepare pnpm@11.5.3 --activate
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
 
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 ARG SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SITE_URL=${SITE_URL}
+RUN corepack enable && corepack prepare pnpm@11.5.3 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
