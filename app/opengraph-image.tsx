@@ -4,7 +4,7 @@ import { siteConfig } from "../lib/site";
 
 export const runtime = "edge";
 
-export const alt = `${siteConfig.name} - Rennradverleih in München`;
+export const alt = `${siteConfig.name} - Rennrad-, Gravel- und Aero-Bike-Verleih in München`;
 export const size = {
   width: 1200,
   height: 630,
@@ -66,7 +66,7 @@ export default function OpenGraphImage() {
                 letterSpacing: "-0.03em",
               }}
             >
-              Rennradverleih in München
+              Bike-Verleih in München
             </div>
             <div
               style={{
@@ -76,7 +76,7 @@ export default function OpenGraphImage() {
                 maxWidth: "680px",
               }}
             >
-              Gepflegte Rennraeder, direkter Kontakt und klare Preise aus Maxvorstadt.
+              Endurance-, Gravel- und Aero-Bikes, direkter Kontakt und klare Preise aus Maxvorstadt.
             </div>
           </div>
 

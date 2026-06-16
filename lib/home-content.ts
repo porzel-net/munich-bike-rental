@@ -88,8 +88,8 @@ export const services: ServiceItem[] = [
   {
     title: "Was wir machen",
     text: {
-      de: "Wir sind ein persönlicher Rennradverleih in München und verleihen ausschließlich unsere eigenen Rennräder, damit jedes Rad sofort startklar ist.",
-      en: "We rent out only our own bikes in Munich and make sure every bike is ready to go right away.",
+      de: "Wir sind ein persönlicher Bike-Verleih in München und verleihen ausschließlich unsere eigenen Endurance-, Gravel-, Allround- und Aero-Bikes, damit jedes Rad sofort startklar ist.",
+      en: "We rent out only our own endurance, gravel, all-round and aero bikes in Munich and make sure every bike is ready to go right away.",
     },
   },
   {
@@ -114,8 +114,8 @@ export const portfolioItems: PortfolioItem[] = [
     subtitle: { de: "S / M / L", en: "S / M / L" },
     price: { de: "59€/Tag", en: "59€/day" },
     description: {
-      de: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
-      en: "Balanced road bike for fast, long rides and relaxed outings with plenty of comfort.",
+      de: "Ausgewogenes Endurance-Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
+      en: "Balanced endurance road bike for fast, long rides and relaxed outings with plenty of comfort.",
     },
     image: enduracePreview,
     gallery: [enduraceReal1, enduraceReal2],
@@ -176,8 +176,8 @@ export const portfolioItems: PortfolioItem[] = [
     subtitle: { de: "M / L", en: "M / L" },
     price: { de: "59€/Tag", en: "59€/day" },
     description: {
-      de: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
-      en: "Light all-round bike for sporty rides, training and quick city trips.",
+      de: "Leichtes Allround-Rennrad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
+      en: "Light all-round road bike for sporty rides, training and quick city trips.",
     },
     image: ultimatePreview,
     gallery: [ultimateReal1, ultimateReal2, ultimateReal3],
@@ -209,8 +209,8 @@ export const portfolioItems: PortfolioItem[] = [
     subtitle: { de: "S / M", en: "S / M" },
     price: { de: "79€/Tag", en: "79€/day" },
     description: {
-      de: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
-      en: "Aero bike for maximum speed on the road and a direct, sporty ride feel.",
+      de: "Aero-Rennrad für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
+      en: "Aero road bike for maximum speed on the road and a direct, sporty ride feel.",
     },
     image: aeroadPreview,
     gallery: [aeroadReal1, aeroadReal2, aeroadReal3, aeroadReal4],
@@ -353,9 +353,9 @@ export const translations = {
     menuButton: "Menü öffnen",
     location: "München - Maxvorstadt",
     hero: {
-      title: "Rennradverleih in München",
+      title: "Bike-Verleih in München",
       intro:
-        "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt und verleihen gepflegte Rennräder, Carbon-Rennräder, Gravelbikes und sportliche Straßenräder für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
+        "Wir sind ein persönlicher Bike-Verleih in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
       stats: [
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
@@ -382,12 +382,12 @@ export const translations = {
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro: "Klare Preise für deinen Rennradverleih in München, dazu Mo-Do-Rabatt und Zubehör für deine Tour. Erhalte insgesamt bis zu 25% Rabatt pro Tag!",
+      intro: "Klare Preise für deinen Bike-Verleih in München, dazu Mo-Do-Rabatt, Langzeitrabatt und Studentenrabatt sowie Zubehör ab 5€.",
     },
     faq: {
       eyebrow: "FAQ",
       title: "Häufige Fragen",
-      intro: "Die wichtigsten Punkte zum Rennradverleih, zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.",
+      intro: "Die wichtigsten Punkte zum Bike-Verleih, zur Anfrage, Abholung und Absicherung haben wir hier gesammelt.",
     },
     contact: {
       eyebrow: "Kontakt",
@@ -475,9 +475,9 @@ export const translations = {
     menuButton: "Open menu",
     location: "Munich - Maxvorstadt",
     hero: {
-      title: "Road bike rental in Munich",
+      title: "Bike rental in Munich",
       intro:
-        "We are a personal road and gravel bike rental in Munich-Maxvorstadt and rent out well-maintained road bikes, carbon road bikes, gravel bikes and sporty bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice and clear pricing.",
+        "We are a personal bike rental in Munich-Maxvorstadt and rent out well-maintained endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice and clear pricing.",
       scroll: "Scroll to the bikes",
       stats: [
         { value: "2", top: "Owners", bottom: "with bike passion" },
@@ -504,12 +504,12 @@ export const translations = {
     price: {
       eyebrow: "Prices",
       title: "Rental & rates",
-      intro: "Clear prices for your road bike rental in Munich, plus Mon-Thu discounts and accessories for your ride. Get up to 25% off per day!",
+      intro: "Clear prices for your bike rental in Munich, plus Mon-Thu, long-rental and student discounts as well as accessories from 5€.",
     },
     faq: {
       eyebrow: "FAQ",
       title: "Frequently asked questions",
-      intro: "Here we've gathered the most important points about road bike rental, inquiries, pickup and coverage.",
+      intro: "Here we've gathered the most important points about bike rental, inquiries, pickup and coverage.",
     },
     contact: {
       eyebrow: "Contact",

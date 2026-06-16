@@ -67,7 +67,7 @@ export default async function Home({ searchParams }: PageProps) {
             <h1 className="hero__title">
               {lang === "de" ? (
                 <>
-                  Rennrad
+                  Bike
                   <span className="hero__title-line">verleih in München</span>
                 </>
               ) : (
@@ -100,7 +100,7 @@ export default async function Home({ searchParams }: PageProps) {
             <div className="hero-frame">
               <Image
                 src={mainImage}
-                alt="Munich Rental Rennradverleih mit gepflegten Rennraedern in Muenchen"
+                alt="Munich Rental Bike-Verleih mit gepflegten Endurance-, Gravel- und Aero-Bikes in Muenchen"
                 className="hero-frame__image"
                 fill
                 preload

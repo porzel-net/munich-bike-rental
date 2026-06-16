@@ -1,55 +1,49 @@
+import { faqItems, portfolioItems, priceItems } from "./home-content";
 import { siteConfig } from "./site";
 
-const bikes = [
-  {
-    name: "Endurace CF SL 8 Di2",
-    size: "S / M / L",
-    price: "59 EUR/day",
-    summary:
-      "Balanced road bike for fast long rides and comfortable touring in and around Munich.",
-  },
-  {
-    name: "Grail CF SL 7",
-    size: "S / M / L",
-    price: "59 EUR/day",
-    summary:
-      "Carbon gravel bike for mixed routes, longer rides and riders who want a versatile setup.",
-  },
-  {
-    name: "Ultimate CF SL 7 eTap AXS",
-    size: "M / L",
-    price: "59 EUR/day",
-    summary:
-      "Light all-round bike for training rides, sporty city use and quick weekend trips.",
-  },
-  {
-    name: "Aeroad CF SL 8 Disc",
-    size: "S / M",
-    price: "79 EUR/day",
-    summary:
-      "Aero road bike for maximum speed and a direct, race-oriented ride feel.",
-  },
-];
+function toUsdStylePrice(value: string) {
+  return value.replaceAll("€", " EUR");
+}
 
-const faq = [
-  [
-    "How does booking work?",
-    "Customers send a request through the contact form first. Depending on the details provided, the follow-up happens by email or WhatsApp and the rental period, pickup and price are then confirmed directly.",
-  ],
-  [
-    "Where is pickup?",
-    "Pickup is in Munich-Maxvorstadt and the exact process is coordinated after the inquiry.",
-  ],
-  [
-    "Are the bikes insured?",
-    "Yes. The site states that all bikes are covered by commercial insurance.",
-  ],
-];
+function formatBikeLine(index: number) {
+  const bike = portfolioItems[index];
+  return `- ${bike.title} (${bike.subtitle.en}) - ${toUsdStylePrice(bike.price.en)}. ${bike.description.en}`;
+}
+
+function formatFullBikeSection(index: number) {
+  const bike = portfolioItems[index];
+  const facts = bike.facts
+    .map((fact) => `- ${fact.label.en}: ${fact.value.en}`)
+    .join("\n");
+  const equipment = bike.equipment.en.map((item) => `- ${item}`).join("\n");
+
+  return [
+    `### ${bike.title}`,
+    "",
+    `- Sizes: ${bike.subtitle.en}`,
+    `- Price: ${toUsdStylePrice(bike.price.en)}`,
+    `- Summary: ${bike.description.en}`,
+    `- Key details:`,
+    facts,
+    `- Equipment:`,
+    equipment,
+  ].join("\n");
+}
+
+function formatFaqLine(index: number) {
+  const item = faqItems[index];
+  return `- ${item.question.en} ${item.answer.en}`;
+}
+
+function formatFullFaqSection(index: number) {
+  const item = faqItems[index];
+  return [`- ${item.question.en}`, `  - ${item.answer.en}`].join("\n");
+}
 
 export function buildLlmsTxt() {
   return `# ${siteConfig.name}
 
-> Personal bike rental in Munich-Maxvorstadt. The site offers well-maintained road and gravel bikes, direct contact, clear pricing and a simple reservation flow.
+> Personal bike rental in Munich-Maxvorstadt with owned endurance, gravel, all-round and aero bikes, direct contact and clear pricing.
 
 This website is for a local bicycle rental service. The most useful pages are the home page, the legal pages, and the contact section. If you need location, prices, or bike details, use the home page sections below.
 
@@ -69,16 +63,11 @@ This website is for a local bicycle rental service. The most useful pages are th
 - Phone: ${siteConfig.phone}
 - Website: ${siteConfig.url}
 - Positioning: personal, owner-run bike rental with only owned bikes
-- Primary audience: people looking to rent a road or gravel bike in Munich
+- Primary audience: people looking to rent an endurance, gravel, all-round or aero bike in Munich
 
 ## Bikes
 
-${bikes
-  .map(
-    (bike) =>
-      `- ${bike.name} (${bike.size}) - ${bike.price}. ${bike.summary}`
-  )
-  .join("\n")}
+${portfolioItems.map((_, index) => formatBikeLine(index)).join("\n")}
 
 ## Rental and contact
 
@@ -89,7 +78,7 @@ ${bikes
 
 ## FAQ
 
-${faq.map(([question, answer]) => `- ${question} ${answer}`).join("\n")}
+${faqItems.map((_, index) => formatFaqLine(index)).join("\n")}
 
 ## Notes for assistants
 
@@ -106,7 +95,7 @@ export function buildLlmsFullTxt() {
 
 ## Overview
 
-${siteConfig.name} is a local bike rental business in Munich-Maxvorstadt. The site focuses on road bikes, direct booking, clear pricing, and a personal owner-run experience.
+${siteConfig.name} is a local bike rental business in Munich-Maxvorstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
 
 The project uses a single-page home experience with sections for bikes, prices, FAQ and contact, plus legal pages for imprint and privacy policy.
 
@@ -118,7 +107,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 - Phone: ${siteConfig.phone}
 - Address: ${siteConfig.address.streetAddress}, ${siteConfig.address.postalCode} ${siteConfig.address.addressLocality}
 - Business model: rental of owned bicycles only
-- Main product type: road bikes
+- Main product type: bike rental with endurance, gravel, all-round and aero road bikes
 
 ## Important pages
 
@@ -136,55 +125,21 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - carefully maintained bikes
 - only owned bikes, not third-party inventory
 - simple reservation flow
-- road and gravel bike options
+- endurance, gravel, all-round and aero bike options
 
 ## Bikes and pricing
 
-### Endurace CF SL 8 Di2
-
-- Sizes: S / M / L
-- Price: 59 EUR/day
-- Summary: balanced road bike for fast long rides and comfortable touring
-- Key details on site: Shimano Ultegra Di2, hydraulic disc brakes, DT Swiss wheels
-
-### Grail CF SL 7
-
-- Sizes: S / M / L
-- Price: 59 EUR/day
-- Summary: carbon gravel bike for mixed routes and longer rides
-- Key details on site: Carbon frame, GRX 800 groupset, Shimano GRX 600 hydraulic disc brakes, DT Swiss GR1600 Spline wheels, Schwalbe G-One R Evo tires
-
-### Ultimate CF SL 7 eTap AXS
-
-- Sizes: M / L
-- Price: 59 EUR/day
-- Summary: lightweight all-round bike for training and sporty city rides
-- Key details on site: SRAM Rival eTap AXS 2x12, hydraulic disc brakes, DT Swiss wheels
-
-### Aeroad CF SL 8 Disc
-
-- Sizes: S / M
-- Price: 79 EUR/day
-- Summary: aero bike for maximum speed and a race-oriented ride feel
-- Key details on site: Shimano Ultegra R8000 2x11, DT Swiss ARC 1600 wheels
+${portfolioItems.map((_, index) => formatFullBikeSection(index)).join("\n\n")}
 
 ## Prices and discounts
 
-- Road bikes start from 59 EUR.
-- Gravel bike starts from 59 EUR.
-- Weekend discount: 10 percent.
-- From 3 days: 20 percent.
-- Student discount: 10 percent.
-- Accessories start from 5 EUR.
+${priceItems
+  .map((item) => `- ${item.title.en}: ${toUsdStylePrice(item.cost.en)}`)
+  .join("\n")}
 
 ## FAQ summary
 
-${faq
-  .map(
-    ([question, answer]) =>
-      `- ${question}\n  - ${answer}`
-  )
-  .join("\n\n")}
+${faqItems.map((_, index) => formatFullFaqSection(index)).join("\n\n")}
 
 ## Contact flow
 

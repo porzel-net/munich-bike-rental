@@ -1,46 +1,18 @@
 import type { Locale } from "./home-content";
+import { portfolioItems } from "./home-content";
 import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
 
-const offerCatalog = [
-  {
-    "@type": "Offer",
-    position: 1,
-    name: "Endurace CF SL 8 Di2",
-    description: "Ausgewogenes Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
-    price: 59,
-    priceCurrency: "EUR",
-    availability: "https://schema.org/InStock",
-  },
-  {
-    "@type": "Offer",
-    position: 2,
-    name: "Grail CF SL 7",
-    description: "Carbon-Gravelbike mit GRX 800, Shimano GRX 600 hydraulischen Scheibenbremsen, DT Swiss GR1600 Spline Laufrädern und Schwalbe G-One R Evo Reifen für gemischte Strecken und längere Ausfahrten.",
-    price: 59,
-    priceCurrency: "EUR",
-    availability: "https://schema.org/InStock",
-  },
-  {
-    "@type": "Offer",
-    position: 3,
-    name: "Ultimate CF SL 7 eTap AXS",
-    description: "Leichtes Allround-Rad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
-    price: 59,
-    priceCurrency: "EUR",
-    availability: "https://schema.org/InStock",
-  },
-  {
-    "@type": "Offer",
-    position: 4,
-    name: "Aeroad CF SL 8 Disc",
-    description: "Aero-Bike für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
-    price: 79,
-    priceCurrency: "EUR",
-    availability: "https://schema.org/InStock",
-  },
-];
+const offerCatalog = portfolioItems.map((item, index) => ({
+  "@type": "Offer",
+  position: index + 1,
+  name: item.title,
+  description: item.description.de,
+  price: Number(item.price.de.replace(/[^\d,.-]/g, "").replace(",", ".")),
+  priceCurrency: "EUR",
+  availability: "https://schema.org/InStock",
+}));
 
 const faqEntries = [
   {
@@ -91,7 +63,7 @@ export function getHomeStructuredDataJson() {
         image: `${siteConfig.url}/assets/img/hero/1.jpg`,
         priceRange: siteConfig.priceRange,
         areaServed: siteConfig.areaServed,
-        serviceType: "Rennrad- und Gravelbike-Verleih",
+        serviceType: "Rennrad-, Gravel- und Aero-Bike-Verleih",
         address: {
           "@type": "PostalAddress",
           streetAddress: siteConfig.address.streetAddress,
@@ -102,7 +74,7 @@ export function getHomeStructuredDataJson() {
         },
         hasOfferCatalog: {
           "@type": "OfferCatalog",
-          name: "Rennradverleih Angebote",
+          name: "Bike Rental Angebote",
           itemListElement: offerCatalog,
         },
       },
