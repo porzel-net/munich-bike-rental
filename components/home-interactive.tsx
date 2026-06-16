@@ -619,7 +619,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 }
 
 export function ContactForm({ lang, translations }: ContactFormProps) {
-  const { trackLead, analyticsAllowed } = useConsent();
+  const { trackLead, analyticsAllowed, saveAll } = useConsent();
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [height, setHeight] = useState("");
@@ -951,7 +951,11 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           type="checkbox"
           checked={privacyAccepted}
           onChange={(event) => {
-            setPrivacyAccepted(event.target.checked);
+            const nextValue = event.target.checked;
+            setPrivacyAccepted(nextValue);
+            if (nextValue) {
+              saveAll();
+            }
             clearFieldError("privacy");
           }}
           aria-invalid={Boolean(fieldErrors.privacy)}
