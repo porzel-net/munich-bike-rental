@@ -34,6 +34,8 @@ function createOrderNumber(date = new Date()) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     second: "2-digit",
     hour12: false,
   }).formatToParts(date);
@@ -46,7 +48,7 @@ function createOrderNumber(date = new Date()) {
     return acc;
   }, {});
 
-  return `#${values.year}${values.month}${values.day}${values.second}`;
+  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
 }
 
 function isEmail(value: string) {
