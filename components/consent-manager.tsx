@@ -165,6 +165,16 @@ export function ConsentProvider({
           page_location: window.location.href,
         });
 
+        gtag("event", "conversion_event_submit_lead_form", {
+          event_callback: () => undefined,
+          event_timeout: 2000,
+          event_category: "contact",
+          event_label: bikeTitle || "contact_form",
+          language,
+          contact_method: contactMethod,
+          page_location: window.location.href,
+        });
+
         if (googleAdsConversionId && googleAdsConversionLabel) {
           gtag("event", "conversion", {
             send_to: `${googleAdsConversionId}/${googleAdsConversionLabel}`,
