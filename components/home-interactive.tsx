@@ -297,6 +297,8 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
       <div className="about-stack__stage" aria-hidden="true">
         {photos.map((photo, index) => {
           const position = (index - activeIndex + photos.length) % photos.length;
+          const imageClassName =
+            index === 1 ? "about-stack__image about-stack__image--taller" : "about-stack__image";
 
           return (
             <span
@@ -309,7 +311,7 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
                 fill
                 sizes="(max-width: 1100px) calc(100vw - 48px), 460px"
                 placeholder="empty"
-                className="about-stack__image"
+                className={imageClassName}
               />
             </span>
           );

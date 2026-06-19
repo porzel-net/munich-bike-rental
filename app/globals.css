@@ -661,8 +661,14 @@ button {
 }
 
 .about-stack__image {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center;
+}
+
+.about-stack__image--taller {
+  object-position: center top;
 }
 
 .about-stack__veil {
