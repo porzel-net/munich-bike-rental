@@ -60,7 +60,7 @@ export type PortfolioItem = {
 };
 
 export type ServiceItem = {
-  title: string;
+  title: LocalizedText;
   text: LocalizedText;
 };
 
@@ -79,28 +79,28 @@ export const footerLinks = [
 
 export const services: ServiceItem[] = [
   {
-    title: "Wer wir sind",
+    title: { de: "Wer wir sind", en: "Who we are" },
     text: {
       de: "Wir sind Julius und Justus, beide 20 Jahre alt, und stecken unsere ganze Fahrradleidenschaft in den Verleih.",
       en: "We are Julius and Justus, both 20 years old, and we put all our cycling passion into the rental.",
     },
   },
   {
-    title: "Was wir machen",
+    title: { de: "Was wir machen", en: "What we do" },
     text: {
       de: "Wir sind ein persönlicher Bike-Verleih in München und verleihen ausschließlich unsere eigenen Endurance-, Gravel-, Allround- und Aero-Bikes, damit jedes Rad sofort startklar ist.",
       en: "We rent out only our own endurance, gravel, all-round and aero bikes in Munich and make sure every bike is ready to go right away.",
     },
   },
   {
-    title: "Warum wir",
+    title: { de: "Warum wir", en: "Why us" },
     text: {
       de: "Weil man lieber zu uns Studenten geht, die sich aus Leidenschaft um die Fahrräder kümmern, statt ein Bike bei einem großen Konzern zu mieten.",
       en: "Because it feels better to rent from two students who care for the bikes with real passion instead of going to a large corporation.",
     },
   },
   {
-    title: "Wofür wir stehen",
+    title: { de: "Wofür wir stehen", en: "What we stand for" },
     text: {
       de: "Perfekt gepflegte Rennräder, Zuverlässigkeit und ehrlicher persönlicher Kontakt statt anonymer Massenverleih.",
       en: "Perfectly maintained bikes, reliability and honest personal contact instead of anonymous mass rental.",

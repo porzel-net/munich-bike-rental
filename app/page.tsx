@@ -3,7 +3,7 @@ import Link from "next/link";
 import mainImage from "../main.png";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
-import { ContactForm, HomeTopbar, PortfolioSection } from "../components/home-interactive";
+import { AboutImageStack, ContactForm, HomeTopbar, PortfolioSection } from "../components/home-interactive";
 import { BlogPreviewCard } from "../components/blog-content";
 import {
   contactItems,
@@ -103,7 +103,6 @@ export default async function Home({ searchParams }: PageProps) {
                 alt="Munich Rental Bike-Verleih mit gepflegten Endurance-, Gravel- und Aero-Bikes in Muenchen"
                 className="hero-frame__image"
                 fill
-                preload
                 placeholder="blur"
                 sizes="(max-width: 540px) 340px, (max-width: 1100px) 420px, 470px"
               />
@@ -159,16 +158,24 @@ export default async function Home({ searchParams }: PageProps) {
 
       <section id="about" className="section section--about">
         <div className="container">
-          <SectionHeading eyebrow={t.about.eyebrow} title={t.about.title} />
+          <div className="about-grid">
+            <div className="about-grid__copy">
+              <SectionHeading eyebrow={t.about.eyebrow} title={t.about.title} />
 
-          <ul className="hero-profile hero-profile--section">
-            {services.map((service) => (
-              <li key={service.title} className="hero-profile__item">
-                <span className="hero-profile__label">{service.title}</span>
-                <span className="hero-profile__text">{service.text[lang]}</span>
-              </li>
-            ))}
-          </ul>
+              <ul className="hero-profile hero-profile--section">
+                {services.map((service) => (
+                  <li key={service.title.de} className="hero-profile__item">
+                    <span className="hero-profile__label">{service.title[lang]}</span>
+                    <span className="hero-profile__text">{service.text[lang]}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="about-grid__visual">
+              <AboutImageStack lang={lang} />
+            </div>
+          </div>
         </div>
       </section>
 

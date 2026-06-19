@@ -60,6 +60,35 @@ function isPhoneNumber(value: string) {
   return /^[+\d][\d\s()./-]{5,}$/.test(value);
 }
 
+function parseBoolean(value: string | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return undefined;
+}
+
+function parseTimeoutMs(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const timeoutSeconds = Number(value);
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+    return undefined;
+  }
+
+  return Math.round(timeoutSeconds * 1000);
+}
+
 function jsonError(status: number, code: string, error: string) {
   return NextResponse.json({ ok: false, code, error }, { status, headers: { "Cache-Control": "no-store" } });
 }
@@ -213,7 +242,12 @@ export async function POST(request: Request) {
     const smtpPort = Number(process.env.SMTP_PORT ?? "587");
     const smtpUser = process.env.SMTP_USER;
     const smtpPassword = process.env.SMTP_PASSWORD;
-    const smtpSecure = process.env.SMTP_SECURE === "true";
+    const smtpSecure =
+      parseBoolean(process.env.SMTP_SECURE) ??
+      parseBoolean(process.env.MAIL_USE_SSL) ??
+      smtpPort === 465;
+    const smtpRequireTls = parseBoolean(process.env.MAIL_USE_STARTTLS) ?? !smtpSecure;
+    const smtpTimeout = parseTimeoutMs(process.env.MAIL_TIMEOUT_SECONDS);
     const fromAddress = process.env.MAIL_FROM_ADDRESS ?? "anfrage@munich-bike-rental.de";
     const toAddress = process.env.MAIL_TO_ADDRESS ?? "hallo@munich-bike-rental.de";
     const orderNumber = createOrderNumber();
@@ -226,6 +260,10 @@ export async function POST(request: Request) {
       host: smtpHost,
       port: smtpPort,
       secure: smtpSecure,
+      requireTLS: smtpRequireTls,
+      connectionTimeout: smtpTimeout,
+      greetingTimeout: smtpTimeout,
+      socketTimeout: smtpTimeout,
       auth: {
         user: smtpUser,
         pass: smtpPassword,

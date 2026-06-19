@@ -111,6 +111,10 @@ type ContactFormProps = {
   translations: SharedTranslations;
 };
 
+type AboutImageStackProps = {
+  lang: Locale;
+};
+
 type ContactStatus = "idle" | "sending" | "success" | "error";
 
 type ContactField = "name" | "contact" | "height" | "bikeSize" | "periodFrom" | "periodTo" | "message" | "privacy";
@@ -248,6 +252,73 @@ function SectionHeading({
         {title}
       </h2>
     </div>
+  );
+}
+
+export function AboutImageStack({ lang }: AboutImageStackProps) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const photos = [
+    {
+      src: "/assets/img/about/about-2.png",
+      alt: {
+        de: "Munich Rental beim gemeinsamen Abend",
+        en: "Munich Rental at a shared evening event",
+      },
+    },
+    {
+      src: "/assets/img/about/about-3.png",
+      alt: {
+        de: "Munich Rental auf der Rennradausfahrt",
+        en: "Munich Rental on a road bike ride",
+      },
+    },
+    {
+      src: "/assets/img/about/about-1.png",
+      alt: {
+        de: "Zwei Gründer mit Rädern vor dem Haus",
+        en: "Two founders with bikes in front of the house",
+      },
+    },
+  ];
+
+  const currentPhoto = photos[activeIndex];
+
+  return (
+    <button
+      type="button"
+      className="about-stack"
+      aria-label={
+        lang === "de"
+          ? `Nächstes Bild anzeigen: ${currentPhoto.alt.de}`
+          : `Show next photo: ${currentPhoto.alt.en}`
+      }
+      onClick={() => setActiveIndex((index) => (index + 1) % photos.length)}
+    >
+      <div className="about-stack__stage" aria-hidden="true">
+        {photos.map((photo, index) => {
+          const position = (index - activeIndex + photos.length) % photos.length;
+
+          return (
+            <span
+              key={photo.src}
+              className={`about-stack__sheet about-stack__sheet--${position}`}
+            >
+              <Image
+                src={photo.src}
+                alt=""
+                fill
+                sizes="(max-width: 1100px) calc(100vw - 48px), 460px"
+                placeholder="empty"
+                className="about-stack__image"
+              />
+            </span>
+          );
+        })}
+
+        <span className="about-stack__veil" />
+      </div>
+
+    </button>
   );
 }
 

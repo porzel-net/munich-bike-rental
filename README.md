@@ -52,6 +52,9 @@ APP_ORIGIN=https://www.deine-domain.tld
 SMTP_HOST=smtp.example.com
 SMTP_PORT=465
 SMTP_SECURE=true
+MAIL_USE_SSL=true
+MAIL_USE_STARTTLS=false
+MAIL_TIMEOUT_SECONDS=20
 SMTP_USER=dein-user
 SMTP_PASSWORD=dein-passwort
 MAIL_FROM_ADDRESS=anfrage@deine-domain.tld
@@ -66,6 +69,9 @@ Wichtig:
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL` und `APP_ORIGIN` müssen zur echten Domain passen
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
+- `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
+- `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht
+- `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst, wenn der Nutzer im Cookie-Banner zugestimmt hat
 - `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional und aktivieren die direkte Google-Ads-Conversion für das Lead-Event
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
