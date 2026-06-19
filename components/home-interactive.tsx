@@ -259,17 +259,17 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const photos = [
     {
-      src: "/assets/img/about/about-2.png",
-      alt: {
-        de: "Munich Rental beim gemeinsamen Abend",
-        en: "Munich Rental at a shared evening event",
-      },
-    },
-    {
       src: "/assets/img/about/about-3.png",
       alt: {
         de: "Munich Rental auf der Rennradausfahrt",
         en: "Munich Rental on a road bike ride",
+      },
+    },
+    {
+      src: "/assets/img/about/about-2.png",
+      alt: {
+        de: "Munich Rental beim gemeinsamen Abend",
+        en: "Munich Rental at a shared evening event",
       },
     },
     {
