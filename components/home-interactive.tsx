@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Ruler, ShieldCheck, Weight, X } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import {
   createReservationMessage,
@@ -121,6 +121,28 @@ type ContactFormValidation = {
   fieldErrors: ContactFieldErrors;
   submitError: string | null;
 };
+
+function buildPathWithSearch({
+  pathname,
+  searchParams,
+  hash = "",
+  lang,
+}: {
+  pathname: string;
+  searchParams: ReturnType<typeof useSearchParams>;
+  hash?: string;
+  lang: Locale;
+}) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.set("lang", lang);
+  const query = params.toString();
+
+  return `${pathname}${query ? `?${query}` : ""}${hash}`;
+}
+
+function getAffiliateKey(searchParams: ReturnType<typeof useSearchParams>) {
+  return searchParams.get("al")?.trim() ?? "";
+}
 
 function getSetupLabel(lang: Locale, bikeTitle: string) {
   if (bikeTitle === "Endurace CF SL 8 Di2") {
@@ -370,8 +392,11 @@ function BikeModal({
 export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
-  const homeHref = (hash: string) => (pathname === "/" ? hash : `/?lang=${lang}${hash}`);
+  const homeHref = (hash: string) =>
+    pathname === "/" ? hash : buildPathWithSearch({ pathname: "/", searchParams, hash, lang });
+  const pageHref = (path: string) => buildPathWithSearch({ pathname: path, searchParams, lang });
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -383,7 +408,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   }, [menuOpen]);
 
   const navigateToLanguage = (nextLang: Locale) => {
-    const search = new URLSearchParams(window.location.search);
+    const search = new URLSearchParams(searchParams.toString());
     search.set("lang", nextLang);
     const nextUrl = `${pathname}?${search.toString()}${window.location.hash}`;
     router.push(nextUrl);
@@ -391,7 +416,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   };
 
   return (
-      <header className="topbar">
+    <header className="topbar">
       <div className="container topbar__inner">
         <a className="brand" href={homeHref("#home")} aria-label="Munich Rental home">
           <span className="brand__text">Munich Rental</span>
@@ -426,17 +451,17 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
                 </a>
               </li>
               <li className="nav__item">
-                <Link href={`/blog?lang=${lang}`} className="nav__link">
+                <Link href={pageHref("/blog")} className="nav__link">
                   {topbar.nav.blog}
                 </Link>
               </li>
               <li className="nav__item">
-                <a href="/impressum" className="nav__link nav__link--legal">
+                <a href={pageHref("/impressum")} className="nav__link nav__link--legal">
                   {topbar.nav.imprint}
                 </a>
               </li>
               <li className="nav__item">
-                <a href="/datenschutzerklaerung" className="nav__link nav__link--legal">
+                <a href={pageHref("/datenschutzerklaerung")} className="nav__link nav__link--legal">
                   {topbar.nav.privacy}
                 </a>
               </li>
@@ -519,18 +544,18 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
-              <Link href="/blog" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <Link href={pageHref("/blog")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                 {topbar.nav.blog}
               </Link>
             </li>
             <li className="nav__item nav__item--mobile">
-              <a href="/impressum" className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a href={pageHref("/impressum")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                 {topbar.nav.imprint}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">
               <a
-                href="/datenschutzerklaerung"
+                href={pageHref("/datenschutzerklaerung")}
                 className="nav__link nav__link--mobile"
                 onClick={() => setMenuOpen(false)}
               >
@@ -620,6 +645,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 
 export function ContactForm({ lang, translations }: ContactFormProps) {
   const { trackLead, analyticsAllowed, saveAll } = useConsent();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [height, setHeight] = useState("");
@@ -633,6 +659,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const affiliateKey = getAffiliateKey(searchParams);
 
   useEffect(() => {
     const applyPendingBike = (bikeTitle: string | null) => {
@@ -722,6 +749,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           message,
           bikeTitle: pendingReservationBike ?? "",
           locale: lang,
+          affiliateKey: affiliateKey || undefined,
         }),
       });
 

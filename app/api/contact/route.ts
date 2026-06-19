@@ -18,6 +18,7 @@ type ContactPayload = {
   message?: string;
   bikeTitle?: string;
   locale?: "de" | "en";
+  affiliateKey?: string;
 };
 
 function asText(value: unknown): string {
@@ -95,12 +96,14 @@ function createMailBody(
     >
   > & {
     orderNumber: string;
+    affiliateKey?: string;
   },
 ) {
   const periodLine =
     payload.periodFrom && payload.periodTo
       ? `${payload.periodFrom} - ${payload.periodTo}`
       : payload.periodFrom || payload.periodTo || "-";
+  const affiliateLine = payload.affiliateKey ? `Affiliate-Key: ${payload.affiliateKey}` : null;
 
   if (payload.locale === "de") {
     return [
@@ -113,10 +116,13 @@ function createMailBody(
       `Rennradgröße: ${payload.bikeSize}`,
       `Zeitraum: ${periodLine}`,
       payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
+      affiliateLine,
       "",
       "Nachricht:",
       payload.message,
-    ].join("\n");
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
   }
 
   return [
@@ -129,10 +135,13 @@ function createMailBody(
     `Bike size: ${payload.bikeSize}`,
     `Rental period: ${periodLine}`,
     payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
+    affiliateLine,
     "",
     "Message:",
     payload.message,
-  ].join("\n");
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 export async function POST(request: Request) {
@@ -175,6 +184,7 @@ export async function POST(request: Request) {
     const message = asText(body?.message).slice(0, 4000);
     const bikeTitle = sanitizeLine(asText(body?.bikeTitle), 120);
     const locale = body?.locale === "en" ? "en" : "de";
+    const affiliateKey = sanitizeLine(asText(body?.affiliateKey), 120);
 
     const contactIsEmail = isEmail(contact);
     const contactIsPhone = isPhoneNumber(contact);
@@ -245,6 +255,7 @@ export async function POST(request: Request) {
         bikeTitle,
         locale,
         orderNumber,
+        affiliateKey: affiliateKey || undefined,
       }),
     });
 
