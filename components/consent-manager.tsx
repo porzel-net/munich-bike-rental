@@ -41,7 +41,15 @@ function writeConsentCookie(preferences: ConsentPreferences) {
 
 function getGtag() {
   const win = window as Window & {
-    gtag?: (...args: Array<string | number | boolean | Record<string, string | number | boolean | undefined>>) => void;
+    gtag?: (
+      ...args: Array<
+        | string
+        | number
+        | boolean
+        | (() => void)
+        | Record<string, string | number | boolean | (() => void) | undefined>
+      >
+    ) => void;
   };
 
   return win.gtag;
