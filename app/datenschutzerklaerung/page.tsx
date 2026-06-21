@@ -1,15 +1,15 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { siteConfig } from "../../lib/site";
-
 export const metadata: Metadata = {
   title: "Datenschutzerklärung",
-  description: `Datenschutzerklärung von ${siteConfig.name}.`,
+  description: "Datenschutzerklärung von Munich Bike Rental.",
   alternates: {
     canonical: "/datenschutzerklaerung",
   },
 };
+
+const companyName = "Munich Bike Rental";
 
 export default function DatenschutzerklaerungPage() {
   return (
@@ -25,9 +25,9 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>1. Allgemeines</h2>
-          <p>Geltungsbereich und Änderungen</p>
-          <p>Geltungsbereich</p>
-          <p>Diese Datenschutzerklärung betrifft nachfolgende Verarbeitungen von Munich Rental</p>
+          <h3>Geltungsbereich und Änderungen</h3>
+          <h4>Geltungsbereich</h4>
+          <p>Diese Datenschutzerklärung betrifft nachfolgende Verarbeitungen von {companyName}</p>
           <ul>
             <li>Das Internet-Angebot unter der Adresse:</li>
             <li>https://www.munich-bike-rental.de/</li>
@@ -39,19 +39,19 @@ export default function DatenschutzerklaerungPage() {
             die eingesetzten Fremdanbieter, die in eigener Verantwortung Daten verarbeiten.
           </p>
           <p>Für die Datenverarbeitung anderer Anbieter, auf die z.B. über Links verwiesen wird, gelten die dortigen Datenschutzhinweise.</p>
-          <p>Änderungen der Datenschutzerklärung</p>
+          <h3>Änderungen der Datenschutzerklärung</h3>
           <p>
             Diese Datenschutzerklärung wird von uns bei Bedarf angepasst bzw. aktualisiert. Es gilt die jeweils
             aktuell gültige Fassung.
           </p>
-          <p>Ansprechpartner und Verantwortliche</p>
-          <p>Name und Kontaktdaten des Verantwortlichen</p>
-          <p>Munich Rental</p>
+          <h3>Ansprechpartner und Verantwortliche</h3>
+          <h4>Name und Kontaktdaten des Verantwortlichen</h4>
+          <p>{companyName}</p>
           <p>Julius Porzel</p>
           <p>Josephine-Lang-Weg 3</p>
           <p>81245 München</p>
           <p>E-Mail: hallo@munich-bike-rental.de</p>
-          <p>Weitere Verantwortliche</p>
+          <h4>Weitere Verantwortliche</h4>
           <p>
             Für die Verarbeitung Ihrer personenbezogenen Daten sind noch weitere Stellen verantwortlich. Insoweit
             besteht eine gemeinsame Verantwortlichkeit gemäß Art. 26 DSGVO. Die für die Verarbeitung Ihrer Daten
@@ -59,7 +59,7 @@ export default function DatenschutzerklaerungPage() {
             Verpflichtung nach der DSGVO erfüllt. Angaben zu den weiteren gemeinsamen Verantwortlichen sowie das
             Wesentliche der getroffenen Vereinbarungen finden Sie bei der jeweiligen Datenverarbeitung.
           </p>
-          <p>Fragen zum Datenschutz</p>
+          <h4>Fragen zum Datenschutz</h4>
           <p>
             Bei Fragen zum Umgang mit Ihren personenbezogenen Daten und zur Ausübung Ihrer Rechte als Betroffener,
             können Sie sich jederzeit unter den oben genannten Kontaktdaten an unsere Datenschutzbeauftragte wenden.
@@ -68,8 +68,8 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>2. Unser Umgang mit Ihren Daten</h2>
-          <p>Bereitstellung der Webseite und Erstellung von Logfiles</p>
-          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <h3>Bereitstellung der Webseite und Erstellung von Logfiles</h3>
+          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Bei jedem Aufruf unserer Internetseite erfasst unser System automatisiert Daten und Informationen vom
             Computersystem des aufrufenden Rechners. Die Daten werden ebenfalls in den Logfiles unseres Systems
@@ -88,13 +88,13 @@ export default function DatenschutzerklaerungPage() {
             <li>Zugriffsstatus/HTTP-Statuscode</li>
           </ul>
           <p>Im Rahmen des Hostings können außerdem Sicherungskopien und Wiederherstellungsvorgänge verarbeitet werden.</p>
-          <p>Drittanbieter:</p>
+          <h4>Drittanbieter</h4>
           <p>STRATO AG</p>
           <p>Otto-Ostrowski-Straße 7,</p>
           <p>10249 Berlin</p>
           <p>Telefon: +49 (0) 30-300 146 0</p>
           <p>E-Mail: impressum@strato.de</p>
-          <p>Webdesigner, als Auftragsverarbeiter:</p>
+          <h4>Webdesigner, als Auftragsverarbeiter</h4>
           <p>Julius Porzel</p>
           <p>Josephine-Lang-Weg 3</p>
           <p>81245 München</p>
@@ -102,8 +102,8 @@ export default function DatenschutzerklaerungPage() {
           <p>101 Townsend St.</p>
           <p>San Francisco, CA 94107, USA</p>
           <p>Weitere Informationen zu den eingesetzten Cloudflare-Diensten finden Sie in Abschnitt 4.</p>
-          <p>Datenschutz</p>
-          <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
+          <h4>Datenschutz</h4>
+          <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
             Die genannten Datenverarbeitungen sind technisch notwendig, um angeforderte Inhalte von Webseiten korrekt
             auszuliefern und fallen bei Nutzung des Internets zwingend an.
@@ -124,7 +124,7 @@ export default function DatenschutzerklaerungPage() {
             Wir behalten uns vor, die Server-Logfiles nachträglich zu überprüfen, sollten konkrete Anhaltspunkte auf
             eine rechtswidrige Nutzung hinweisen.
           </p>
-          <p>c) Dauer der Speicherung und Widerspruchsmöglichkeit</p>
+          <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>Die Daten werden nach 7 Tagen gelöscht.</p>
           <p>
             Die Erfassung der Daten zur Bereitstellung der Website und die Speicherung der Daten in Logfiles ist für
@@ -140,7 +140,7 @@ export default function DatenschutzerklaerungPage() {
             Bei Cookies handelt es sich um Textdateien, die im Internetbrowser bzw. vom Internetbrowser auf dem
             Endgerät des Nutzers gespeichert werden.
           </p>
-          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Von uns verwendete Cookies sind technisch notwendige Session-Cookies sowie ein Consent-Cookie, mit dem
             Ihre Auswahl im Cookie-Banner gespeichert wird. Durch Session-Cookies werden Informationen über die
@@ -154,13 +154,13 @@ export default function DatenschutzerklaerungPage() {
             sind im Abschnitt „Schutz- und Routingdienste“ zu finden. Cookies oder ähnliche Technologien von Google
             Analytics werden erst nach Ihrer ausdrücklichen Einwilligung geladen.
           </p>
-          <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
+          <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>Technisch notwendige Cookies sind zwingend erforderlich, um die Website anzuzeigen und Ihre Auswahl zu speichern.</p>
           <p>
             Rechtsgrundlage für die vorübergehende Speicherung der Daten ist Art. 6 Abs. 1 lit. f DSGVO
             (berechtigtes Interesse) bzw. bei optionalen Cookies Art. 6 Abs. 1 lit. a DSGVO (Einwilligung).
           </p>
-          <p>c) Dauer der Speicherung und Widerspruchsmöglichkeit</p>
+          <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>
             Session-Cookies werden nach Ende Ihres Besuchs der Webseite automatisch gelöscht. Technisch notwendige
             Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren werden nur so lange gespeichert,
@@ -175,7 +175,7 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>4. Schutz- und Routingdienste</h2>
-          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Diese Website wird über STRATO gehostet. Zusätzlich können, soweit technisch aktiviert, Dienste von
             Cloudflare als DNS-, Reverse-Proxy-, SSL/TLS-, WAF-, DDoS-Schutz-, Routing-, Cache-, CDN-,
@@ -214,7 +214,7 @@ export default function DatenschutzerklaerungPage() {
               https://www.cloudflare.com/gdpr/subprocessors/cloudflare-services/
             </a>
           </p>
-          <p>b) Rechtsgrundlage für die Datenverarbeitung ist</p>
+          <h4>b) Rechtsgrundlage für die Datenverarbeitung ist</h4>
           <p>
             Art. 6 Abs. 1 S. 1 lit. f DSGVO: Berechtigtes Interesse an der sicheren, stabilen und performanten
             Auslieferung der Website sowie an der Abwehr missbräuchlicher Zugriffe.
@@ -227,7 +227,7 @@ export default function DatenschutzerklaerungPage() {
             Zweck: Schutz, Routing, Auslieferung und Absicherung der Website sowie die Erkennung und Abwehr
             automatisierter Zugriffe.
           </p>
-          <p>c) Dauer der Speicherung und Widerspruchsmöglichkeit</p>
+          <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>Die Verarbeitung erfolgt nur, soweit sie für Schutz und Auslieferung der Website erforderlich ist.</p>
           <p>
             Soweit Cookies oder vergleichbare Identifikatoren gesetzt werden, können Sie Ihren Browser so einstellen,
@@ -243,8 +243,8 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>5. Weitere Technologien</h2>
-          <p>Google Analytics</p>
-          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <h3>Google Analytics</h3>
+          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Diese Website kann Google Analytics einsetzen, um die Nutzung der Internetseite auszuwerten, die
             Reichweite zu messen und den Erfolg von Anfragen nachzuvollziehen. Google Analytics wird erst geladen,
@@ -257,45 +257,45 @@ export default function DatenschutzerklaerungPage() {
             Street, Dublin 4, Irland. Eine Übermittlung in Drittländer, insbesondere in die USA, kann dabei nicht
             ausgeschlossen werden.
           </p>
-          <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
+          <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
             Rechtsgrundlage ist Ihre Einwilligung nach Art. 6 Abs. 1 S. 1 lit. a DSGVO. Zweck ist die Analyse des
             Nutzerverhaltens, die Messung von Leads und die Verbesserung unserer Website und Werbemaßnahmen.
           </p>
-          <p>c) Dauer der Speicherung und Widerrufsmöglichkeit</p>
+          <h4>c) Dauer der Speicherung und Widerrufsmöglichkeit</h4>
           <p>
             Sie können Ihre Einwilligung jederzeit über die Cookie-Einstellungen widerrufen. Die Speicherdauer der
             von Google gesetzten Cookies richtet sich nach den jeweiligen Google-Einstellungen und der von Google
             verwendeten Konfiguration.
           </p>
-          <p>Verschlüsselte Übertragung</p>
+          <h3>Verschlüsselte Übertragung</h3>
           <p>
             Wir verwenden zur sicheren Übertragung der Inhalte eine Verschlüsselung (SSL bzw. TLS). Ob eine
             Internetseite verschlüsselt übertragen wird, erkennen Sie am Schloss-Symbol in der Adresszeile Ihres
             Browsers.
           </p>
-          <p>Kürzung der IP-Adresse</p>
+          <h3>Kürzung der IP-Adresse</h3>
           <p>Durch die Kürzung der IP-Adresse wird die Identifizierung der Nutzer erschwert. Soweit die Möglichkeit besteht wird diese Maßnahme von uns genutzt.</p>
-          <p>Datensicherheit</p>
+          <h3>Datensicherheit</h3>
           <p>
             Wir bedienen uns geeigneter technischer und organisatorischer Sicherheitsmaßnahmen, um die Daten gegen
             Manipulationen, Verlust, Zerstörung oder gegen den unbefugten Zugriff zu schützen. Unsere
             Sicherheitsmaßnahmen werden entsprechend der technologischen Entwicklung fortlaufend verbessert.
           </p>
-          <p>Verbindung zu anderen Webseiten über Links in Grafiken oder Text</p>
+          <h3>Verbindung zu anderen Webseiten über Links in Grafiken oder Text</h3>
           <p>Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum angegebenen Ziel.</p>
           <p>
             Externe Links, die auf Seiten außerhalb unseres Angebots führen haben wir entsprechend gekennzeichnet,
             sofern dies nicht bereits eindeutig erkennbar ist.
           </p>
-          <p>Zwischengeschaltete und weitergeleitete Links</p>
+          <h3>Zwischengeschaltete und weitergeleitete Links</h3>
           <p>
             Ein Link kann automatisch auf eine andere Webseite als die angeforderte weiterleiten oder statt direkt auf
             die neue Seite zu führen, zunächst über eine andere Seite leiten ohne dass der Benutzer davon etwas
             bemerkt. Dies wird meist dazu genutzt um unbemerkt Daten des Besuchers zu verarbeiten oder Aktionen
             auszulösen.
           </p>
-          <p>Aktive Inhalte</p>
+          <h3>Aktive Inhalte</h3>
           <p>
             Aktive Inhalte in Webseiten, sind Inhalte, die nach dem Laden direkt auf dem Gerät des Anwenders ausgeführt
             werden und somit grundsätzlich ein Sicherheitsrisiko darstellen. Zu den häufig verwendeten aktiven Inhalten
@@ -331,7 +331,7 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>7. Kontaktaufnahme über unser Online-Formular, unsere E-Mailadresse oder per Telefon</h2>
-          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Über das auf unserer Internetseite bereitgestellte Kontaktformular sowie über die bereitgestellten
             Kontaktdaten (Telefonnummer und E-Mail-Adresse) ist eine Kontaktaufnahme an uns möglich. Im
@@ -347,14 +347,14 @@ export default function DatenschutzerklaerungPage() {
             durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.
           </p>
           <p>Es erfolgt in diesem Zusammenhang keine Weitergabe der Daten an unbeteiligte Dritte.</p>
-          <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
+          <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
             Art. 6 Abs. 1 S. 1 lit. b. DSGVO: Vertragserfüllung, sofern sich die Anfrage auf den Abschluss oder die
             Durchführung eines Vertrages mit uns richtet.
           </p>
           <p>Art. 6 Abs. 1 S. 1 lit. f. DSGVO: Berechtigtes Interesse, in allen übrigen Fällen</p>
           <p>Die Daten werden ausschließlich für die Beantwortung Ihrer Anfrage verarbeitet.</p>
-          <p>c) Dauer der Speicherung und Widerspruchsmöglichkeit</p>
+          <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen Aufbewahrungspflichten bestehen.</p>
           <p>
             Für die personenbezogenen Daten, die über das Kontaktformular oder per E-Mail übersandt wurden, ist dies
@@ -376,14 +376,14 @@ export default function DatenschutzerklaerungPage() {
 
         <section>
           <h2>8. Kontaktaufnahme über WhatsApp</h2>
-          <p>a) Beschreibung und Umfang der Datenverarbeitung</p>
+          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Über den auf unserer Internetseite bereitgestellten WhatsApp-Link können Sie uns direkt über WhatsApp
             kontaktieren. Beim Anklicken des Links werden Sie zu WhatsApp weitergeleitet. WhatsApp verarbeitet
             personenbezogene Daten in eigener Verantwortlichkeit, insbesondere Telefonnummern, Nachrichteninhalte und
             Metadaten.
           </p>
-          <p>b) Rechtsgrundlage und Zweck der Datenverarbeitung</p>
+          <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>Die Angabe Ihrer personenbezogenen Daten über WhatsApp ist freiwillig.</p>
           <p>
             Die Verarbeitung Ihrer personenbezogenen Daten beruht auf Ihrer Einwilligung, soweit Sie uns über
@@ -393,7 +393,7 @@ export default function DatenschutzerklaerungPage() {
             Die Verarbeitung erfolgt außerdem zur Anbahnung und Durchführung eines Vertragsverhältnisses oder auf
             Grundlage unseres berechtigten Interesses an einer schnellen und niederschwelligen Kontaktaufnahme.
           </p>
-          <p>c) Dauer der Speicherung und Widerspruchsmöglichkeit</p>
+          <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen Aufbewahrungspflichten bestehen.</p>
           <p>
             Für die personenbezogenen Daten, die über WhatsApp übermittelt wurden, ist dies dann der Fall, wenn die
@@ -402,7 +402,7 @@ export default function DatenschutzerklaerungPage() {
           </p>
           <p>Sie können den WhatsApp-Kontakt jederzeit beenden und stattdessen andere Kontaktwege nutzen.</p>
           <p>Auf die Verarbeitung durch WhatsApp haben wir keinen Einfluss. Es gelten zusätzlich die Datenschutzhinweise von WhatsApp/Meta.</p>
-          <p>Automatisierte Einzelfallentscheidung</p>
+          <h3>Automatisierte Einzelfallentscheidung</h3>
           <p>Wir nutzen keine rein automatisierten Verarbeitungsprozesse zur Herbeiführung einer Entscheidung.</p>
         </section>
 
@@ -459,48 +459,48 @@ export default function DatenschutzerklaerungPage() {
             Als Nutzer unseres Internet-Angebots haben Sie nach der DSGVO verschiedene Rechte, die sich insbesondere
             aus Art. 15 bis 18, 21 DSGVO ergeben:
           </p>
-          <p>Recht auf Auskunft</p>
+          <h4>Recht auf Auskunft</h4>
           <p>
             Sie können Auskunft gem. Art. 15 DSGVO über Ihre von uns verarbeiteten personenbezogenen Daten verlangen.
             In Ihrem Auskunftsantrag sollten Sie Ihr Anliegen präzisieren, um uns das Zusammenstellen der
             erforderlichen Daten zu erleichtern. Bitte beachten Sie, dass Ihr Auskunftsrecht unter bestimmten
             Umständen gemäß den gesetzlichen Vorschriften (insbesondere § 34 BDSG) eingeschränkt sein kann.
           </p>
-          <p>Recht auf Berichtigung</p>
+          <h4>Recht auf Berichtigung</h4>
           <p>
             Sollten die Sie betreffenden Angaben nicht (mehr) zutreffend sein, können Sie nach Art. 16 DSGVO eine
             Berichtigung verlangen. Sollten Ihre Daten unvollständig sein, können Sie eine Vervollständigung verlangen.
           </p>
-          <p>Recht auf Löschung</p>
+          <h4>Recht auf Löschung</h4>
           <p>
             Sie können unter den Bedingungen des Art. 17 DSGVO die Löschung Ihrer personenbezogenen Daten verlangen.
             Ihr Anspruch auf Löschung hängt u. a. davon ab, ob die Sie betreffenden Daten von uns zur Erfüllung
             unserer gesetzlichen Aufgaben noch benötigt werden.
           </p>
-          <p>Recht auf Einschränkung der Verarbeitung</p>
+          <h4>Recht auf Einschränkung der Verarbeitung</h4>
           <p>
             Sie haben im Rahmen der Vorgaben des Art. 18 DSGVO das Recht, eine Einschränkung der Verarbeitung der Sie
             betreffenden Daten zu verlangen.
           </p>
-          <p>Recht auf Widerspruch</p>
+          <h4>Recht auf Widerspruch</h4>
           <p>
             Sie haben nach Art. 21 DSGVO das Recht, aus Gründen, die sich aus Ihrer besonderen Situation ergeben,
             jederzeit der Verarbeitung der Sie betreffenden Daten zu widersprechen. Allerdings können wir dem nicht
             immer nachkommen, z. B. wenn uns Rechtsvorschriften im Rahmen unserer amtlichen Aufgabenerfüllung zur
             Verarbeitung verpflichten.
           </p>
-          <p>Recht auf keine ausschließlich automatisierte Entscheidung</p>
+          <h4>Recht auf keine ausschließlich automatisierte Entscheidung</h4>
           <p>
             Sie haben das Recht nach Art. 22 DSGVO, nicht einer ausschließlich auf einer automatisierten Verarbeitung –
             einschließlich Profiling – beruhenden Entscheidung unterworfen zu werden, die Ihnen gegenüber rechtliche
             Wirkung entfaltet oder Sie in ähnlicher Weise erheblich beeinträchtigt.
           </p>
-          <p>Recht auf Beschwerde</p>
+          <h4>Recht auf Beschwerde</h4>
           <p>
             Wenn Sie der Auffassung sind, dass wir bei der Verarbeitung Ihrer Daten datenschutzrechtliche Vorschriften
             nicht beachtet haben, können Sie sich jederzeit mit einer Beschwerde an uns wenden.
           </p>
-          <p>Recht auf Beschwerde bei einer Aufsichtsbehörde</p>
+          <h4>Recht auf Beschwerde bei einer Aufsichtsbehörde</h4>
           <p>
             Unbeschadet eines anderweitigen verwaltungsrechtlichen oder gerichtlichen Rechtsbehelfs steht Ihnen das
             Recht auf Beschwerde bei einer Aufsichtsbehörde, insbesondere in dem Mitgliedstaat ihres Aufenthaltsorts,
@@ -513,7 +513,7 @@ export default function DatenschutzerklaerungPage() {
             nach Art. 78 DSGVO.
           </p>
           <p>
-            Die für Munich Rental zuständige Aufsichtsbehörde ist das Bayerische Landesamt für Datenschutzaufsicht
+            Die für {companyName} zuständige Aufsichtsbehörde ist das Bayerische Landesamt für Datenschutzaufsicht
             (BayLDA). Sie erreichen dieses unter folgenden Kontaktmöglichkeiten:
           </p>
           <p>Bayerisches Landesamt für Datenschutzaufsicht</p>

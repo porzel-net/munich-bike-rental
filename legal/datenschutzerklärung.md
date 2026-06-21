@@ -1,6 +1,6 @@
 # Datenschutz
 
-Munich Rental
+Munich Bike Rental
 Julius Porzel
 Josephine-Lang-Weg 3
 81245 München
@@ -12,7 +12,7 @@ Stand: 24.05.2026
 1. Allgemeines
 Geltungsbereich und Änderungen
 Geltungsbereich
-Diese Datenschutzerklärung betrifft nachfolgende Verarbeitungen von Munich Rental
+Diese Datenschutzerklärung betrifft nachfolgende Verarbeitungen von Munich Bike Rental
 - Das Internet-Angebot unter der Adresse:
 - https://www.munich-bike-rental.de/
 - Kontaktaufnahme über unser Online-Formular, unsere E-Mailadresse, per Telefon oder über WhatsApp
@@ -27,13 +27,13 @@ Diese Datenschutzerklärung wird von uns bei Bedarf angepasst bzw. aktualisiert.
 aktuell gültige Fassung.
 Ansprechpartner und Verantwortliche
 Name und Kontaktdaten des Verantwortlichen
-Munich Rental
+Munich Bike Rental
 Julius Porzel
 Josephine-Lang-Weg 3
 81245 München
 E-Mail: hallo@munich-bike-rental.de
 Datenschutz
-Munich Rental
+Munich Bike Rental
 Julius Porzel
 Josephine-Lang-Weg 3
 81245 München
@@ -323,7 +323,7 @@ verstößt.
 Die Aufsichtsbehörde, bei der die Beschwerde eingereicht wurde, unterrichtet den Beschwerdeführer
 über den Stand und die Ergebnisse der Beschwerde einschließlich der Möglichkeit eines gerichtlichen
 Rechtsbehelfs nach Art. 78 DSGVO.
-Die für Munich Rental zuständige Aufsichtsbehörde ist das Bayerische Landesamt für
+Die für Munich Bike Rental zuständige Aufsichtsbehörde ist das Bayerische Landesamt für
 Datenschutzaufsicht (BayLDA). Sie erreichen dieses unter folgenden Kontaktmöglichkeiten:
 Bayerisches Landesamt für Datenschutzaufsicht
 Postfach 606
