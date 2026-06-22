@@ -20,6 +20,6 @@ export const siteConfig = {
   areaServed: ["Muenchen", "Maxvorstadt", "Bayern"],
   priceRange: "59 EUR-79 EUR",
   locale: "de_DE",
-  title: "Rennrad-, Gravel- und Aero-Bike-Verleih München",
+  title: "Rennrad & Gravel Verleih München",
   titleTemplate: "%s | Munich Rental",
 };
