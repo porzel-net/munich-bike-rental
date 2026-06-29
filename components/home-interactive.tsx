@@ -165,7 +165,7 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
 }
 
 function isValidContactValue(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^[+\d][\d\s()./-]{5,}$/.test(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function validateContactForm(
@@ -869,11 +869,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         trackLead({
           bikeTitle: pendingReservationBike ?? undefined,
           language: lang,
-          contactMethod: contactValue.includes("@")
-            ? "email"
-            : contactValue.startsWith("+")
-              ? "phone"
-              : "other",
+          contactMethod: "email",
         });
       }
     } catch (error) {
@@ -911,7 +907,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           <input
             id="contact"
             name="contact"
-            type="text"
+            type="email"
             placeholder={translations.form.contact}
             value={contact}
             aria-invalid={Boolean(fieldErrors.contact)}
@@ -920,7 +916,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               setContact(event.target.value);
               clearFieldError("contact");
             }}
-            inputMode="text"
+            inputMode="email"
+            autoComplete="email"
           />
           <p className="contact-form__hint" id="contact-hint">
             {translations.form.validation.contactHint}

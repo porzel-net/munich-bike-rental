@@ -31,7 +31,7 @@ export default function DatenschutzerklaerungPage() {
           <ul>
             <li>Das Internet-Angebot unter der Adresse:</li>
             <li>https://www.munich-bike-rental.de/</li>
-            <li>Kontaktaufnahme über unser Online-Formular, unsere E-Mailadresse, per Telefon oder über WhatsApp</li>
+            <li>Kontaktaufnahme über unser Online-Formular, unsere E-Mailadresse und per Telefon</li>
           </ul>
           <p>
             In dieser Datenschutzerklärung informieren wir Sie über die Datenverarbeitung, soweit wir allein
@@ -341,11 +341,8 @@ export default function DatenschutzerklaerungPage() {
           </p>
           <p>Die Pflichtfelder sind erforderlich, damit wir Ihre Anfrage bearbeiten können.</p>
           <p>Die Formulardaten werden serverseitig an unsere E-Mail-Infrastruktur übermittelt und dort verarbeitet.</p>
-          <p>
-            Je nach eingegebener Kontaktangabe kann die Antwort an die angegebene E-Mail-Adresse oder über den
-            angegebenen Telefon- oder WhatsApp-Kontakt erfolgen. Beim Versand per E-Mail werden die Kontaktangaben
-            durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.
-          </p>
+          <p>Die Antwort auf Anfragen über das Formular erfolgt per E-Mail an die angegebene E-Mail-Adresse.</p>
+          <p>Beim Versand per E-Mail werden die Kontaktangaben durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.</p>
           <p>Es erfolgt in diesem Zusammenhang keine Weitergabe der Daten an unbeteiligte Dritte.</p>
           <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
@@ -375,42 +372,10 @@ export default function DatenschutzerklaerungPage() {
         </section>
 
         <section>
-          <h2>8. Kontaktaufnahme über WhatsApp</h2>
-          <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
-          <p>
-            Über den auf unserer Internetseite bereitgestellten WhatsApp-Link können Sie uns direkt über WhatsApp
-            kontaktieren. Beim Anklicken des Links werden Sie zu WhatsApp weitergeleitet. WhatsApp verarbeitet
-            personenbezogene Daten in eigener Verantwortlichkeit, insbesondere Telefonnummern, Nachrichteninhalte und
-            Metadaten.
-          </p>
-          <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
-          <p>Die Angabe Ihrer personenbezogenen Daten über WhatsApp ist freiwillig.</p>
-          <p>
-            Die Verarbeitung Ihrer personenbezogenen Daten beruht auf Ihrer Einwilligung, soweit Sie uns über
-            WhatsApp aktiv kontaktieren.
-          </p>
-          <p>
-            Die Verarbeitung erfolgt außerdem zur Anbahnung und Durchführung eines Vertragsverhältnisses oder auf
-            Grundlage unseres berechtigten Interesses an einer schnellen und niederschwelligen Kontaktaufnahme.
-          </p>
-          <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
-          <p>Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen Aufbewahrungspflichten bestehen.</p>
-          <p>
-            Für die personenbezogenen Daten, die über WhatsApp übermittelt wurden, ist dies dann der Fall, wenn die
-            jeweilige Konversation mit dem Nutzer beendet ist. Beendet ist die Konversation dann, wenn sich aus den
-            Umständen entnehmen lässt, dass der betroffene Sachverhalt abschließend geklärt ist.
-          </p>
-          <p>Sie können den WhatsApp-Kontakt jederzeit beenden und stattdessen andere Kontaktwege nutzen.</p>
-          <p>Auf die Verarbeitung durch WhatsApp haben wir keinen Einfluss. Es gelten zusätzlich die Datenschutzhinweise von WhatsApp/Meta.</p>
-          <h3>Automatisierte Einzelfallentscheidung</h3>
-          <p>Wir nutzen keine rein automatisierten Verarbeitungsprozesse zur Herbeiführung einer Entscheidung.</p>
-        </section>
-
-        <section>
-          <h2>9. Datenverarbeitung in Drittländern</h2>
+          <h2>8. Datenverarbeitung in Drittländern</h2>
           <p>
             Eine Datenübermittlung in Drittstaaten (Staaten außerhalb des Europäischen Wirtschaftsraums - EWR) kann
-            insbesondere im Zusammenhang mit Cloudflare und WhatsApp nicht ausgeschlossen werden.
+            insbesondere im Zusammenhang mit Cloudflare nicht ausgeschlossen werden.
           </p>
           <p>
             Soweit eine solche Übermittlung stattfindet, erfolgt sie nur unter den jeweils anwendbaren gesetzlichen
@@ -418,10 +383,12 @@ export default function DatenschutzerklaerungPage() {
             oder vergleichbaren Garantien, soweit diese für den jeweiligen Dienst vorgesehen sind.
           </p>
           <p>Eine ausschließliche Verarbeitung innerhalb des EWR wird nicht für alle eingesetzten Dienste geschuldet.</p>
+          <h3>Automatisierte Einzelfallentscheidung</h3>
+          <p>Wir nutzen keine rein automatisierten Verarbeitungsprozesse zur Herbeiführung einer Entscheidung.</p>
         </section>
 
         <section>
-          <h2>10. Links in Grafiken oder Text</h2>
+          <h2>9. Links in Grafiken oder Text</h2>
           <p>Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum angegebenen Ziel.</p>
           <p>
             Externe Links, die auf Seiten außerhalb unseres Angebots führen haben wir entsprechend gekennzeichnet,
@@ -430,7 +397,7 @@ export default function DatenschutzerklaerungPage() {
         </section>
 
         <section>
-          <h2>11. Löschung der Daten</h2>
+          <h2>10. Löschung der Daten</h2>
           <p>
             Ihre Daten werden solange gespeichert, wie es zur Erfüllung des jeweiligen Zwecks erforderlich ist oder
             gesetzliche Aufbewahrungspflichten bestehen und keine abweichenden Angaben zu einzelnen Verarbeitungen
@@ -454,7 +421,7 @@ export default function DatenschutzerklaerungPage() {
         </section>
 
         <section>
-          <h2>12. Ihre Rechte</h2>
+          <h2>11. Ihre Rechte</h2>
           <p>
             Als Nutzer unseres Internet-Angebots haben Sie nach der DSGVO verschiedene Rechte, die sich insbesondere
             aus Art. 15 bis 18, 21 DSGVO ergeben:

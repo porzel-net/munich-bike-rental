@@ -56,10 +56,6 @@ function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function isPhoneNumber(value: string) {
-  return /^[+\d][\d\s()./-]{5,}$/.test(value);
-}
-
 function parseBoolean(value: string | undefined) {
   if (value === undefined) {
     return undefined;
@@ -215,12 +211,9 @@ export async function POST(request: Request) {
     const locale = body?.locale === "en" ? "en" : "de";
     const affiliateKey = sanitizeLine(asText(body?.affiliateKey), 120);
 
-    const contactIsEmail = isEmail(contact);
-    const contactIsPhone = isPhoneNumber(contact);
-
     if (
       !contact ||
-      (!contactIsEmail && !contactIsPhone) ||
+      !isEmail(contact) ||
       !height ||
       !/^\d{2,3}$/.test(height) ||
       !bikeSize ||
@@ -273,7 +266,7 @@ export async function POST(request: Request) {
     await transporter.sendMail({
       from: `Munich Rental <${fromAddress}>`,
       to: toAddress,
-      replyTo: contactIsEmail ? contact : undefined,
+      replyTo: contact,
       subject:
         locale === "de"
           ? bikeTitle

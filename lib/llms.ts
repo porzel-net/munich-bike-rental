@@ -72,7 +72,7 @@ ${portfolioItems.map((_, index) => formatBikeLine(index)).join("\n")}
 ## Rental and contact
 
 - Reservations start from the contact form on the home page.
-- The first contact happens through the form; follow-up may happen by email or WhatsApp.
+- The first contact happens through the form; follow-up happens by email.
 - The reservation flow asks for name, contact details, date range and a message.
 - The site emphasizes direct owner contact instead of anonymous marketplace-style renting.
 
@@ -143,7 +143,7 @@ ${faqItems.map((_, index) => formatFullFaqSection(index)).join("\n\n")}
 
 ## Contact flow
 
-- Visitors contact the business via the form first; follow-up happens by email or WhatsApp depending on the details provided.
+- Visitors contact the business via the form first; follow-up happens by email.
 - The form requests name, contact details, rental dates, and a message.
 - When a specific bike is reserved from the site, the contact form is prefilled with a booking draft.
 

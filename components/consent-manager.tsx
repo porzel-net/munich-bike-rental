@@ -25,7 +25,7 @@ type ConsentContextValue = {
   trackLead: (payload: {
     bikeTitle?: string;
     language: "de" | "en";
-    contactMethod?: "email" | "phone" | "whatsapp" | "other";
+    contactMethod?: "email" | "other";
   }) => void;
 };
 

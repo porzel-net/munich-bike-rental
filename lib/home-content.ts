@@ -278,9 +278,9 @@ export const contactItems = [
     href: "mailto:hallo@munich-bike-rental.de",
   },
   {
-    label: { de: "Anrufen: +49 152 51330962", en: "Call: +49 152 51330962" },
+    label: { de: "Anrufen: +49 89 54193577", en: "Call: +49 89 54193577" },
     icon: "/assets/img/svg/phone.svg",
-    href: "tel:+4915251330962",
+    href: "tel:+498954193577",
   },
 ];
 
@@ -291,8 +291,8 @@ export const faqItems = [
       en: "How does the inquiry and rental process work?",
     },
     answer: {
-      de: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail oder WhatsApp und melden uns immer innerhalb von 24 Stunden, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
-      en: "All bikes can be requested and rented online via the contact form. We then sort out everything directly by email or WhatsApp and always reply within 24 hours so that price, rental period and pickup fit perfectly in the end.",
+      de: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail und melden uns immer innerhalb von 24 Stunden, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
+      en: "All bikes can be requested and rented online via the contact form. We then sort out everything directly by email and always reply within 24 hours so that price, rental period and pickup fit perfectly in the end.",
     },
   },
   {
@@ -353,9 +353,9 @@ export const translations = {
     menuButton: "Menü öffnen",
     location: "München - Maxvorstadt",
     hero: {
-      title: "Bike-Verleih in München",
+      title: "Road bike rental in Munich",
       intro:
-        "Wir sind ein persönlicher Bike-Verleih in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
+        "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
       stats: [
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
@@ -393,7 +393,7 @@ export const translations = {
       eyebrow: "Kontakt",
       title: "Kontakt aufnehmen",
       intro:
-        "Schreib uns einfach über das Kontaktfeld, wenn du ein Rad reservieren möchtest. Der Erstkontakt läuft über das Formular. Je nachdem, was du angibst, melden wir uns danach per WhatsApp oder E-Mail - immer innerhalb von 24 Stunden.",
+        "Schreib uns einfach über das Kontaktfeld, wenn du ein Rad reservieren möchtest. Der Erstkontakt läuft über das Formular und wir melden uns danach per E-Mail - immer innerhalb von 24 Stunden.",
     },
     locationSection: {
       eyebrow: "Standort",
@@ -417,7 +417,7 @@ export const translations = {
     },
     form: {
       name: "Name",
-      contact: "E-Mail oder WhatsApp-Nummer",
+      contact: "E-Mail-Adresse",
       height: "Körpergröße in cm",
       bikeSize: "Rennradgröße",
       bikeSizeOptions: {
@@ -435,14 +435,14 @@ export const translations = {
       submit: "Anfrage senden",
       subject: "Fahrradanfrage",
       sending: "Senden...",
-      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail oder WhatsApp.",
+      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
       orderNumberLabel: "Auftragsnummer",
       error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
       validation: {
-        contactHint: "Format: name@domain.de oder +49 152 12345678",
+        contactHint: "Format: name@domain.de",
         nameRequired: "Bitte gib deinen Namen an.",
-        contactRequired: "Bitte gib eine E-Mail-Adresse oder WhatsApp-Nummer an.",
-        contactInvalid: "Bitte nutze ein gültiges Format, zum Beispiel name@domain.de oder +49 152 12345678.",
+        contactRequired: "Bitte gib deine E-Mail-Adresse an.",
+        contactInvalid: "Bitte nutze ein gültiges Format, zum Beispiel name@domain.de.",
         heightRequired: "Bitte gib deine Körpergröße an.",
         heightInvalid: "Bitte gib eine Zahl zwischen 100 und 250 cm an.",
         bikeSizeRequired: "Bitte wähle deine Rennradgröße aus.",
@@ -515,7 +515,7 @@ export const translations = {
       eyebrow: "Contact",
       title: "Get in touch",
       intro:
-        "Just write to us via the contact form if you want to reserve a bike. The first contact happens through the form. Depending on what you provide, we'll get back to you by WhatsApp or email - always within 24 hours.",
+        "Just write to us via the contact form if you want to reserve a bike. The first contact happens through the form and we'll get back to you by email - always within 24 hours.",
     },
     locationSection: {
       eyebrow: "Location",
@@ -539,7 +539,7 @@ export const translations = {
     },
     form: {
       name: "Name",
-      contact: "Email or WhatsApp number",
+      contact: "Email address",
       height: "Height in cm",
       bikeSize: "Road bike size",
       bikeSizeOptions: {
@@ -557,14 +557,14 @@ export const translations = {
       submit: "Send inquiry",
       subject: "Bike inquiry",
       sending: "Sending...",
-      success: "Thanks, your inquiry has been sent. We will reply within 24 hours by email or WhatsApp.",
+      success: "Thanks, your inquiry has been sent. We will reply within 24 hours by email.",
       orderNumberLabel: "Order number",
       error: "The message could not be sent. Please try again.",
       validation: {
-        contactHint: "Format: name@domain.com or +49 152 12345678",
+        contactHint: "Format: name@domain.com",
         nameRequired: "Please enter your name.",
-        contactRequired: "Please enter an email address or WhatsApp number.",
-        contactInvalid: "Please use a valid format, for example name@domain.com or +49 152 12345678.",
+        contactRequired: "Please enter your email address.",
+        contactInvalid: "Please use a valid format, for example name@domain.com.",
         heightRequired: "Please enter your height.",
         heightInvalid: "Please enter a number between 100 and 250 cm.",
         bikeSizeRequired: "Please choose your road bike size.",

@@ -4,12 +4,12 @@ export const siteConfig = {
   name: "Munich Rental",
   url: siteUrl,
   description:
-    "Persoenlicher Bike-Verleih in Muenchen-Maxvorstadt mit eigenen Endurance-, Gravel-, Allround- und Aero-Bikes, direktem Kontakt und klaren Preisen.",
+    "Persoenlicher Rennrad- und Gravelbike-Verleih in Muenchen-Maxvorstadt. Rennrad leihen, Gravelbike mieten und direkt vor Ort beraten lassen.",
   descriptionEn:
-    "Personal bike rental in Munich-Maxvorstadt with owned endurance, gravel, all-round and aero bikes, direct contact and clear pricing.",
+    "Personal road bike and gravel bike rental in Munich-Maxvorstadt with owned bikes, direct contact and clear pricing.",
   email: "hallo@munich-bike-rental.de",
-  phone: "+49 152 51330962",
-  phoneE164: "+4915251330962",
+  phone: "+49 89 54193577",
+  phoneE164: "+498954193577",
   address: {
     streetAddress: "Josephine-Lang-Weg 3",
     postalCode: "81245",
@@ -20,6 +20,6 @@ export const siteConfig = {
   areaServed: ["Muenchen", "Maxvorstadt", "Bayern"],
   priceRange: "59 EUR-79 EUR",
   locale: "de_DE",
-  title: "Rennrad & Gravel Verleih München",
+  title: "Rennrad- & Gravelbike-Verleih München",
   titleTemplate: "%s | Munich Rental",
 };

@@ -67,8 +67,8 @@ export default async function Home({ searchParams }: PageProps) {
             <h1 className="hero__title">
               {lang === "de" ? (
                 <>
-                  Bike
-                  <span className="hero__title-line">verleih in München</span>
+                  Rennrad- und
+                  <span className="hero__title-line">Gravelbike-Verleih in München</span>
                 </>
               ) : (
                 t.hero.title

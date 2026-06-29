@@ -15,7 +15,7 @@ Geltungsbereich
 Diese Datenschutzerklärung betrifft nachfolgende Verarbeitungen von Munich Bike Rental
 - Das Internet-Angebot unter der Adresse:
 - https://www.munich-bike-rental.de/
-- Kontaktaufnahme über unser Online-Formular, unsere E-Mailadresse, per Telefon oder über WhatsApp
+- Kontaktaufnahme über unser Online-Formular, unsere E-Mailadresse und per Telefon
 In dieser Datenschutzerklärung informieren wir Sie über
 - die Datenverarbeitung, soweit wir allein verantwortlich sind,
 - die Datenverarbeitung, soweit wir gemeinsam mit anderen verantwortlich sind, und
@@ -208,9 +208,8 @@ Kontaktangabe, Zeitraum der gewünschten Miete, Nachricht, Sprache der Anfrage s
 das ausgewählte Fahrrad.
 Die Pflichtfelder sind erforderlich, damit wir Ihre Anfrage bearbeiten können.
 Die Formulardaten werden serverseitig an unsere E-Mail-Infrastruktur übermittelt und dort verarbeitet.
-Je nach eingegebener Kontaktangabe kann die Antwort an die angegebene E-Mail-Adresse oder über den
-angegebenen Telefon- oder WhatsApp-Kontakt erfolgen. Beim Versand per E-Mail werden die
-Kontaktangaben durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.
+Die Antwort auf Anfragen über das Formular erfolgt per E-Mail an die angegebene E-Mail-Adresse.
+Beim Versand per E-Mail werden die Kontaktangaben durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.
 Es erfolgt in diesem Zusammenhang keine Weitergabe der Daten an unbeteiligte Dritte.
 b) Rechtsgrundlage und Zweck der Datenverarbeitung
 – Art. 6 Abs. 1 S. 1 lit. b. DSGVO: Vertragserfüllung, sofern sich die Anfrage auf den Abschluss oder die
@@ -231,45 +230,23 @@ Speicherung seiner
 personenbezogenen Daten jederzeit widersprechen. In einem solchen Fall kann die Konversation nicht
 fortgeführt werden. Alle personenbezogenen Daten, die im Zuge der Kontaktaufnahme gespeichert
 wurden, werden in diesem Fall gelöscht.
-8. Kontaktaufnahme über WhatsApp
-a) Beschreibung und Umfang der Datenverarbeitung
-Über den auf unserer Internetseite bereitgestellten WhatsApp-Link können Sie uns direkt über WhatsApp
-kontaktieren. Beim Anklicken des Links werden Sie zu WhatsApp weitergeleitet. WhatsApp verarbeitet
-personenbezogene Daten in eigener Verantwortlichkeit, insbesondere Telefonnummern, Nachrichteninhalte
-und Metadaten.
-b) Rechtsgrundlage und Zweck der Datenverarbeitung
-Die Angabe Ihrer personenbezogenen Daten über WhatsApp ist freiwillig.
-Die Verarbeitung Ihrer personenbezogenen Daten beruht auf Ihrer Einwilligung, soweit Sie uns über
-WhatsApp aktiv kontaktieren.
-Die Verarbeitung erfolgt außerdem zur Anbahnung und Durchführung eines Vertragsverhältnisses oder
-auf Grundlage unseres berechtigten Interesses an einer schnellen und niederschwelligen
-Kontaktaufnahme.
-c) Dauer der Speicherung und Widerspruchsmöglichkeit
-Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen
-Aufbewahrungspflichten bestehen.
-Für die personenbezogenen Daten, die über WhatsApp übermittelt wurden, ist dies dann der Fall, wenn
-die jeweilige Konversation mit dem Nutzer beendet ist. Beendet ist die Konversation dann, wenn sich
-aus den Umständen entnehmen lässt, dass der betroffene Sachverhalt abschließend geklärt ist.
-Sie können den WhatsApp-Kontakt jederzeit beenden und stattdessen andere Kontaktwege nutzen.
-Auf die Verarbeitung durch WhatsApp haben wir keinen Einfluss. Es gelten zusätzlich die
-Datenschutzhinweise von WhatsApp/Meta.
-Automatisierte Einzelfallentscheidung
-Wir nutzen keine rein automatisierten Verarbeitungsprozesse zur Herbeiführung einer Entscheidung.
-9. Datenverarbeitung in Drittländern
+8. Datenverarbeitung in Drittländern
 Eine Datenübermittlung in Drittstaaten (Staaten außerhalb des Europäischen Wirtschaftsraums - EWR)
-kann insbesondere im Zusammenhang mit Cloudflare und WhatsApp nicht ausgeschlossen werden.
+kann insbesondere im Zusammenhang mit Cloudflare nicht ausgeschlossen werden.
 Soweit eine solche Übermittlung stattfindet, erfolgt sie nur unter den jeweils anwendbaren gesetzlichen
 Voraussetzungen, insbesondere auf Grundlage eines Angemessenheitsbeschlusses, von
 Standardvertragsklauseln oder vergleichbaren Garantien, soweit diese für den jeweiligen Dienst
 vorgesehen sind.
 Eine ausschließliche Verarbeitung innerhalb des EWR wird nicht für alle eingesetzten Dienste
 geschuldet.
-10. Links in Grafiken oder Text
+Automatisierte Einzelfallentscheidung
+Wir nutzen keine rein automatisierten Verarbeitungsprozesse zur Herbeiführung einer Entscheidung.
+9. Links in Grafiken oder Text
 Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum
 angegebenen Ziel.
 Externe Links, die auf Seiten außerhalb unseres Angebots führen haben wir entsprechend
 gekennzeichnet, sofern dies nicht bereits eindeutig erkennbar ist.
-11. Löschung der Daten
+10. Löschung der Daten
 Ihre Daten werden solange gespeichert, wie es zur Erfüllung des jeweiligen Zwecks erforderlich ist oder
 gesetzliche Aufbewahrungspflichten bestehen und keine abweichenden Angaben zu einzelnen
 Verarbeitungen gemacht werden.
@@ -283,7 +260,7 @@ Widerspruch gegen die Verarbeitung ein.
 - Logdateien werden nach 7 Tagen gelöscht.
 - Sicherungskopien werden nur im Rahmen der jeweils technisch erforderlichen Backup-Retention
   vorgehalten und danach gelöscht.
-12. Ihre Rechte
+11. Ihre Rechte
 Als Nutzer unseres Internet-Angebots haben Sie nach der DSGVO verschiedene Rechte, die sich
 insbesondere aus Art. 15 bis 18, 21 DSGVO ergeben:
 Recht auf Auskunft
