@@ -41,6 +41,14 @@ Wichtig:
 - Nginx auf dem Host
 - optional: Firewall, z. B. `ufw`
 
+Für lokale Builds und Deployments ist eine gepatchte Node-Linie sinnvoll:
+
+- `22.23.0` oder neuer in der 22er-Linie
+- `24.17.0` oder neuer in der 24er-Linie
+- `26.3.1` oder neuer in der 26er-Linie
+
+`v25.9.0` ist damit nicht die empfohlene Zielversion für dieses Projekt.
+
 ## Umgebungsvariablen
 
 Lege auf dem Server eine `.env`-Datei neben der Compose-Datei an. Diese Datei steuert sowohl das zu ziehende Image als auch die produktive Laufzeitkonfiguration.
