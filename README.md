@@ -43,7 +43,7 @@ Wichtig:
 
 Für lokale Builds und Deployments ist eine gepatchte Node-Linie sinnvoll:
 
-- `22.23.0` oder neuer in der 22er-Linie
+- `22.23.1` oder neuer in der 22er-Linie
 - `24.17.0` oder neuer in der 24er-Linie
 - `26.3.1` oder neuer in der 26er-Linie
 
