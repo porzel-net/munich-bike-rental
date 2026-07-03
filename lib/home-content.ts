@@ -353,7 +353,7 @@ export const translations = {
     menuButton: "Menü öffnen",
     location: "München - Maxvorstadt",
     hero: {
-      title: "Road bike rental in Munich",
+      title: "RENNRAD- & GRAVELBIKE-VERLEIH IN MÜNCHEN",
       intro:
         "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
