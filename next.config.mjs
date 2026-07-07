@@ -15,6 +15,10 @@ if (isProduction) {
   securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
 }
 
+const aboutImageHeaders = [
+  { key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" },
+];
+
 const nextConfig = {
   allowedDevOrigins: ["192.168.2.229", "192.168.178.167", "192.168.178.122", "localhost", "127.0.0.1"],
   images: {
@@ -34,6 +38,10 @@ const nextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/assets/img/about/:path*",
+        headers: aboutImageHeaders,
       },
     ];
   },
