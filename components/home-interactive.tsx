@@ -161,6 +161,10 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
     return lang === "de" ? "Sportliches Setup" : "Sport setup";
   }
 
+  if (bikeTitle === "Scott Addict 40 Di2") {
+    return lang === "de" ? "Elektronisches Setup" : "Electronic setup";
+  }
+
   return lang === "de" ? "Aggressives Setup" : "Aggressive setup";
 }
 
@@ -670,7 +674,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
           {portfolioItems.map((item) => (
             <button
               key={item.title}
-              className="portfolio-card"
+              className={`portfolio-card ${item.title === "Scott Addict 40 Di2" ? "portfolio-card--featured" : ""}`}
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -686,10 +690,16 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 />
               </div>
 
-              <div className="portfolio-card__overlay" aria-hidden="true">
+              <div
+                className={`portfolio-card__overlay ${item.title === "Scott Addict 40 Di2" ? "portfolio-card__overlay--featured" : ""}`}
+                aria-hidden="true"
+              >
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
+              {item.title === "Scott Addict 40 Di2" ? (
+                <span className="portfolio-card__badge">Neu 2026</span>
+              ) : null}
 
               <div className="portfolio-card__details">
                 <h3>{item.title}</h3>
