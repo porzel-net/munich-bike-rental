@@ -951,6 +951,46 @@ button {
   opacity: 0.95;
 }
 
+.portfolio-card--promo .portfolio-card__arrow {
+  top: 98px;
+}
+
+.portfolio-card__promo {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 138px;
+  padding: 10px 12px 9px;
+  border-radius: 14px;
+  background: #d90429;
+  color: #fff;
+  box-shadow: 0 16px 30px rgba(217, 4, 41, 0.28);
+  pointer-events: none;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.portfolio-card__promo strong {
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.portfolio-card__promo span {
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+}
+
 .portfolio-card__details {
   position: absolute;
   left: 48px;

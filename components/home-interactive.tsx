@@ -674,7 +674,9 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
           {portfolioItems.map((item) => (
             <button
               key={item.title}
-              className={`portfolio-card ${item.title === "Scott Addict 40 Di2" ? "portfolio-card--featured" : ""}`}
+              className={`portfolio-card ${
+                item.title === "Scott Addict 40 Di2" ? "portfolio-card--featured" : ""
+              } ${item.title === "Endurace CF SL 8 Di2" ? "portfolio-card--promo" : ""}`}
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -697,6 +699,14 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
+              {item.title === "Endurace CF SL 8 Di2" ? (
+                <span className="portfolio-card__promo" aria-hidden="true">
+                  <strong>30%</strong>
+                  <span>Rabatt insgesamt</span>
+                  <span>Vom 14.7-16.7</span>
+                  <span>Für Size M</span>
+                </span>
+              ) : null}
               {item.title === "Scott Addict 40 Di2" ? (
                 <span className="portfolio-card__badge">Neu 2026</span>
               ) : null}
