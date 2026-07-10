@@ -701,10 +701,10 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
               {item.title === "Endurace CF SL 8 Di2" ? (
                 <span className="portfolio-card__promo" aria-hidden="true">
-                  <strong>30%</strong>
-                  <span>Rabatt insgesamt</span>
-                  <span>Vom 14.7-16.7</span>
-                  <span>Für Size M</span>
+                  <strong>25%</strong>
+                  <span>{lang === "de" ? "Dauerhaften" : "Permanent"}</span>
+                  <span>{lang === "de" ? "Juli - August" : "July - August"}</span>
+                  <span>{lang === "de" ? "Rabatt" : "Discount"}</span>
                 </span>
               ) : null}
               {item.title === "Scott Addict 40 Di2" ? (

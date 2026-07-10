@@ -257,7 +257,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Aeroad CF SL 8 Disc",
     subtitle: { de: "S / M", en: "S / M" },
-    price: { de: "79€/Tag", en: "79€/day" },
+    price: { de: "59€/Tag", en: "59€/day" },
     description: {
       de: "Aero-Rennrad für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
       en: "Aero road bike for maximum speed on the road and a direct, sporty ride feel.",
