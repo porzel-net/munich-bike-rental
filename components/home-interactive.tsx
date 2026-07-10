@@ -676,7 +676,11 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
               key={item.title}
               className={`portfolio-card ${
                 item.title === "Scott Addict 40 Di2" ? "portfolio-card--featured" : ""
-              } ${item.title === "Endurace CF SL 8 Di2" ? "portfolio-card--promo" : ""}`}
+              } ${
+                item.title === "Endurace CF SL 8 Di2" || item.title === "Aeroad CF SL 8 Disc"
+                  ? "portfolio-card--promo"
+                  : ""
+              }`}
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -699,12 +703,20 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
-              {item.title === "Endurace CF SL 8 Di2" ? (
+              {item.title === "Aeroad CF SL 8 Disc" ? (
                 <span className="portfolio-card__promo" aria-hidden="true">
                   <strong>25%</strong>
                   <span>{lang === "de" ? "Dauerhaften" : "Permanent"}</span>
                   <span>{lang === "de" ? "Juli - August" : "July - August"}</span>
                   <span>{lang === "de" ? "Rabatt" : "Discount"}</span>
+                </span>
+              ) : null}
+              {item.title === "Endurace CF SL 8 Di2" ? (
+                <span className="portfolio-card__promo" aria-hidden="true">
+                  <strong>30%</strong>
+                  <span>{lang === "de" ? "Rabatt insgesamt" : "Total discount"}</span>
+                  <span>{lang === "de" ? "Vom 14.7-16.7" : "From 14/7 to 16/7"}</span>
+                  <span>{lang === "de" ? "Für Size M" : "For size M"}</span>
                 </span>
               ) : null}
               {item.title === "Scott Addict 40 Di2" ? (
