@@ -220,7 +220,11 @@ export default async function Home({ searchParams }: PageProps) {
         <div className="container location-grid">
           <div className="location-grid__copy">
             <SectionHeading eyebrow={t.locationSection.eyebrow} title={t.locationSection.title} />
-            <p className="section-copy">{t.locationSection.intro}</p>
+            <p className="section-copy">
+              Die Abholung und Rückgabe für deinen Rennradverleih findet vor Ort in der Maxvorstadt statt.
+              Unterhalb findest du eine Ansicht des Standorts und direkt darunter die genaue Adresse.{" "}
+              <strong>Wir geben nur raus, es gibt keine Ladenfläche.</strong>
+            </p>
 
             <div className="location-card">
               <div className="location-card__address">
