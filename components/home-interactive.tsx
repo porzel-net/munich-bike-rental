@@ -15,6 +15,7 @@ import {
 type TopbarTranslations = {
   nav: {
     start: string;
+    maintenance: string;
     bikes: string;
     prices: string;
     faq: string;
@@ -504,6 +505,11 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
                 </a>
               </li>
               <li className="nav__item">
+                <a href={pageHref("/wartung")} className="nav__link nav__link--anchor">
+                  {topbar.nav.maintenance}
+                </a>
+              </li>
+              <li className="nav__item">
                 <a href={homeHref("#portfolio")} className="nav__link nav__link--anchor">
                   {topbar.nav.bikes}
                 </a>
@@ -578,6 +584,11 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
             <li className="nav__item nav__item--mobile">
               <a href={homeHref("#home")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                 {topbar.nav.start}
+              </a>
+            </li>
+            <li className="nav__item nav__item--mobile">
+              <a href={pageHref("/wartung")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+                {topbar.nav.maintenance}
               </a>
             </li>
             <li className="nav__item nav__item--mobile">

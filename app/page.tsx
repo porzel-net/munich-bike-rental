@@ -109,6 +109,26 @@ export default async function Home({ searchParams }: PageProps) {
         </div>
       </section>
 
+      <section className="section section--maintenance-promo">
+        <div className="container">
+          <div className="maintenance-card">
+            <div className="maintenance-card__content">
+              <span className="maintenance-card__eyebrow">{t.maintenancePromo.eyebrow}</span>
+              <h2 className="maintenance-card__title">{t.maintenancePromo.title}</h2>
+              <p className="maintenance-card__text">{t.maintenancePromo.text}</p>
+            </div>
+
+            <Link
+              className="button--arrow maintenance-card__link"
+              href={`/wartung${lang === "de" ? "" : "?lang=en"}`}
+            >
+              <span>{t.maintenancePromo.cta}</span>
+              <ArrowUpRight aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <PortfolioSection
         lang={lang}
         translations={{

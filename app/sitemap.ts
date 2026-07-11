@@ -20,6 +20,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.3,
     },
     {
+      url: `${siteConfig.url}/wartung`,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.5,
+    },
+    {
       url: `${siteConfig.url}/datenschutzerklaerung`,
       lastModified,
       changeFrequency: "yearly",

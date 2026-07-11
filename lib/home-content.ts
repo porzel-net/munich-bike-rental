@@ -357,6 +357,7 @@ export const translations = {
   de: {
     nav: {
       start: "Start",
+      maintenance: "Wartung",
       bikes: "Räder",
       prices: "Preise",
       faq: "FAQ",
@@ -377,6 +378,13 @@ export const translations = {
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
         { value: "Perfekt", top: "gepflegte", bottom: "Räder" },
       ],
+    },
+    maintenancePromo: {
+      eyebrow: "Wartung",
+      title: "Willst du dein Rennrad warten lassen?",
+      text:
+        "Wenn du zum Beispiel von Öl auf Wachs wechseln möchtest oder einen kleinen Service brauchst, geht es hier zur Wartung.",
+      cta: "Zur Wartung",
     },
     portfolio: { eyebrow: "Unsere Bikes", title: "Verfügbare Räder" },
     pricePromise: {
@@ -480,6 +488,7 @@ export const translations = {
   en: {
     nav: {
       start: "Start",
+      maintenance: "Maintenance",
       bikes: "Bikes",
       prices: "Prices",
       faq: "FAQ",
@@ -500,6 +509,13 @@ export const translations = {
         { value: "2", top: "Owners", bottom: "with bike passion" },
         { value: "Perfectly", top: "maintained", bottom: "bikes" },
       ],
+    },
+    maintenancePromo: {
+      eyebrow: "Maintenance",
+      title: "Need your road bike serviced?",
+      text:
+        "If you want to switch from oil to wax, or need a small tune-up, go here for maintenance.",
+      cta: "Go to maintenance",
     },
     portfolio: { eyebrow: "Our bikes", title: "Available bikes" },
     pricePromise: {

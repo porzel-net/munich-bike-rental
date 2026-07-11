@@ -50,6 +50,7 @@ This website is for a local bicycle rental service. The most useful pages are th
 ## Core pages
 
 - [Home](${siteConfig.url}/): Overview, available bikes, prices, FAQ and contact.
+- [Maintenance](${siteConfig.url}/wartung): Road bike maintenance, oil-to-wax switch, and small service requests.
 - [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Data processing and privacy information.
@@ -112,6 +113,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 ## Important pages
 
 - [Home](${siteConfig.url}/): Main landing page with hero, bikes, prices, FAQ and contact.
+- [Maintenance](${siteConfig.url}/wartung): Dedicated maintenance page for service requests and bike-care questions.
 - [Imprint](${siteConfig.url}/impressum): Legal operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Privacy and data processing information.
 - [Sitemap](${siteConfig.url}/sitemap.xml): Indexable page list.
