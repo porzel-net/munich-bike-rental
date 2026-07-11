@@ -161,10 +161,6 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
     return lang === "de" ? "Sportliches Setup" : "Sport setup";
   }
 
-  if (bikeTitle === "Scott Addict 40 Di2") {
-    return lang === "de" ? "Elektronisches Setup" : "Electronic setup";
-  }
-
   return lang === "de" ? "Aggressives Setup" : "Aggressive setup";
 }
 
@@ -675,8 +671,6 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
             <button
               key={item.title}
               className={`portfolio-card ${
-                item.title === "Scott Addict 40 Di2" ? "portfolio-card--featured" : ""
-              } ${
                 item.title === "Endurace CF SL 8 Di2" || item.title === "Aeroad CF SL 8 Disc"
                   ? "portfolio-card--promo"
                   : ""
@@ -697,7 +691,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
               </div>
 
               <div
-                className={`portfolio-card__overlay ${item.title === "Scott Addict 40 Di2" ? "portfolio-card__overlay--featured" : ""}`}
+                className="portfolio-card__overlay"
                 aria-hidden="true"
               >
                 <p>{item.description[lang]}</p>
@@ -718,9 +712,6 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   <span>{lang === "de" ? "Vom 14.7-16.7" : "From 14/7 to 16/7"}</span>
                   <span>{lang === "de" ? "Für Size M" : "For size M"}</span>
                 </span>
-              ) : null}
-              {item.title === "Scott Addict 40 Di2" ? (
-                <span className="portfolio-card__badge">Neu 2026</span>
               ) : null}
 
               <div className="portfolio-card__details">
