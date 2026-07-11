@@ -834,10 +834,32 @@ button {
   display: grid;
   gap: 14px;
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.service-form-points li {
+  position: relative;
+  padding: 16px 18px 16px 22px;
+  border: 1px solid rgba(65, 105, 225, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
   color: var(--text);
   font-size: 16px;
-  line-height: 1.8;
+  line-height: 1.75;
+  box-shadow: 0 10px 26px rgba(17, 17, 17, 0.05);
+}
+
+.service-form-points li::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 22px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 5px rgba(65, 105, 225, 0.08);
 }
 
 .maintenance-form {

@@ -81,9 +81,6 @@ export default async function WartungPage({ searchParams }: PageProps) {
                 <span>{lang === "de" ? "Wartung anfragen" : "Ask for service"}</span>
                 <ArrowUpRight aria-hidden="true" />
               </Link>
-              <Link className="service-hero__link" href={homeHref}>
-                {lang === "de" ? "Zurück zu den Bikes" : "Back to the bikes"}
-              </Link>
             </div>
           </div>
 
@@ -140,21 +137,9 @@ export default async function WartungPage({ searchParams }: PageProps) {
             <p className="section-copy">{page.formIntro}</p>
 
             <ul className="service-form-points">
-              <li>
-                {lang === "de"
-                  ? "Beschreibe kurz, was dein Rad braucht und ob schon etwas verschlissen ist."
-                  : "Briefly describe what your bike needs and whether anything is already worn out."}
-              </li>
-              <li>
-                {lang === "de"
-                  ? "Wenn du Öl auf Wachs umsteigen willst, helfen wir dir auch bei der Wahl des besten Wachses."
-                  : "If you want to switch from oil to wax, we will also help you choose the best wax."}
-              </li>
-              <li>
-                {lang === "de"
-                  ? "Auf Wunsch holen wir dein Fahrrad gegen kleinen Aufpreis ab und bringen es wieder zurück."
-                  : "If you want, we can pick up your bike for a small extra fee and bring it back again."}
-              </li>
+              {page.formPoints.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
             </ul>
           </div>
 

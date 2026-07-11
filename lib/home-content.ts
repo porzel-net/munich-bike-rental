@@ -396,9 +396,9 @@ export const translations = {
       heroPriceValue: "169€",
       heroPriceNote: "Unser Bestpreis für den kompletten Umstieg inklusive Beratung, Reinigung und Abstimmung auf deine Kette.",
       servicesEyebrow: "Mögliche Arbeiten",
-      servicesTitle: "WORAN WIR DEIN RAD ARBEITEN",
+      servicesTitle: "WAS WIR AN DEINEM RAD MACHEN",
       servicesIntro:
-        "Du bekommst bei uns nicht nur eine Werkstattleistung. Wir beraten dich auch dazu, welches Wachs für deine Kette am besten passt, welche Teile sich lohnen zu tauschen und wie du dein Rad langfristig besser pflegst.",
+        "Du bekommst bei uns nicht nur eine Werkstattleistung. Wir beraten dich auch dazu, welche Teile sich lohnen zu tauschen und wie du dein Rad langfristig besser pflegst.",
       services: [
         {
           title: "Kettenpflege und Antriebsreinigung",
@@ -419,11 +419,16 @@ export const translations = {
       ],
       highlightTitle: "Beratung inklusive",
       highlightText:
-        "Wir sagen dir offen, was sich lohnt und was nicht. Wenn du willst, helfen wir dir auch bei der Wahl des besten Wachses für deine Kette.",
+        "Wir sagen dir offen, was sich lohnt und was nicht.",
       formEyebrow: "Anfrage",
       formTitle: "Wartungsanfrage senden",
       formIntro:
-        "Schreib uns unten direkt, was an deinem Rad ansteht. Je mehr du uns kurz beschreibst, desto genauer können wir dir helfen.",
+        "Nutze das Formular unten, wenn du dein Rad warten lassen möchtest. Je genauer deine Beschreibung, desto besser können wir einschätzen, was ansteht. Füg bestenfalls Bilder hinzu! Tipp: Wenn du Öl auf Wachs umstellen willst, schreib uns kurz dazu, wie deine Kette aktuell gepflegt ist.",
+      formPoints: [
+        "Die Anfrage ist natürlich unverbindlich und wir machen dir gern einen Kostenvoranschlag.",
+        "Auf Wunsch holen wir dein Fahrrad gegen kleinen Aufpreis ab und bringen es wieder zurück.",
+        "Wenn du Öl auf Wachs umstellen willst, beraten wir dich zur passenden Pflege und zum besten Wachs für deine Kette.",
+      ],
     },
     portfolio: { eyebrow: "Unsere Bikes", title: "Verfügbare Räder" },
     pricePromise: {
@@ -611,9 +616,9 @@ export const translations = {
       heroPriceValue: "169€",
       heroPriceNote: "Our best price for the full switch including advice, cleaning and tuning for your chain.",
       servicesEyebrow: "Possible work",
-      servicesTitle: "WHAT WE CAN DO FOR YOUR BIKE",
+      servicesTitle: "WHAT WE DO TO YOUR BIKE",
       servicesIntro:
-        "You do not just get workshop work from us. We also advise you on which wax fits your chain best, which parts are worth replacing and how to keep your bike in better shape long term.",
+        "You do not just get workshop work from us. We also advise you on which parts are worth replacing and how to keep your bike in better shape long term.",
       services: [
         {
           title: "Chain care and drivetrain cleaning",
@@ -633,12 +638,16 @@ export const translations = {
         },
       ],
       highlightTitle: "Advice included",
-      highlightText:
-        "We tell you honestly what is worth doing and what is not. If you want, we will also help you choose the best wax for your chain.",
+      highlightText: "We tell you honestly what is worth doing and what is not.",
       formEyebrow: "Inquiry",
       formTitle: "Send a maintenance request",
       formIntro:
-        "Write to us below what is going on with your bike. The more details you give us, the more precisely we can help.",
+        "Use the form below if you want your bike serviced. The more precise your description, the better we can estimate what is needed. Pictures are welcome. Tip: If you want to switch from oil to wax, briefly mention how your chain is currently maintained.",
+      formPoints: [
+        "The inquiry is of course non-binding and we will gladly prepare a quote.",
+        "For a small extra fee, we can pick up your bike and bring it back.",
+        "If you want to switch from oil to wax, we will advise you on the right care and the best wax for your chain.",
+      ],
     },
     portfolio: { eyebrow: "Our bikes", title: "Available bikes" },
     pricePromise: {
