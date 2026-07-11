@@ -54,6 +54,13 @@ export function getHomeStructuredDataJson() {
     "@context": "https://schema.org",
     "@graph": [
       {
+        "@type": "WebSite",
+        name: siteConfig.name,
+        url: siteConfig.url,
+        description: siteConfig.description,
+        inLanguage: ["de-DE", "en-US"],
+      },
+      {
         "@type": "LocalBusiness",
         name: siteConfig.name,
         description: siteConfig.description,
@@ -81,6 +88,60 @@ export function getHomeStructuredDataJson() {
       {
         "@type": "FAQPage",
         mainEntity: faqEntries,
+      },
+    ],
+  });
+}
+
+export function getMaintenanceStructuredDataJson(locale: Locale) {
+  const isGerman = locale === "de";
+  const pageUrl = isGerman ? `${siteConfig.url}/wartung` : `${siteConfig.url}/wartung?lang=en`;
+
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: isGerman ? "Startseite" : "Home",
+            item: siteConfig.url,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: isGerman ? "Wartung" : "Maintenance",
+            item: pageUrl,
+          },
+        ],
+      },
+      {
+        "@type": "Service",
+        name: isGerman ? "Rennrad- und Gravelbike-Wartung" : "Road bike and gravel bike servicing",
+        description: isGerman
+          ? "Wartung fuer Rennraeder und Gravelbikes in Muenchen-Maxvorstadt mit Beratung, Teiletausch, Reparaturen und Oel-zu-Wachs-Umstieg."
+          : "Road bike and gravel bike servicing in Munich-Maxvorstadt with advice, part swaps, repairs and oil-to-wax conversion.",
+        serviceType: isGerman ? "Fahrradwartung" : "Bike servicing",
+        areaServed: siteConfig.areaServed,
+        provider: {
+          "@type": "LocalBusiness",
+          name: siteConfig.name,
+          url: siteConfig.url,
+          telephone: siteConfig.phoneE164,
+          email: siteConfig.email,
+          image: `${siteConfig.url}/assets/img/hero/1.jpg`,
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: siteConfig.address.streetAddress,
+            postalCode: siteConfig.address.postalCode,
+            addressLocality: siteConfig.address.addressLocality,
+            addressRegion: siteConfig.address.addressRegion,
+            addressCountry: siteConfig.address.addressCountry,
+          },
+        },
+        url: pageUrl,
       },
     ],
   });

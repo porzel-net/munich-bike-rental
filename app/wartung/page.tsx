@@ -6,6 +6,7 @@ import { MapPin } from "lucide-react";
 import { HomeTopbar } from "../../components/home-interactive";
 import { MaintenanceForm } from "../../components/maintenance-form";
 import { footerLinks, resolveLocale, translations } from "../../lib/home-content";
+import { getMaintenanceStructuredDataJson } from "../../lib/structured-data";
 import { siteConfig } from "../../lib/site";
 
 type PageProps = {
@@ -48,28 +49,98 @@ function MaintenanceIntro({ lang, text }: { lang: "de" | "en"; text: string }) {
   );
 }
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url),
-  title: "Wartung",
-  description:
-    "Wartung für Rennräder und Gravelbikes in München-Maxvorstadt. Beratung, Öl-zu-Wachs-Umstieg, Teiletausch, Reparaturen und Abholung auf Wunsch.",
-  alternates: {
-    canonical: "/wartung",
-  },
-  keywords: [
-    "Rennrad Wartung München",
-    "Fahrradwartung München",
-    "Öl auf Wachs München",
-    "Kette wachsen lassen München",
-    "Bike maintenance Munich",
-  ],
-};
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const lang = resolveLocale(params?.lang);
+  const isGerman = lang === "de";
+
+  const title = isGerman
+    ? "Wartung für Rennrad & Gravelbike in München"
+    : "Road bike and gravel bike maintenance in Munich";
+  const description = isGerman
+    ? "Wartung für Rennräder und Gravelbikes in München-Maxvorstadt: persönliche Beratung, Öl-zu-Wachs-Umstieg, Teiletausch, Reparaturen und Abholung auf Wunsch."
+    : "Road bike and gravel bike maintenance in Munich-Maxvorstadt with personal advice, oil-to-wax conversion, part swaps, repairs and optional pickup.";
+
+  return {
+    metadataBase: new URL(siteConfig.url),
+    title,
+    description,
+    alternates: {
+      canonical: "/wartung",
+      languages: {
+        de: "/wartung",
+        en: "/wartung?lang=en",
+      },
+    },
+    keywords: isGerman
+      ? [
+          "Rennrad Wartung München",
+          "Rennradwartung",
+          "Gravelbike Wartung München",
+          "Gravelbikewartung",
+          "Fahrradwartung München",
+          "Fahrradwartung",
+          "Bikewartung",
+          "Öl auf Wachs München",
+          "Öl auf Wachs",
+          "Kettenpflege München",
+          "Kettenpflege",
+          "Teile tauschen Fahrrad",
+          "Fahrrad reparieren München",
+          "Rennradservice",
+          "Bike Wartung Maxvorstadt",
+          "Wartung Rennrad Maxvorstadt",
+          "Rennrad Service München",
+        ]
+      : [
+          "road bike maintenance Munich",
+          "roadbikemaintenance",
+          "gravel bike maintenance Munich",
+          "gravelbikemaintenance",
+          "bike service Munich",
+          "oil to wax conversion Munich",
+          "oil to wax",
+          "chain care Munich",
+          "chain care",
+          "bike repair Munich",
+          "part swaps bike",
+          "bike maintenance Maxvorstadt",
+          "road bike service Munich",
+          "gravel bike service Munich",
+        ],
+    openGraph: {
+      type: "website",
+      locale: isGerman ? "de_DE" : "en_US",
+      url: isGerman ? `${siteConfig.url}/wartung` : `${siteConfig.url}/wartung?lang=en`,
+      siteName: siteConfig.name,
+      title,
+      description,
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: isGerman
+            ? "Munich Rental - Wartung für Rennrad und Gravelbike in München"
+            : "Munich Rental - road bike and gravel bike maintenance in Munich",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/opengraph-image"],
+    },
+  };
+}
 
 export default async function WartungPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
   const t = translations[lang];
   const page = t.maintenancePage;
+  const structuredDataJson = getMaintenanceStructuredDataJson(lang);
 
   return (
     <main className="site-shell service-shell">
@@ -237,6 +308,7 @@ export default async function WartungPage({ searchParams }: PageProps) {
           </ul>
         </div>
       </footer>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson }} />
     </main>
   );
 }

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import mainImage from "../main.png";
@@ -16,6 +17,7 @@ import {
   translations,
 } from "../lib/home-content";
 import { blogPosts } from "../lib/blog-content";
+import { siteConfig } from "../lib/site";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -38,6 +40,92 @@ function SectionHeading({
       <h2 className={inverse ? "section-heading__title is-inverse" : "section-heading__title"}>{title}</h2>
     </div>
   );
+}
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const lang = resolveLocale(params?.lang);
+  const isGerman = lang === "de";
+
+  const title = isGerman
+    ? "Rennrad- & Gravelbike-Verleih & Wartung in München"
+    : "Road bike and gravel bike rental and maintenance in Munich";
+  const description = isGerman
+    ? "Persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt mit Wartung, Beratung, gepflegten Rädern und klaren Preisen."
+    : "Personal road bike and gravel bike rental in Munich-Maxvorstadt with maintenance, advice, serviced bikes and transparent pricing.";
+
+  return {
+    metadataBase: new URL(siteConfig.url),
+    title,
+    description,
+    alternates: {
+      canonical: "/",
+      languages: {
+        de: "/",
+        en: "/?lang=en",
+      },
+    },
+    keywords: isGerman
+      ? [
+          "Rennradverleih München",
+          "Rennradwartung",
+          "Gravelbike Verleih München",
+          "Gravelbikewartung",
+          "Rennrad leihen München",
+          "Gravelbike mieten München",
+          "Rennrad Wartung München",
+          "Fahrradwartung München",
+          "Fahrradwartung",
+          "Bikewartung",
+          "Öl auf Wachs München",
+          "Öl auf Wachs",
+          "Rennradservice",
+          "Rennrad Maxvorstadt",
+          "Gravelbike Maxvorstadt",
+          "Bike Verleih München",
+        ]
+      : [
+          "road bike rental Munich",
+          "roadbikemaintenance",
+          "gravel bike rental Munich",
+          "gravelbikemaintenance",
+          "bike rental Munich",
+          "road bike maintenance Munich",
+          "gravel bike maintenance Munich",
+          "bike maintenance Munich",
+          "oil to wax conversion Munich",
+          "oil to wax",
+          "bike service Munich",
+          "Maxvorstadt bike rental",
+          "Munich bike hire",
+          "road bike service",
+          "service bike Munich",
+        ],
+    openGraph: {
+      type: "website",
+      locale: isGerman ? "de_DE" : "en_US",
+      url: isGerman ? siteConfig.url : `${siteConfig.url}/?lang=en`,
+      siteName: siteConfig.name,
+      title,
+      description,
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: isGerman
+            ? "Munich Rental - Rennrad- und Gravelbike-Verleih mit Wartung in München"
+            : "Munich Rental - road bike and gravel bike rental with maintenance in Munich",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/opengraph-image"],
+    },
+  };
 }
 
 export default async function Home({ searchParams }: PageProps) {
