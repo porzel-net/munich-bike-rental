@@ -505,7 +505,7 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
                 </a>
               </li>
               <li className="nav__item">
-                <a href={pageHref("/wartung")} className="nav__link nav__link--anchor">
+                <a href={pageHref("/wartung")} className="nav__link nav__link--legal">
                   {topbar.nav.maintenance}
                 </a>
               </li>

@@ -574,7 +574,7 @@ button {
 }
 
 .section--maintenance-promo {
-  padding: 0 0 120px;
+  padding: 32px 0 68px;
 }
 
 .maintenance-card {
@@ -628,7 +628,7 @@ button {
 }
 
 .section--portfolio {
-  padding: 140px 0 136px;
+  padding: 84px 0 136px;
 }
 
 .section--promise {
@@ -724,7 +724,7 @@ button {
 }
 
 .service-note {
-  padding: 0 0 120px;
+  padding: 0 0 96px;
 }
 
 .service-note__card {
@@ -3226,6 +3226,15 @@ button {
   .service-note__card {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .section--maintenance-promo {
+    padding-top: 24px;
+    padding-bottom: 56px;
+  }
+
+  .section--portfolio {
+    padding-top: 64px;
   }
 
   .faq-grid {
