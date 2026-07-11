@@ -43,7 +43,7 @@ function formatFullFaqSection(index: number) {
 export function buildLlmsTxt() {
   return `# ${siteConfig.name}
 
-> Personal bike rental in Munich-Maxvorstadt with owned endurance, gravel, all-round and aero bikes, direct contact and clear pricing.
+> Personal bike rental and maintenance in Munich-Maxvorstadt with owned endurance, gravel, all-round and aero bikes, direct contact and clear pricing.
 
 This website is for a local bicycle rental service. The most useful pages are the home page, the legal pages, and the contact section. If you need location, prices, or bike details, use the home page sections below.
 
@@ -62,7 +62,7 @@ This website is for a local bicycle rental service. The most useful pages are th
 - Email: ${siteConfig.email}
 - Phone: ${siteConfig.phone}
 - Website: ${siteConfig.url}
-- Positioning: personal, owner-run bike rental with only owned bikes
+- Positioning: personal, owner-run bike rental and maintenance with only owned bikes
 - Primary audience: people looking to rent an endurance, gravel, all-round or aero bike in Munich
 
 ## Bikes
@@ -95,7 +95,7 @@ export function buildLlmsFullTxt() {
 
 ## Overview
 
-${siteConfig.name} is a local bike rental business in Munich-Maxvorstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
+${siteConfig.name} is a local bike rental and maintenance business in Munich-Maxvorstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
 
 The project uses a single-page home experience with sections for bikes, prices, FAQ and contact, plus legal pages for imprint and privacy policy.
 
@@ -106,7 +106,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 - Email: ${siteConfig.email}
 - Phone: ${siteConfig.phone}
 - Address: ${siteConfig.address.streetAddress}, ${siteConfig.address.postalCode} ${siteConfig.address.addressLocality}
-- Business model: rental of owned bicycles only
+- Business model: rental and maintenance of owned bicycles only
 - Main product type: bike rental with endurance, gravel, all-round and aero road bikes
 
 ## Important pages
@@ -119,10 +119,11 @@ The project uses a single-page home experience with sections for bikes, prices, 
 
 ## Hero message
 
-The homepage presents the business as a passion-driven, owner-operated bike rental in Munich. The main promise is:
+The homepage presents the business as a passion-driven, owner-operated bike rental and maintenance service in Munich. The main promise is:
 
 - personal contact
 - carefully maintained bikes
+- maintenance support in one place
 - only owned bikes, not third-party inventory
 - simple reservation flow
 - endurance, gravel, all-round and aero bike options

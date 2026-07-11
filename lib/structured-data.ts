@@ -63,7 +63,7 @@ export function getHomeStructuredDataJson() {
         image: `${siteConfig.url}/assets/img/hero/1.jpg`,
         priceRange: siteConfig.priceRange,
         areaServed: siteConfig.areaServed,
-        serviceType: "Rennrad-, Gravel- und Aero-Bike-Verleih",
+        serviceType: "Rennrad-, Gravel-, Aero-Bike- und Wartungsservice",
         address: {
           "@type": "PostalAddress",
           streetAddress: siteConfig.address.streetAddress,

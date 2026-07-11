@@ -16,7 +16,6 @@ import aeroadReal4 from "../public/bikes/aeroad-cf-sl-8-disc/real4.png";
 import enduracePreview from "../public/bikes/endurace-cf-sl-8-di2/preview.png";
 import enduraceReal1 from "../public/bikes/endurace-cf-sl-8-di2/real1.png";
 import enduraceReal2 from "../public/bikes/endurace-cf-sl-8-di2/real2.png";
-import scottAddictPreview from "../public/bikes/scott-addict-40-2026/preview.png";
 import ultimatePreview from "../public/bikes/ultimate-cf-sl-7eTap-axs/preview.png";
 import ultimateReal1 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real1.png";
 import ultimateReal2 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real2.png";
@@ -110,43 +109,6 @@ export const services: ServiceItem[] = [
 ];
 
 export const portfolioItems: PortfolioItem[] = [
-  {
-    title: "Scott Addict 40 Di2",
-    subtitle: { de: "S", en: "S" },
-    price: { de: "59€/Tag", en: "59€/day" },
-    description: {
-      de: "Leichtes Carbon-Rennrad mit Shimano 105 Di2, 2x12 und hydraulischen Scheibenbremsen für schnelle Trainingsrunden und lange Ausfahrten.",
-      en: "Light carbon road bike with Shimano 105 Di2, 2x12 and hydraulic disc brakes for fast training rides and longer outings.",
-    },
-    image: scottAddictPreview,
-    gallery: [],
-    facts: [
-      {
-        label: { de: "Modelljahr", en: "Model year" },
-        value: { de: "2026", en: "2026" },
-      },
-      {
-        label: { de: "Rahmen", en: "Frame" },
-        value: { de: "Carbon", en: "Carbon" },
-      },
-      {
-        label: { de: "Schaltung", en: "Groupset" },
-        value: { de: "Shimano 105 Di2 2x12", en: "Shimano 105 Di2 2x12 electronic shifting" },
-      },
-      {
-        label: { de: "Schaltungsart", en: "Shifting type" },
-        value: { de: "Elektronisch", en: "Electronic" },
-      },
-      {
-        label: { de: "Bremsen", en: "Brakes" },
-        value: { de: "Hydraulische Scheibenbremsen", en: "Hydraulic disc brakes" },
-      },
-    ],
-    equipment: {
-      de: ["Elektronische Schaltung", "Leichter Carbonrahmen", "Hydraulische Scheibenbremsen"],
-      en: ["Electronic shifting", "Light carbon frame", "Hydraulic disc brakes"],
-    },
-  },
   {
     title: "Endurace CF SL 8 Di2",
     subtitle: { de: "S / M / L", en: "S / M / L" },
@@ -407,9 +369,9 @@ export const translations = {
     menuButton: "Menü öffnen",
     location: "München - Maxvorstadt",
     hero: {
-      title: "RENNRAD- & GRAVELBIKE-VERLEIH IN MÜNCHEN",
+      title: "RENNRAD- & GRAVELBIKE-VERLEIH & WARTUNG IN MÜNCHEN",
       intro:
-        "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.",
+        "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih mit Wartung in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung, Wartung aus einer Hand und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
       stats: [
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
@@ -530,9 +492,9 @@ export const translations = {
     menuButton: "Open menu",
     location: "Munich - Maxvorstadt",
     hero: {
-      title: "Bike rental in Munich",
+      title: "Bike rental and maintenance in Munich",
       intro:
-        "We are a personal bike rental in Munich-Maxvorstadt and rent out well-maintained endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice and clear pricing.",
+        "We are a personal bike rental and maintenance service in Munich-Maxvorstadt and rent out well-maintained endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice, bike care in one place and clear pricing.",
       scroll: "Scroll to the bikes",
       stats: [
         { value: "2", top: "Owners", bottom: "with bike passion" },
