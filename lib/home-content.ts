@@ -390,7 +390,7 @@ export const translations = {
       heroEyebrow: "Wartung",
       heroTitle: "Rennrad warten lassen",
       heroIntro:
-        "Wenn du dein Rennrad warten lassen möchtest, bist du hier richtig. Wir beraten dich persönlich, tauschen bei Bedarf Teile und machen eigentlich alles, was dein Rad wieder sauber und schnell ans Laufen bringt.",
+        "Wenn du dein Rennrad warten lassen möchtest, bist du hier richtig. Wir beraten dich persönlich, tauschen bei Bedarf Teile und machen eigentlich alles, was dein Rad wieder sauber und schnell ans Laufen bringt. Während in München brutto 110 € Stundenlohn in Werkstätten inzwischen normal sind, bieten wir dir vergleichbare Qualität für 49 € an. Das ist möglich, weil wir keine Ladenfläche haben, aber trotzdem qualifizierte Leute einsetzen und die geringeren Kosten direkt an dich weitergeben.",
       heroBadge: "Bestpreis",
       heroPriceLabel: "Öl auf Wachs mit Beratung",
       heroPriceValue: "169€",
@@ -423,11 +423,11 @@ export const translations = {
       formEyebrow: "Anfrage",
       formTitle: "Wartungsanfrage senden",
       formIntro:
-        "Nutze das Formular unten, wenn du dein Rad warten lassen möchtest. Je genauer deine Beschreibung, desto besser können wir einschätzen, was ansteht. Füg bestenfalls Bilder hinzu! Tipp: Wenn du Öl auf Wachs umstellen willst, schreib uns kurz dazu, wie deine Kette aktuell gepflegt ist.",
+        "Nutze das Formular unten, wenn du dein Rad warten lassen möchtest. Je genauer deine Beschreibung, desto besser können wir einschätzen, was ansteht. Füg bestenfalls Bilder hinzu!",
       formPoints: [
         "Die Anfrage ist natürlich unverbindlich und wir machen dir gern einen Kostenvoranschlag.",
         "Auf Wunsch holen wir dein Fahrrad gegen kleinen Aufpreis ab und bringen es wieder zurück.",
-        "Wenn du Öl auf Wachs umstellen willst, beraten wir dich zur passenden Pflege und zum besten Wachs für deine Kette.",
+        "Unsere Beratung ist grundsätzlich kostenlos - egal ob Pflege, Teile oder Wachs.",
       ],
     },
     portfolio: { eyebrow: "Unsere Bikes", title: "Verfügbare Räder" },
@@ -610,7 +610,7 @@ export const translations = {
       heroEyebrow: "Maintenance",
       heroTitle: "Road bike servicing",
       heroIntro:
-        "If you want your road bike serviced, you are in the right place. We give personal advice, replace parts when needed and handle almost everything that gets your bike running clean and fast again.",
+        "If you want your road bike serviced, you are in the right place. We give personal advice, replace parts when needed and handle almost everything that gets your bike running clean and fast again. While gross hourly rates of around 110 EUR have become normal in Munich workshops, we offer comparable quality for 49 EUR. That is possible because we do not have a storefront, but we still work with qualified people and pass the lower costs directly on to you.",
       heroBadge: "Best price",
       heroPriceLabel: "Oil-to-wax conversion with advice",
       heroPriceValue: "169€",
@@ -642,11 +642,11 @@ export const translations = {
       formEyebrow: "Inquiry",
       formTitle: "Send a maintenance request",
       formIntro:
-        "Use the form below if you want your bike serviced. The more precise your description, the better we can estimate what is needed. Pictures are welcome. Tip: If you want to switch from oil to wax, briefly mention how your chain is currently maintained.",
+        "Use the form below if you want your bike serviced. The more precise your description, the better we can estimate what is needed. Pictures are welcome.",
       formPoints: [
         "The inquiry is of course non-binding and we will gladly prepare a quote.",
         "For a small extra fee, we can pick up your bike and bring it back.",
-        "If you want to switch from oil to wax, we will advise you on the right care and the best wax for your chain.",
+        "Our advice is generally free - whether it is care, parts or wax.",
       ],
     },
     portfolio: { eyebrow: "Our bikes", title: "Available bikes" },

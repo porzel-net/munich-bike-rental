@@ -8,8 +8,6 @@ import type { Locale } from "../lib/home-content";
 type MaintenanceFormTranslations = {
   eyebrow: string;
   title: string;
-  intro: string;
-  hint: string;
   name: string;
   contact: string;
   bikeModel: string;
@@ -250,9 +248,6 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
 
   return (
     <form className="contact-form maintenance-form" onSubmit={handleSubmit} noValidate>
-      <p className="maintenance-form__intro">{translations.intro}</p>
-      <p className="contact-form__hint maintenance-form__hint">{translations.hint}</p>
-
       <div className="contact-form__fields">
         <div className="contact-form__field">
           <label htmlFor="maintenance-name">{translations.name}</label>

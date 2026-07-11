@@ -830,36 +830,27 @@ button {
   gap: 18px;
 }
 
+.service-form-section__title-mobile {
+  display: none;
+}
+
+.service-form-section__title-mobile span {
+  display: block;
+}
+
 .service-form-points {
   display: grid;
   gap: 14px;
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-left: 20px;
+  list-style: disc;
 }
 
 .service-form-points li {
-  position: relative;
-  padding: 16px 18px 16px 22px;
-  border: 1px solid rgba(65, 105, 225, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--text);
+  padding: 0 0 0 4px;
+  color: var(--text-muted);
   font-size: 16px;
-  line-height: 1.75;
-  box-shadow: 0 10px 26px rgba(17, 17, 17, 0.05);
-}
-
-.service-form-points li::before {
-  content: "";
-  position: absolute;
-  left: 10px;
-  top: 22px;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 5px rgba(65, 105, 225, 0.08);
+  line-height: 1.8;
 }
 
 .maintenance-form {
@@ -3197,6 +3188,14 @@ button {
     width: 100%;
   }
 
+  .service-form-section__title-desktop {
+    display: none;
+  }
+
+  .service-form-section__title-mobile {
+    display: inline-block;
+  }
+
   .portfolio-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3522,6 +3521,10 @@ button {
   .service-price-card,
   .service-highlight__card {
     border-radius: 22px;
+  }
+
+  .service-form-section__title {
+    max-width: 8.5ch;
   }
 
   .maintenance-form__split {
