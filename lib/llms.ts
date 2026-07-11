@@ -50,7 +50,7 @@ This website is for a local bicycle rental service. The most useful pages are th
 ## Core pages
 
 - [Home](${siteConfig.url}/): Overview, available bikes, prices, FAQ and contact.
-- [Maintenance](${siteConfig.url}/wartung): Road bike maintenance, oil-to-wax switch, and small service requests.
+- [Maintenance](${siteConfig.url}/wartung): Road bike maintenance, oil-to-wax switch, parts replacement, repairs, pickup service and service requests.
 - [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Data processing and privacy information.
@@ -73,6 +73,7 @@ ${portfolioItems.map((_, index) => formatBikeLine(index)).join("\n")}
 ## Rental and contact
 
 - Reservations start from the contact form on the home page.
+- The maintenance page covers advice, oil-to-wax conversion, parts replacement, repairs and pickup for a small extra fee.
 - The first contact happens through the form; follow-up happens by email.
 - The reservation flow asks for name, contact details, date range and a message.
 - The site emphasizes direct owner contact instead of anonymous marketplace-style renting.
@@ -126,6 +127,7 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - personal contact
 - carefully maintained bikes
 - maintenance support in one place
+- oil-to-wax service with advice for 169 EUR
 - only owned bikes, not third-party inventory
 - simple reservation flow
 - endurance, gravel, all-round and aero bike options
@@ -147,6 +149,7 @@ ${faqItems.map((_, index) => formatFullFaqSection(index)).join("\n\n")}
 ## Contact flow
 
 - Visitors contact the business via the form first; follow-up happens by email.
+- The maintenance form is separate from the rental inquiry form and is used for service questions, parts swaps and pickup requests.
 - The form requests name, contact details, rental dates, and a message.
 - When a specific bike is reserved from the site, the contact form is prefilled with a booking draft.
 

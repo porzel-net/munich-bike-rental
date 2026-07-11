@@ -11,6 +11,7 @@ Die Seite präsentiert den Verleih als persönliches Projekt von zwei jungen, be
 - Der Header führt zu den wichtigsten Bereichen: Start, Räder, Preise und Kontakt.
 - Der Hero-Bereich stellt den Verleih, die Wartung, die Leidenschaft fürs Radfahren und die persönliche Note des Teams in den Mittelpunkt.
 - Eine eigene Wartungsseite erklärt Serviceleistungen wie Öl-zu-Wachs-Umstieg und kleine Bike-Services.
+- Auf der Wartungsseite gibt es einen eigenen Preisblock, Leistungs-Kacheln und ein separates Formular für Wartungsanfragen.
 - Im Bereich „Selected Works“ werden die verfügbaren Räder gezeigt, die verliehen werden sollen.
 - Der Preisbereich erklärt die Mietmodelle und Zubehörpreise.
 - Der Kontaktbereich lädt dazu ein, direkt eine Anfrage zu senden.

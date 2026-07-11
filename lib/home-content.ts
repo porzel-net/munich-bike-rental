@@ -386,6 +386,45 @@ export const translations = {
         "Wenn du zum Beispiel von Öl auf Wachs wechseln möchtest oder einen kleinen Service brauchst, geht es hier zur Wartung.",
       cta: "Zur Wartung",
     },
+    maintenancePage: {
+      heroEyebrow: "Wartung",
+      heroTitle: "Rennrad warten lassen",
+      heroIntro:
+        "Wenn du dein Rennrad warten lassen möchtest, bist du hier richtig. Wir beraten dich persönlich, tauschen bei Bedarf Teile und machen eigentlich alles, was dein Rad wieder sauber und schnell ans Laufen bringt.",
+      heroBadge: "Bestpreis",
+      heroPriceLabel: "Öl auf Wachs mit Beratung",
+      heroPriceValue: "169€",
+      heroPriceNote: "Unser Bestpreis für den kompletten Umstieg inklusive Beratung, Reinigung und Abstimmung auf deine Kette.",
+      servicesEyebrow: "Mögliche Arbeiten",
+      servicesTitle: "WORAN WIR DEIN RAD ARBEITEN",
+      servicesIntro:
+        "Du bekommst bei uns nicht nur eine Werkstattleistung. Wir beraten dich auch dazu, welches Wachs für deine Kette am besten passt, welche Teile sich lohnen zu tauschen und wie du dein Rad langfristig besser pflegst.",
+      services: [
+        {
+          title: "Kettenpflege und Antriebsreinigung",
+          text: "Wir reinigen Kette und Antrieb gründlich, damit alles leise, sauber und effizient läuft.",
+        },
+        {
+          title: "Umstieg von Öl auf Wachs",
+          text: "Wir machen den kompletten Umstieg inklusive Beratung, Vorbereitung und sauberem Finish.",
+        },
+        {
+          title: "Teile tauschen und reparieren",
+          text: "Wir tauschen Verschleißteile aus und reparieren eigentlich alles, was sich wirtschaftlich sinnvoll machen lässt.",
+        },
+        {
+          title: "Abholung und Rückgabe",
+          text: "Gegen einen kleinen Aufpreis holen wir dein Fahrrad ab und bringen es nach der Wartung wieder zurück.",
+        },
+      ],
+      highlightTitle: "Beratung inklusive",
+      highlightText:
+        "Wir sagen dir offen, was sich lohnt und was nicht. Wenn du willst, helfen wir dir auch bei der Wahl des besten Wachses für deine Kette.",
+      formEyebrow: "Anfrage",
+      formTitle: "Wartungsanfrage senden",
+      formIntro:
+        "Schreib uns unten direkt, was an deinem Rad ansteht. Je mehr du uns kurz beschreibst, desto genauer können wir dir helfen.",
+    },
     portfolio: { eyebrow: "Unsere Bikes", title: "Verfügbare Räder" },
     pricePromise: {
       eyebrow: "Preisversprechen",
@@ -418,6 +457,51 @@ export const translations = {
       title: "Kontakt aufnehmen",
       intro:
         "Schreib uns einfach über das Kontaktfeld, wenn du ein Rad reservieren möchtest. Der Erstkontakt läuft über das Formular und wir melden uns danach per E-Mail - immer innerhalb von 24 Stunden.",
+    },
+    maintenanceForm: {
+      eyebrow: "Wartungsanfrage",
+      title: "Direkt Wartung anfragen",
+      intro:
+        "Nutze das Formular unten, wenn du dein Rad warten lassen möchtest. Je genauer deine Beschreibung, desto besser können wir einschätzen, was ansteht.",
+      hint: "Tipp: Wenn du Öl auf Wachs umstellen willst, schreib uns kurz dazu, wie deine Kette aktuell gepflegt ist.",
+      name: "Name",
+      contact: "E-Mail-Adresse",
+      bikeModel: "Radmodell / betroffene Teile",
+      serviceType: "Worum geht es?",
+      serviceTypeOptions: {
+        wax: "Öl auf Wachs mit Beratung",
+        cleaning: "Kettenpflege und Antriebsreinigung",
+        parts: "Teile tauschen",
+        repair: "Reparatur",
+        advice: "Beratung",
+      },
+      pickup: "Abholung / Rückgabe",
+      pickupOptions: {
+        no: "Nein",
+        yes: "Ja, bitte",
+      },
+      message: "Was steht an?",
+      privacy: "Ich akzeptiere die Datenschutzbestimmungen.",
+      submit: "Wartung anfragen",
+      sending: "Senden...",
+      success: "Danke, deine Wartungsanfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
+      orderNumberLabel: "Auftragsnummer",
+      error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
+      validation: {
+        contactHint: "Format: name@domain.de",
+        nameRequired: "Bitte gib deinen Namen an.",
+        contactRequired: "Bitte gib deine E-Mail-Adresse an.",
+        contactInvalid: "Bitte nutze ein gültiges Format, zum Beispiel name@domain.de.",
+        bikeModelRequired: "Bitte nenne kurz dein Radmodell oder die betroffenen Teile.",
+        serviceTypeRequired: "Bitte wähle aus, worum es geht.",
+        messageRequired: "Bitte beschreibe kurz, was gemacht werden soll.",
+        privacyRequired: "Bitte akzeptiere die Datenschutzbestimmungen.",
+        submitFailed: "Die Wartungsanfrage konnte nicht gesendet werden. Bitte versuche es erneut.",
+        submitOriginError: "Die Wartungsanfrage konnte nicht gesendet werden, weil der Aufruf als ungültig erkannt wurde.",
+        submitConfigError: "Das Formular ist derzeit nicht korrekt eingerichtet. Bitte versuche es später noch einmal.",
+        submitPayloadError: "Die Nachricht ist zu lang. Bitte kürze sie etwas und versuche es erneut.",
+        submitValidationError: "Bitte prüfe die markierten Felder und versuche es erneut.",
+      },
     },
     locationSection: {
       eyebrow: "Standort",
@@ -517,6 +601,45 @@ export const translations = {
         "If you want to switch from oil to wax, or need a small tune-up, go here for maintenance.",
       cta: "Go to maintenance",
     },
+    maintenancePage: {
+      heroEyebrow: "Maintenance",
+      heroTitle: "Road bike servicing",
+      heroIntro:
+        "If you want your road bike serviced, you are in the right place. We give personal advice, replace parts when needed and handle almost everything that gets your bike running clean and fast again.",
+      heroBadge: "Best price",
+      heroPriceLabel: "Oil-to-wax conversion with advice",
+      heroPriceValue: "169€",
+      heroPriceNote: "Our best price for the full switch including advice, cleaning and tuning for your chain.",
+      servicesEyebrow: "Possible work",
+      servicesTitle: "WHAT WE CAN DO FOR YOUR BIKE",
+      servicesIntro:
+        "You do not just get workshop work from us. We also advise you on which wax fits your chain best, which parts are worth replacing and how to keep your bike in better shape long term.",
+      services: [
+        {
+          title: "Chain care and drivetrain cleaning",
+          text: "We clean the chain and drivetrain thoroughly so everything runs quietly, cleanly and efficiently.",
+        },
+        {
+          title: "Switch from oil to wax",
+          text: "We handle the full switch, including advice, preparation and a clean final setup.",
+        },
+        {
+          title: "Part swaps and repairs",
+          text: "We replace wear parts and repair almost everything that makes sense economically.",
+        },
+        {
+          title: "Pickup and return",
+          text: "For a small extra fee, we can pick up your bike and bring it back after the service.",
+        },
+      ],
+      highlightTitle: "Advice included",
+      highlightText:
+        "We tell you honestly what is worth doing and what is not. If you want, we will also help you choose the best wax for your chain.",
+      formEyebrow: "Inquiry",
+      formTitle: "Send a maintenance request",
+      formIntro:
+        "Write to us below what is going on with your bike. The more details you give us, the more precisely we can help.",
+    },
     portfolio: { eyebrow: "Our bikes", title: "Available bikes" },
     pricePromise: {
       eyebrow: "Price promise",
@@ -549,6 +672,51 @@ export const translations = {
       title: "Get in touch",
       intro:
         "Just write to us via the contact form if you want to reserve a bike. The first contact happens through the form and we'll get back to you by email - always within 24 hours.",
+    },
+    maintenanceForm: {
+      eyebrow: "Maintenance inquiry",
+      title: "Ask for servicing directly",
+      intro:
+        "Use the form below if you want to service your bike. The more details you give us, the better we can estimate what is needed.",
+      hint: "Tip: If you want to switch from oil to wax, briefly mention how your chain is currently maintained.",
+      name: "Name",
+      contact: "Email address",
+      bikeModel: "Bike model / affected parts",
+      serviceType: "What do you need?",
+      serviceTypeOptions: {
+        wax: "Oil-to-wax with advice",
+        cleaning: "Chain care and drivetrain cleaning",
+        parts: "Part replacement",
+        repair: "Repair",
+        advice: "Advice",
+      },
+      pickup: "Pickup / return",
+      pickupOptions: {
+        no: "No",
+        yes: "Yes, please",
+      },
+      message: "What needs to be done?",
+      privacy: "I accept the privacy policy.",
+      submit: "Ask for service",
+      sending: "Sending...",
+      success: "Thanks, your maintenance request has been sent. We will reply within 24 hours by email.",
+      orderNumberLabel: "Order number",
+      error: "The message could not be sent. Please try again.",
+      validation: {
+        contactHint: "Format: name@domain.com",
+        nameRequired: "Please enter your name.",
+        contactRequired: "Please enter your email address.",
+        contactInvalid: "Please use a valid format, for example name@domain.com.",
+        bikeModelRequired: "Please briefly name your bike model or the affected parts.",
+        serviceTypeRequired: "Please choose what you need.",
+        messageRequired: "Please briefly describe what should be done.",
+        privacyRequired: "Please accept the privacy policy.",
+        submitFailed: "The maintenance request could not be sent. Please try again.",
+        submitOriginError: "The maintenance request could not be sent because the call was marked as invalid.",
+        submitConfigError: "The form is not configured correctly right now. Please try again later.",
+        submitPayloadError: "The message is too long. Please shorten it and try again.",
+        submitValidationError: "Please check the highlighted fields and try again.",
+      },
     },
     locationSection: {
       eyebrow: "Location",

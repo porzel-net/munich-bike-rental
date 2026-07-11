@@ -627,6 +627,248 @@ button {
   margin-top: 0;
 }
 
+.service-hero__link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.service-hero__link:hover,
+.service-hero__link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.service-hero__actions .button--arrow {
+  margin-top: 0;
+}
+
+.service-price-card {
+  width: min(100%, 440px);
+  padding: clamp(24px, 3vw, 34px);
+  border-radius: 28px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+    radial-gradient(circle at top right, rgba(65, 105, 225, 0.08), transparent 42%);
+  box-shadow: 0 22px 60px rgba(17, 17, 17, 0.08);
+  backdrop-filter: blur(12px);
+  display: grid;
+  gap: 12px;
+}
+
+.service-price-card__badge {
+  display: inline-flex;
+  width: fit-content;
+  color: var(--accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.service-price-card__title {
+  margin: 0;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.5rem, 2.8vw, 2.2rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.service-price-card__price {
+  color: var(--text);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(2.4rem, 5vw, 3.7rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.service-price-card__text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.service-offers {
+  padding: 0 0 100px;
+}
+
+.service-offers__inner {
+  display: grid;
+  gap: 18px;
+}
+
+.service-offers__intro {
+  max-width: 780px;
+}
+
+.service-offers__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.service-offers__card {
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 38px rgba(17, 17, 17, 0.06);
+}
+
+.service-offers__card h3 {
+  margin: 0 0 12px;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.service-offers__card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.service-highlight {
+  padding: 0 0 102px;
+}
+
+.service-highlight__card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px 32px;
+  padding: clamp(24px, 3vw, 34px);
+  border-radius: 26px;
+  border: 1px solid rgba(65, 105, 225, 0.14);
+  background:
+    radial-gradient(circle at top left, rgba(65, 105, 225, 0.14), transparent 38%),
+    rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 50px rgba(17, 17, 17, 0.08);
+}
+
+.service-highlight__copy {
+  display: grid;
+  gap: 10px;
+  max-width: 780px;
+}
+
+.service-highlight__eyebrow {
+  color: var(--accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.service-highlight__title {
+  margin: 0;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.service-highlight__text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.service-highlight__price {
+  display: grid;
+  gap: 8px;
+  min-width: 170px;
+}
+
+.service-highlight__price strong {
+  color: var(--text);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(2.2rem, 4vw, 3.1rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.service-highlight__price span {
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.service-form-section {
+  padding: 0 0 120px;
+}
+
+.service-form-section__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+}
+
+.service-form-section__copy {
+  display: grid;
+  gap: 18px;
+}
+
+.service-form-points {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.maintenance-form {
+  padding-left: 0;
+  padding-top: 0;
+}
+
+.maintenance-form__intro {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1.8;
+}
+
+.maintenance-form__hint {
+  margin: 0;
+}
+
+.maintenance-form__split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.maintenance-form__pickup {
+  display: grid;
+  gap: 8px;
+}
+
+.contact-form__field--wide {
+  grid-column: 1 / -1;
+}
+
 .section--portfolio {
   padding: 84px 0 136px;
 }
@@ -2924,6 +3166,15 @@ button {
     justify-content: flex-start;
   }
 
+  .service-offers__grid,
+  .service-form-section__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .service-price-card {
+    width: 100%;
+  }
+
   .portfolio-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2995,6 +3246,14 @@ button {
   .cookie-banner {
     inset: auto 12px 12px 12px;
     width: auto;
+  }
+
+  .service-highlight__card {
+    flex-direction: column;
+  }
+
+  .service-highlight__price {
+    min-width: 0;
   }
 }
 
@@ -3235,6 +3494,16 @@ button {
 
   .section--portfolio {
     padding-top: 64px;
+  }
+
+  .service-offers__card,
+  .service-price-card,
+  .service-highlight__card {
+    border-radius: 22px;
+  }
+
+  .maintenance-form__split {
+    grid-template-columns: 1fr;
   }
 
   .faq-grid {

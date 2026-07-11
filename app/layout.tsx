@@ -48,6 +48,8 @@ export const metadata: Metadata = {
     "Fahrradwartung München",
     "Rennrad Wartung München",
     "Gravelbike Wartung München",
+    "Öl auf Wachs München",
+    "Fahrrad reparieren München",
     "Endurace CF SL 8 Di2",
     "Shimano 105 Di2",
     "Grail CF SL 7",
