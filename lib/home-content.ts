@@ -30,12 +30,16 @@ export type FormValidationText = {
   nameRequired: string;
   contactRequired: string;
   contactInvalid: string;
+  phoneRequired: string;
   heightRequired: string;
   heightInvalid: string;
   bikeSizeRequired: string;
   periodFromRequired: string;
   periodToRequired: string;
   periodInvalid: string;
+  pedalTypeRequired: string;
+  pickupTimeRequired: string;
+  dropoffTimeRequired: string;
   messageRequired: string;
   privacyRequired: string;
   submitFailed: string;
@@ -307,8 +311,8 @@ export const faqItems = [
       en: "How does the inquiry and rental process work?",
     },
     answer: {
-      de: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail und melden uns immer innerhalb von 24 Stunden, damit am Ende Preis, Zeitraum und Abholung sauber passen.",
-      en: "All bikes can be requested and rented online via the contact form. We then sort out everything directly by email and always reply within 24 hours so that price, rental period and pickup fit perfectly in the end.",
+      de: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail und melden uns immer innerhalb von 24 Stunden. Eine Telefonnummer hilft uns besonders bei kurzfristigen Anfragen, damit wir bei Bedarf direkt anrufen können.",
+      en: "All bikes can be requested and rented online via the contact form. We then sort out everything directly by email and always reply within 24 hours. A phone number helps us especially with short-notice requests so we can call you directly if needed.",
     },
   },
   {
@@ -532,6 +536,8 @@ export const translations = {
     form: {
       name: "Name",
       contact: "E-Mail-Adresse",
+      phone: "Telefonnummer",
+      phoneHint: "Damit wir dich bei kurzfristigen Anfragen schnell anrufen können.",
       height: "Körpergröße in cm",
       bikeSize: "Rennradgröße",
       bikeSizeOptions: {
@@ -542,6 +548,19 @@ export const translations = {
       periodFrom: "Zeitraum von",
       periodTo: "bis",
       periodHint: "Bitte wähle den Zeitraum, in dem du das Rad buchen möchtest.",
+      pickupTime: "Gewünschte Abholuhrzeit",
+      dropoffTime: "Gewünschte Abgabeuhrzeit",
+      equipment: "Ausrüstung",
+      pedals: "Ich brauche Pedale",
+      pedalType: "Welche Pedale?",
+      pedalTypeOptions: {
+        platform: "Plattformpedale",
+        spdSl: "SPD-SL",
+        lookKeo2Max: "Look Keo2 Max",
+        other: "Andere",
+      },
+      helmet: "Ich brauche einen Helm",
+      clothing: "Ich brauche Kleidung (Rennradhose + Rennradtrikot)",
       message: "Worum geht es?",
       messageHint:
         "Tipp: Du kannst auch oben bei einem Bike auf Reservieren klicken. Dann wird hier automatisch ein Vorschlag mit dem Bike-Namen eingefügt.",
@@ -557,12 +576,16 @@ export const translations = {
         nameRequired: "Bitte gib deinen Namen an.",
         contactRequired: "Bitte gib deine E-Mail-Adresse an.",
         contactInvalid: "Bitte nutze ein gültiges Format, zum Beispiel name@domain.de.",
+        phoneRequired: "Bitte gib deine Telefonnummer an.",
         heightRequired: "Bitte gib deine Körpergröße an.",
         heightInvalid: "Bitte gib eine Zahl zwischen 100 und 250 cm an.",
         bikeSizeRequired: "Bitte wähle deine Rennradgröße aus.",
         periodFromRequired: "Bitte wähle den Start des Zeitraums.",
         periodToRequired: "Bitte wähle das Ende des Zeitraums.",
         periodInvalid: "Das Ende des Zeitraums muss nach dem Start liegen.",
+        pedalTypeRequired: "Bitte wähle die Pedale aus, die du brauchst.",
+        pickupTimeRequired: "Bitte gib deine gewünschte Abholuhrzeit an.",
+        dropoffTimeRequired: "Bitte gib deine gewünschte Abgabeuhrzeit an.",
         messageRequired: "Bitte schreibe eine kurze Nachricht.",
         privacyRequired: "Bitte akzeptiere die Datenschutzbestimmungen.",
         submitFailed: "Die Anfrage konnte nicht gesendet werden. Bitte prüfe die Eingaben und versuche es erneut.",
@@ -751,6 +774,8 @@ export const translations = {
     form: {
       name: "Name",
       contact: "Email address",
+      phone: "Phone number",
+      phoneHint: "So we can call you quickly if the request is short notice.",
       height: "Height in cm",
       bikeSize: "Road bike size",
       bikeSizeOptions: {
@@ -761,6 +786,19 @@ export const translations = {
       periodFrom: "Rental period from",
       periodTo: "to",
       periodHint: "Please choose the period in which you want to book the bike.",
+      pickupTime: "Preferred pickup time",
+      dropoffTime: "Preferred drop-off time",
+      equipment: "Equipment",
+      pedals: "I need pedals",
+      pedalType: "Which pedals?",
+      pedalTypeOptions: {
+        platform: "Platform pedals",
+        spdSl: "SPD-SL",
+        lookKeo2Max: "Look Keo2 Max",
+        other: "Other",
+      },
+      helmet: "I need a helmet",
+      clothing: "I need clothing (bib shorts + road jersey)",
       message: "What is it about?",
       messageHint:
         "Tip: You can also click Reserve on a bike above. That will automatically insert a message draft with the bike name here.",
@@ -776,12 +814,16 @@ export const translations = {
         nameRequired: "Please enter your name.",
         contactRequired: "Please enter your email address.",
         contactInvalid: "Please use a valid format, for example name@domain.com.",
+        phoneRequired: "Please enter your phone number.",
         heightRequired: "Please enter your height.",
         heightInvalid: "Please enter a number between 100 and 250 cm.",
         bikeSizeRequired: "Please choose your road bike size.",
         periodFromRequired: "Please choose the start of the rental period.",
         periodToRequired: "Please choose the end of the rental period.",
         periodInvalid: "The end of the rental period must be after the start.",
+        pedalTypeRequired: "Please choose the pedals you need.",
+        pickupTimeRequired: "Please enter your preferred pickup time.",
+        dropoffTimeRequired: "Please enter your preferred drop-off time.",
         messageRequired: "Please write a short message.",
         privacyRequired: "Please accept the privacy policy.",
         submitFailed: "The request could not be sent. Please check the fields and try again.",

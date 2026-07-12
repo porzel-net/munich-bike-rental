@@ -43,6 +43,8 @@ type ModalTranslations = {
 type FormTranslations = {
   name: string;
   contact: string;
+  phone: string;
+  phoneHint: string;
   height: string;
   bikeSize: string;
   bikeSizeOptions: {
@@ -53,6 +55,19 @@ type FormTranslations = {
   periodFrom: string;
   periodTo: string;
   periodHint: string;
+  pickupTime: string;
+  dropoffTime: string;
+  equipment: string;
+  pedals: string;
+  pedalType: string;
+  pedalTypeOptions: {
+    platform: string;
+    spdSl: string;
+    lookKeo2Max: string;
+    other: string;
+  };
+  helmet: string;
+  clothing: string;
   message: string;
   messageHint: string;
   privacy: string;
@@ -66,12 +81,16 @@ type FormTranslations = {
     nameRequired: string;
     contactRequired: string;
     contactInvalid: string;
+    phoneRequired: string;
     heightRequired: string;
     heightInvalid: string;
     bikeSizeRequired: string;
     periodFromRequired: string;
     periodToRequired: string;
     periodInvalid: string;
+    pedalTypeRequired: string;
+    pickupTimeRequired: string;
+    dropoffTimeRequired: string;
     messageRequired: string;
     privacyRequired: string;
     submitFailed: string;
@@ -118,7 +137,19 @@ type AboutImageStackProps = {
 
 type ContactStatus = "idle" | "sending" | "success" | "error";
 
-type ContactField = "name" | "contact" | "height" | "bikeSize" | "periodFrom" | "periodTo" | "message" | "privacy";
+type ContactField =
+  | "name"
+  | "contact"
+  | "phone"
+  | "height"
+  | "bikeSize"
+  | "periodFrom"
+  | "periodTo"
+  | "pickupTime"
+  | "dropoffTime"
+  | "pedalType"
+  | "message"
+  | "privacy";
 
 type ContactFieldErrors = Partial<Record<ContactField, string>>;
 
@@ -174,19 +205,30 @@ function validateContactForm(
   values: {
     name: string;
     contact: string;
+    phone: string;
     height: string;
     bikeSize: string;
     periodFrom: string;
     periodTo: string;
+    pickupTime: string;
+    dropoffTime: string;
+    needsPedals: boolean;
+    pedalType: string;
+    needsHelmet: boolean;
+    needsClothing: boolean;
     message: string;
     privacyAccepted: boolean;
   },
 ): ContactFormValidation {
   const validation = translations.form.validation;
   const fieldErrors: ContactFieldErrors = {};
+  const phoneValue = values.phone.trim();
   const heightValue = values.height.trim();
   const periodFromValue = values.periodFrom.trim();
   const periodToValue = values.periodTo.trim();
+  const pickupTimeValue = values.pickupTime.trim();
+  const dropoffTimeValue = values.dropoffTime.trim();
+  const pedalTypeValue = values.pedalType.trim();
 
   if (!values.name.trim()) {
     fieldErrors.name = validation.nameRequired;
@@ -196,6 +238,10 @@ function validateContactForm(
     fieldErrors.contact = validation.contactRequired;
   } else if (!isValidContactValue(values.contact.trim())) {
     fieldErrors.contact = validation.contactInvalid;
+  }
+
+  if (!phoneValue) {
+    fieldErrors.phone = validation.phoneRequired;
   }
 
   if (!heightValue) {
@@ -221,6 +267,18 @@ function validateContactForm(
 
   if (periodFromValue && periodToValue && new Date(periodFromValue).getTime() > new Date(periodToValue).getTime()) {
     fieldErrors.periodTo = validation.periodInvalid;
+  }
+
+  if (!pickupTimeValue) {
+    fieldErrors.pickupTime = validation.pickupTimeRequired;
+  }
+
+  if (!dropoffTimeValue) {
+    fieldErrors.dropoffTime = validation.dropoffTimeRequired;
+  }
+
+  if (values.needsPedals && !pedalTypeValue) {
+    fieldErrors.pedalType = validation.pedalTypeRequired;
   }
 
   if (!values.message.trim()) {
@@ -755,11 +813,18 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
+  const [phone, setPhone] = useState("");
   const [height, setHeight] = useState("");
   const [bikeSize, setBikeSize] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
+  const [pickupTime, setPickupTime] = useState("");
+  const [dropoffTime, setDropoffTime] = useState("");
+  const [needsPedals, setNeedsPedals] = useState(false);
+  const [pedalType, setPedalType] = useState("");
+  const [needsHelmet, setNeedsHelmet] = useState(false);
+  const [needsClothing, setNeedsClothing] = useState(false);
   const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -810,10 +875,17 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     const validation = validateContactForm(translations, {
       name,
       contact,
+      phone,
       height,
       bikeSize,
       periodFrom,
       periodTo,
+      pickupTime,
+      dropoffTime,
+      needsPedals,
+      pedalType,
+      needsHelmet,
+      needsClothing,
       message: contactMessage,
       privacyAccepted,
     });
@@ -829,10 +901,17 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     const formData = new FormData(form);
     const nameValue = String(formData.get("name") ?? "").trim();
     const contactValue = String(formData.get("contact") ?? "").trim();
+    const phoneValue = String(formData.get("phone") ?? "").trim();
     const heightValue = String(formData.get("height") ?? "").trim();
     const bikeSizeValue = String(formData.get("bikeSize") ?? "").trim();
     const periodFromValue = String(formData.get("periodFrom") ?? "").trim();
     const periodToValue = String(formData.get("periodTo") ?? "").trim();
+    const pickupTimeValue = String(formData.get("pickupTime") ?? "").trim();
+    const dropoffTimeValue = String(formData.get("dropoffTime") ?? "").trim();
+    const needsPedalsValue = formData.get("needsPedals") === "on";
+    const pedalTypeValue = String(formData.get("pedalType") ?? "").trim();
+    const needsHelmetValue = formData.get("needsHelmet") === "on";
+    const needsClothingValue = formData.get("needsClothing") === "on";
     const message = String(formData.get("message") ?? "").trim();
 
     setContactStatus("sending");
@@ -849,10 +928,17 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         body: JSON.stringify({
           name: nameValue,
           contact: contactValue,
+          phone: phoneValue,
           height: heightValue,
           bikeSize: bikeSizeValue,
           periodFrom: periodFromValue,
           periodTo: periodToValue,
+          pickupTime: pickupTimeValue,
+          dropoffTime: dropoffTimeValue,
+          needsPedals: needsPedalsValue,
+          pedalType: needsPedalsValue ? pedalTypeValue : "",
+          needsHelmet: needsHelmetValue,
+          needsClothing: needsClothingValue,
           message,
           bikeTitle: pendingReservationBike ?? "",
           locale: lang,
@@ -887,11 +973,18 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       form.reset();
       setName("");
       setContact("");
+      setPhone("");
       setHeight("");
       setBikeSize("");
       setContactMessage("");
       setPeriodFrom("");
       setPeriodTo("");
+      setPickupTime("");
+      setDropoffTime("");
+      setNeedsPedals(false);
+      setPedalType("");
+      setNeedsHelmet(false);
+      setNeedsClothing(false);
       setPendingReservationBike(null);
       setPrivacyAccepted(false);
       setFieldErrors({});
@@ -959,6 +1052,32 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           {fieldErrors.contact ? (
             <p className="contact-form__error" id="contact-error">
               {fieldErrors.contact}
+            </p>
+          ) : null}
+        </div>
+        <div className="contact-form__field">
+          <label htmlFor="phone">{translations.form.phone}</label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            placeholder={translations.form.phone}
+            value={phone}
+            aria-invalid={Boolean(fieldErrors.phone)}
+            aria-describedby={fieldErrors.phone ? "phone-hint phone-error" : "phone-hint"}
+            onChange={(event) => {
+              setPhone(event.target.value);
+              clearFieldError("phone");
+            }}
+            inputMode="tel"
+            autoComplete="tel"
+          />
+          <p className="contact-form__hint" id="phone-hint">
+            {translations.form.phoneHint}
+          </p>
+          {fieldErrors.phone ? (
+            <p className="contact-form__error" id="phone-error">
+              {fieldErrors.phone}
             </p>
           ) : null}
         </div>
@@ -1057,6 +1176,125 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               </p>
             ) : null}
           </div>
+        </div>
+      </div>
+      <div className="contact-form__period">
+        <div className="contact-form__period-fields">
+          <div className="contact-form__period-field">
+            <label htmlFor="pickup-time">{translations.form.pickupTime}</label>
+            <input
+              id="pickup-time"
+              name="pickupTime"
+              type="time"
+              value={pickupTime}
+              aria-invalid={Boolean(fieldErrors.pickupTime)}
+              aria-describedby={fieldErrors.pickupTime ? "pickup-time-error" : undefined}
+              onChange={(event) => {
+                setPickupTime(event.target.value);
+                clearFieldError("pickupTime");
+              }}
+            />
+            {fieldErrors.pickupTime ? (
+              <p className="contact-form__error" id="pickup-time-error">
+                {fieldErrors.pickupTime}
+              </p>
+            ) : null}
+          </div>
+          <div className="contact-form__period-field">
+            <label htmlFor="dropoff-time">{translations.form.dropoffTime}</label>
+            <input
+              id="dropoff-time"
+              name="dropoffTime"
+              type="time"
+              value={dropoffTime}
+              aria-invalid={Boolean(fieldErrors.dropoffTime)}
+              aria-describedby={fieldErrors.dropoffTime ? "dropoff-time-error" : undefined}
+              onChange={(event) => {
+                setDropoffTime(event.target.value);
+                clearFieldError("dropoffTime");
+              }}
+            />
+            {fieldErrors.dropoffTime ? (
+              <p className="contact-form__error" id="dropoff-time-error">
+                {fieldErrors.dropoffTime}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="contact-form__period">
+        <span className="contact-form__section-title">{translations.form.equipment}</span>
+        <div className="contact-form__equipment-grid">
+          <label className="contact-form__checkbox">
+            <input
+              type="checkbox"
+              name="needsPedals"
+              checked={needsPedals}
+              onChange={(event) => {
+                const nextValue = event.target.checked;
+                setNeedsPedals(nextValue);
+                if (!nextValue) {
+                  setPedalType("");
+                }
+                clearFieldError("pedalType");
+              }}
+            />
+            <span>{translations.form.pedals}</span>
+          </label>
+
+          {needsPedals ? (
+            <div className="contact-form__field contact-form__field--wide">
+              <label htmlFor="pedal-type">{translations.form.pedalType}</label>
+              <select
+                id="pedal-type"
+                name="pedalType"
+                value={pedalType}
+                aria-invalid={Boolean(fieldErrors.pedalType)}
+                aria-describedby={fieldErrors.pedalType ? "pedal-type-error" : undefined}
+                onChange={(event) => {
+                  setPedalType(event.target.value);
+                  clearFieldError("pedalType");
+                }}
+              >
+                <option value="" disabled>
+                  {translations.form.pedalType}
+                </option>
+                <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
+                <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
+                <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
+                <option value="other">{translations.form.pedalTypeOptions.other}</option>
+              </select>
+              {fieldErrors.pedalType ? (
+                <p className="contact-form__error" id="pedal-type-error">
+                  {fieldErrors.pedalType}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <label className="contact-form__checkbox">
+            <input
+              type="checkbox"
+              name="needsHelmet"
+              checked={needsHelmet}
+              onChange={(event) => {
+                setNeedsHelmet(event.target.checked);
+              }}
+            />
+            <span>{translations.form.helmet}</span>
+          </label>
+
+          <label className="contact-form__checkbox">
+            <input
+              type="checkbox"
+              name="needsClothing"
+              checked={needsClothing}
+              onChange={(event) => {
+                setNeedsClothing(event.target.checked);
+              }}
+            />
+            <span>{translations.form.clothing}</span>
+          </label>
         </div>
       </div>
       <textarea

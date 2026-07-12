@@ -336,8 +336,9 @@ export default function DatenschutzerklaerungPage() {
             Über das auf unserer Internetseite bereitgestellte Kontaktformular sowie über die bereitgestellten
             Kontaktdaten (Telefonnummer und E-Mail-Adresse) ist eine Kontaktaufnahme an uns möglich. Im
             Kontaktformular werden die von Ihnen eingegebenen Daten verarbeitet, insbesondere Name, Kontaktangabe,
-            Zeitraum der gewünschten Miete, Nachricht, Sprache der Anfrage sowie gegebenenfalls das ausgewählte
-            Fahrrad.
+            Telefonnummer, Zeitraum der gewünschten Miete, gewünschte Abhol- und Abgabeuhrzeit, Angaben zur
+            gewünschten Ausrüstung wie Pedale, Helm oder Kleidung, Nachricht, Sprache der Anfrage sowie
+            gegebenenfalls das ausgewählte Fahrrad.
           </p>
           <p>Die Pflichtfelder sind erforderlich, damit wir Ihre Anfrage bearbeiten können.</p>
           <p>Die Formulardaten werden serverseitig an unsere E-Mail-Infrastruktur übermittelt und dort verarbeitet.</p>

@@ -7,14 +7,36 @@ export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const PEDAL_TYPE_LABELS = {
+  de: {
+    platform: "Plattformpedale",
+    spdSl: "SPD-SL",
+    lookKeo2Max: "Look Keo2 Max",
+    other: "Andere",
+  },
+  en: {
+    platform: "Platform pedals",
+    spdSl: "SPD-SL",
+    lookKeo2Max: "Look Keo2 Max",
+    other: "Other",
+  },
+} as const;
 
 type ContactPayload = {
   name?: string;
   contact?: string;
+  phone?: string;
   height?: string;
   bikeSize?: string;
   periodFrom?: string;
   periodTo?: string;
+  pickupTime?: string;
+  dropoffTime?: string;
+  needsPedals?: boolean | string;
+  pedalType?: string;
+  needsHelmet?: boolean | string;
+  needsClothing?: boolean | string;
   message?: string;
   bikeTitle?: string;
   locale?: "de" | "en";
@@ -72,6 +94,18 @@ function parseBoolean(value: string | undefined) {
   return undefined;
 }
 
+function readBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return parseBoolean(value);
+  }
+
+  return undefined;
+}
+
 function parseTimeoutMs(value: string | undefined) {
   if (!value) {
     return undefined;
@@ -115,9 +149,24 @@ function getExpectedOrigin(request: Request) {
 
 function createMailBody(
   payload: Required<
-      Pick<
+    Pick<
       ContactPayload,
-      "name" | "contact" | "height" | "bikeSize" | "periodFrom" | "periodTo" | "message" | "bikeTitle" | "locale"
+      | "name"
+      | "contact"
+      | "phone"
+      | "height"
+      | "bikeSize"
+      | "periodFrom"
+      | "periodTo"
+      | "pickupTime"
+      | "dropoffTime"
+      | "needsPedals"
+      | "pedalType"
+      | "needsHelmet"
+      | "needsClothing"
+      | "message"
+      | "bikeTitle"
+      | "locale"
     >
   > & {
     orderNumber: string;
@@ -129,6 +178,13 @@ function createMailBody(
       ? `${payload.periodFrom} - ${payload.periodTo}`
       : payload.periodFrom || payload.periodTo || "-";
   const affiliateLine = payload.affiliateKey ? `Affiliate-Key: ${payload.affiliateKey}` : null;
+  const pedalLabel = payload.needsPedals
+    ? PEDAL_TYPE_LABELS[payload.locale][payload.pedalType as keyof (typeof PEDAL_TYPE_LABELS)["de"]] ??
+      payload.pedalType
+    : payload.locale === "de"
+      ? "Nein"
+      : "No";
+  const yesNo = payload.locale === "de" ? { yes: "Ja", no: "Nein" } : { yes: "Yes", no: "No" };
 
   if (payload.locale === "de") {
     return [
@@ -137,9 +193,15 @@ function createMailBody(
       `Auftragsnummer: ${payload.orderNumber}`,
       `Name: ${payload.name}`,
       `Kontakt: ${payload.contact}`,
+      `Telefon: ${payload.phone}`,
       `Körpergröße: ${payload.height}`,
       `Rennradgröße: ${payload.bikeSize}`,
       `Zeitraum: ${periodLine}`,
+      `Abholuhrzeit: ${payload.pickupTime}`,
+      `Abgabeuhrzeit: ${payload.dropoffTime}`,
+      `Pedale: ${payload.needsPedals ? `Ja, ${pedalLabel}` : "Nein"}`,
+      `Helm: ${payload.needsHelmet ? yesNo.yes : yesNo.no}`,
+      `Kleidung: ${payload.needsClothing ? yesNo.yes : yesNo.no}`,
       payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
       affiliateLine,
       "",
@@ -156,9 +218,15 @@ function createMailBody(
     `Order number: ${payload.orderNumber}`,
     `Name: ${payload.name}`,
     `Contact: ${payload.contact}`,
+    `Phone: ${payload.phone}`,
     `Height: ${payload.height}`,
     `Bike size: ${payload.bikeSize}`,
     `Rental period: ${periodLine}`,
+    `Pickup time: ${payload.pickupTime}`,
+    `Drop-off time: ${payload.dropoffTime}`,
+    `Pedals: ${payload.needsPedals ? `Yes, ${pedalLabel}` : "No"}`,
+    `Helmet: ${payload.needsHelmet ? yesNo.yes : yesNo.no}`,
+    `Clothing: ${payload.needsClothing ? yesNo.yes : yesNo.no}`,
     payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
     affiliateLine,
     "",
@@ -202,26 +270,45 @@ export async function POST(request: Request) {
 
     const name = sanitizeLine(asText(body?.name), 120);
     const contact = sanitizeLine(asText(body?.contact), 254);
+    const phone = sanitizeLine(asText(body?.phone), 64);
     const height = sanitizeLine(asText(body?.height), 8);
     const bikeSize = sanitizeLine(asText(body?.bikeSize), 2);
     const periodFrom = sanitizeLine(asText(body?.periodFrom), 32);
     const periodTo = sanitizeLine(asText(body?.periodTo), 32);
+    const pickupTime = sanitizeLine(asText(body?.pickupTime), 16);
+    const dropoffTime = sanitizeLine(asText(body?.dropoffTime), 16);
+    const needsPedals = readBoolean(body?.needsPedals) ?? false;
+    const pedalType = sanitizeLine(asText(body?.pedalType), 32);
+    const needsHelmet = readBoolean(body?.needsHelmet) ?? false;
+    const needsClothing = readBoolean(body?.needsClothing) ?? false;
     const message = asText(body?.message).slice(0, 4000);
     const bikeTitle = sanitizeLine(asText(body?.bikeTitle), 120);
     const locale = body?.locale === "en" ? "en" : "de";
     const affiliateKey = sanitizeLine(asText(body?.affiliateKey), 120);
+    const validPedalTypes = new Set<keyof (typeof PEDAL_TYPE_LABELS)["de"]>([
+      "platform",
+      "spdSl",
+      "lookKeo2Max",
+      "other",
+    ]);
 
     if (
       !contact ||
       !isEmail(contact) ||
+      !phone ||
       !height ||
       !/^\d{2,3}$/.test(height) ||
       !bikeSize ||
       !["S", "M", "L"].includes(bikeSize) ||
       !periodFrom ||
       !periodTo ||
+      !pickupTime ||
+      !dropoffTime ||
       !DATE_PATTERN.test(periodFrom) ||
       !DATE_PATTERN.test(periodTo) ||
+      !TIME_PATTERN.test(pickupTime) ||
+      !TIME_PATTERN.test(dropoffTime) ||
+      (needsPedals && (!pedalType || !validPedalTypes.has(pedalType as keyof (typeof PEDAL_TYPE_LABELS)["de"]))) ||
       !message
     ) {
       return jsonError(400, "validation_error", "Missing required fields");
@@ -278,10 +365,17 @@ export async function POST(request: Request) {
       text: createMailBody({
         name,
         contact,
+        phone,
         height,
         bikeSize,
         periodFrom,
         periodTo,
+        pickupTime,
+        dropoffTime,
+        needsPedals,
+        pedalType: needsPedals ? pedalType : "",
+        needsHelmet,
+        needsClothing,
         message,
         bikeTitle,
         locale,

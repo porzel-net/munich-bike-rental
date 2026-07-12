@@ -75,7 +75,7 @@ ${portfolioItems.map((_, index) => formatBikeLine(index)).join("\n")}
 - Reservations start from the contact form on the home page.
 - The maintenance page covers advice, oil-to-wax conversion, parts replacement, repairs and pickup for a small extra fee.
 - The first contact happens through the form; follow-up happens by email.
-- The reservation flow asks for name, contact details, date range and a message.
+- The reservation flow asks for name, contact details, phone number, date range, pickup/drop-off times, equipment preferences and a message.
 - The site emphasizes direct owner contact instead of anonymous marketplace-style renting.
 
 ## FAQ
