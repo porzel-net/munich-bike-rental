@@ -38,6 +38,7 @@ export type FormValidationText = {
   periodToRequired: string;
   periodInvalid: string;
   pedalTypeRequired: string;
+  computerMountTypeRequired: string;
   pickupTimeRequired: string;
   dropoffTimeRequired: string;
   messageRequired: string;
@@ -559,6 +560,13 @@ export const translations = {
         lookKeo2Max: "Look Keo2 Max",
         other: "Andere",
       },
+      computerMount: "Ich brauche eine Fahrradcomputerhalterung",
+      computerMountType: "Welche Halterung?",
+      computerMountTypeOptions: {
+        garmin: "Garmin",
+        wahoo: "Wahoo",
+        other: "Andere",
+      },
       helmet: "Ich brauche einen Helm",
       clothing: "Ich brauche Kleidung (Rennradhose + Rennradtrikot)",
       message: "Worum geht es?",
@@ -584,6 +592,7 @@ export const translations = {
         periodToRequired: "Bitte wähle das Ende des Zeitraums.",
         periodInvalid: "Das Ende des Zeitraums muss nach dem Start liegen.",
         pedalTypeRequired: "Bitte wähle die Pedale aus, die du brauchst.",
+        computerMountTypeRequired: "Bitte wähle die Fahrradcomputerhalterung aus, die du brauchst.",
         pickupTimeRequired: "Bitte gib deine gewünschte Abholuhrzeit an.",
         dropoffTimeRequired: "Bitte gib deine gewünschte Abgabeuhrzeit an.",
         messageRequired: "Bitte schreibe eine kurze Nachricht.",
@@ -797,6 +806,13 @@ export const translations = {
         lookKeo2Max: "Look Keo2 Max",
         other: "Other",
       },
+      computerMount: "I need a bike computer mount",
+      computerMountType: "Which mount?",
+      computerMountTypeOptions: {
+        garmin: "Garmin",
+        wahoo: "Wahoo",
+        other: "Other",
+      },
       helmet: "I need a helmet",
       clothing: "I need clothing (bib shorts + road jersey)",
       message: "What is it about?",
@@ -822,6 +838,7 @@ export const translations = {
         periodToRequired: "Please choose the end of the rental period.",
         periodInvalid: "The end of the rental period must be after the start.",
         pedalTypeRequired: "Please choose the pedals you need.",
+        computerMountTypeRequired: "Please choose the bike computer mount you need.",
         pickupTimeRequired: "Please enter your preferred pickup time.",
         dropoffTimeRequired: "Please enter your preferred drop-off time.",
         messageRequired: "Please write a short message.",

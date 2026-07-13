@@ -23,6 +23,19 @@ const PEDAL_TYPE_LABELS = {
   },
 } as const;
 
+const COMPUTER_MOUNT_TYPE_LABELS = {
+  de: {
+    garmin: "Garmin",
+    wahoo: "Wahoo",
+    other: "Andere",
+  },
+  en: {
+    garmin: "Garmin",
+    wahoo: "Wahoo",
+    other: "Other",
+  },
+} as const;
+
 type ContactPayload = {
   name?: string;
   contact?: string;
@@ -35,6 +48,8 @@ type ContactPayload = {
   dropoffTime?: string;
   needsPedals?: boolean | string;
   pedalType?: string;
+  needsComputerMount?: boolean | string;
+  computerMountType?: string;
   needsHelmet?: boolean | string;
   needsClothing?: boolean | string;
   message?: string;
@@ -162,6 +177,8 @@ function createMailBody(
       | "dropoffTime"
       | "needsPedals"
       | "pedalType"
+      | "needsComputerMount"
+      | "computerMountType"
       | "needsHelmet"
       | "needsClothing"
       | "message"
@@ -184,6 +201,13 @@ function createMailBody(
     : payload.locale === "de"
       ? "Nein"
       : "No";
+  const computerMountLabel = payload.needsComputerMount
+    ? COMPUTER_MOUNT_TYPE_LABELS[payload.locale][
+        payload.computerMountType as keyof (typeof COMPUTER_MOUNT_TYPE_LABELS)["de"]
+      ] ?? payload.computerMountType
+    : payload.locale === "de"
+      ? "Nein"
+      : "No";
   const yesNo = payload.locale === "de" ? { yes: "Ja", no: "Nein" } : { yes: "Yes", no: "No" };
 
   if (payload.locale === "de") {
@@ -200,6 +224,7 @@ function createMailBody(
       `Abholuhrzeit: ${payload.pickupTime}`,
       `Abgabeuhrzeit: ${payload.dropoffTime}`,
       `Pedale: ${payload.needsPedals ? `Ja, ${pedalLabel}` : "Nein"}`,
+      `Fahrradcomputerhalterung: ${payload.needsComputerMount ? `Ja, ${computerMountLabel}` : "Nein"}`,
       `Helm: ${payload.needsHelmet ? yesNo.yes : yesNo.no}`,
       `Kleidung: ${payload.needsClothing ? yesNo.yes : yesNo.no}`,
       payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
@@ -225,6 +250,7 @@ function createMailBody(
     `Pickup time: ${payload.pickupTime}`,
     `Drop-off time: ${payload.dropoffTime}`,
     `Pedals: ${payload.needsPedals ? `Yes, ${pedalLabel}` : "No"}`,
+    `Bike computer mount: ${payload.needsComputerMount ? `Yes, ${computerMountLabel}` : "No"}`,
     `Helmet: ${payload.needsHelmet ? yesNo.yes : yesNo.no}`,
     `Clothing: ${payload.needsClothing ? yesNo.yes : yesNo.no}`,
     payload.bikeTitle ? `Bike: ${payload.bikeTitle}` : "Bike: -",
@@ -279,6 +305,8 @@ export async function POST(request: Request) {
     const dropoffTime = sanitizeLine(asText(body?.dropoffTime), 16);
     const needsPedals = readBoolean(body?.needsPedals) ?? false;
     const pedalType = sanitizeLine(asText(body?.pedalType), 32);
+    const needsComputerMount = readBoolean(body?.needsComputerMount) ?? false;
+    const computerMountType = sanitizeLine(asText(body?.computerMountType), 32);
     const needsHelmet = readBoolean(body?.needsHelmet) ?? false;
     const needsClothing = readBoolean(body?.needsClothing) ?? false;
     const message = asText(body?.message).slice(0, 4000);
@@ -289,6 +317,11 @@ export async function POST(request: Request) {
       "platform",
       "spdSl",
       "lookKeo2Max",
+      "other",
+    ]);
+    const validComputerMountTypes = new Set<keyof (typeof COMPUTER_MOUNT_TYPE_LABELS)["de"]>([
+      "garmin",
+      "wahoo",
       "other",
     ]);
 
@@ -309,6 +342,9 @@ export async function POST(request: Request) {
       !TIME_PATTERN.test(pickupTime) ||
       !TIME_PATTERN.test(dropoffTime) ||
       (needsPedals && (!pedalType || !validPedalTypes.has(pedalType as keyof (typeof PEDAL_TYPE_LABELS)["de"]))) ||
+      (needsComputerMount &&
+        (!computerMountType ||
+          !validComputerMountTypes.has(computerMountType as keyof (typeof COMPUTER_MOUNT_TYPE_LABELS)["de"]))) ||
       !message
     ) {
       return jsonError(400, "validation_error", "Missing required fields");
@@ -374,6 +410,8 @@ export async function POST(request: Request) {
         dropoffTime,
         needsPedals,
         pedalType: needsPedals ? pedalType : "",
+        needsComputerMount,
+        computerMountType: needsComputerMount ? computerMountType : "",
         needsHelmet,
         needsClothing,
         message,

@@ -2825,6 +2825,19 @@ button {
   align-items: start;
 }
 
+.contact-form__equipment-item {
+  display: grid;
+  gap: 12px;
+}
+
+.contact-form__equipment-item > .contact-form__checkbox {
+  min-height: 76px;
+}
+
+.contact-form__equipment-select {
+  margin-top: 0;
+}
+
 .contact-form__period-field {
   display: grid;
   gap: 8px;

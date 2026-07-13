@@ -66,6 +66,13 @@ type FormTranslations = {
     lookKeo2Max: string;
     other: string;
   };
+  computerMount: string;
+  computerMountType: string;
+  computerMountTypeOptions: {
+    garmin: string;
+    wahoo: string;
+    other: string;
+  };
   helmet: string;
   clothing: string;
   message: string;
@@ -89,6 +96,7 @@ type FormTranslations = {
     periodToRequired: string;
     periodInvalid: string;
     pedalTypeRequired: string;
+    computerMountTypeRequired: string;
     pickupTimeRequired: string;
     dropoffTimeRequired: string;
     messageRequired: string;
@@ -148,6 +156,7 @@ type ContactField =
   | "pickupTime"
   | "dropoffTime"
   | "pedalType"
+  | "computerMountType"
   | "message"
   | "privacy";
 
@@ -214,6 +223,8 @@ function validateContactForm(
     dropoffTime: string;
     needsPedals: boolean;
     pedalType: string;
+    needsComputerMount: boolean;
+    computerMountType: string;
     needsHelmet: boolean;
     needsClothing: boolean;
     message: string;
@@ -229,6 +240,7 @@ function validateContactForm(
   const pickupTimeValue = values.pickupTime.trim();
   const dropoffTimeValue = values.dropoffTime.trim();
   const pedalTypeValue = values.pedalType.trim();
+  const computerMountTypeValue = values.computerMountType.trim();
 
   if (!values.name.trim()) {
     fieldErrors.name = validation.nameRequired;
@@ -279,6 +291,10 @@ function validateContactForm(
 
   if (values.needsPedals && !pedalTypeValue) {
     fieldErrors.pedalType = validation.pedalTypeRequired;
+  }
+
+  if (values.needsComputerMount && !computerMountTypeValue) {
+    fieldErrors.computerMountType = validation.computerMountTypeRequired;
   }
 
   if (!values.message.trim()) {
@@ -823,6 +839,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const [dropoffTime, setDropoffTime] = useState("");
   const [needsPedals, setNeedsPedals] = useState(false);
   const [pedalType, setPedalType] = useState("");
+  const [needsComputerMount, setNeedsComputerMount] = useState(false);
+  const [computerMountType, setComputerMountType] = useState("");
   const [needsHelmet, setNeedsHelmet] = useState(false);
   const [needsClothing, setNeedsClothing] = useState(false);
   const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
@@ -884,6 +902,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       dropoffTime,
       needsPedals,
       pedalType,
+      needsComputerMount,
+      computerMountType,
       needsHelmet,
       needsClothing,
       message: contactMessage,
@@ -910,6 +930,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     const dropoffTimeValue = String(formData.get("dropoffTime") ?? "").trim();
     const needsPedalsValue = formData.get("needsPedals") === "on";
     const pedalTypeValue = String(formData.get("pedalType") ?? "").trim();
+    const needsComputerMountValue = formData.get("needsComputerMount") === "on";
+    const computerMountTypeValue = String(formData.get("computerMountType") ?? "").trim();
     const needsHelmetValue = formData.get("needsHelmet") === "on";
     const needsClothingValue = formData.get("needsClothing") === "on";
     const message = String(formData.get("message") ?? "").trim();
@@ -937,6 +959,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           dropoffTime: dropoffTimeValue,
           needsPedals: needsPedalsValue,
           pedalType: needsPedalsValue ? pedalTypeValue : "",
+          needsComputerMount: needsComputerMountValue,
+          computerMountType: needsComputerMountValue ? computerMountTypeValue : "",
           needsHelmet: needsHelmetValue,
           needsClothing: needsClothingValue,
           message,
@@ -983,6 +1007,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setDropoffTime("");
       setNeedsPedals(false);
       setPedalType("");
+      setNeedsComputerMount(false);
+      setComputerMountType("");
       setNeedsHelmet(false);
       setNeedsClothing(false);
       setPendingReservationBike(null);
@@ -1225,52 +1251,102 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       <div className="contact-form__period">
         <span className="contact-form__section-title">{translations.form.equipment}</span>
         <div className="contact-form__equipment-grid">
-          <label className="contact-form__checkbox">
-            <input
-              type="checkbox"
-              name="needsPedals"
-              checked={needsPedals}
-              onChange={(event) => {
-                const nextValue = event.target.checked;
-                setNeedsPedals(nextValue);
-                if (!nextValue) {
-                  setPedalType("");
-                }
-                clearFieldError("pedalType");
-              }}
-            />
-            <span>{translations.form.pedals}</span>
-          </label>
-
-          {needsPedals ? (
-            <div className="contact-form__field contact-form__field--wide">
-              <label htmlFor="pedal-type">{translations.form.pedalType}</label>
-              <select
-                id="pedal-type"
-                name="pedalType"
-                value={pedalType}
-                aria-invalid={Boolean(fieldErrors.pedalType)}
-                aria-describedby={fieldErrors.pedalType ? "pedal-type-error" : undefined}
+          <div className="contact-form__equipment-item">
+            <label className="contact-form__checkbox">
+              <input
+                type="checkbox"
+                name="needsPedals"
+                checked={needsPedals}
                 onChange={(event) => {
-                  setPedalType(event.target.value);
+                  const nextValue = event.target.checked;
+                  setNeedsPedals(nextValue);
+                  if (!nextValue) {
+                    setPedalType("");
+                  }
                   clearFieldError("pedalType");
                 }}
-              >
-                <option value="" disabled>
-                  {translations.form.pedalType}
-                </option>
-                <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
-                <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
-                <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
-                <option value="other">{translations.form.pedalTypeOptions.other}</option>
-              </select>
-              {fieldErrors.pedalType ? (
-                <p className="contact-form__error" id="pedal-type-error">
-                  {fieldErrors.pedalType}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+              />
+              <span>{translations.form.pedals}</span>
+            </label>
+
+            {needsPedals ? (
+              <div className="contact-form__field">
+                <label htmlFor="pedal-type">{translations.form.pedalType}</label>
+                <select
+                  id="pedal-type"
+                  name="pedalType"
+                  value={pedalType}
+                  aria-invalid={Boolean(fieldErrors.pedalType)}
+                  aria-describedby={fieldErrors.pedalType ? "pedal-type-error" : undefined}
+                  onChange={(event) => {
+                    setPedalType(event.target.value);
+                    clearFieldError("pedalType");
+                  }}
+                >
+                  <option value="" disabled>
+                    {translations.form.pedalType}
+                  </option>
+                  <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
+                  <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
+                  <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
+                  <option value="other">{translations.form.pedalTypeOptions.other}</option>
+                </select>
+                {fieldErrors.pedalType ? (
+                  <p className="contact-form__error" id="pedal-type-error">
+                    {fieldErrors.pedalType}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="contact-form__equipment-item">
+            <label className="contact-form__checkbox">
+              <input
+                type="checkbox"
+                name="needsComputerMount"
+                checked={needsComputerMount}
+                onChange={(event) => {
+                  const nextValue = event.target.checked;
+                  setNeedsComputerMount(nextValue);
+                  if (!nextValue) {
+                    setComputerMountType("");
+                  }
+                  clearFieldError("computerMountType");
+                }}
+              />
+              <span>{translations.form.computerMount}</span>
+            </label>
+
+            {needsComputerMount ? (
+              <div className="contact-form__field">
+                <label htmlFor="computer-mount-type">{translations.form.computerMountType}</label>
+                <select
+                  id="computer-mount-type"
+                  name="computerMountType"
+                  value={computerMountType}
+                  aria-invalid={Boolean(fieldErrors.computerMountType)}
+                  aria-describedby={fieldErrors.computerMountType ? "computer-mount-type-error" : undefined}
+                  onChange={(event) => {
+                    setComputerMountType(event.target.value);
+                    clearFieldError("computerMountType");
+                  }}
+                >
+                  <option value="" disabled>
+                    {translations.form.computerMountType}
+                  </option>
+                  <option value="garmin">{translations.form.computerMountTypeOptions.garmin}</option>
+                  <option value="wahoo">{translations.form.computerMountTypeOptions.wahoo}</option>
+                  <option value="other">{translations.form.computerMountTypeOptions.other}</option>
+                </select>
+                {fieldErrors.computerMountType ? (
+                  <p className="contact-form__error" id="computer-mount-type-error">
+                    {fieldErrors.computerMountType}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
           <label className="contact-form__checkbox">
             <input
