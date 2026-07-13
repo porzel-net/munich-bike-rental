@@ -566,8 +566,8 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   return (
     <header className="topbar">
       <div className="container topbar__inner">
-        <a className="brand" href={homeHref("#home")} aria-label="Munich Rental home">
-          <span className="brand__text">Munich Rental</span>
+        <a className="brand" href={homeHref("#home")} aria-label="Your Bike Rental home">
+          <span className="brand__text">Your Bike Rental</span>
         </a>
 
         <div className="topbar__right">
