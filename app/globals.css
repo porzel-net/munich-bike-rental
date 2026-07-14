@@ -420,6 +420,10 @@ button {
   flex: 0 0 auto;
 }
 
+.hero__location-separator {
+  margin: 0 2px;
+}
+
 .hero__title {
   margin: 0 0 24px;
   max-width: 630px;
@@ -429,6 +433,13 @@ button {
   letter-spacing: 0.02em;
   line-height: 1.15;
   text-transform: uppercase;
+}
+
+@media (min-width: 1101px) {
+  .hero__title {
+    max-width: none;
+    width: 100%;
+  }
 }
 
 .hero__title-line {
@@ -441,6 +452,15 @@ button {
   color: #333;
   font-size: 18px;
   line-height: 1.85;
+}
+
+.hero__focus {
+  max-width: 620px;
+  margin: -10px 0 24px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.7;
 }
 
 .hero-profile {
@@ -1361,7 +1381,7 @@ button {
   opacity: 0;
   display: flex;
   align-items: flex-start;
-  padding: 22px;
+  padding: 64px 22px 22px;
   transition: opacity 0.25s ease;
 }
 
@@ -1777,6 +1797,11 @@ button {
   gap: 28px;
 }
 
+.location-showcase__cards {
+  display: grid;
+  gap: 12px;
+}
+
 .location-card {
   display: grid;
   gap: 12px;
@@ -1785,6 +1810,36 @@ button {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(17, 17, 17, 0.06);
   box-shadow: 0 12px 30px rgba(17, 17, 17, 0.05);
+}
+
+.location-card--interactive {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.location-card--interactive:hover,
+.location-card--interactive:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(79, 114, 231, 0.28);
+  box-shadow: 0 16px 34px rgba(17, 17, 17, 0.07);
+}
+
+.location-card--interactive.is-active {
+  border-color: rgba(79, 114, 231, 0.35);
+  background: rgba(79, 114, 231, 0.08);
+  box-shadow: 0 16px 34px rgba(79, 114, 231, 0.08);
+}
+
+.location-card--interactive.is-active .location-card__label {
+  color: var(--accent);
 }
 
 .location-card__address {
@@ -1804,6 +1859,8 @@ button {
 .location-card__address-copy {
   display: grid;
   gap: 6px;
+  justify-items: start;
+  text-align: left;
 }
 
 .location-card__label {
@@ -1866,11 +1923,57 @@ button {
   position: relative;
   width: min(100%, 600px);
   aspect-ratio: 1590 / 1040;
-  overflow: hidden;
+  overflow: visible;
+  border-radius: 28px;
+}
+
+.location-map__layer {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.08);
   border-radius: 28px;
   background: #fff;
   box-shadow: var(--shadow);
-  border: 1px solid rgba(17, 17, 17, 0.08);
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.955) translate(36px, 28px);
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+  pointer-events: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.location-map__layer.is-active {
+  opacity: 1;
+  transform: none;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.location-map__layer.is-inactive {
+  opacity: 0.98;
+  z-index: 1;
+  pointer-events: auto;
+  transform: scale(0.955) translate(60px, 60px);
+}
+
+.location-map__badge {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  color: rgba(17, 17, 17, 0.9);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .location-map__image {
@@ -3569,12 +3672,20 @@ button {
   }
 
   .location-grid {
-    gap: 26px;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    align-items: start;
   }
 
-  .location-card {
-    padding: 18px 18px 16px;
-    border-radius: 20px;
+  .location-card--interactive.is-active {
+    background: rgba(79, 114, 231, 0.12);
+    border-color: rgba(79, 114, 231, 0.48);
+    box-shadow: 0 16px 34px rgba(79, 114, 231, 0.12);
+  }
+
+  .location-card--interactive.is-active .location-card__label,
+  .location-card--interactive.is-active .location-card__text {
+    color: var(--accent);
   }
 
   .location-card__text {
@@ -3593,6 +3704,20 @@ button {
   .location-map__card {
     max-width: min(100%, 320px);
     padding: 16px;
+  }
+
+  .location-map__badge {
+    top: 16px;
+    left: 16px;
+    font-size: 0.98rem;
+  }
+
+  .location-map {
+    width: min(100%, 560px);
+  }
+
+  .location-map__layer.is-inactive {
+    transform: scale(0.94) translate(44px, 44px);
   }
 
   .cookie-banner__panel {

@@ -2,12 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
-import { Ruler, ShieldCheck, Weight, X } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import {
-  createReservationMessage,
   type Locale,
   type PortfolioItem,
 } from "../lib/home-content";
@@ -41,6 +40,7 @@ type ModalTranslations = {
 };
 
 type FormTranslations = {
+  location: string;
   name: string;
   contact: string;
   phone: string;
@@ -84,6 +84,7 @@ type FormTranslations = {
   orderNumberLabel: string;
   error: string;
   validation: {
+    locationRequired: string;
     contactHint: string;
     nameRequired: string;
     contactRequired: string;
@@ -143,9 +144,24 @@ type AboutImageStackProps = {
   lang: Locale;
 };
 
+type LocationShowcaseProps = {
+  lang: Locale;
+  defaultLocation?: "munich" | "regensburg";
+  autoSwitchToMunichOnFirstView?: boolean;
+  eyebrow: string;
+  title: string;
+  intro: string;
+  notice: string;
+  primaryAddressLabel: string;
+  primaryAddress: string;
+  secondaryAddressLabel: string;
+  secondaryAddress: string;
+};
+
 type ContactStatus = "idle" | "sending" | "success" | "error";
 
 type ContactField =
+  | "location"
   | "name"
   | "contact"
   | "phone"
@@ -190,7 +206,7 @@ function getAffiliateKey(searchParams: ReturnType<typeof useSearchParams>) {
 }
 
 function getSetupLabel(lang: Locale, bikeTitle: string) {
-  if (bikeTitle === "Endurace CF SL 8 Di2") {
+  if (bikeTitle === "Endurace CF SL 8") {
     return lang === "de" ? "Komfortables Setup" : "Comfort setup";
   }
 
@@ -205,6 +221,53 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
   return lang === "de" ? "Aggressives Setup" : "Aggressive setup";
 }
 
+type RentalLocation = "munich" | "regensburg";
+
+type BikeOption = {
+  value: string;
+  label: string;
+};
+
+const RENTAL_LOCATION_OPTIONS: Record<Locale, Array<{ value: RentalLocation; label: string }>> = {
+  de: [
+    { value: "munich", label: "München" },
+    { value: "regensburg", label: "Regensburg" },
+  ],
+  en: [
+    { value: "munich", label: "Munich" },
+    { value: "regensburg", label: "Regensburg" },
+  ],
+};
+
+const BIKE_OPTIONS_BY_LOCATION: Record<RentalLocation, BikeOption[]> = {
+  munich: [
+    { value: "Endurace CF SL 8 - XS", label: "Endurace CF SL 8 - XS" },
+    { value: "Endurace CF SL 8 - S", label: "Endurace CF SL 8 - S" },
+    { value: "Endurace CF SL 8 - M", label: "Endurace CF SL 8 - M" },
+    { value: "Endurace CF SL 8 - L", label: "Endurace CF SL 8 - L" },
+    { value: "Grail CF SL 7 - S", label: "Grail CF SL 7 - S" },
+    { value: "Grail CF SL 7 - M", label: "Grail CF SL 7 - M" },
+    { value: "Grail CF SL 7 - L", label: "Grail CF SL 7 - L" },
+    { value: "Ultimate CF SL 7 eTap AXS - M", label: "Ultimate CF SL 7 eTap AXS - M" },
+    { value: "Ultimate CF SL 7 eTap AXS - L", label: "Ultimate CF SL 7 eTap AXS - L" },
+    { value: "Aeroad CF SL 8 - S", label: "Aeroad CF SL 8 - S" },
+    { value: "Aeroad CF SL 8 - M", label: "Aeroad CF SL 8 - M" },
+  ],
+  regensburg: [
+    { value: "Endurace CF SL 8 - XS", label: "Endurace CF SL 8 - XS" },
+    { value: "Endurace CF SL 8 - S", label: "Endurace CF SL 8 - S" },
+    { value: "Endurace CF SL 8 - M", label: "Endurace CF SL 8 - M" },
+    { value: "Endurace CF SL 8 - L", label: "Endurace CF SL 8 - L" },
+    { value: "Grail CF SL 7 - S", label: "Grail CF SL 7 - S" },
+    { value: "Grail CF SL 7 - M", label: "Grail CF SL 7 - M" },
+    { value: "Grail CF SL 7 - L", label: "Grail CF SL 7 - L" },
+  ],
+};
+
+function isRentalLocation(value: string): value is RentalLocation {
+  return value === "munich" || value === "regensburg";
+}
+
 function isValidContactValue(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -212,6 +275,7 @@ function isValidContactValue(value: string) {
 function validateContactForm(
   translations: SharedTranslations,
   values: {
+    location: string;
     name: string;
     contact: string;
     phone: string;
@@ -233,6 +297,7 @@ function validateContactForm(
 ): ContactFormValidation {
   const validation = translations.form.validation;
   const fieldErrors: ContactFieldErrors = {};
+  const locationValue = values.location.trim();
   const phoneValue = values.phone.trim();
   const heightValue = values.height.trim();
   const periodFromValue = values.periodFrom.trim();
@@ -241,6 +306,10 @@ function validateContactForm(
   const dropoffTimeValue = values.dropoffTime.trim();
   const pedalTypeValue = values.pedalType.trim();
   const computerMountTypeValue = values.computerMountType.trim();
+
+  if (!locationValue || !["munich", "regensburg"].includes(locationValue)) {
+    fieldErrors.location = validation.locationRequired;
+  }
 
   if (!values.name.trim()) {
     fieldErrors.name = validation.nameRequired;
@@ -396,6 +465,188 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
       </div>
 
     </button>
+  );
+}
+
+export function LocationShowcase({
+  lang,
+  defaultLocation = "munich",
+  autoSwitchToMunichOnFirstView = false,
+  eyebrow,
+  title,
+  intro,
+  notice,
+  primaryAddressLabel,
+  primaryAddress,
+  secondaryAddressLabel,
+  secondaryAddress,
+}: LocationShowcaseProps) {
+  const [activeLocation, setActiveLocation] = useState<"munich" | "regensburg">(() => defaultLocation);
+  const showcaseRef = useRef<HTMLDivElement | null>(null);
+  const autoSwitchTimerRef = useRef<number | null>(null);
+  const hasAutoSwitchedRef = useRef(false);
+  const hasInteractedRef = useRef(false);
+  const cityLabels = {
+    munich: lang === "de" ? "München" : "Munich",
+    regensburg: "Regensburg",
+  };
+
+  useEffect(() => {
+    if (!autoSwitchToMunichOnFirstView || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const storageKey = "location-showcase-auto-switched";
+    hasAutoSwitchedRef.current = window.sessionStorage.getItem(storageKey) === "1";
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const isVisible = entries.some((entry) => entry.isIntersecting);
+
+        if (!isVisible || hasAutoSwitchedRef.current || hasInteractedRef.current) {
+          return;
+        }
+
+        if (autoSwitchTimerRef.current) {
+          window.clearTimeout(autoSwitchTimerRef.current);
+        }
+
+        autoSwitchTimerRef.current = window.setTimeout(() => {
+          if (hasAutoSwitchedRef.current || hasInteractedRef.current) {
+            return;
+          }
+
+          setActiveLocation("munich");
+          hasAutoSwitchedRef.current = true;
+          window.sessionStorage.setItem(storageKey, "1");
+        }, 2000);
+      },
+      { threshold: 0.35 },
+    );
+
+    if (showcaseRef.current) {
+      observer.observe(showcaseRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+      if (autoSwitchTimerRef.current) {
+        window.clearTimeout(autoSwitchTimerRef.current);
+      }
+    };
+  }, [autoSwitchToMunichOnFirstView]);
+
+  const locations = [
+    {
+      key: "munich" as const,
+      label: primaryAddressLabel,
+      address: primaryAddress,
+      city: cityLabels.munich,
+      image: "/assets/img/location/munich-maps.png",
+    },
+    {
+      key: "regensburg" as const,
+      label: secondaryAddressLabel,
+      address: secondaryAddress,
+      city: cityLabels.regensburg,
+      image: "/assets/img/location/regensburg-maps.png",
+    },
+  ];
+  const stackedLocations =
+    activeLocation === "munich" ? [locations[0], locations[1]] : [locations[1], locations[0]];
+
+  return (
+    <div className="location-grid" ref={showcaseRef}>
+      <div className="location-grid__copy">
+        <div className="section-heading">
+          <span className="section-heading__eyebrow">{eyebrow}</span>
+          <h2 className="section-heading__title">{title}</h2>
+        </div>
+        <p className="section-copy">
+          {intro} <strong>{notice}</strong>
+        </p>
+
+        <div className="location-showcase__cards" aria-label={lang === "de" ? "Standorte" : "Locations"}>
+          {locations.map((location) => {
+            const isActive = location.key === activeLocation;
+
+            return (
+              <button
+                key={location.key}
+                type="button"
+                className={`location-card location-card--interactive${isActive ? " is-active" : ""}`}
+                onClick={() => {
+                  hasInteractedRef.current = true;
+                  if (autoSwitchTimerRef.current) {
+                    window.clearTimeout(autoSwitchTimerRef.current);
+                    autoSwitchTimerRef.current = null;
+                  }
+                  setActiveLocation(location.key);
+                }}
+                aria-pressed={isActive}
+              >
+                <div className="location-card__address">
+                  <MapPin className="location-card__icon" aria-hidden="true" />
+                  <div className="location-card__address-copy">
+                    <span className="location-card__label">{location.label}</span>
+                    <p className="location-card__text">{location.address}</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+      </div>
+
+      <div className="location-grid__visual">
+        <div className="location-map">
+          {stackedLocations.map((location, index) => {
+            const isActive = location.key === activeLocation;
+            const isFront = index === 0;
+
+            return (
+              <button
+                key={location.key}
+                type="button"
+                className={`location-map__layer${isFront ? " is-active" : " is-inactive"}`}
+                style={{ zIndex: isFront ? 2 : 1 }}
+                onClick={() => {
+                  hasInteractedRef.current = true;
+                  if (autoSwitchTimerRef.current) {
+                    window.clearTimeout(autoSwitchTimerRef.current);
+                    autoSwitchTimerRef.current = null;
+                  }
+                  setActiveLocation((current) =>
+                    current === location.key ? (current === "munich" ? "regensburg" : "munich") : location.key,
+                  );
+                }}
+                aria-pressed={isActive}
+                aria-label={
+                  location.key === "munich"
+                    ? lang === "de"
+                      ? "München anzeigen"
+                      : "Show Munich"
+                    : lang === "de"
+                      ? "Regensburg anzeigen"
+                      : "Show Regensburg"
+                }
+              >
+                <span className="location-map__badge">{location.city}</span>
+                <Image
+                  src={location.image}
+                  alt={`Standortbild für ${location.address}`}
+                  fill
+                  sizes="(max-width: 632px) calc(100vw - 32px), 600px"
+                  quality={72}
+                  className="location-map__image"
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -566,8 +817,8 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   return (
     <header className="topbar">
       <div className="container topbar__inner">
-        <a className="brand" href={homeHref("#home")} aria-label="Munich Rental home">
-          <span className="brand__text">Munich Rental</span>
+        <a className="brand" href={homeHref("#home")} aria-label="Your Bike Rental home">
+          <span className="brand__text">Your Bike Rental</span>
         </a>
 
         <div className="topbar__right">
@@ -729,15 +980,18 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
 
 export function PortfolioSection({ lang, translations, portfolioItems }: PortfolioSectionProps) {
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
+  const roadBikeTitles = new Set([
+    "Endurace CF SL 8",
+    "Aeroad CF SL 8",
+  ]);
+  const grailBikeTitle = "Grail CF SL 7";
 
   useEffect(() => {
     document.body.classList.toggle("modal-open", Boolean(activeBike));
     return () => document.body.classList.remove("modal-open");
   }, [activeBike]);
 
-  const handleReserve = (bikeTitle: string) => {
-    sessionStorage.setItem("pendingReservationBike", bikeTitle);
-    window.dispatchEvent(new CustomEvent("bike-reservation", { detail: bikeTitle }));
+  const handleReserve = () => {
     setActiveBike(null);
     window.requestAnimationFrame(() => {
       const messageField = document.getElementById("message") as HTMLTextAreaElement | null;
@@ -756,7 +1010,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
             <button
               key={item.title}
               className={`portfolio-card ${
-                item.title === "Endurace CF SL 8 Di2" || item.title === "Aeroad CF SL 8 Disc"
+                item.title === "Endurace CF SL 8" || item.title === "Aeroad CF SL 8"
                   ? "portfolio-card--promo"
                   : ""
               }`}
@@ -775,6 +1029,24 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 />
               </div>
 
+              <span className="portfolio-card__badge" aria-hidden="true">
+                {item.title === grailBikeTitle
+                  ? lang === "de"
+                    ? "München & Regensburg"
+                    : "Munich & Regensburg"
+                  : item.title === "Aeroad CF SL 8"
+                    ? lang === "de"
+                      ? "München"
+                      : "Munich"
+                    : roadBikeTitles.has(item.title)
+                      ? lang === "de"
+                        ? "München & Regensburg"
+                        : "Munich & Regensburg"
+                      : lang === "de"
+                        ? "München"
+                        : "Munich"}
+              </span>
+
               <div
                 className="portfolio-card__overlay"
                 aria-hidden="true"
@@ -782,7 +1054,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
-              {item.title === "Aeroad CF SL 8 Disc" ? (
+              {item.title === "Aeroad CF SL 8" ? (
                 <span className="portfolio-card__promo" aria-hidden="true">
                   <strong>25%</strong>
                   <span>{lang === "de" ? "Dauerhaften" : "Permanent"}</span>
@@ -790,7 +1062,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   <span>{lang === "de" ? "Rabatt" : "Discount"}</span>
                 </span>
               ) : null}
-              {item.title === "Endurace CF SL 8 Di2" ? (
+              {item.title === "Endurace CF SL 8" ? (
                 <span className="portfolio-card__promo" aria-hidden="true">
                   <strong>30%</strong>
                   <span>{lang === "de" ? "Rabatt insgesamt" : "Total discount"}</span>
@@ -827,12 +1099,17 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 export function ContactForm({ lang, translations }: ContactFormProps) {
   const { trackLead, analyticsAllowed, saveAll } = useConsent();
   const searchParams = useSearchParams();
+  const [location, setLocation] = useState<RentalLocation>("munich");
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [phone, setPhone] = useState("");
   const [height, setHeight] = useState("");
   const [bikeSize, setBikeSize] = useState("");
-  const [contactMessage, setContactMessage] = useState("");
+  const [contactMessage, setContactMessage] = useState(
+    lang === "de"
+      ? "Hey,\n\nich würde gerne ein Bike reservieren.\n\nIch freue mich über eine kurze Rückmeldung zu Verfügbarkeit und Abholung.\n\nViele Grüße"
+      : "Hey,\n\nI would like to reserve a bike.\n\nPlease let me know about availability and pickup.\n\nBest regards",
+  );
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
   const [pickupTime, setPickupTime] = useState("");
@@ -843,35 +1120,13 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const [computerMountType, setComputerMountType] = useState("");
   const [needsHelmet, setNeedsHelmet] = useState(false);
   const [needsClothing, setNeedsClothing] = useState(false);
-  const [pendingReservationBike, setPendingReservationBike] = useState<string | null>(null);
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const affiliateKey = getAffiliateKey(searchParams);
-
-  useEffect(() => {
-    const applyPendingBike = (bikeTitle: string | null) => {
-      if (!bikeTitle) {
-        return;
-      }
-
-      setPendingReservationBike(bikeTitle);
-      setContactMessage(createReservationMessage(lang, bikeTitle));
-      sessionStorage.removeItem("pendingReservationBike");
-    };
-
-    applyPendingBike(sessionStorage.getItem("pendingReservationBike"));
-
-    const onBikeReservation = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
-      applyPendingBike(customEvent.detail);
-    };
-
-    window.addEventListener("bike-reservation", onBikeReservation);
-    return () => window.removeEventListener("bike-reservation", onBikeReservation);
-  }, [lang]);
+  const bikeOptions = BIKE_OPTIONS_BY_LOCATION[location];
 
   const clearFieldError = (field: ContactField) => {
     setFieldErrors((current) => {
@@ -891,6 +1146,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     event.preventDefault();
 
     const validation = validateContactForm(translations, {
+      location,
       name,
       contact,
       phone,
@@ -924,6 +1180,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     const phoneValue = String(formData.get("phone") ?? "").trim();
     const heightValue = String(formData.get("height") ?? "").trim();
     const bikeSizeValue = String(formData.get("bikeSize") ?? "").trim();
+    const locationValue = String(formData.get("location") ?? "").trim();
     const periodFromValue = String(formData.get("periodFrom") ?? "").trim();
     const periodToValue = String(formData.get("periodTo") ?? "").trim();
     const pickupTimeValue = String(formData.get("pickupTime") ?? "").trim();
@@ -952,6 +1209,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           contact: contactValue,
           phone: phoneValue,
           height: heightValue,
+          location: locationValue,
           bikeSize: bikeSizeValue,
           periodFrom: periodFromValue,
           periodTo: periodToValue,
@@ -964,7 +1222,6 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           needsHelmet: needsHelmetValue,
           needsClothing: needsClothingValue,
           message,
-          bikeTitle: pendingReservationBike ?? "",
           locale: lang,
           affiliateKey: affiliateKey || undefined,
         }),
@@ -999,6 +1256,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setContact("");
       setPhone("");
       setHeight("");
+      setLocation("munich");
       setBikeSize("");
       setContactMessage("");
       setPeriodFrom("");
@@ -1011,7 +1269,6 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setComputerMountType("");
       setNeedsHelmet(false);
       setNeedsClothing(false);
-      setPendingReservationBike(null);
       setPrivacyAccepted(false);
       setFieldErrors({});
       setSubmitError(null);
@@ -1020,7 +1277,6 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
 
       if (analyticsAllowed) {
         trackLead({
-          bikeTitle: pendingReservationBike ?? undefined,
           language: lang,
           contactMethod: "email",
         });
@@ -1034,6 +1290,45 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   return (
     <form className="contact-form" onSubmit={handleContactSubmit} noValidate>
       <div className="contact-form__fields">
+        <div className="contact-form__field">
+          <label htmlFor="location">{translations.form.location}</label>
+          <select
+            id="location"
+            name="location"
+            value={location}
+            aria-invalid={Boolean(fieldErrors.location)}
+            aria-describedby={fieldErrors.location ? "location-error" : undefined}
+            onChange={(event) => {
+              const nextLocation = isRentalLocation(event.target.value) ? event.target.value : "munich";
+              const nextBikeOptions = BIKE_OPTIONS_BY_LOCATION[nextLocation];
+              if (bikeSize && !nextBikeOptions.some((option) => option.value === bikeSize)) {
+                setBikeSize("");
+                setFieldErrors((current) => {
+                  if (!current.bikeSize) {
+                    return current;
+                  }
+
+                  const next = { ...current };
+                  delete next.bikeSize;
+                  return next;
+                });
+              }
+              setLocation(nextLocation);
+              clearFieldError("location");
+            }}
+          >
+            {RENTAL_LOCATION_OPTIONS[lang].map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.location ? (
+            <p className="contact-form__error" id="location-error">
+              {fieldErrors.location}
+            </p>
+          ) : null}
+        </div>
         <div className="contact-form__field">
           <label htmlFor="name">{translations.form.name}</label>
           <input
@@ -1064,7 +1359,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
             placeholder={translations.form.contact}
             value={contact}
             aria-invalid={Boolean(fieldErrors.contact)}
-            aria-describedby={fieldErrors.contact ? "contact-hint contact-error" : "contact-hint"}
+            aria-describedby={fieldErrors.contact ? "contact-error" : undefined}
             onChange={(event) => {
               setContact(event.target.value);
               clearFieldError("contact");
@@ -1072,9 +1367,6 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
             inputMode="email"
             autoComplete="email"
           />
-          <p className="contact-form__hint" id="contact-hint">
-            {translations.form.validation.contactHint}
-          </p>
           {fieldErrors.contact ? (
             <p className="contact-form__error" id="contact-error">
               {fieldErrors.contact}
@@ -1145,11 +1437,13 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               }}
             >
               <option value="" disabled>
-                {translations.form.bikeSize}
+                {lang === "de" ? "Rennrad auswählen" : "Choose a road bike"}
               </option>
-              <option value="S">{translations.form.bikeSizeOptions.s}</option>
-              <option value="M">{translations.form.bikeSizeOptions.m}</option>
-              <option value="L">{translations.form.bikeSizeOptions.l}</option>
+              {bikeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
             {fieldErrors.bikeSize ? (
               <p className="contact-form__error" id="bike-size-error">
@@ -1385,7 +1679,6 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
           clearFieldError("message");
         }}
       />
-      <p className="contact-form__hint">{translations.form.messageHint}</p>
       {fieldErrors.message ? (
         <p className="contact-form__error" id="message-error">
           {fieldErrors.message}

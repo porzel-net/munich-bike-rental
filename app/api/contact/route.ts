@@ -36,7 +36,19 @@ const COMPUTER_MOUNT_TYPE_LABELS = {
   },
 } as const;
 
+const LOCATION_LABELS = {
+  de: {
+    munich: "München",
+    regensburg: "Regensburg",
+  },
+  en: {
+    munich: "Munich",
+    regensburg: "Regensburg",
+  },
+} as const;
+
 type ContactPayload = {
+  location?: string;
   name?: string;
   contact?: string;
   phone?: string;
@@ -170,6 +182,7 @@ function createMailBody(
       | "contact"
       | "phone"
       | "height"
+      | "location"
       | "bikeSize"
       | "periodFrom"
       | "periodTo"
@@ -219,7 +232,8 @@ function createMailBody(
       `Kontakt: ${payload.contact}`,
       `Telefon: ${payload.phone}`,
       `Körpergröße: ${payload.height}`,
-      `Rennradgröße: ${payload.bikeSize}`,
+      `Standort: ${LOCATION_LABELS.de[payload.location as keyof (typeof LOCATION_LABELS)["de"]] ?? payload.location}`,
+      `Rennrad: ${payload.bikeSize}`,
       `Zeitraum: ${periodLine}`,
       `Abholuhrzeit: ${payload.pickupTime}`,
       `Abgabeuhrzeit: ${payload.dropoffTime}`,
@@ -245,7 +259,8 @@ function createMailBody(
     `Contact: ${payload.contact}`,
     `Phone: ${payload.phone}`,
     `Height: ${payload.height}`,
-    `Bike size: ${payload.bikeSize}`,
+    `Location: ${LOCATION_LABELS.en[payload.location as keyof (typeof LOCATION_LABELS)["en"]] ?? payload.location}`,
+    `Road bike: ${payload.bikeSize}`,
     `Rental period: ${periodLine}`,
     `Pickup time: ${payload.pickupTime}`,
     `Drop-off time: ${payload.dropoffTime}`,
@@ -298,7 +313,8 @@ export async function POST(request: Request) {
     const contact = sanitizeLine(asText(body?.contact), 254);
     const phone = sanitizeLine(asText(body?.phone), 64);
     const height = sanitizeLine(asText(body?.height), 8);
-    const bikeSize = sanitizeLine(asText(body?.bikeSize), 2);
+    const location = sanitizeLine(asText(body?.location), 32);
+    const bikeSize = sanitizeLine(asText(body?.bikeSize), 120);
     const periodFrom = sanitizeLine(asText(body?.periodFrom), 32);
     const periodTo = sanitizeLine(asText(body?.periodTo), 32);
     const pickupTime = sanitizeLine(asText(body?.pickupTime), 16);
@@ -324,6 +340,7 @@ export async function POST(request: Request) {
       "wahoo",
       "other",
     ]);
+    const validLocations = new Set<keyof (typeof LOCATION_LABELS)["de"]>(["munich", "regensburg"]);
 
     if (
       !contact ||
@@ -331,8 +348,9 @@ export async function POST(request: Request) {
       !phone ||
       !height ||
       !/^\d{2,3}$/.test(height) ||
+      !location ||
+      !validLocations.has(location as keyof (typeof LOCATION_LABELS)["de"]) ||
       !bikeSize ||
-      !["S", "M", "L"].includes(bikeSize) ||
       !periodFrom ||
       !periodTo ||
       !pickupTime ||
@@ -403,6 +421,7 @@ export async function POST(request: Request) {
         contact,
         phone,
         height,
+        location,
         bikeSize,
         periodFrom,
         periodTo,

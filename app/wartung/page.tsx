@@ -55,11 +55,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const isGerman = lang === "de";
 
   const title = isGerman
-    ? "Wartung für Rennrad & Gravelbike in München"
-    : "Road bike and gravel bike maintenance in Munich";
+    ? "Wartung für Rennrad & Gravel in München & Regensburg"
+    : "Road and gravel bike maintenance in Munich & Regensburg";
   const description = isGerman
-    ? "Wartung für Rennräder und Gravelbikes in München-Maxvorstadt: persönliche Beratung, Öl-zu-Wachs-Umstieg, Teiletausch, Reparaturen und Abholung auf Wunsch."
-    : "Road bike and gravel bike maintenance in Munich-Maxvorstadt with personal advice, oil-to-wax conversion, part swaps, repairs and optional pickup.";
+    ? "Wartung für Rennräder und Gravelbikes in München-Maxvorstadt und Regensburg-Altstadt: persönliche Beratung, Öl-zu-Wachs-Umstieg, Teiletausch, Reparaturen und Abholung auf Wunsch."
+    : "Road and gravel bike maintenance in Munich-Maxvorstadt and Regensburg-Altstadt with personal advice, oil-to-wax conversion, part swaps, repairs and optional pickup.";
 
   return {
     metadataBase: new URL(siteConfig.url),
@@ -75,10 +75,13 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     keywords: isGerman
       ? [
           "Rennrad Wartung München",
+          "Rennrad Wartung Regensburg",
           "Rennradwartung",
           "Gravelbike Wartung München",
+          "Gravelbike Wartung Regensburg",
           "Gravelbikewartung",
           "Fahrradwartung München",
+          "Fahrradwartung Regensburg",
           "Fahrradwartung",
           "Bikewartung",
           "Öl auf Wachs München",
@@ -91,13 +94,17 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
           "Bike Wartung Maxvorstadt",
           "Wartung Rennrad Maxvorstadt",
           "Rennrad Service München",
+          "Rennrad Service Regensburg",
         ]
       : [
           "road bike maintenance Munich",
+          "road bike maintenance Regensburg",
           "roadbikemaintenance",
           "gravel bike maintenance Munich",
+          "gravel bike maintenance Regensburg",
           "gravelbikemaintenance",
           "bike service Munich",
+          "bike service Regensburg",
           "oil to wax conversion Munich",
           "oil to wax",
           "chain care Munich",

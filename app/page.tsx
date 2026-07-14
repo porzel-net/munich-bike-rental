@@ -4,7 +4,13 @@ import Link from "next/link";
 import mainImage from "../main.png";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
-import { AboutImageStack, ContactForm, HomeTopbar, PortfolioSection } from "../components/home-interactive";
+import {
+  AboutImageStack,
+  ContactForm,
+  HomeTopbar,
+  LocationShowcase,
+  PortfolioSection,
+} from "../components/home-interactive";
 import { BlogPreviewCard } from "../components/blog-content";
 import {
   contactItems,
@@ -23,6 +29,8 @@ type PageProps = {
   searchParams?: Promise<{
     lang?: string | string[];
   }>;
+  defaultLocation?: "munich" | "regensburg";
+  focusCity?: "munich" | "regensburg";
 };
 
 function SectionHeading({
@@ -48,11 +56,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const isGerman = lang === "de";
 
   const title = isGerman
-    ? "Rennrad- & Gravelbike-Verleih & Wartung in München"
-    : "Road bike and gravel bike rental and maintenance in Munich";
+    ? "Rennrad-, Gravel-Verleih/Wartung München & Regensburg"
+    : "Road and gravel bike rental/maintenance Munich & Regensburg";
   const description = isGerman
-    ? "Persönlicher Rennrad- und Gravelbike-Verleih in München-Maxvorstadt mit Wartung, Beratung, gepflegten Rädern und klaren Preisen."
-    : "Personal road bike and gravel bike rental in Munich-Maxvorstadt with maintenance, advice, serviced bikes and transparent pricing.";
+    ? "Persönlicher Rennrad- und Gravel-Verleih in München-Maxvorstadt und Regensburg-Altstadt mit Wartung, Beratung, gepflegten Rädern und klaren Preisen."
+    : "Personal road and gravel bike rental in Munich-Maxvorstadt and Regensburg-Altstadt with maintenance, advice, serviced bikes and transparent pricing.";
 
   return {
     metadataBase: new URL(siteConfig.url),
@@ -68,12 +76,17 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     keywords: isGerman
       ? [
           "Rennradverleih München",
+          "Rennradverleih Regensburg",
           "Rennradwartung",
           "Gravelbike Verleih München",
+          "Gravelbike Verleih Regensburg",
           "Gravelbikewartung",
           "Rennrad leihen München",
+          "Rennrad leihen Regensburg",
           "Gravelbike mieten München",
+          "Gravelbike mieten Regensburg",
           "Rennrad Wartung München",
+          "Rennrad Wartung Regensburg",
           "Fahrradwartung München",
           "Fahrradwartung",
           "Bikewartung",
@@ -82,20 +95,33 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
           "Rennradservice",
           "Rennrad Maxvorstadt",
           "Gravelbike Maxvorstadt",
+          "Rennrad Altstadt Regensburg",
+          "Gravelbike Altstadt Regensburg",
           "Bike Verleih München",
+          "Bike Verleih Regensburg",
+          "Road bike rental Munich",
+          "Road bike rental Regensburg",
+          "Gravel bike rental Munich",
+          "Gravel bike rental Regensburg",
         ]
       : [
           "road bike rental Munich",
+          "road bike rental Regensburg",
           "roadbikemaintenance",
           "gravel bike rental Munich",
+          "gravel bike rental Regensburg",
           "gravelbikemaintenance",
           "bike rental Munich",
+          "bike rental Regensburg",
           "road bike maintenance Munich",
           "gravel bike maintenance Munich",
+          "road bike maintenance Regensburg",
+          "gravel bike maintenance Regensburg",
           "bike maintenance Munich",
           "oil to wax conversion Munich",
           "oil to wax",
           "bike service Munich",
+          "bike service Regensburg",
           "Maxvorstadt bike rental",
           "Munich bike hire",
           "road bike service",
@@ -114,8 +140,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
           width: 1200,
           height: 630,
           alt: isGerman
-            ? "Munich Rental - Rennrad- und Gravelbike-Verleih mit Wartung in München"
-            : "Munich Rental - road bike and gravel bike rental with maintenance in Munich",
+            ? "Munich Rental - Rennrad- und Gravel-Verleih mit Wartung in München und Regensburg"
+            : "Munich Rental - road and gravel bike rental with maintenance in Munich and Regensburg",
         },
       ],
     },
@@ -128,10 +154,15 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
-export default async function Home({ searchParams }: PageProps) {
+export default async function Home({
+  searchParams,
+  defaultLocation = "munich",
+  focusCity,
+}: PageProps) {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
   const t = translations[lang];
+  const [primaryLocation, secondaryLocation] = t.location.split(" & ");
   const featuredPost = blogPosts[0];
 
   return (
@@ -150,12 +181,32 @@ export default async function Home({ searchParams }: PageProps) {
           <div className="hero__copy">
             <span className="hero__location">
               <MapPin className="hero__location-icon" aria-hidden="true" />
-              <span>{t.location}</span>
+              <span>{primaryLocation}</span>
+              <span className="hero__location-separator" aria-hidden="true">
+                &amp;
+              </span>
+              {secondaryLocation ? (
+                <>
+                  <MapPin className="hero__location-icon" aria-hidden="true" />
+                  <span>{secondaryLocation}</span>
+                </>
+              ) : null}
             </span>
             <h1 className="hero__title">
               {t.hero.title}
             </h1>
             <p className="hero__intro">{t.hero.intro}</p>
+            {focusCity ? (
+              <p className="hero__focus">
+                {lang === "de"
+                  ? focusCity === "munich"
+                    ? "Diese Seite ist speziell auf München ausgerichtet und zeigt den Standort in der Maxvorstadt zuerst."
+                    : "Diese Seite ist speziell auf Regensburg ausgerichtet und zeigt den Standort in der Altstadt zuerst."
+                  : focusCity === "munich"
+                    ? "This page is specifically focused on Munich and shows the Maxvorstadt location first."
+                    : "This page is specifically focused on Regensburg and shows the Altstadt location first."}
+              </p>
+            ) : null}
 
             <ul className="hero-stats">
               <li className="hero-stats__item">
@@ -321,38 +372,19 @@ export default async function Home({ searchParams }: PageProps) {
       </section>
 
       <section id="location" className="section section--location">
-        <div className="container location-grid">
-          <div className="location-grid__copy">
-            <SectionHeading eyebrow={t.locationSection.eyebrow} title={t.locationSection.title} />
-            <p className="section-copy">
-              Die Abholung und Rückgabe für deinen Rennradverleih findet vor Ort in der Maxvorstadt statt.
-              Unterhalb findest du eine Ansicht des Standorts und direkt darunter die genaue Adresse.{" "}
-              <strong>Wir geben nur raus, es gibt keine Ladenfläche.</strong>
-            </p>
-
-            <div className="location-card">
-              <div className="location-card__address">
-                <MapPin className="location-card__icon" aria-hidden="true" />
-                <div className="location-card__address-copy">
-                  <span className="location-card__label">{t.locationSection.addressLabel}</span>
-                  <p className="location-card__text">{t.locationSection.address}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="location-grid__visual">
-            <div className="location-map">
-              <Image
-                src="/assets/img/location/google-maps.png"
-                alt={`Standortbild für ${t.locationSection.address}`}
-                fill
-                sizes="(max-width: 632px) calc(100vw - 32px), 600px"
-                quality={72}
-                className="location-map__image"
-              />
-            </div>
-          </div>
+        <div className="container">
+          <LocationShowcase
+            lang={lang}
+            defaultLocation={defaultLocation}
+            eyebrow={t.locationSection.eyebrow}
+            title={t.locationSection.title}
+            intro={t.locationSection.intro}
+            notice={t.locationSection.notice}
+            primaryAddressLabel={t.locationSection.addressLabel}
+            primaryAddress={t.locationSection.address}
+            secondaryAddressLabel={t.locationSection.secondaryAddressLabel}
+            secondaryAddress={t.locationSection.secondaryAddress}
+          />
         </div>
       </section>
 
@@ -421,7 +453,7 @@ export default async function Home({ searchParams }: PageProps) {
       <footer className="footer">
         <div className="container footer__inner">
           <div className="footer__brand">
-            <span className="footer__title">Munich Rental</span>
+            <span className="footer__title">Your Bike Rental</span>
           </div>
 
           <ul className="footer-links">
@@ -436,6 +468,10 @@ export default async function Home({ searchParams }: PageProps) {
             <li className="footer-meta__item footer-meta__item--location">
               <MapPin className="footer-meta__icon" aria-hidden="true" />
               <span>München, Maxvorstadt</span>
+            </li>
+            <li className="footer-meta__item footer-meta__item--location">
+              <MapPin className="footer-meta__icon" aria-hidden="true" />
+              <span>Regensburg, Altstadt</span>
             </li>
           </ul>
         </div>

@@ -23,7 +23,7 @@ function formatFullBikeSection(index: number) {
     `- Sizes: ${bike.subtitle.en}`,
     `- Price: ${toUsdStylePrice(bike.price.en)}`,
     `- Summary: ${bike.description.en}`,
-    `- Key details:`,
+    `- Description:`,
     facts,
     `- Equipment:`,
     equipment,
@@ -43,7 +43,7 @@ function formatFullFaqSection(index: number) {
 export function buildLlmsTxt() {
   return `# ${siteConfig.name}
 
-> Personal bike rental and maintenance in Munich-Maxvorstadt with owned endurance, gravel, all-round and aero bikes, direct contact and clear pricing.
+> Personal road and gravel bike rental and maintenance in Munich-Maxvorstadt and Regensburg-Altstadt with owned bikes, direct contact and clear pricing.
 
 This website is for a local bicycle rental service. The most useful pages are the home page, the legal pages, and the contact section. If you need location, prices, or bike details, use the home page sections below.
 
@@ -59,12 +59,12 @@ This website is for a local bicycle rental service. The most useful pages are th
 ## Key facts
 
 - Business name: ${siteConfig.name}
-- Location: Munich-Maxvorstadt, Germany
+- Location: Munich-Maxvorstadt, Germany, with a second pickup location in Regensburg-Altstadt
 - Email: ${siteConfig.email}
 - Phone: ${siteConfig.phone}
 - Website: ${siteConfig.url}
 - Positioning: personal, owner-run bike rental and maintenance with only owned bikes
-- Primary audience: people looking to rent an endurance, gravel, all-round or aero bike in Munich
+- Primary audience: people looking to rent a road or gravel bike in Munich or Regensburg
 
 ## Bikes
 
@@ -77,6 +77,7 @@ ${portfolioItems.map((_, index) => formatBikeLine(index)).join("\n")}
 - The first contact happens through the form; follow-up happens by email.
 - The reservation flow asks for name, contact details, phone number, date range, pickup/drop-off times, equipment preferences and a message.
 - The site emphasizes direct owner contact instead of anonymous marketplace-style renting.
+- Search intent focus: Rennrad Verleih, Gravelbike Verleih, road bike rental, gravel bike rental, road bike maintenance, gravel bike maintenance.
 
 ## FAQ
 
@@ -85,6 +86,7 @@ ${faqItems.map((_, index) => formatFaqLine(index)).join("\n")}
 ## Notes for assistants
 
 - Prefer the home page for factual details about bikes and prices.
+- Prefer the home page for location-specific questions.
 - Use the legal pages for company identity, address and privacy information.
 - When answering about pricing, keep the wording consistent with the site and avoid inventing discounts or inventory.
 `;
@@ -97,19 +99,19 @@ export function buildLlmsFullTxt() {
 
 ## Overview
 
-${siteConfig.name} is a local bike rental and maintenance business in Munich-Maxvorstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
+${siteConfig.name} is a local road and gravel bike rental and maintenance business in Munich-Maxvorstadt and Regensburg-Altstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
 
 The project uses a single-page home experience with sections for bikes, prices, FAQ and contact, plus legal pages for imprint and privacy policy.
 
 ## Site summary
 
 - Domain: ${siteConfig.url}
-- Location: Munich-Maxvorstadt, Germany
+- Location: Munich-Maxvorstadt, Germany, plus Regensburg-Altstadt as a second pickup location
 - Email: ${siteConfig.email}
 - Phone: ${siteConfig.phone}
 - Address: ${siteConfig.address.streetAddress}, ${siteConfig.address.postalCode} ${siteConfig.address.addressLocality}
 - Business model: rental and maintenance of owned bicycles only
-- Main product type: bike rental with endurance, gravel, all-round and aero road bikes
+- Main product type: bike rental with road, gravel, all-round and aero road bikes
 
 ## Important pages
 
@@ -122,7 +124,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 
 ## Hero message
 
-The homepage presents the business as a passion-driven, owner-operated bike rental and maintenance service in Munich. The main promise is:
+The homepage presents the business as a passion-driven, owner-operated bike rental and maintenance service in Munich and Regensburg. The main promise is:
 
 - personal contact
 - carefully maintained bikes
@@ -130,7 +132,14 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - oil-to-wax service with advice for 169 EUR
 - only owned bikes, not third-party inventory
 - simple reservation flow
-- endurance, gravel, all-round and aero bike options
+- road, gravel, endurance, all-round and aero bike options
+
+## City focus
+
+- Munich content should emphasize Munich-Maxvorstadt, the local pickup point, and the main rental base.
+- Regensburg content should be handled on the home page with the second pickup location and the same core rental offer.
+- For city-specific questions, answer from the home page.
+- Both German and English versions should keep the same city and category signals so search intent remains consistent across locales.
 
 ## Bikes and pricing
 
@@ -158,5 +167,6 @@ ${faqItems.map((_, index) => formatFullFaqSection(index)).join("\n\n")}
 - This file is meant to help language models quickly understand the site.
 - The most reliable source for current facts is still the rendered homepage and the legal pages.
 - Keep answers grounded in the site content; do not infer inventory, availability or policies that are not stated.
+- Search focus terms include: Rennrad Verleih, Gravelbike Verleih, road bike rental, gravel bike rental, Munich, Regensburg, Maxvorstadt, Altstadt.
 `;
 }

@@ -3,13 +3,13 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Datenschutzerklärung",
-  description: "Datenschutzerklärung von Munich Bike Rental.",
+  description: "Datenschutzerklärung von Your Bike Rental.",
   alternates: {
     canonical: "/datenschutzerklaerung",
   },
 };
 
-const companyName = "Munich Bike Rental";
+const companyName = "Your Bike Rental";
 
 export default function DatenschutzerklaerungPage() {
   return (

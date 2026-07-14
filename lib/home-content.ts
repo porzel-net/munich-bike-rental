@@ -27,6 +27,7 @@ export type LocalizedText = Record<Locale, string>;
 
 export type FormValidationText = {
   contactHint: string;
+  locationRequired: string;
   nameRequired: string;
   contactRequired: string;
   contactInvalid: string;
@@ -115,8 +116,8 @@ export const services: ServiceItem[] = [
 
 export const portfolioItems: PortfolioItem[] = [
   {
-    title: "Endurace CF SL 8 Di2",
-    subtitle: { de: "S / M / L", en: "S / M / L" },
+    title: "Endurace CF SL 8",
+    subtitle: { de: "XS / S / M / L", en: "XS / S / M / L" },
     price: { de: "59€/Tag", en: "59€/day" },
     description: {
       de: "Ausgewogenes Endurance-Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
@@ -127,7 +128,7 @@ export const portfolioItems: PortfolioItem[] = [
     facts: [
       {
         label: { de: "Schaltung", en: "Groupset" },
-        value: { de: "Shimano Ultegra Di2", en: "Shimano Ultegra Di2" },
+        value: { de: "Ultegra Di2 oder Rival AXS", en: "Ultegra Di2 or Rival AXS" },
       },
       {
         label: { de: "Schaltungsart", en: "Shifting type" },
@@ -139,7 +140,7 @@ export const portfolioItems: PortfolioItem[] = [
       },
       {
         label: { de: "Laufräder", en: "Wheels" },
-        value: { de: "DT Swiss Laufräder", en: "DT Swiss wheels" },
+        value: { de: "DT Swiss oder Falcrum", en: "DT Swiss or Falcrum" },
       },
     ],
     equipment: {
@@ -222,7 +223,7 @@ export const portfolioItems: PortfolioItem[] = [
     },
   },
   {
-    title: "Aeroad CF SL 8 Disc",
+    title: "Aeroad CF SL 8",
     subtitle: { de: "S / M", en: "S / M" },
     price: { de: "59€/Tag", en: "59€/day" },
     description: {
@@ -238,7 +239,7 @@ export const portfolioItems: PortfolioItem[] = [
       },
       {
         label: { de: "Schaltungsart", en: "Shifting type" },
-        value: { de: "Elektronisch", en: "Electronic" },
+        value: { de: "Mechanisch", en: "Mechanical" },
       },
       {
         label: { de: "Kassette", en: "Cassette" },
@@ -373,11 +374,11 @@ export const translations = {
     },
     languageToggle: "EN",
     menuButton: "Menü öffnen",
-    location: "München - Maxvorstadt",
+    location: "München - Maxvorstadt & Regensburg - Altstadt",
     hero: {
-      title: "RENNRAD- & GRAVELBIKE-VERLEIH & WARTUNG IN MÜNCHEN",
+      title: "RENNRAD-, GRAVEL-VERLEIH /WARTUNG MÜNCHEN & REGENSBURG",
       intro:
-        "Wir sind ein persönlicher Rennrad- und Gravelbike-Verleih mit Wartung in München-Maxvorstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung, Wartung aus einer Hand und klare Tarife.",
+        "Wir sind ein persönlicher Rennrad-, Gravel- und E-Road-Verleih mit Wartung in München-Maxvorstadt & Regensburg-Altstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung, Wartung aus einer Hand und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
       stats: [
         { value: "2", top: "Inhaber", bottom: "mit Bike-Leidenschaft" },
@@ -386,16 +387,16 @@ export const translations = {
     },
     maintenancePromo: {
       eyebrow: "Wartung",
-      title: "Willst du dein Rennrad warten lassen?",
+      title: "Willst du dein Rennrad, Gravel- oder E-Road-Bike warten lassen?",
       text:
         "Wenn du zum Beispiel von Öl auf Wachs wechseln möchtest oder einen kleinen Service brauchst, geht es hier zur Wartung.",
       cta: "Zur Wartung",
     },
     maintenancePage: {
       heroEyebrow: "Wartung",
-      heroTitle: "Rennrad warten lassen",
+      heroTitle: "Rennrad-, Gravel-Verleih/Wartung München & Regensburg",
       heroIntro:
-        "Wenn du dein Rennrad warten lassen möchtest, bist du hier richtig. Wir beraten dich persönlich, tauschen bei Bedarf Teile und machen eigentlich alles, was dein Rad wieder sauber und schnell ans Laufen bringt. Während in München brutto 110 € Stundenlohn in Werkstätten inzwischen normal sind, bieten wir dir vergleichbare Qualität für 49 € an. Das ist möglich, weil wir keine Ladenfläche haben, aber trotzdem qualifizierte Leute einsetzen und die geringeren Kosten direkt an dich weitergeben.",
+        "Wenn du dein Rennrad, Gravelbike oder E-Road-Bike in München oder Regensburg warten lassen möchtest, bist du hier richtig. Wir beraten dich persönlich, tauschen bei Bedarf Teile und machen eigentlich alles, was dein Rad wieder sauber und schnell ans Laufen bringt. Während in München brutto 110 € Stundenlohn in Werkstätten inzwischen normal sind, bieten wir dir vergleichbare Qualität für 49 € an. Das ist möglich, weil wir keine Ladenfläche haben, aber trotzdem qualifizierte Leute einsetzen und die geringeren Kosten direkt an dich weitergeben.",
       heroBadge: "Bestpreis",
       heroPriceLabel: "Öl auf Wachs mit Beratung",
       heroPriceValue: "169€",
@@ -515,17 +516,19 @@ export const translations = {
     },
     locationSection: {
       eyebrow: "Standort",
-      title: "So findest du uns",
+      title: "Standorte in München & Regensburg",
       intro:
-        "Die Abholung und Rückgabe für deinen Rennradverleih findet vor Ort in der Maxvorstadt statt. Unterhalb findest du eine Ansicht des Standorts und direkt darunter die genaue Adresse.",
+        "Wir geben Rennräder, Gravelbikes und E-Road-Bikes in München-Maxvorstadt und Regensburg-Altstadt heraus. Unterhalb findest du die Standorte und direkt darunter die genauen Adressen.",
       notice: "Wir geben nur raus, es gibt keine Ladenfläche.",
-      addressLabel: "Adresse",
+      addressLabel: "Adresse München",
       address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
+      secondaryAddressLabel: "Adresse Regensburg",
+      secondaryAddress: "Rote Hahnen Gasse 12, 93047 Regensburg, Altstadt",
     },
     modal: {
       bike: "Verfügbares Rad",
       pricePerDay: "Preis pro Tag",
-      facts: "Wichtige Daten",
+      facts: "Beschreibung",
       equipment: "Ausrüstung",
       reserve: "Reservieren",
       checked: "Geprüft & gepflegt",
@@ -535,12 +538,13 @@ export const translations = {
       detailImage: "Detailbild",
     },
     form: {
+      location: "Standort",
       name: "Name",
       contact: "E-Mail-Adresse",
       phone: "Telefonnummer",
       phoneHint: "Damit wir dich bei kurzfristigen Anfragen schnell anrufen können.",
       height: "Körpergröße in cm",
-      bikeSize: "Rennradgröße",
+      bikeSize: "Rennrad",
       bikeSizeOptions: {
         s: "S",
         m: "M",
@@ -587,7 +591,8 @@ export const translations = {
         phoneRequired: "Bitte gib deine Telefonnummer an.",
         heightRequired: "Bitte gib deine Körpergröße an.",
         heightInvalid: "Bitte gib eine Zahl zwischen 100 und 250 cm an.",
-        bikeSizeRequired: "Bitte wähle deine Rennradgröße aus.",
+        locationRequired: "Bitte wähle einen Standort aus.",
+        bikeSizeRequired: "Bitte wähle dein Rennrad aus.",
         periodFromRequired: "Bitte wähle den Start des Zeitraums.",
         periodToRequired: "Bitte wähle das Ende des Zeitraums.",
         periodInvalid: "Das Ende des Zeitraums muss nach dem Start liegen.",
@@ -620,11 +625,11 @@ export const translations = {
     },
     languageToggle: "DE",
     menuButton: "Open menu",
-    location: "Munich - Maxvorstadt",
+    location: "Munich - Maxvorstadt & Regensburg - Altstadt",
     hero: {
-      title: "Bike rental and maintenance in Munich",
+      title: "Road and gravel bike rental in Munich & Regensburg",
       intro:
-        "We are a personal bike rental and maintenance service in Munich-Maxvorstadt and rent out well-maintained endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice, bike care in one place and clear pricing.",
+        "We are a personal road, gravel and e-road bike rental and maintenance service in Munich-Maxvorstadt and Regensburg-Altstadt and rent out well-maintained endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. Instead of a mass rental, you get direct contact, honest advice, bike care in one place and clear pricing.",
       scroll: "Scroll to the bikes",
       stats: [
         { value: "2", top: "Owners", bottom: "with bike passion" },
@@ -633,16 +638,16 @@ export const translations = {
     },
     maintenancePromo: {
       eyebrow: "Maintenance",
-      title: "Need your road bike serviced?",
+      title: "Need your road, gravel or e-road bike serviced?",
       text:
         "If you want to switch from oil to wax, or need a small tune-up, go here for maintenance.",
       cta: "Go to maintenance",
     },
     maintenancePage: {
       heroEyebrow: "Maintenance",
-      heroTitle: "Road bike servicing",
+      heroTitle: "Road, gravel and e-road bike servicing",
       heroIntro:
-        "If you want your road bike serviced, you are in the right place. We give personal advice, replace parts when needed and handle almost everything that gets your bike running clean and fast again. While gross hourly rates of around 110 EUR have become normal in Munich workshops, we offer comparable quality for 49 EUR. That is possible because we do not have a storefront, but we still work with qualified people and pass the lower costs directly on to you.",
+        "If you want your road, gravel or e-road bike serviced in Munich or Regensburg, you are in the right place. We give personal advice, replace parts when needed and handle almost everything that gets your bike running clean and fast again. While gross hourly rates of around 110 EUR have become normal in Munich workshops, we offer comparable quality for 49 EUR. That is possible because we do not have a storefront, but we still work with qualified people and pass the lower costs directly on to you.",
       heroBadge: "Best price",
       heroPriceLabel: "Oil-to-wax conversion with advice",
       heroPriceValue: "169€",
@@ -761,17 +766,19 @@ export const translations = {
     },
     locationSection: {
       eyebrow: "Location",
-      title: "How to find us",
+      title: "Locations in Munich & Regensburg",
       intro:
-        "Pickup and return for your road bike rental take place on site in Maxvorstadt. Below you'll find a visual location image and directly beneath it the exact address.",
+        "We hand out road bikes, gravel bikes and e-road bikes in Munich-Maxvorstadt and Regensburg-Altstadt. Below you'll find the locations and directly beneath them the exact addresses.",
       notice: "We only hand out bikes, there is no storefront.",
-      addressLabel: "Address",
+      addressLabel: "Address Munich",
       address: "Gabelsbergerstraße 79a, 80333 Munich, Maxvorstadt",
+      secondaryAddressLabel: "Regensburg address",
+      secondaryAddress: "Rote Hahnen Gasse 12, 93047 Regensburg, Altstadt",
     },
     modal: {
       bike: "Available bike",
       pricePerDay: "Price per day",
-      facts: "Key details",
+      facts: "Description",
       equipment: "Equipment",
       reserve: "Reserve",
       checked: "Checked & maintained",
@@ -781,12 +788,13 @@ export const translations = {
       detailImage: "Detail image",
     },
     form: {
+      location: "Location",
       name: "Name",
       contact: "Email address",
       phone: "Phone number",
       phoneHint: "So we can call you quickly if the request is short notice.",
       height: "Height in cm",
-      bikeSize: "Road bike size",
+      bikeSize: "Road bike",
       bikeSizeOptions: {
         s: "S",
         m: "M",
@@ -833,7 +841,8 @@ export const translations = {
         phoneRequired: "Please enter your phone number.",
         heightRequired: "Please enter your height.",
         heightInvalid: "Please enter a number between 100 and 250 cm.",
-        bikeSizeRequired: "Please choose your road bike size.",
+        locationRequired: "Please choose a location.",
+        bikeSizeRequired: "Please choose your road bike.",
         periodFromRequired: "Please choose the start of the rental period.",
         periodToRequired: "Please choose the end of the rental period.",
         periodInvalid: "The end of the rental period must be after the start.",
@@ -861,8 +870,8 @@ export function resolveLocale(input?: string | string[]): Locale {
 
 export function createReservationMessage(lang: Locale, bikeTitle: string) {
   if (lang === "de") {
-    return `Hallo Munich Rental,\n\nich würde gerne das Bike "${bikeTitle}" reservieren.\n\nIch freue mich über eine kurze Rückmeldung zu Verfügbarkeit und Abholung.\n\nViele Grüße`;
+    return `Hey,\n\nich würde gerne das Bike "${bikeTitle}" reservieren.\n\nIch freue mich über eine kurze Rückmeldung zu Verfügbarkeit und Abholung.\n\nViele Grüße`;
   }
 
-  return `Hello Munich Rental,\n\nI would like to reserve the "${bikeTitle}" bike.\n\nPlease let me know about availability and pickup.\n\nBest regards`;
+  return `Hey,\n\nI would like to reserve the "${bikeTitle}" bike.\n\nPlease let me know about availability and pickup.\n\nBest regards`;
 }

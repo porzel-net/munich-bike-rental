@@ -28,7 +28,7 @@ const faqEntries = [
     name: "Wo werden die Fahrräder abgeholt?",
     acceptedAnswer: {
       "@type": "Answer",
-      text: "Die Abholung findet vor Ort in München-Maxvorstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
+      text: "Die Abholung findet vor Ort in München-Maxvorstadt und Regensburg-Altstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
     },
   },
   {
@@ -59,6 +59,14 @@ export function getHomeStructuredDataJson() {
         url: siteConfig.url,
         description: siteConfig.description,
         inLanguage: ["de-DE", "en-US"],
+        keywords: [
+          "Rennradverleih",
+          "Gravelbike Verleih",
+          "road bike rental",
+          "gravel bike rental",
+          "Munich",
+          "Regensburg",
+        ],
       },
       {
         "@type": "LocalBusiness",
@@ -70,7 +78,13 @@ export function getHomeStructuredDataJson() {
         image: `${siteConfig.url}/assets/img/hero/1.jpg`,
         priceRange: siteConfig.priceRange,
         areaServed: siteConfig.areaServed,
-        serviceType: "Rennrad-, Gravel-, Aero-Bike- und Wartungsservice",
+        serviceType: "Rennrad- und Gravel-Verleih sowie Wartung",
+        keywords: [
+          "Rennradverleih München",
+          "Rennradverleih Regensburg",
+          "Gravelbike Verleih München",
+          "Gravelbike Verleih Regensburg",
+        ],
         address: {
           "@type": "PostalAddress",
           streetAddress: siteConfig.address.streetAddress,
@@ -119,11 +133,24 @@ export function getMaintenanceStructuredDataJson(locale: Locale) {
       },
       {
         "@type": "Service",
-        name: isGerman ? "Rennrad- und Gravelbike-Wartung" : "Road bike and gravel bike servicing",
+        name: isGerman ? "Rennrad- und Gravel-Wartung" : "Road and gravel bike servicing",
         description: isGerman
-          ? "Wartung fuer Rennraeder und Gravelbikes in Muenchen-Maxvorstadt mit Beratung, Teiletausch, Reparaturen und Oel-zu-Wachs-Umstieg."
-          : "Road bike and gravel bike servicing in Munich-Maxvorstadt with advice, part swaps, repairs and oil-to-wax conversion.",
-        serviceType: isGerman ? "Fahrradwartung" : "Bike servicing",
+          ? "Wartung fuer Rennraeder und Gravelbikes in Muenchen-Maxvorstadt und Regensburg-Altstadt mit Beratung, Teiletausch, Reparaturen und Oel-zu-Wachs-Umstieg."
+          : "Road and gravel bike servicing in Munich-Maxvorstadt and Regensburg-Altstadt with advice, part swaps, repairs and oil-to-wax conversion.",
+        serviceType: isGerman ? "Fahrradwartung fuer Rennrad und Gravel" : "Bike servicing for road and gravel bikes",
+        keywords: isGerman
+          ? [
+              "Rennrad Wartung München",
+              "Rennrad Wartung Regensburg",
+              "Gravelbike Wartung München",
+              "Gravelbike Wartung Regensburg",
+            ]
+          : [
+              "road bike maintenance Munich",
+              "road bike maintenance Regensburg",
+              "gravel bike maintenance Munich",
+              "gravel bike maintenance Regensburg",
+            ],
         areaServed: siteConfig.areaServed,
         provider: {
           "@type": "LocalBusiness",
