@@ -23,7 +23,7 @@ export default function ImpressumPage() {
 
         <section>
           <h2>Angaben gemäß § 5 TMG</h2>
-          <p>Munich Rental</p>
+          <p>Your Bike Rental</p>
           <p>Julius Porzel</p>
           <p>Josephine-Lang-Weg 3, 81245 München</p>
           <p>Deutschland</p>
