@@ -323,8 +323,8 @@ export const faqItems = [
       en: "Where do I pick up the bikes?",
     },
     answer: {
-      de: "Die Abholung findet vor Ort in München-Maxvorstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
-      en: "Pickup takes place on site in Munich-Maxvorstadt. We will coordinate the exact process with you by email after the inquiry.",
+      de: "Die Abholung findet vor Ort in München-Maxvorstadt und Regensburg-Altstadt statt. Vor Ort geben wir dir das Fahrrad dann raus und gehen auf deine Wünsche ein (bspw. das Einstellen von der Sitzposition). Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
+      en: "Pickup takes place on site in Munich-Maxvorstadt and Regensburg-Altstadt. On site, we hand over the bike and accommodate your preferences (for example, adjusting the saddle position). We will coordinate the exact process with you by email after the inquiry.",
     },
   },
   {

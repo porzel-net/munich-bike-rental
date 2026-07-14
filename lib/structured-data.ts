@@ -28,7 +28,7 @@ const faqEntries = [
     name: "Wo werden die Fahrräder abgeholt?",
     acceptedAnswer: {
       "@type": "Answer",
-      text: "Die Abholung findet vor Ort in München-Maxvorstadt und Regensburg-Altstadt statt. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
+      text: "Die Abholung findet vor Ort in München-Maxvorstadt und Regensburg-Altstadt statt. Vor Ort geben wir dir das Fahrrad dann raus und gehen auf deine Wünsche ein (bspw. das Einstellen von der Sitzposition). Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
     },
   },
   {
