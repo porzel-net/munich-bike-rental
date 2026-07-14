@@ -150,19 +150,35 @@ export default async function WartungPage({ searchParams }: PageProps) {
   const t = translations[lang];
   const page = t.maintenancePage;
   const structuredDataJson = getMaintenanceStructuredDataJson(lang);
+  const topbar = {
+    nav: {
+      ...t.nav,
+      bikes: lang === "de" ? "Leistungen" : "Services",
+      prices: lang === "de" ? "Preise" : "Prices",
+      faq: lang === "de" ? "Beratung" : "Advice",
+      contact: lang === "de" ? "Anfrage" : "Request",
+    },
+    languageToggle: t.languageToggle,
+    menuButton: t.menuButton,
+  };
 
   return (
     <main className="site-shell service-shell">
       <HomeTopbar
         lang={lang}
-        topbar={{
-          nav: t.nav,
-          languageToggle: t.languageToggle,
-          menuButton: t.menuButton,
+        topbar={topbar}
+        sectionAnchors={{
+          start: "#wartung",
+          maintenance: "#wartung",
+          bikes: "#leistungen",
+          prices: "#preise",
+          faq: "#beratung",
+          contact: "#wartungsformular",
         }}
+        hiddenNavItems={["prices", "faq"]}
       />
 
-      <section className="section service-hero">
+      <section id="wartung" className="section service-hero">
         <div className="container service-hero__grid">
           <div className="service-hero__copy">
             <span className="service-hero__eyebrow">{page.heroEyebrow}</span>
@@ -178,7 +194,7 @@ export default async function WartungPage({ searchParams }: PageProps) {
           </div>
 
           <div className="service-hero__panel">
-            <div className="service-price-card">
+            <div id="preise" className="service-price-card">
               <span className="service-price-card__badge">{page.heroBadge}</span>
               <h2 className="service-price-card__title">{page.heroPriceLabel}</h2>
               <div className="service-price-card__price">{page.heroPriceValue}</div>
@@ -188,7 +204,7 @@ export default async function WartungPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <section className="section service-offers">
+      <section id="leistungen" className="section service-offers">
         <div className="container service-offers__inner">
           <SectionHeading eyebrow={page.servicesEyebrow} title={page.servicesTitle} />
           <p className="section-copy service-offers__intro">{page.servicesIntro}</p>
@@ -204,7 +220,7 @@ export default async function WartungPage({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <section className="section service-highlight">
+      <section id="beratung" className="section service-highlight">
         <div className="container">
           <div className="service-highlight__card">
             <div className="service-highlight__copy">

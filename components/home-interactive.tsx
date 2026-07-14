@@ -123,6 +123,15 @@ type SharedTranslations = {
 type HomeTopbarProps = {
   lang: Locale;
   topbar: TopbarTranslations;
+  sectionAnchors?: Partial<{
+    start: string;
+    maintenance: string;
+    bikes: string;
+    prices: string;
+    faq: string;
+    contact: string;
+  }>;
+  hiddenNavItems?: Array<"start" | "maintenance" | "bikes" | "prices" | "faq" | "contact">;
   backLink?: {
     href: string;
     label: string;
@@ -788,14 +797,21 @@ function BikeModal({
   );
 }
 
-export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
+export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backLink }: HomeTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
-  const homeHref = (hash: string) =>
-    pathname === "/" ? hash : buildPathWithSearch({ pathname: "/", searchParams, hash, lang });
   const pageHref = (path: string) => buildPathWithSearch({ pathname: path, searchParams, lang });
+  const sectionHref = (hash: string, override?: string) => {
+    if (pathname === "/wartung" && override) {
+      return override;
+    }
+
+    return pathname === "/" ? hash : buildPathWithSearch({ pathname: "/", searchParams, hash, lang });
+  };
+  const isHidden = (item: "start" | "maintenance" | "bikes" | "prices" | "faq" | "contact") =>
+    hiddenNavItems?.includes(item) ?? false;
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -817,7 +833,11 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
   return (
     <header className="topbar">
       <div className="container topbar__inner">
-        <a className="brand" href={homeHref("#home")} aria-label="Your Bike Rental home">
+        <a
+          className="brand"
+          href={sectionHref("#home", sectionAnchors?.start)}
+          aria-label="Your Bike Rental home"
+        >
           <span className="brand__text">Your Bike Rental</span>
         </a>
 
@@ -825,35 +845,57 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
           <nav className="nav nav--desktop" aria-label="Primary">
             <ul className="nav__list">
               <li className="nav__item">
-                <a href={homeHref("#home")} className="nav__link">
+                <a href={sectionHref("#home", sectionAnchors?.start)} className="nav__link">
                   {topbar.nav.start}
                 </a>
               </li>
-              <li className="nav__item">
-                <a href={pageHref("/wartung")} className="nav__link nav__link--legal">
+              {!isHidden("maintenance") ? (
+                <li className="nav__item">
+                <a
+                  href={sectionHref("#wartung", sectionAnchors?.maintenance)}
+                  className="nav__link nav__link--anchor"
+                >
                   {topbar.nav.maintenance}
                 </a>
-              </li>
-              <li className="nav__item">
-                <a href={homeHref("#portfolio")} className="nav__link nav__link--anchor">
+                </li>
+              ) : null}
+              {!isHidden("bikes") ? (
+                <li className="nav__item">
+                <a
+                  href={sectionHref("#portfolio", sectionAnchors?.bikes)}
+                  className="nav__link nav__link--anchor"
+                >
                   {topbar.nav.bikes}
                 </a>
-              </li>
-              <li className="nav__item">
-                <a href={homeHref("#price")} className="nav__link nav__link--anchor">
+                </li>
+              ) : null}
+              {!isHidden("prices") ? (
+                <li className="nav__item">
+                <a
+                  href={sectionHref("#price", sectionAnchors?.prices)}
+                  className="nav__link nav__link--anchor"
+                >
                   {topbar.nav.prices}
                 </a>
-              </li>
-              <li className="nav__item">
-                <a href={homeHref("#faq")} className="nav__link nav__link--anchor">
+                </li>
+              ) : null}
+              {!isHidden("faq") ? (
+                <li className="nav__item">
+                <a href={sectionHref("#faq", sectionAnchors?.faq)} className="nav__link nav__link--anchor">
                   {topbar.nav.faq}
                 </a>
-              </li>
-              <li className="nav__item">
-                <a href={homeHref("#contact")} className="nav__link nav__link--anchor">
+                </li>
+              ) : null}
+              {!isHidden("contact") ? (
+                <li className="nav__item">
+                <a
+                  href={sectionHref("#contact", sectionAnchors?.contact)}
+                  className="nav__link nav__link--anchor"
+                >
                   {topbar.nav.contact}
                 </a>
-              </li>
+                </li>
+              ) : null}
               <li className="nav__item">
                 <Link href={pageHref("/blog")} className="nav__link">
                   {topbar.nav.blog}
@@ -907,51 +949,69 @@ export function HomeTopbar({ lang, topbar, backLink }: HomeTopbarProps) {
         <nav className="nav nav--mobile" aria-label="Mobile primary">
           <ul className="nav__list nav__list--mobile">
             <li className="nav__item nav__item--mobile">
-              <a href={homeHref("#home")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href={sectionHref("#home", sectionAnchors?.start)}
+                className="nav__link nav__link--mobile"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.start}
               </a>
             </li>
-            <li className="nav__item nav__item--mobile">
-              <a href={pageHref("/wartung")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+            {!isHidden("maintenance") ? (
+              <li className="nav__item nav__item--mobile">
+              <a
+                href={sectionHref("#wartung", sectionAnchors?.maintenance)}
+                className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.maintenance}
               </a>
-            </li>
-            <li className="nav__item nav__item--mobile">
+              </li>
+            ) : null}
+            {!isHidden("bikes") ? (
+              <li className="nav__item nav__item--mobile">
               <a
-                href={homeHref("#portfolio")}
+                href={sectionHref("#portfolio", sectionAnchors?.bikes)}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
                 {topbar.nav.bikes}
               </a>
-            </li>
-            <li className="nav__item nav__item--mobile">
+              </li>
+            ) : null}
+            {!isHidden("prices") ? (
+              <li className="nav__item nav__item--mobile">
               <a
-                href={homeHref("#price")}
+                href={sectionHref("#price", sectionAnchors?.prices)}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
                 {topbar.nav.prices}
               </a>
-            </li>
-            <li className="nav__item nav__item--mobile">
+              </li>
+            ) : null}
+            {!isHidden("faq") ? (
+              <li className="nav__item nav__item--mobile">
               <a
-                href={homeHref("#faq")}
+                href={sectionHref("#faq", sectionAnchors?.faq)}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
                 {topbar.nav.faq}
               </a>
-            </li>
-            <li className="nav__item nav__item--mobile">
+              </li>
+            ) : null}
+            {!isHidden("contact") ? (
+              <li className="nav__item nav__item--mobile">
               <a
-                href={homeHref("#contact")}
+                href={sectionHref("#contact", sectionAnchors?.contact)}
                 className="nav__link nav__link--mobile nav__link--mobile-anchor"
                 onClick={() => setMenuOpen(false)}
               >
                 {topbar.nav.contact}
               </a>
-            </li>
+              </li>
+            ) : null}
             <li className="nav__item nav__item--mobile">
               <Link href={pageHref("/blog")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                 {topbar.nav.blog}
