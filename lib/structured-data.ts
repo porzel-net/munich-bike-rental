@@ -55,7 +55,7 @@ export function getHomeStructuredDataJson() {
     "@graph": [
       {
         "@type": "WebSite",
-        name: siteConfig.name,
+        name: "Your Bike Rental",
         url: siteConfig.url,
         description: siteConfig.description,
         inLanguage: ["de-DE", "en-US"],
@@ -114,6 +114,11 @@ export function getMaintenanceStructuredDataJson(locale: Locale) {
   return JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
+      {
+        "@type": "WebSite",
+        name: "Your Bike Maintenance",
+        url: siteConfig.url,
+      },
       {
         "@type": "BreadcrumbList",
         itemListElement: [

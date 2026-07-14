@@ -4,7 +4,9 @@ import type { Metadata } from "next";
 import { siteConfig } from "../../lib/site";
 
 export const metadata: Metadata = {
-  title: "Impressum",
+  title: {
+    absolute: "Impressum | Your Bike Rental",
+  },
   description: `Impressum von ${siteConfig.name}.`,
   alternates: {
     canonical: "/impressum",

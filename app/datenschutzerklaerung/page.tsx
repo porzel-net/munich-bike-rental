@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Datenschutzerklärung",
+  title: {
+    absolute: "Datenschutzerklärung | Your Bike Rental",
+  },
   description: "Datenschutzerklärung von Your Bike Rental.",
   alternates: {
     canonical: "/datenschutzerklaerung",

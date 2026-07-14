@@ -1010,7 +1010,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
             <button
               key={item.title}
               className={`portfolio-card ${
-                item.title === "Endurace CF SL 8" || item.title === "Aeroad CF SL 8"
+                item.title === "Aeroad CF SL 8"
                   ? "portfolio-card--promo"
                   : ""
               }`}
@@ -1062,15 +1062,6 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   <span>{lang === "de" ? "Rabatt" : "Discount"}</span>
                 </span>
               ) : null}
-              {item.title === "Endurace CF SL 8" ? (
-                <span className="portfolio-card__promo" aria-hidden="true">
-                  <strong>30%</strong>
-                  <span>{lang === "de" ? "Rabatt insgesamt" : "Total discount"}</span>
-                  <span>{lang === "de" ? "Vom 14.7-16.7" : "From 14/7 to 16/7"}</span>
-                  <span>{lang === "de" ? "Für Size M" : "For size M"}</span>
-                </span>
-              ) : null}
-
               <div className="portfolio-card__details">
                 <h3>{item.title}</h3>
                 <div className="portfolio-card__meta">

@@ -376,7 +376,7 @@ export const translations = {
     menuButton: "Menü öffnen",
     location: "München - Maxvorstadt & Regensburg - Altstadt",
     hero: {
-      title: "RENNRAD-, GRAVEL-VERLEIH /WARTUNG MÜNCHEN & REGENSBURG",
+      title: "RENNRAD-, GRAVEL-VERLEIH MÜNCHEN & REGENSBURG",
       intro:
         "Wir sind ein persönlicher Rennrad-, Gravel- und E-Road-Verleih mit Wartung in München-Maxvorstadt & Regensburg-Altstadt und verleihen gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung, Wartung aus einer Hand und klare Tarife.",
       scroll: "Zu den Rädern scrollen",
@@ -394,7 +394,7 @@ export const translations = {
     },
     maintenancePage: {
       heroEyebrow: "Wartung",
-      heroTitle: "Rennrad-, Gravel-Verleih/Wartung München & Regensburg",
+      heroTitle: "RENNRAD-, GRAVEL-WARTUNG MÜNCHEN & REGENSBURG",
       heroIntro:
         "Wenn du dein Rennrad, Gravelbike oder E-Road-Bike in München oder Regensburg warten lassen möchtest, bist du hier richtig. Wir beraten dich persönlich, tauschen bei Bedarf Teile und machen eigentlich alles, was dein Rad wieder sauber und schnell ans Laufen bringt. Während in München brutto 110 € Stundenlohn in Werkstätten inzwischen normal sind, bieten wir dir vergleichbare Qualität für 49 € an. Das ist möglich, weil wir keine Ladenfläche haben, aber trotzdem qualifizierte Leute einsetzen und die geringeren Kosten direkt an dich weitergeben.",
       heroBadge: "Bestpreis",
@@ -645,7 +645,7 @@ export const translations = {
     },
     maintenancePage: {
       heroEyebrow: "Maintenance",
-      heroTitle: "Road, gravel and e-road bike servicing",
+      heroTitle: "Road & gravel maintenance | repair & service",
       heroIntro:
         "If you want your road, gravel or e-road bike serviced in Munich or Regensburg, you are in the right place. We give personal advice, replace parts when needed and handle almost everything that gets your bike running clean and fast again. While gross hourly rates of around 110 EUR have become normal in Munich workshops, we offer comparable quality for 49 EUR. That is possible because we do not have a storefront, but we still work with qualified people and pass the lower costs directly on to you.",
       heroBadge: "Best price",

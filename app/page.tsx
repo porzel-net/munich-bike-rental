@@ -56,7 +56,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const isGerman = lang === "de";
 
   const title = isGerman
-    ? "Rennrad-, Gravel-Verleih/Wartung München & Regensburg"
+    ? "Rennrad- & Gravelbike-Verleih München | Your Bike Rental"
     : "Road and gravel bike rental/maintenance Munich & Regensburg";
   const description = isGerman
     ? "Persönlicher Rennrad- und Gravel-Verleih in München-Maxvorstadt und Regensburg-Altstadt mit Wartung, Beratung, gepflegten Rädern und klaren Preisen."
@@ -64,7 +64,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 
   return {
     metadataBase: new URL(siteConfig.url),
-    title,
+    title: {
+      absolute: title,
+    },
     description,
     alternates: {
       canonical: "/",

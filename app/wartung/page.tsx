@@ -55,7 +55,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const isGerman = lang === "de";
 
   const title = isGerman
-    ? "Wartung für Rennrad & Gravel in München & Regensburg"
+    ? "Rennrad- & Gravelbike-Wartung München | Your Bike Maintenance"
     : "Road and gravel bike maintenance in Munich & Regensburg";
   const description = isGerman
     ? "Wartung für Rennräder und Gravelbikes in München-Maxvorstadt und Regensburg-Altstadt: persönliche Beratung, Öl-zu-Wachs-Umstieg, Teiletausch, Reparaturen und Abholung auf Wunsch."
@@ -63,7 +63,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 
   return {
     metadataBase: new URL(siteConfig.url),
-    title,
+    title: {
+      absolute: title,
+    },
     description,
     alternates: {
       canonical: "/wartung",
@@ -296,7 +298,7 @@ export default async function WartungPage({ searchParams }: PageProps) {
       <footer className="footer">
         <div className="container footer__inner">
           <div className="footer__brand">
-            <span className="footer__title">Munich Rental</span>
+            <span className="footer__title">Your Bike Rental</span>
           </div>
 
           <ul className="footer-links">
@@ -311,6 +313,10 @@ export default async function WartungPage({ searchParams }: PageProps) {
             <li className="footer-meta__item footer-meta__item--location">
               <MapPin className="footer-meta__icon" aria-hidden="true" />
               <span>München, Maxvorstadt</span>
+            </li>
+            <li className="footer-meta__item footer-meta__item--location">
+              <MapPin className="footer-meta__icon" aria-hidden="true" />
+              <span>Regensburg, Altstadt</span>
             </li>
           </ul>
         </div>
