@@ -20,6 +20,6 @@ export const siteConfig = {
   areaServed: ["Muenchen", "Maxvorstadt", "Regensburg", "Regensburg-Altstadt", "Bayern"],
   priceRange: "59 EUR-79 EUR",
   locale: "de_DE",
-  title: "Rennrad- & Gravelbike-Verleih München | Your Bike Rental",
+  title: "Rennrad- & Gravelbike-Verleih München & Regensburg | Your Bike Rental",
   titleTemplate: "%s | Your Bike Rental",
 };
