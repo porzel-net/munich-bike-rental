@@ -93,13 +93,15 @@ body {
   background:
     radial-gradient(circle at 14% 16%, var(--bg-cool) 0 18%, transparent 42%),
     radial-gradient(circle at 84% 18%, var(--bg-mint) 0 16%, transparent 38%),
-    radial-gradient(circle at 100% 0%,
+    radial-gradient(
+      circle at 100% 0%,
       rgba(65, 105, 225, 0.24) 0 10px,
       rgba(65, 105, 225, 0.18) 10px 20px,
       rgba(65, 105, 225, 0.12) 20px 32px,
       rgba(65, 105, 225, 0.08) 32px 46px,
       rgba(65, 105, 225, 0.04) 46px 62px,
-      transparent 62px 100%),
+      transparent 62px 100%
+    ),
     radial-gradient(circle at 58% 88%, var(--bg-peach) 0 18%, transparent 44%),
     linear-gradient(180deg, #f9f7f1 0%, #f6f7fb 100%);
   color: var(--text);
@@ -203,7 +205,9 @@ button {
   z-index: 40;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.06), 0 16px 40px rgba(17, 17, 17, 0.06);
+  box-shadow:
+    0 1px 0 rgba(17, 17, 17, 0.06),
+    0 16px 40px rgba(17, 17, 17, 0.06);
   padding: 24px 0;
   transition:
     background-color 0.25s ease,
@@ -316,7 +320,9 @@ button {
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 15px;
   font-weight: 500;
-  transition: color 0.2s ease, opacity 0.2s ease;
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .nav__link--anchor {
@@ -365,7 +371,9 @@ button {
   height: 2px;
   border-radius: 999px;
   background: #111;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .hamburger.is-active span:nth-child(1) {
@@ -775,9 +783,7 @@ button {
   padding: clamp(24px, 3vw, 34px);
   border-radius: 26px;
   border: 1px solid rgba(65, 105, 225, 0.14);
-  background:
-    radial-gradient(circle at top left, rgba(65, 105, 225, 0.14), transparent 38%),
-    rgba(255, 255, 255, 0.92);
+  background: radial-gradient(circle at top left, rgba(65, 105, 225, 0.14), transparent 38%), rgba(255, 255, 255, 0.92);
   box-shadow: 0 20px 50px rgba(17, 17, 17, 0.08);
 }
 
@@ -1993,8 +1999,12 @@ button {
   align-items: flex-end;
   justify-content: flex-start;
   padding: 22px;
-  background:
-    linear-gradient(180deg, rgba(16, 18, 24, 0.02) 0%, rgba(16, 18, 24, 0.06) 45%, rgba(16, 18, 24, 0.52) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(16, 18, 24, 0.02) 0%,
+    rgba(16, 18, 24, 0.06) 45%,
+    rgba(16, 18, 24, 0.52) 100%
+  );
 }
 
 .location-map__card {
@@ -2277,7 +2287,9 @@ button {
   border-radius: 999px;
   background: #111;
   transform: translate(-50%, -50%);
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .faq-item__icon::after {
@@ -2870,6 +2882,14 @@ button {
   flex: 0 0 auto;
 }
 
+.inquiry-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .contact-form {
   padding-left: 20px;
 }
@@ -3158,7 +3178,9 @@ button {
   background: rgba(255, 255, 255, 0.7);
   transform: scaleX(0.25);
   transform-origin: left;
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .footer-links a:hover,

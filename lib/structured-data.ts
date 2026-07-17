@@ -4,6 +4,10 @@ import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
 
+function serializeJsonLd(value: unknown) {
+  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+}
+
 const offerCatalog = portfolioItems.map((item, index) => ({
   "@type": "Offer",
   position: index + 1,
@@ -50,7 +54,7 @@ const faqEntries = [
 ];
 
 export function getHomeStructuredDataJson() {
-  return JSON.stringify({
+  return serializeJsonLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -111,7 +115,7 @@ export function getMaintenanceStructuredDataJson(locale: Locale) {
   const isGerman = locale === "de";
   const pageUrl = isGerman ? `${siteConfig.url}/wartung` : `${siteConfig.url}/wartung?lang=en`;
 
-  return JSON.stringify({
+  return serializeJsonLd({
     "@context": "https://schema.org",
     "@graph": [
       {
@@ -186,7 +190,7 @@ export function getBlogPostStructuredDataJson(post: BlogPost, locale: Locale) {
   const language = locale === "de" ? "de-DE" : "en-US";
   const url = `${siteConfig.url}/blog/${post.slug}`;
 
-  return JSON.stringify({
+  return serializeJsonLd({
     "@context": "https://schema.org",
     "@graph": [
       {

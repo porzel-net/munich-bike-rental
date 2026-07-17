@@ -25,7 +25,7 @@ function buildContentSecurityPolicy(nonce: string) {
       "font-src 'self'",
       "connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://googleads.g.doubleclick.net",
       `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com`,
-      `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+      "style-src 'self' 'unsafe-inline'",
       "upgrade-insecure-requests",
     ].join("; ");
   }
@@ -67,5 +67,13 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/:path*"],
+  matcher: [
+    {
+      source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+  ],
 };

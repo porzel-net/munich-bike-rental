@@ -1,12 +1,5 @@
 import type { StaticImageData } from "next/image";
-import {
-  Bike,
-  CalendarClock,
-  CalendarRange,
-  GraduationCap,
-  Package,
-  type LucideIcon,
-} from "lucide-react";
+import { Bike, CalendarClock, CalendarRange, GraduationCap, Package, type LucideIcon } from "lucide-react";
 
 import aeroadPreview from "../public/bikes/aeroad-cf-sl-8-disc/preview.png";
 import aeroadReal1 from "../public/bikes/aeroad-cf-sl-8-disc/real1.png";
@@ -181,8 +174,18 @@ export const portfolioItems: PortfolioItem[] = [
       },
     ],
     equipment: {
-      de: ["Schwalbe Gravel Faltreifen G-One R Evo", "Gravel-taugliches Setup", "Frisches Hinterrad", "S / M / L verfügbar"],
-      en: ["Schwalbe G-One R Evo folding gravel tires", "Gravel-ready setup", "Fresh rear wheel", "Available in S / M / L"],
+      de: [
+        "Schwalbe Gravel Faltreifen G-One R Evo",
+        "Gravel-taugliches Setup",
+        "Frisches Hinterrad",
+        "S / M / L verfügbar",
+      ],
+      en: [
+        "Schwalbe G-One R Evo folding gravel tires",
+        "Gravel-ready setup",
+        "Fresh rear wheel",
+        "Available in S / M / L",
+      ],
     },
   },
   {
@@ -255,7 +258,12 @@ export const portfolioItems: PortfolioItem[] = [
       },
     ],
     equipment: {
-      de: ["Continental Grand Prix S TR 28 mm", "Tanwall-Reifen", "Bergtaugliche Übersetzung", "Aero-orientiertes Setup"],
+      de: [
+        "Continental Grand Prix S TR 28 mm",
+        "Tanwall-Reifen",
+        "Bergtaugliche Übersetzung",
+        "Aero-orientiertes Setup",
+      ],
       en: ["Continental Grand Prix S TR 28 mm", "Tanwall tires", "Climb-friendly gearing", "Aero-oriented setup"],
     },
   },
@@ -388,8 +396,7 @@ export const translations = {
     maintenancePromo: {
       eyebrow: "Wartung",
       title: "Willst du dein Rennrad, Gravel- oder E-Road-Bike warten lassen?",
-      text:
-        "Wenn du zum Beispiel von Öl auf Wachs wechseln möchtest oder einen kleinen Service brauchst, geht es hier zur Wartung.",
+      text: "Wenn du zum Beispiel von Öl auf Wachs wechseln möchtest oder einen kleinen Service brauchst, geht es hier zur Wartung.",
       cta: "Zur Wartung",
     },
     maintenancePage: {
@@ -400,7 +407,8 @@ export const translations = {
       heroBadge: "Bestpreis",
       heroPriceLabel: "Öl auf Wachs mit Beratung",
       heroPriceValue: "169€",
-      heroPriceNote: "Unser Bestpreis für den kompletten Umstieg inklusive Beratung, Reinigung und Abstimmung auf deine Kette.",
+      heroPriceNote:
+        "Unser Bestpreis für den kompletten Umstieg inklusive Beratung, Reinigung und Abstimmung auf deine Kette.",
       servicesEyebrow: "Mögliche Arbeiten",
       servicesTitle: "WAS WIR AN DEINEM RAD MACHEN",
       servicesIntro:
@@ -424,8 +432,7 @@ export const translations = {
         },
       ],
       highlightTitle: "Beratung inklusive",
-      highlightText:
-        "Wir sagen dir offen, was sich lohnt und was nicht.",
+      highlightText: "Wir sagen dir offen, was sich lohnt und was nicht.",
       formEyebrow: "Anfrage",
       formTitle: "Wartungsanfrage senden",
       formIntro:
@@ -456,7 +463,8 @@ export const translations = {
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro: "Klare Preise für deinen Bike-Verleih in München, dazu Mo-Do-Rabatt, Langzeitrabatt und Studentenrabatt sowie Zubehör ab 5€.",
+      intro:
+        "Klare Preise für deinen Bike-Verleih in München, dazu Mo-Do-Rabatt, Langzeitrabatt und Studentenrabatt sowie Zubehör ab 5€.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -508,7 +516,8 @@ export const translations = {
         messageRequired: "Bitte beschreibe kurz, was gemacht werden soll.",
         privacyRequired: "Bitte akzeptiere die Datenschutzbestimmungen.",
         submitFailed: "Die Wartungsanfrage konnte nicht gesendet werden. Bitte versuche es erneut.",
-        submitOriginError: "Die Wartungsanfrage konnte nicht gesendet werden, weil der Aufruf als ungültig erkannt wurde.",
+        submitOriginError:
+          "Die Wartungsanfrage konnte nicht gesendet werden, weil der Aufruf als ungültig erkannt wurde.",
         submitConfigError: "Das Formular ist derzeit nicht korrekt eingerichtet. Bitte versuche es später noch einmal.",
         submitPayloadError: "Die Nachricht ist zu lang. Bitte kürze sie etwas und versuche es erneut.",
         submitValidationError: "Bitte prüfe die markierten Felder und versuche es erneut.",
@@ -639,8 +648,7 @@ export const translations = {
     maintenancePromo: {
       eyebrow: "Maintenance",
       title: "Need your road, gravel or e-road bike serviced?",
-      text:
-        "If you want to switch from oil to wax, or need a small tune-up, go here for maintenance.",
+      text: "If you want to switch from oil to wax, or need a small tune-up, go here for maintenance.",
       cta: "Go to maintenance",
     },
     maintenancePage: {
@@ -706,7 +714,8 @@ export const translations = {
     price: {
       eyebrow: "Prices",
       title: "Rental & rates",
-      intro: "Clear prices for your bike rental in Munich, plus Mon-Thu, long-rental and student discounts as well as accessories from 5€.",
+      intro:
+        "Clear prices for your bike rental in Munich, plus Mon-Thu, long-rental and student discounts as well as accessories from 5€.",
     },
     faq: {
       eyebrow: "FAQ",

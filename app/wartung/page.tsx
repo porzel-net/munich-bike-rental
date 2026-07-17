@@ -15,15 +15,7 @@ type PageProps = {
   }>;
 };
 
-function SectionHeading({
-  eyebrow,
-  title,
-  inverse = false,
-}: {
-  eyebrow: string;
-  title: string;
-  inverse?: boolean;
-}) {
+function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; title: string; inverse?: boolean }) {
   return (
     <div className="section-heading">
       <span className="section-heading__eyebrow">{eyebrow}</span>
@@ -261,14 +253,14 @@ export default async function WartungPage({ searchParams }: PageProps) {
             <p className="section-copy">
               {lang === "de" ? (
                 <>
-                  Nutze das Formular unten, wenn du dein <strong>Rad warten</strong> lassen möchtest. Je
-                  genauer deine Beschreibung, desto besser können wir einschätzen, was ansteht.{" "}
+                  Nutze das Formular unten, wenn du dein <strong>Rad warten</strong> lassen möchtest. Je genauer deine
+                  Beschreibung, desto besser können wir einschätzen, was ansteht.{" "}
                   <strong>Füg bestenfalls Bilder hinzu!</strong>
                 </>
               ) : (
                 <>
-                  Use the form below if you want your bike serviced. The more precise your description, the
-                  better we can estimate what is needed. <strong>Pictures are welcome.</strong>
+                  Use the form below if you want your bike serviced. The more precise your description, the better we
+                  can estimate what is needed. <strong>Pictures are welcome.</strong>
                 </>
               )}
             </p>
@@ -280,13 +272,10 @@ export default async function WartungPage({ searchParams }: PageProps) {
                     Die Anfrage ist natürlich <strong>unverbindlich</strong> und wir machen dir gern einen{" "}
                     <strong>Kostenvoranschlag</strong>.
                   </li>
+                  <li>Auf Wunsch holen wir dein Fahrrad gegen kleinen Aufpreis ab und bringen es wieder zurück.</li>
                   <li>
-                    Auf Wunsch holen wir dein Fahrrad gegen kleinen Aufpreis ab und bringen es wieder
-                    zurück.
-                  </li>
-                  <li>
-                    Unsere <strong>Beratung</strong> ist grundsätzlich <strong>kostenlos</strong> - egal ob
-                    Pflege, Teile oder Wachs.
+                    Unsere <strong>Beratung</strong> ist grundsätzlich <strong>kostenlos</strong> - egal ob Pflege,
+                    Teile oder Wachs.
                   </li>
                 </>
               ) : (
@@ -295,12 +284,9 @@ export default async function WartungPage({ searchParams }: PageProps) {
                     The inquiry is of course <strong>non-binding</strong> and we will gladly prepare a{" "}
                     <strong>quote</strong>.
                   </li>
+                  <li>For a small extra fee, we can pick up your bike and bring it back again.</li>
                   <li>
-                    For a small extra fee, we can pick up your bike and bring it back again.
-                  </li>
-                  <li>
-                    Our <strong>advice</strong> is generally <strong>free</strong> - whether it is care,
-                    parts or wax.
+                    Our <strong>advice</strong> is generally <strong>free</strong> - whether it is care, parts or wax.
                   </li>
                 </>
               )}

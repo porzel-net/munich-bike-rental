@@ -84,22 +84,22 @@ export const metadata: Metadata = {
     email: false,
     telephone: false,
   },
-    openGraph: {
-      type: "website",
-      locale: siteConfig.locale,
-      url: siteConfig.url,
-      siteName: siteConfig.name,
-      title: siteConfig.title,
-      description: siteConfig.description,
-      images: [
-        {
-          url: "/opengraph-image",
-          width: 1200,
-          height: 630,
-          alt: `${siteConfig.name} - Rennrad-, Gravel-Verleih in München und Regensburg`,
-        },
-      ],
-    },
+  openGraph: {
+    type: "website",
+    locale: siteConfig.locale,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: siteConfig.title,
+    description: siteConfig.description,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: `${siteConfig.name} - Rennrad-, Gravel-Verleih in München und Regensburg`,
+      },
+    ],
+  },
   twitter: {
     card: "summary_large_image",
     title: siteConfig.title,
@@ -144,11 +144,7 @@ export default async function RootLayout({
     <html lang={locale}>
       <body>
         {structuredDataJson ? (
-          <script
-            nonce={nonce}
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: structuredDataJson }}
-          />
+          <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson }} />
         ) : null}
         <ConsentProvider
           initialConsent={initialConsent}

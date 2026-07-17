@@ -6,10 +6,15 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
+import { InquiryHoneypot } from "./inquiry-honeypot";
+import { type Locale, type PortfolioItem } from "../lib/home-content";
 import {
-  type Locale,
-  type PortfolioItem,
-} from "../lib/home-content";
+  bikeOptionsByLocation,
+  rentalLocationLabels,
+  rentalLocations,
+  type RentalLocation,
+} from "../lib/inquiries/catalog";
+import { getInquiryError, postInquiry } from "../lib/inquiries/client";
 
 type TopbarTranslations = {
   nav: {
@@ -230,51 +235,8 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
   return lang === "de" ? "Aggressives Setup" : "Aggressive setup";
 }
 
-type RentalLocation = "munich" | "regensburg";
-
-type BikeOption = {
-  value: string;
-  label: string;
-};
-
-const RENTAL_LOCATION_OPTIONS: Record<Locale, Array<{ value: RentalLocation; label: string }>> = {
-  de: [
-    { value: "munich", label: "München" },
-    { value: "regensburg", label: "Regensburg" },
-  ],
-  en: [
-    { value: "munich", label: "Munich" },
-    { value: "regensburg", label: "Regensburg" },
-  ],
-};
-
-const BIKE_OPTIONS_BY_LOCATION: Record<RentalLocation, BikeOption[]> = {
-  munich: [
-    { value: "Endurace CF SL 8 - XS", label: "Endurace CF SL 8 - XS" },
-    { value: "Endurace CF SL 8 - S", label: "Endurace CF SL 8 - S" },
-    { value: "Endurace CF SL 8 - M", label: "Endurace CF SL 8 - M" },
-    { value: "Endurace CF SL 8 - L", label: "Endurace CF SL 8 - L" },
-    { value: "Grail CF SL 7 - S", label: "Grail CF SL 7 - S" },
-    { value: "Grail CF SL 7 - M", label: "Grail CF SL 7 - M" },
-    { value: "Grail CF SL 7 - L", label: "Grail CF SL 7 - L" },
-    { value: "Ultimate CF SL 7 eTap AXS - M", label: "Ultimate CF SL 7 eTap AXS - M" },
-    { value: "Ultimate CF SL 7 eTap AXS - L", label: "Ultimate CF SL 7 eTap AXS - L" },
-    { value: "Aeroad CF SL 8 - S", label: "Aeroad CF SL 8 - S" },
-    { value: "Aeroad CF SL 8 - M", label: "Aeroad CF SL 8 - M" },
-  ],
-  regensburg: [
-    { value: "Endurace CF SL 8 - XS", label: "Endurace CF SL 8 - XS" },
-    { value: "Endurace CF SL 8 - S", label: "Endurace CF SL 8 - S" },
-    { value: "Endurace CF SL 8 - M", label: "Endurace CF SL 8 - M" },
-    { value: "Endurace CF SL 8 - L", label: "Endurace CF SL 8 - L" },
-    { value: "Grail CF SL 7 - S", label: "Grail CF SL 7 - S" },
-    { value: "Grail CF SL 7 - M", label: "Grail CF SL 7 - M" },
-    { value: "Grail CF SL 7 - L", label: "Grail CF SL 7 - L" },
-  ],
-};
-
 function isRentalLocation(value: string): value is RentalLocation {
-  return value === "munich" || value === "regensburg";
+  return rentalLocations.includes(value as RentalLocation);
 }
 
 function isValidContactValue(value: string) {
@@ -389,21 +351,11 @@ function validateContactForm(
   };
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
-  inverse = false,
-}: {
-  eyebrow: string;
-  title: string;
-  inverse?: boolean;
-}) {
+function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; title: string; inverse?: boolean }) {
   return (
     <div className="section-heading">
       <span className="section-heading__eyebrow">{eyebrow}</span>
-      <h2 className={inverse ? "section-heading__title is-inverse" : "section-heading__title"}>
-        {title}
-      </h2>
+      <h2 className={inverse ? "section-heading__title is-inverse" : "section-heading__title"}>{title}</h2>
     </div>
   );
 }
@@ -441,23 +393,17 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
       type="button"
       className="about-stack"
       aria-label={
-        lang === "de"
-          ? `Nächstes Bild anzeigen: ${currentPhoto.alt.de}`
-          : `Show next photo: ${currentPhoto.alt.en}`
+        lang === "de" ? `Nächstes Bild anzeigen: ${currentPhoto.alt.de}` : `Show next photo: ${currentPhoto.alt.en}`
       }
       onClick={() => setActiveIndex((index) => (index + 1) % photos.length)}
     >
       <div className="about-stack__stage" aria-hidden="true">
         {photos.map((photo, index) => {
           const position = (index - activeIndex + photos.length) % photos.length;
-          const imageClassName =
-            index === 1 ? "about-stack__image about-stack__image--taller" : "about-stack__image";
+          const imageClassName = index === 1 ? "about-stack__image about-stack__image--taller" : "about-stack__image";
 
           return (
-            <span
-              key={photo.src}
-              className={`about-stack__sheet about-stack__sheet--${position}`}
-            >
+            <span key={photo.src} className={`about-stack__sheet about-stack__sheet--${position}`}>
               <Image
                 src={photo.src}
                 alt=""
@@ -472,7 +418,6 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
 
         <span className="about-stack__veil" />
       </div>
-
     </button>
   );
 }
@@ -561,8 +506,7 @@ export function LocationShowcase({
       image: "/assets/img/location/regensburg-maps.png",
     },
   ];
-  const stackedLocations =
-    activeLocation === "munich" ? [locations[0], locations[1]] : [locations[1], locations[0]];
+  const stackedLocations = activeLocation === "munich" ? [locations[0], locations[1]] : [locations[1], locations[0]];
 
   return (
     <div className="location-grid" ref={showcaseRef}>
@@ -605,7 +549,6 @@ export function LocationShowcase({
             );
           })}
         </div>
-
       </div>
 
       <div className="location-grid__visual">
@@ -759,7 +702,11 @@ function BikeModal({
               <strong>{bike.price[lang]}</strong>
             </div>
 
-            <button type="button" className="button button--arrow bike-modal__reserve" onClick={() => onReserve(bike.title)}>
+            <button
+              type="button"
+              className="button button--arrow bike-modal__reserve"
+              onClick={() => onReserve(bike.title)}
+            >
               <span>{translations.reserve}</span>
               <img src="/assets/img/svg/right-arrow.svg" alt="" />
             </button>
@@ -810,6 +757,8 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
 
     return pathname === "/" ? hash : buildPathWithSearch({ pathname: "/", searchParams, hash, lang });
   };
+  const maintenanceHref =
+    pathname === "/" ? pageHref("/wartung") : sectionHref("#wartung", sectionAnchors?.maintenance);
   const isHidden = (item: "start" | "maintenance" | "bikes" | "prices" | "faq" | "contact") =>
     hiddenNavItems?.includes(item) ?? false;
 
@@ -833,11 +782,7 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
   return (
     <header className="topbar">
       <div className="container topbar__inner">
-        <a
-          className="brand"
-          href={sectionHref("#home", sectionAnchors?.start)}
-          aria-label="Your Bike Rental home"
-        >
+        <a className="brand" href={sectionHref("#home", sectionAnchors?.start)} aria-label="Your Bike Rental home">
           <span className="brand__text">Your Bike Rental</span>
         </a>
 
@@ -851,49 +796,37 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
               </li>
               {!isHidden("maintenance") ? (
                 <li className="nav__item">
-                <a
-                  href={sectionHref("#wartung", sectionAnchors?.maintenance)}
-                  className="nav__link nav__link--anchor"
-                >
-                  {topbar.nav.maintenance}
-                </a>
+                  <a href={maintenanceHref} className="nav__link nav__link--anchor">
+                    {topbar.nav.maintenance}
+                  </a>
                 </li>
               ) : null}
               {!isHidden("bikes") ? (
                 <li className="nav__item">
-                <a
-                  href={sectionHref("#portfolio", sectionAnchors?.bikes)}
-                  className="nav__link nav__link--anchor"
-                >
-                  {topbar.nav.bikes}
-                </a>
+                  <a href={sectionHref("#portfolio", sectionAnchors?.bikes)} className="nav__link nav__link--anchor">
+                    {topbar.nav.bikes}
+                  </a>
                 </li>
               ) : null}
               {!isHidden("prices") ? (
                 <li className="nav__item">
-                <a
-                  href={sectionHref("#price", sectionAnchors?.prices)}
-                  className="nav__link nav__link--anchor"
-                >
-                  {topbar.nav.prices}
-                </a>
+                  <a href={sectionHref("#price", sectionAnchors?.prices)} className="nav__link nav__link--anchor">
+                    {topbar.nav.prices}
+                  </a>
                 </li>
               ) : null}
               {!isHidden("faq") ? (
                 <li className="nav__item">
-                <a href={sectionHref("#faq", sectionAnchors?.faq)} className="nav__link nav__link--anchor">
-                  {topbar.nav.faq}
-                </a>
+                  <a href={sectionHref("#faq", sectionAnchors?.faq)} className="nav__link nav__link--anchor">
+                    {topbar.nav.faq}
+                  </a>
                 </li>
               ) : null}
               {!isHidden("contact") ? (
                 <li className="nav__item">
-                <a
-                  href={sectionHref("#contact", sectionAnchors?.contact)}
-                  className="nav__link nav__link--anchor"
-                >
-                  {topbar.nav.contact}
-                </a>
+                  <a href={sectionHref("#contact", sectionAnchors?.contact)} className="nav__link nav__link--anchor">
+                    {topbar.nav.contact}
+                  </a>
                 </li>
               ) : null}
               <li className="nav__item">
@@ -959,57 +892,57 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
             </li>
             {!isHidden("maintenance") ? (
               <li className="nav__item nav__item--mobile">
-              <a
-                href={sectionHref("#wartung", sectionAnchors?.maintenance)}
-                className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                onClick={() => setMenuOpen(false)}
-              >
-                {topbar.nav.maintenance}
-              </a>
+                <a
+                  href={maintenanceHref}
+                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {topbar.nav.maintenance}
+                </a>
               </li>
             ) : null}
             {!isHidden("bikes") ? (
               <li className="nav__item nav__item--mobile">
-              <a
-                href={sectionHref("#portfolio", sectionAnchors?.bikes)}
-                className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                onClick={() => setMenuOpen(false)}
-              >
-                {topbar.nav.bikes}
-              </a>
+                <a
+                  href={sectionHref("#portfolio", sectionAnchors?.bikes)}
+                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {topbar.nav.bikes}
+                </a>
               </li>
             ) : null}
             {!isHidden("prices") ? (
               <li className="nav__item nav__item--mobile">
-              <a
-                href={sectionHref("#price", sectionAnchors?.prices)}
-                className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                onClick={() => setMenuOpen(false)}
-              >
-                {topbar.nav.prices}
-              </a>
+                <a
+                  href={sectionHref("#price", sectionAnchors?.prices)}
+                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {topbar.nav.prices}
+                </a>
               </li>
             ) : null}
             {!isHidden("faq") ? (
               <li className="nav__item nav__item--mobile">
-              <a
-                href={sectionHref("#faq", sectionAnchors?.faq)}
-                className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                onClick={() => setMenuOpen(false)}
-              >
-                {topbar.nav.faq}
-              </a>
+                <a
+                  href={sectionHref("#faq", sectionAnchors?.faq)}
+                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {topbar.nav.faq}
+                </a>
               </li>
             ) : null}
             {!isHidden("contact") ? (
               <li className="nav__item nav__item--mobile">
-              <a
-                href={sectionHref("#contact", sectionAnchors?.contact)}
-                className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                onClick={() => setMenuOpen(false)}
-              >
-                {topbar.nav.contact}
-              </a>
+                <a
+                  href={sectionHref("#contact", sectionAnchors?.contact)}
+                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {topbar.nav.contact}
+                </a>
               </li>
             ) : null}
             <li className="nav__item nav__item--mobile">
@@ -1018,7 +951,11 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
               </Link>
             </li>
             <li className="nav__item nav__item--mobile">
-              <a href={pageHref("/impressum")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
+              <a
+                href={pageHref("/impressum")}
+                className="nav__link nav__link--mobile"
+                onClick={() => setMenuOpen(false)}
+              >
                 {topbar.nav.imprint}
               </a>
             </li>
@@ -1040,10 +977,7 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
 
 export function PortfolioSection({ lang, translations, portfolioItems }: PortfolioSectionProps) {
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
-  const roadBikeTitles = new Set([
-    "Endurace CF SL 8",
-    "Aeroad CF SL 8",
-  ]);
+  const roadBikeTitles = new Set(["Endurace CF SL 8", "Aeroad CF SL 8"]);
   const grailBikeTitle = "Grail CF SL 7";
 
   useEffect(() => {
@@ -1069,11 +1003,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
           {portfolioItems.map((item) => (
             <button
               key={item.title}
-              className={`portfolio-card ${
-                item.title === "Aeroad CF SL 8"
-                  ? "portfolio-card--promo"
-                  : ""
-              }`}
+              className={`portfolio-card ${item.title === "Aeroad CF SL 8" ? "portfolio-card--promo" : ""}`}
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -1107,10 +1037,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                         : "Munich"}
               </span>
 
-              <div
-                className="portfolio-card__overlay"
-                aria-hidden="true"
-              >
+              <div className="portfolio-card__overlay" aria-hidden="true">
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
@@ -1177,7 +1104,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const affiliateKey = getAffiliateKey(searchParams);
-  const bikeOptions = BIKE_OPTIONS_BY_LOCATION[location];
+  const bikeOptions = bikeOptionsByLocation[location];
 
   const clearFieldError = (field: ContactField) => {
     setFieldErrors((current) => {
@@ -1250,56 +1177,31 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     setOrderNumber(null);
 
     try {
-      const response = await fetch("/api/contact", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: nameValue,
-          contact: contactValue,
-          phone: phoneValue,
-          height: heightValue,
-          location: locationValue,
-          bikeSize: bikeSizeValue,
-          periodFrom: periodFromValue,
-          periodTo: periodToValue,
-          pickupTime: pickupTimeValue,
-          dropoffTime: dropoffTimeValue,
-          needsPedals: needsPedalsValue,
-          pedalType: needsPedalsValue ? pedalTypeValue : "",
-          needsComputerMount: needsComputerMountValue,
-          computerMountType: needsComputerMountValue ? computerMountTypeValue : "",
-          needsHelmet: needsHelmetValue,
-          needsClothing: needsClothingValue,
-          message,
-          locale: lang,
-          affiliateKey: affiliateKey || undefined,
-        }),
+      const { response, result } = await postInquiry("/api/contact", {
+        name: nameValue,
+        contact: contactValue,
+        phone: phoneValue,
+        height: heightValue,
+        location: locationValue,
+        bikeSize: bikeSizeValue,
+        periodFrom: periodFromValue,
+        periodTo: periodToValue,
+        pickupTime: pickupTimeValue,
+        dropoffTime: dropoffTimeValue,
+        needsPedals: needsPedalsValue,
+        pedalType: needsPedalsValue ? pedalTypeValue : "",
+        needsComputerMount: needsComputerMountValue,
+        computerMountType: needsComputerMountValue ? computerMountTypeValue : "",
+        needsHelmet: needsHelmetValue,
+        needsClothing: needsClothingValue,
+        message,
+        locale: lang,
+        affiliateKey: affiliateKey || undefined,
+        website: String(formData.get("website") ?? ""),
       });
 
-      const result = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        code?: string;
-        orderNumber?: string;
-      } | null;
-
       if (!response.ok || !result?.ok) {
-        const validationTexts = translations.form.validation;
-        const code = result?.code ?? result?.error ?? "contact_failed";
-        const errorMessage =
-          code === "invalid_origin"
-            ? validationTexts.submitOriginError
-            : code === "payload_too_large"
-              ? validationTexts.submitPayloadError
-              : code === "config_incomplete"
-                ? validationTexts.submitConfigError
-                : code === "validation_error"
-                  ? validationTexts.submitValidationError
-                  : validationTexts.submitFailed;
-
-        throw new Error(errorMessage);
+        throw new Error(getInquiryError(result?.code ?? result?.error, translations.form.validation));
       }
 
       form.reset();
@@ -1340,6 +1242,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
 
   return (
     <form className="contact-form" onSubmit={handleContactSubmit} noValidate>
+      <InquiryHoneypot />
       <div className="contact-form__fields">
         <div className="contact-form__field">
           <label htmlFor="location">{translations.form.location}</label>
@@ -1351,8 +1254,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
             aria-describedby={fieldErrors.location ? "location-error" : undefined}
             onChange={(event) => {
               const nextLocation = isRentalLocation(event.target.value) ? event.target.value : "munich";
-              const nextBikeOptions = BIKE_OPTIONS_BY_LOCATION[nextLocation];
-              if (bikeSize && !nextBikeOptions.some((option) => option.value === bikeSize)) {
+              const nextBikeOptions = bikeOptionsByLocation[nextLocation];
+              if (bikeSize && !nextBikeOptions.some((option) => option === bikeSize)) {
                 setBikeSize("");
                 setFieldErrors((current) => {
                   if (!current.bikeSize) {
@@ -1368,9 +1271,9 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
               clearFieldError("location");
             }}
           >
-            {RENTAL_LOCATION_OPTIONS[lang].map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {rentalLocations.map((option) => (
+              <option key={option} value={option}>
+                {rentalLocationLabels[lang][option]}
               </option>
             ))}
           </select>
@@ -1491,8 +1394,8 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
                 {lang === "de" ? "Rennrad auswählen" : "Choose a road bike"}
               </option>
               {bikeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+                <option key={option} value={option}>
+                  {option}
                 </option>
               ))}
             </select>
@@ -1765,7 +1668,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       </button>
 
       {contactStatus === "success" ? (
-        <div className="contact-form__status is-success">
+        <div className="contact-form__status is-success" aria-live="polite">
           <p>{translations.form.success}</p>
           {orderNumber ? (
             <p>
@@ -1775,7 +1678,9 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
         </div>
       ) : null}
       {contactStatus === "error" ? (
-        <p className="contact-form__status is-error">{submitError ?? translations.form.error}</p>
+        <p className="contact-form__status is-error" aria-live="polite">
+          {submitError ?? translations.form.error}
+        </p>
       ) : null}
     </form>
   );

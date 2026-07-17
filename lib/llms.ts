@@ -12,9 +12,7 @@ function formatBikeLine(index: number) {
 
 function formatFullBikeSection(index: number) {
   const bike = portfolioItems[index];
-  const facts = bike.facts
-    .map((fact) => `- ${fact.label.en}: ${fact.value.en}`)
-    .join("\n");
+  const facts = bike.facts.map((fact) => `- ${fact.label.en}: ${fact.value.en}`).join("\n");
   const equipment = bike.equipment.en.map((item) => `- ${item}`).join("\n");
 
   return [
@@ -147,9 +145,7 @@ ${portfolioItems.map((_, index) => formatFullBikeSection(index)).join("\n\n")}
 
 ## Prices and discounts
 
-${priceItems
-  .map((item) => `- ${item.title.en}: ${toUsdStylePrice(item.cost.en)}`)
-  .join("\n")}
+${priceItems.map((item) => `- ${item.title.en}: ${toUsdStylePrice(item.cost.en)}`).join("\n")}
 
 ## FAQ summary
 

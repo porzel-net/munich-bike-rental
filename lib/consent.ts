@@ -10,9 +10,7 @@ export const CONSENT_COOKIE_NAME = "munich_rental_consent";
 
 function isConsentPreferences(value: unknown): value is ConsentPreferences {
   return (
-    Boolean(value) &&
-    typeof value === "object" &&
-    typeof (value as { analytics?: unknown }).analytics === "boolean"
+    Boolean(value) && typeof value === "object" && typeof (value as { analytics?: unknown }).analytics === "boolean"
   );
 }
 

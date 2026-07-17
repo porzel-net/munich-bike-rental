@@ -48,8 +48,8 @@ export default function ImpressumPage() {
         <section>
           <h2>Haftung für Links</h2>
           <p>
-            Unsere Seite kann Links zu externen Websites enthalten. Auf deren Inhalte haben wir keinen Einfluss
-            und dafür sind ausschließlich die jeweiligen Betreiber verantwortlich.
+            Unsere Seite kann Links zu externen Websites enthalten. Auf deren Inhalte haben wir keinen Einfluss und
+            dafür sind ausschließlich die jeweiligen Betreiber verantwortlich.
           </p>
         </section>
       </div>

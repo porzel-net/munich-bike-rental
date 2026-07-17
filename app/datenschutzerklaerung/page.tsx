@@ -37,14 +37,17 @@ export default function DatenschutzerklaerungPage() {
           </ul>
           <p>
             In dieser Datenschutzerklärung informieren wir Sie über die Datenverarbeitung, soweit wir allein
-            verantwortlich sind, die Datenverarbeitung, soweit wir gemeinsam mit anderen verantwortlich sind, und
-            die eingesetzten Fremdanbieter, die in eigener Verantwortung Daten verarbeiten.
+            verantwortlich sind, die Datenverarbeitung, soweit wir gemeinsam mit anderen verantwortlich sind, und die
+            eingesetzten Fremdanbieter, die in eigener Verantwortung Daten verarbeiten.
           </p>
-          <p>Für die Datenverarbeitung anderer Anbieter, auf die z.B. über Links verwiesen wird, gelten die dortigen Datenschutzhinweise.</p>
+          <p>
+            Für die Datenverarbeitung anderer Anbieter, auf die z.B. über Links verwiesen wird, gelten die dortigen
+            Datenschutzhinweise.
+          </p>
           <h3>Änderungen der Datenschutzerklärung</h3>
           <p>
-            Diese Datenschutzerklärung wird von uns bei Bedarf angepasst bzw. aktualisiert. Es gilt die jeweils
-            aktuell gültige Fassung.
+            Diese Datenschutzerklärung wird von uns bei Bedarf angepasst bzw. aktualisiert. Es gilt die jeweils aktuell
+            gültige Fassung.
           </p>
           <h3>Ansprechpartner und Verantwortliche</h3>
           <h4>Name und Kontaktdaten des Verantwortlichen</h4>
@@ -89,7 +92,9 @@ export default function DatenschutzerklaerungPage() {
             <li>Verwendete IP-Adresse</li>
             <li>Zugriffsstatus/HTTP-Statuscode</li>
           </ul>
-          <p>Im Rahmen des Hostings können außerdem Sicherungskopien und Wiederherstellungsvorgänge verarbeitet werden.</p>
+          <p>
+            Im Rahmen des Hostings können außerdem Sicherungskopien und Wiederherstellungsvorgänge verarbeitet werden.
+          </p>
           <h4>Drittanbieter</h4>
           <p>STRATO AG</p>
           <p>Otto-Ostrowski-Straße 7,</p>
@@ -118,8 +123,8 @@ export default function DatenschutzerklaerungPage() {
           </p>
           <p>
             Die vorübergehende Speicherung der IP-Adresse durch das System ist notwendig, um eine Auslieferung der
-            Website an den Rechner des Nutzers zu ermöglichen. Hierfür muss die IP-Adresse des Nutzers für die Dauer
-            der Sitzung gespeichert bleiben.
+            Website an den Rechner des Nutzers zu ermöglichen. Hierfür muss die IP-Adresse des Nutzers für die Dauer der
+            Sitzung gespeichert bleiben.
           </p>
           <p>Die erhobenen Daten dienen außerdem statistischen Auswertungen und zur Verbesserung der Website.</p>
           <p>
@@ -129,8 +134,8 @@ export default function DatenschutzerklaerungPage() {
           <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>Die Daten werden nach 7 Tagen gelöscht.</p>
           <p>
-            Die Erfassung der Daten zur Bereitstellung der Website und die Speicherung der Daten in Logfiles ist für
-            den Betrieb der Internetseite zwingend erforderlich. Es besteht folglich seitens des Nutzers keine
+            Die Erfassung der Daten zur Bereitstellung der Website und die Speicherung der Daten in Logfiles ist für den
+            Betrieb der Internetseite zwingend erforderlich. Es besteht folglich seitens des Nutzers keine
             Widerspruchsmöglichkeit.
           </p>
           <p>Logdateien werden nach 7 Tagen gelöscht.</p>
@@ -139,35 +144,38 @@ export default function DatenschutzerklaerungPage() {
         <section>
           <h2>3. Cookies</h2>
           <p>
-            Bei Cookies handelt es sich um Textdateien, die im Internetbrowser bzw. vom Internetbrowser auf dem
-            Endgerät des Nutzers gespeichert werden.
+            Bei Cookies handelt es sich um Textdateien, die im Internetbrowser bzw. vom Internetbrowser auf dem Endgerät
+            des Nutzers gespeichert werden.
           </p>
           <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
-            Von uns verwendete Cookies sind technisch notwendige Session-Cookies sowie ein Consent-Cookie, mit dem
-            Ihre Auswahl im Cookie-Banner gespeichert wird. Durch Session-Cookies werden Informationen über die
-            aktuelle Sitzung hinterlegt. Diese dienen dazu, Einstellungen eines Nutzers auf einer Seite dessen
-            Sitzung zuzuordnen. Wenn Sie in einem Browser in zwei Fenstern die Homepage besuchen, wird am
-            Session Cookie erkannt, dass es sich bei beiden Aufrufen um Ihre Sitzung handelt.
+            Von uns verwendete Cookies sind technisch notwendige Session-Cookies sowie ein Consent-Cookie, mit dem Ihre
+            Auswahl im Cookie-Banner gespeichert wird. Durch Session-Cookies werden Informationen über die aktuelle
+            Sitzung hinterlegt. Diese dienen dazu, Einstellungen eines Nutzers auf einer Seite dessen Sitzung
+            zuzuordnen. Wenn Sie in einem Browser in zwei Fenstern die Homepage besuchen, wird am Session Cookie
+            erkannt, dass es sich bei beiden Aufrufen um Ihre Sitzung handelt.
           </p>
           <p>
             Sofern wir Schutz- und Routingdienste von Cloudflare einsetzen, können zusätzlich technisch notwendige
-            Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren gesetzt werden. Genauere Details
-            sind im Abschnitt „Schutz- und Routingdienste“ zu finden. Cookies oder ähnliche Technologien von Google
-            Analytics werden erst nach Ihrer ausdrücklichen Einwilligung geladen.
+            Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren gesetzt werden. Genauere Details sind
+            im Abschnitt „Schutz- und Routingdienste“ zu finden. Cookies oder ähnliche Technologien von Google Analytics
+            werden erst nach Ihrer ausdrücklichen Einwilligung geladen.
           </p>
           <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
-          <p>Technisch notwendige Cookies sind zwingend erforderlich, um die Website anzuzeigen und Ihre Auswahl zu speichern.</p>
           <p>
-            Rechtsgrundlage für die vorübergehende Speicherung der Daten ist Art. 6 Abs. 1 lit. f DSGVO
-            (berechtigtes Interesse) bzw. bei optionalen Cookies Art. 6 Abs. 1 lit. a DSGVO (Einwilligung).
+            Technisch notwendige Cookies sind zwingend erforderlich, um die Website anzuzeigen und Ihre Auswahl zu
+            speichern.
+          </p>
+          <p>
+            Rechtsgrundlage für die vorübergehende Speicherung der Daten ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes
+            Interesse) bzw. bei optionalen Cookies Art. 6 Abs. 1 lit. a DSGVO (Einwilligung).
           </p>
           <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
           <p>
             Session-Cookies werden nach Ende Ihres Besuchs der Webseite automatisch gelöscht. Technisch notwendige
-            Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren werden nur so lange gespeichert,
-            wie dies für den jeweiligen Sicherheitszweck erforderlich ist. Der Consent-Cookie wird gespeichert,
-            bis Sie Ihre Auswahl ändern oder den Cookie-Speicher Ihres Browsers löschen.
+            Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren werden nur so lange gespeichert, wie
+            dies für den jeweiligen Sicherheitszweck erforderlich ist. Der Consent-Cookie wird gespeichert, bis Sie Ihre
+            Auswahl ändern oder den Cookie-Speicher Ihres Browsers löschen.
           </p>
           <p>
             Es besteht seitens des Nutzers keine Widerspruchsmöglichkeit, eine Deaktivierung dieser Cookies kann durch
@@ -180,9 +188,9 @@ export default function DatenschutzerklaerungPage() {
           <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Diese Website wird über STRATO gehostet. Zusätzlich können, soweit technisch aktiviert, Dienste von
-            Cloudflare als DNS-, Reverse-Proxy-, SSL/TLS-, WAF-, DDoS-Schutz-, Routing-, Cache-, CDN-,
-            Rate-Limiting-, Bot-Schutz- und Turnstile-Dienste eingesetzt werden. Zum technischen Setup gehören je nach
-            Konfiguration auch Protokollierung, Backup, Wiederherstellung, Wartung und Fernzugriff.
+            Cloudflare als DNS-, Reverse-Proxy-, SSL/TLS-, WAF-, DDoS-Schutz-, Routing-, Cache-, CDN-, Rate-Limiting-,
+            Bot-Schutz- und Turnstile-Dienste eingesetzt werden. Zum technischen Setup gehören je nach Konfiguration
+            auch Protokollierung, Backup, Wiederherstellung, Wartung und Fernzugriff.
           </p>
           <p>
             Bei der Nutzung dieser Dienste können insbesondere IP-Adressen, Server- und Sicherheitslogs, Request- und
@@ -204,8 +212,8 @@ export default function DatenschutzerklaerungPage() {
           <p>101 Townsend St.</p>
           <p>San Francisco, CA 94107, USA</p>
           <p>
-            Weitere von Cloudflare eingesetzte Unterauftragsverarbeiter ergeben sich, soweit für die konkret
-            aktivierten Dienste relevant, aus der jeweils aktuellen Cloudflare-Subprozessorliste:
+            Weitere von Cloudflare eingesetzte Unterauftragsverarbeiter ergeben sich, soweit für die konkret aktivierten
+            Dienste relevant, aus der jeweils aktuellen Cloudflare-Subprozessorliste:
           </p>
           <p>
             <a
@@ -222,8 +230,8 @@ export default function DatenschutzerklaerungPage() {
             Auslieferung der Website sowie an der Abwehr missbräuchlicher Zugriffe.
           </p>
           <p>
-            Soweit einzelne Funktionen nur mit Einwilligung aktiviert werden, ist Art. 6 Abs. 1 S. 1 lit. a DSGVO
-            die Rechtsgrundlage.
+            Soweit einzelne Funktionen nur mit Einwilligung aktiviert werden, ist Art. 6 Abs. 1 S. 1 lit. a DSGVO die
+            Rechtsgrundlage.
           </p>
           <p>
             Zweck: Schutz, Routing, Auslieferung und Absicherung der Website sowie die Erkennung und Abwehr
@@ -237,8 +245,8 @@ export default function DatenschutzerklaerungPage() {
             Funktionseinschränkungen kommen.
           </p>
           <p>
-            Eine Verarbeitung in Drittländern, insbesondere in den USA, kann bei Cloudflare nicht ausgeschlossen
-            werden. Eine ausschließliche Verarbeitung innerhalb der EU wird nur geschuldet, soweit entsprechende
+            Eine Verarbeitung in Drittländern, insbesondere in den USA, kann bei Cloudflare nicht ausgeschlossen werden.
+            Eine ausschließliche Verarbeitung innerhalb der EU wird nur geschuldet, soweit entsprechende
             Regionalisierungsfunktionen ausdrücklich vereinbart und tatsächlich eingesetzt werden.
           </p>
         </section>
@@ -248,16 +256,16 @@ export default function DatenschutzerklaerungPage() {
           <h3>Google Analytics</h3>
           <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
-            Diese Website kann Google Analytics einsetzen, um die Nutzung der Internetseite auszuwerten, die
-            Reichweite zu messen und den Erfolg von Anfragen nachzuvollziehen. Google Analytics wird erst geladen,
-            nachdem Sie im Cookie-Banner ausdrücklich zugestimmt haben.
+            Diese Website kann Google Analytics einsetzen, um die Nutzung der Internetseite auszuwerten, die Reichweite
+            zu messen und den Erfolg von Anfragen nachzuvollziehen. Google Analytics wird erst geladen, nachdem Sie im
+            Cookie-Banner ausdrücklich zugestimmt haben.
           </p>
           <p>
             Beim Einsatz können insbesondere Seitenaufrufe, Interaktionen, Zeitstempel, Geräteinformationen,
             Browserinformationen, ungefähre Standortdaten, Referrer-Informationen und eine gekürzte IP-Adresse
-            verarbeitet werden. Die Datenverarbeitung erfolgt durch Google Ireland Limited, Gordon House, Barrow
-            Street, Dublin 4, Irland. Eine Übermittlung in Drittländer, insbesondere in die USA, kann dabei nicht
-            ausgeschlossen werden.
+            verarbeitet werden. Die Datenverarbeitung erfolgt durch Google Ireland Limited, Gordon House, Barrow Street,
+            Dublin 4, Irland. Eine Übermittlung in Drittländer, insbesondere in die USA, kann dabei nicht ausgeschlossen
+            werden.
           </p>
           <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
@@ -266,8 +274,8 @@ export default function DatenschutzerklaerungPage() {
           </p>
           <h4>c) Dauer der Speicherung und Widerrufsmöglichkeit</h4>
           <p>
-            Sie können Ihre Einwilligung jederzeit über die Cookie-Einstellungen widerrufen. Die Speicherdauer der
-            von Google gesetzten Cookies richtet sich nach den jeweiligen Google-Einstellungen und der von Google
+            Sie können Ihre Einwilligung jederzeit über die Cookie-Einstellungen widerrufen. Die Speicherdauer der von
+            Google gesetzten Cookies richtet sich nach den jeweiligen Google-Einstellungen und der von Google
             verwendeten Konfiguration.
           </p>
           <h3>Verschlüsselte Übertragung</h3>
@@ -277,7 +285,10 @@ export default function DatenschutzerklaerungPage() {
             Browsers.
           </p>
           <h3>Kürzung der IP-Adresse</h3>
-          <p>Durch die Kürzung der IP-Adresse wird die Identifizierung der Nutzer erschwert. Soweit die Möglichkeit besteht wird diese Maßnahme von uns genutzt.</p>
+          <p>
+            Durch die Kürzung der IP-Adresse wird die Identifizierung der Nutzer erschwert. Soweit die Möglichkeit
+            besteht wird diese Maßnahme von uns genutzt.
+          </p>
           <h3>Datensicherheit</h3>
           <p>
             Wir bedienen uns geeigneter technischer und organisatorischer Sicherheitsmaßnahmen, um die Daten gegen
@@ -285,7 +296,9 @@ export default function DatenschutzerklaerungPage() {
             Sicherheitsmaßnahmen werden entsprechend der technologischen Entwicklung fortlaufend verbessert.
           </p>
           <h3>Verbindung zu anderen Webseiten über Links in Grafiken oder Text</h3>
-          <p>Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum angegebenen Ziel.</p>
+          <p>
+            Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum angegebenen Ziel.
+          </p>
           <p>
             Externe Links, die auf Seiten außerhalb unseres Angebots führen haben wir entsprechend gekennzeichnet,
             sofern dies nicht bereits eindeutig erkennbar ist.
@@ -293,9 +306,8 @@ export default function DatenschutzerklaerungPage() {
           <h3>Zwischengeschaltete und weitergeleitete Links</h3>
           <p>
             Ein Link kann automatisch auf eine andere Webseite als die angeforderte weiterleiten oder statt direkt auf
-            die neue Seite zu führen, zunächst über eine andere Seite leiten ohne dass der Benutzer davon etwas
-            bemerkt. Dies wird meist dazu genutzt um unbemerkt Daten des Besuchers zu verarbeiten oder Aktionen
-            auszulösen.
+            die neue Seite zu führen, zunächst über eine andere Seite leiten ohne dass der Benutzer davon etwas bemerkt.
+            Dies wird meist dazu genutzt um unbemerkt Daten des Besuchers zu verarbeiten oder Aktionen auszulösen.
           </p>
           <h3>Aktive Inhalte</h3>
           <p>
@@ -314,8 +326,7 @@ export default function DatenschutzerklaerungPage() {
             auf Internetseiten kommen, die Sie besuchen.
           </p>
           <p>
-            Weitere Informationen zu JavaScript finden Sie unter:
-            {" "}
+            Weitere Informationen zu JavaScript finden Sie unter:{" "}
             <a href="https://de.wikipedia.org/wiki/JavaScript#Verwendung" target="_blank" rel="noreferrer">
               https://de.wikipedia.org/wiki/JavaScript#Verwendung
             </a>
@@ -336,16 +347,18 @@ export default function DatenschutzerklaerungPage() {
           <h4>a) Beschreibung und Umfang der Datenverarbeitung</h4>
           <p>
             Über das auf unserer Internetseite bereitgestellte Kontaktformular sowie über die bereitgestellten
-            Kontaktdaten (Telefonnummer und E-Mail-Adresse) ist eine Kontaktaufnahme an uns möglich. Im
-            Kontaktformular werden die von Ihnen eingegebenen Daten verarbeitet, insbesondere Name, Kontaktangabe,
-            Telefonnummer, Zeitraum der gewünschten Miete, gewünschte Abhol- und Abgabeuhrzeit, Angaben zur
-            gewünschten Ausrüstung wie Pedale, Helm oder Kleidung, Nachricht, Sprache der Anfrage sowie
-            gegebenenfalls das ausgewählte Fahrrad.
+            Kontaktdaten (Telefonnummer und E-Mail-Adresse) ist eine Kontaktaufnahme an uns möglich. Im Kontaktformular
+            werden die von Ihnen eingegebenen Daten verarbeitet, insbesondere Name, Kontaktangabe, Telefonnummer,
+            Zeitraum der gewünschten Miete, gewünschte Abhol- und Abgabeuhrzeit, Angaben zur gewünschten Ausrüstung wie
+            Pedale, Helm oder Kleidung, Nachricht, Sprache der Anfrage sowie gegebenenfalls das ausgewählte Fahrrad.
           </p>
           <p>Die Pflichtfelder sind erforderlich, damit wir Ihre Anfrage bearbeiten können.</p>
           <p>Die Formulardaten werden serverseitig an unsere E-Mail-Infrastruktur übermittelt und dort verarbeitet.</p>
           <p>Die Antwort auf Anfragen über das Formular erfolgt per E-Mail an die angegebene E-Mail-Adresse.</p>
-          <p>Beim Versand per E-Mail werden die Kontaktangaben durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.</p>
+          <p>
+            Beim Versand per E-Mail werden die Kontaktangaben durch den von uns eingesetzten Mail-/SMTP-Dienstleister
+            verarbeitet.
+          </p>
           <p>Es erfolgt in diesem Zusammenhang keine Weitergabe der Daten an unbeteiligte Dritte.</p>
           <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
@@ -355,22 +368,24 @@ export default function DatenschutzerklaerungPage() {
           <p>Art. 6 Abs. 1 S. 1 lit. f. DSGVO: Berechtigtes Interesse, in allen übrigen Fällen</p>
           <p>Die Daten werden ausschließlich für die Beantwortung Ihrer Anfrage verarbeitet.</p>
           <h4>c) Dauer der Speicherung und Widerspruchsmöglichkeit</h4>
-          <p>Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen Aufbewahrungspflichten bestehen.</p>
+          <p>
+            Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen
+            Aufbewahrungspflichten bestehen.
+          </p>
           <p>
             Für die personenbezogenen Daten, die über das Kontaktformular oder per E-Mail übersandt wurden, ist dies
             dann der Fall, wenn die jeweilige Konversation mit dem Nutzer beendet ist. Beendet ist die Konversation
-            dann, wenn sich aus den Umständen entnehmen lässt, dass der betroffene Sachverhalt abschließend geklärt
-            ist.
+            dann, wenn sich aus den Umständen entnehmen lässt, dass der betroffene Sachverhalt abschließend geklärt ist.
           </p>
           <p>
-            Die Daten, für die eine gesetzliche Aufbewahrungspflicht besteht werden für die gesetzlich festgelegte
-            Dauer aufbewahrt (6 Jahre nach § 257 Abs. 1 Nr. 2, Abs. 4 HGB).
+            Die Daten, für die eine gesetzliche Aufbewahrungspflicht besteht werden für die gesetzlich festgelegte Dauer
+            aufbewahrt (6 Jahre nach § 257 Abs. 1 Nr. 2, Abs. 4 HGB).
           </p>
           <p>
             Nimmt der Nutzer über das Kontaktformular oder per E-Mail Kontakt mit uns auf, so kann er der Speicherung
             seiner personenbezogenen Daten jederzeit widersprechen. In einem solchen Fall kann die Konversation nicht
-            fortgeführt werden. Alle personenbezogenen Daten, die im Zuge der Kontaktaufnahme gespeichert wurden,
-            werden in diesem Fall gelöscht.
+            fortgeführt werden. Alle personenbezogenen Daten, die im Zuge der Kontaktaufnahme gespeichert wurden, werden
+            in diesem Fall gelöscht.
           </p>
         </section>
 
@@ -385,14 +400,18 @@ export default function DatenschutzerklaerungPage() {
             Voraussetzungen, insbesondere auf Grundlage eines Angemessenheitsbeschlusses, von Standardvertragsklauseln
             oder vergleichbaren Garantien, soweit diese für den jeweiligen Dienst vorgesehen sind.
           </p>
-          <p>Eine ausschließliche Verarbeitung innerhalb des EWR wird nicht für alle eingesetzten Dienste geschuldet.</p>
+          <p>
+            Eine ausschließliche Verarbeitung innerhalb des EWR wird nicht für alle eingesetzten Dienste geschuldet.
+          </p>
           <h3>Automatisierte Einzelfallentscheidung</h3>
           <p>Wir nutzen keine rein automatisierten Verarbeitungsprozesse zur Herbeiführung einer Entscheidung.</p>
         </section>
 
         <section>
           <h2>9. Links in Grafiken oder Text</h2>
-          <p>Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum angegebenen Ziel.</p>
+          <p>
+            Die von uns angebotenen Links führen Sie grundsätzlich ohne Zusatzinformation direkt zum angegebenen Ziel.
+          </p>
           <p>
             Externe Links, die auf Seiten außerhalb unseres Angebots führen haben wir entsprechend gekennzeichnet,
             sofern dies nicht bereits eindeutig erkennbar ist.
@@ -407,34 +426,37 @@ export default function DatenschutzerklaerungPage() {
             gemacht werden.
           </p>
           <p>
-            Sie widerrufen Ihre Einwilligung, auf die sich die Verarbeitung gem. Art. 6 Abs. 1 lit. a oder Art. 9
-            Abs. 2 lit. a DSGVO stützt.
+            Sie widerrufen Ihre Einwilligung, auf die sich die Verarbeitung gem. Art. 6 Abs. 1 lit. a oder Art. 9 Abs. 2
+            lit. a DSGVO stützt.
           </p>
           <p>
             Sie legen gem. Art. 21 Abs. 1 DSGVO Widerspruch gegen die Verarbeitung ein und es liegen keine vorrangigen
-            berechtigten Gründe für die Verarbeitung vor, oder Sie legen gem. Art. 21 Abs. 2 DSGVO Widerspruch gegen
-            die Verarbeitung ein.
+            berechtigten Gründe für die Verarbeitung vor, oder Sie legen gem. Art. 21 Abs. 2 DSGVO Widerspruch gegen die
+            Verarbeitung ein.
           </p>
           <p>
-            Die Daten, für die eine gesetzliche Aufbewahrungspflicht besteht werden für die gesetzlich festgelegte
-            Dauer aufbewahrt (10 Jahre nach § 257 Abs. HGB, § 146 Abs. 2 AO).
+            Die Daten, für die eine gesetzliche Aufbewahrungspflicht besteht werden für die gesetzlich festgelegte Dauer
+            aufbewahrt (10 Jahre nach § 257 Abs. HGB, § 146 Abs. 2 AO).
           </p>
           <p>Logdateien werden nach 7 Tagen gelöscht.</p>
-          <p>Sicherungskopien werden nur im Rahmen der jeweils technisch erforderlichen Backup-Retention vorgehalten und danach gelöscht.</p>
+          <p>
+            Sicherungskopien werden nur im Rahmen der jeweils technisch erforderlichen Backup-Retention vorgehalten und
+            danach gelöscht.
+          </p>
         </section>
 
         <section>
           <h2>11. Ihre Rechte</h2>
           <p>
-            Als Nutzer unseres Internet-Angebots haben Sie nach der DSGVO verschiedene Rechte, die sich insbesondere
-            aus Art. 15 bis 18, 21 DSGVO ergeben:
+            Als Nutzer unseres Internet-Angebots haben Sie nach der DSGVO verschiedene Rechte, die sich insbesondere aus
+            Art. 15 bis 18, 21 DSGVO ergeben:
           </p>
           <h4>Recht auf Auskunft</h4>
           <p>
-            Sie können Auskunft gem. Art. 15 DSGVO über Ihre von uns verarbeiteten personenbezogenen Daten verlangen.
-            In Ihrem Auskunftsantrag sollten Sie Ihr Anliegen präzisieren, um uns das Zusammenstellen der
-            erforderlichen Daten zu erleichtern. Bitte beachten Sie, dass Ihr Auskunftsrecht unter bestimmten
-            Umständen gemäß den gesetzlichen Vorschriften (insbesondere § 34 BDSG) eingeschränkt sein kann.
+            Sie können Auskunft gem. Art. 15 DSGVO über Ihre von uns verarbeiteten personenbezogenen Daten verlangen. In
+            Ihrem Auskunftsantrag sollten Sie Ihr Anliegen präzisieren, um uns das Zusammenstellen der erforderlichen
+            Daten zu erleichtern. Bitte beachten Sie, dass Ihr Auskunftsrecht unter bestimmten Umständen gemäß den
+            gesetzlichen Vorschriften (insbesondere § 34 BDSG) eingeschränkt sein kann.
           </p>
           <h4>Recht auf Berichtigung</h4>
           <p>
@@ -443,9 +465,9 @@ export default function DatenschutzerklaerungPage() {
           </p>
           <h4>Recht auf Löschung</h4>
           <p>
-            Sie können unter den Bedingungen des Art. 17 DSGVO die Löschung Ihrer personenbezogenen Daten verlangen.
-            Ihr Anspruch auf Löschung hängt u. a. davon ab, ob die Sie betreffenden Daten von uns zur Erfüllung
-            unserer gesetzlichen Aufgaben noch benötigt werden.
+            Sie können unter den Bedingungen des Art. 17 DSGVO die Löschung Ihrer personenbezogenen Daten verlangen. Ihr
+            Anspruch auf Löschung hängt u. a. davon ab, ob die Sie betreffenden Daten von uns zur Erfüllung unserer
+            gesetzlichen Aufgaben noch benötigt werden.
           </p>
           <h4>Recht auf Einschränkung der Verarbeitung</h4>
           <p>

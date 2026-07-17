@@ -15,9 +15,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const lang = resolveLocale(params?.lang);
   const isGerman = lang === "de";
 
-  const title = isGerman
-    ? "Rennrad-, Gravel-Verleih in München"
-    : "Road and gravel bike rental in Munich";
+  const title = isGerman ? "Rennrad-, Gravel-Verleih in München" : "Road and gravel bike rental in Munich";
   const description = isGerman
     ? "Persönlicher Rennrad- und Gravel-Verleih in München-Maxvorstadt mit gepflegten Rädern, direkter Anfrage, Beratung und fairen Preisen."
     : "Personal road and gravel bike rental in Munich-Maxvorstadt with serviced bikes, direct inquiry, advice and fair pricing.";

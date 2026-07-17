@@ -33,15 +33,7 @@ type PageProps = {
   focusCity?: "munich" | "regensburg";
 };
 
-function SectionHeading({
-  eyebrow,
-  title,
-  inverse = false,
-}: {
-  eyebrow: string;
-  title: string;
-  inverse?: boolean;
-}) {
+function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; title: string; inverse?: boolean }) {
   return (
     <div className="section-heading">
       <span className="section-heading__eyebrow">{eyebrow}</span>
@@ -156,11 +148,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
-export default async function Home({
-  searchParams,
-  defaultLocation = "munich",
-  focusCity,
-}: PageProps) {
+export default async function Home({ searchParams, defaultLocation = "munich", focusCity }: PageProps) {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
   const t = translations[lang];
@@ -194,9 +182,7 @@ export default async function Home({
                 </>
               ) : null}
             </span>
-            <h1 className="hero__title">
-              {t.hero.title}
-            </h1>
+            <h1 className="hero__title">{t.hero.title}</h1>
             <p className="hero__intro">{t.hero.intro}</p>
             {focusCity ? (
               <p className="hero__focus">
@@ -259,10 +245,7 @@ export default async function Home({
               <p className="maintenance-card__text">{t.maintenancePromo.text}</p>
             </div>
 
-            <Link
-              className="button--arrow maintenance-card__link"
-              href={`/wartung${lang === "de" ? "" : "?lang=en"}`}
-            >
+            <Link className="button--arrow maintenance-card__link" href={`/wartung${lang === "de" ? "" : "?lang=en"}`}>
               <span>{t.maintenancePromo.cta}</span>
               <ArrowUpRight aria-hidden="true" />
             </Link>

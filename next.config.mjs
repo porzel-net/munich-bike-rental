@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const isProduction = process.env.NODE_ENV === "production";
+const allowedDevOrigins = ["localhost", "127.0.0.1", ...(process.env.DEV_ALLOWED_ORIGINS ?? "").split(",")]
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -15,12 +18,10 @@ if (isProduction) {
   securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
 }
 
-const aboutImageHeaders = [
-  { key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" },
-];
+const aboutImageHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" }];
 
 const nextConfig = {
-  allowedDevOrigins: ["192.168.2.229", "192.168.178.167", "192.168.178.122", "localhost", "127.0.0.1"],
+  allowedDevOrigins,
   images: {
     formats: ["image/avif", "image/webp"],
     imageSizes: [32, 48, 64, 96, 128, 160, 192, 256, 320, 384],

@@ -21,12 +21,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/blog",
   },
-  keywords: [
-    "Rennrad Blog München",
-    "Routentipps München",
-    "Rennradtouren München",
-    "Gravelbike München",
-  ],
+  keywords: ["Rennrad Blog München", "Routentipps München", "Rennradtouren München", "Gravelbike München"],
   openGraph: {
     type: "website",
     title: "Blog | Munich Rental",
@@ -80,9 +75,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
 
           <div className="section-heading">
             <span className="section-heading__eyebrow">{lang === "de" ? "Blog" : "Blog"}</span>
-            <h1 className="section-heading__title">
-              {lang === "de" ? "Beiträge und Gedanken" : "Posts and ideas"}
-            </h1>
+            <h1 className="section-heading__title">{lang === "de" ? "Beiträge und Gedanken" : "Posts and ideas"}</h1>
           </div>
 
           <p className="section-copy">

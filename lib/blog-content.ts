@@ -114,7 +114,10 @@ export const blogPosts: BlogPost[] = [
         type: "route-list",
         items: [
           {
-            title: { de: "1. Rapha Munich — Short, flat and fast loop north", en: "1. Rapha Munich — Short, flat and fast loop north" },
+            title: {
+              de: "1. Rapha Munich — Short, flat and fast loop north",
+              en: "1. Rapha Munich — Short, flat and fast loop north",
+            },
             href: "https://www.komoot.com/tour/450921039",
             meta: {
               de: "52,0 km · 2:06 h · 130 hm",
@@ -193,7 +196,10 @@ export const blogPosts: BlogPost[] = [
         type: "route-list",
         items: [
           {
-            title: { de: "6. Rapha Munich — Southern loop via Dietramszell", en: "6. Rapha Munich — Southern loop via Dietramszell" },
+            title: {
+              de: "6. Rapha Munich — Southern loop via Dietramszell",
+              en: "6. Rapha Munich — Southern loop via Dietramszell",
+            },
             href: "https://www.komoot.com/tour/450472600",
             meta: {
               de: "100 km · 4:25 h · 920 hm",
@@ -241,7 +247,10 @@ export const blogPosts: BlogPost[] = [
             },
           },
           {
-            title: { de: "10. Rapha Munich — Through the Perlacher Forest to Lake Starnberg", en: "10. Rapha Munich — Through the Perlacher Forest to Lake Starnberg" },
+            title: {
+              de: "10. Rapha Munich — Through the Perlacher Forest to Lake Starnberg",
+              en: "10. Rapha Munich — Through the Perlacher Forest to Lake Starnberg",
+            },
             href: "https://www.komoot.com/tour/435403081",
             meta: {
               de: "126 km · 5:21 h · 970 hm",
@@ -306,9 +315,7 @@ export function getBlogPostPlainText(post: BlogPost, locale: Locale) {
         parts.push(...block.items.map((item) => item[locale]));
         break;
       case "route-list":
-        parts.push(
-          ...block.items.flatMap((item) => [item.title[locale], item.meta[locale], item.summary[locale]]),
-        );
+        parts.push(...block.items.flatMap((item) => [item.title[locale], item.meta[locale], item.summary[locale]]));
         break;
       default:
         break;

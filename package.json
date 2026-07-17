@@ -6,24 +6,34 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "quality": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
     "next": "16.2.10",
     "nodemailer": "^8.0.7",
-    "playwright": "^1.60.0",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "25.9.1",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
+    "@playwright/test": "^1.60.0",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.10",
-    "typescript": "6.0.3"
+    "prettier": "^3.8.2",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.0"
   },
-  "packageManager": "pnpm@11.5.3+sha512.7ac1c919341c213a34dc0d02afb7143c5c26ac26ee8c4782deea821b8ac64d2134a081fd8941dae6e29bbb48f58dfc2b7fbceeccc07cb2f09d219d342a4969ed"
+  "packageManager": "pnpm@11.13.1+sha512.b2fc7683b8a6525414e7d13e1ba28caaddde96bf66ec540bfaeb7e702b81f3e0be4d1f295edf7f9fe0396740a8dce4509c582ddf79891f4543fea32d37645f25"
 }

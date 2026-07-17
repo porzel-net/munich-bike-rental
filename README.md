@@ -5,8 +5,9 @@ Next.js-App Router Projekt für einen Fahrradverleih mit SSR, Kontaktformular un
 ## Entwicklung
 
 ```bash
-npm install
-npm run dev
+corepack enable
+pnpm install
+pnpm dev
 ```
 
 ## Produktion auf Ubuntu
@@ -70,6 +71,7 @@ MAIL_TO_ADDRESS=hallo@deine-domain.tld
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-RSPEH19Q6Y
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
+DEV_ALLOWED_ORIGINS=
 ```
 
 Wichtig:

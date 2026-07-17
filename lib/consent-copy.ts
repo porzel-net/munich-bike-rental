@@ -20,7 +20,8 @@ export const consentCopy: Record<"de" | "en", ConsentCopy> = {
     necessaryTitle: "Notwendig",
     necessaryText: "Speichert nur die Einstellungen, die für die Funktion dieser Seite erforderlich sind.",
     analyticsTitle: "Google Analytics",
-    analyticsText: "Hilft uns zu verstehen, welche Seiten und Anfragen gut funktionieren. Wird erst nach Zustimmung geladen.",
+    analyticsText:
+      "Hilft uns zu verstehen, welche Seiten und Anfragen gut funktionieren. Wird erst nach Zustimmung geladen.",
     acceptNecessary: "Nur notwendige akzeptieren",
     saveSelection: "Auswahl speichern",
     acceptAll: "Alle akzeptieren",

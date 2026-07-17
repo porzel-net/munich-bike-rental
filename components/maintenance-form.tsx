@@ -3,7 +3,10 @@
 import { type FormEvent, useState } from "react";
 
 import { useConsent } from "./consent-manager";
+import { InquiryHoneypot } from "./inquiry-honeypot";
 import type { Locale } from "../lib/home-content";
+import { getInquiryError, postInquiry } from "../lib/inquiries/client";
+import { isValidEmail } from "../lib/inquiries/schemas";
 
 type MaintenanceFormTranslations = {
   eyebrow: string;
@@ -63,10 +66,6 @@ type MaintenanceFormProps = {
   lang: Locale;
   translations: MaintenanceFormTranslations;
 };
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
 
 function validateMaintenanceForm(
   translations: MaintenanceFormTranslations,
@@ -176,44 +175,19 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
     setOrderNumber(null);
 
     try {
-      const response = await fetch("/api/maintenance", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: nameValue,
-          contact: contactValue,
-          bikeModel: bikeModelValue,
-          serviceType: serviceTypeValue,
-          pickup: pickupValue,
-          message: messageValue,
-          locale: lang,
-        }),
+      const { response, result } = await postInquiry("/api/maintenance", {
+        name: nameValue,
+        contact: contactValue,
+        bikeModel: bikeModelValue,
+        serviceType: serviceTypeValue,
+        pickup: pickupValue,
+        message: messageValue,
+        locale: lang,
+        website: String(formData.get("website") ?? ""),
       });
 
-      const result = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        code?: string;
-        orderNumber?: string;
-      } | null;
-
       if (!response.ok || !result?.ok) {
-        const validationTexts = translations.validation;
-        const code = result?.code ?? result?.error ?? "maintenance_failed";
-        const errorMessage =
-          code === "invalid_origin"
-            ? validationTexts.submitOriginError
-            : code === "payload_too_large"
-              ? validationTexts.submitPayloadError
-              : code === "config_incomplete"
-                ? validationTexts.submitConfigError
-                : code === "validation_error"
-                  ? validationTexts.submitValidationError
-                  : validationTexts.submitFailed;
-
-        throw new Error(errorMessage);
+        throw new Error(getInquiryError(result?.code ?? result?.error, translations.validation));
       }
 
       form.reset();
@@ -231,8 +205,9 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
 
       if (analyticsAllowed) {
         const serviceLabel =
-          translations.serviceTypeOptions[serviceTypeValue as keyof MaintenanceFormTranslations["serviceTypeOptions"]] ??
-          serviceTypeValue;
+          translations.serviceTypeOptions[
+            serviceTypeValue as keyof MaintenanceFormTranslations["serviceTypeOptions"]
+          ] ?? serviceTypeValue;
 
         trackLead({
           bikeTitle: serviceLabel || bikeModelValue || undefined,
@@ -248,6 +223,7 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
 
   return (
     <form className="contact-form maintenance-form" onSubmit={handleSubmit} noValidate>
+      <InquiryHoneypot />
       <div className="contact-form__fields">
         <div className="contact-form__field">
           <label htmlFor="maintenance-name">{translations.name}</label>
@@ -280,7 +256,9 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
             placeholder={translations.contact}
             value={contact}
             aria-invalid={Boolean(fieldErrors.contact)}
-            aria-describedby={fieldErrors.contact ? "maintenance-contact-hint maintenance-contact-error" : "maintenance-contact-hint"}
+            aria-describedby={
+              fieldErrors.contact ? "maintenance-contact-hint maintenance-contact-error" : "maintenance-contact-hint"
+            }
             onChange={(event) => {
               setContact(event.target.value);
               clearFieldError("contact");
@@ -418,7 +396,10 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
         <img src="/assets/img/svg/right-arrow.svg" alt="" />
       </button>
 
-      <p className={`contact-form__status ${status === "success" ? "is-success" : ""} ${status === "error" ? "is-error" : ""}`}>
+      <p
+        aria-live="polite"
+        className={`contact-form__status ${status === "success" ? "is-success" : ""} ${status === "error" ? "is-error" : ""}`}
+      >
         {status === "success" ? (
           <>
             {translations.success}

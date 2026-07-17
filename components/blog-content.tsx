@@ -92,13 +92,7 @@ export function BlogPreviewCard({
   );
 }
 
-export function BlogArticle({
-  post,
-  lang,
-}: {
-  post: BlogPost;
-  lang: Locale;
-}) {
+export function BlogArticle({ post, lang }: { post: BlogPost; lang: Locale }) {
   return (
     <article className="blog-article">
       <div className="blog-article__hero-media">

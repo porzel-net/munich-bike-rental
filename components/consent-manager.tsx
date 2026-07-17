@@ -3,14 +3,7 @@
 import Link from "next/link";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { buildConsentCookieValue, type ConsentPreferences, type ConsentState } from "../lib/consent";
 import { consentCopy } from "../lib/consent-copy";
@@ -22,11 +15,7 @@ type ConsentContextValue = {
   saveNecessaryOnly: () => void;
   saveAll: () => void;
   saveSelection: (preferences: ConsentPreferences) => void;
-  trackLead: (payload: {
-    bikeTitle?: string;
-    language: "de" | "en";
-    contactMethod?: "email" | "other";
-  }) => void;
+  trackLead: (payload: { bikeTitle?: string; language: "de" | "en"; contactMethod?: "email" | "other" }) => void;
 };
 
 const ConsentContext = createContext<ConsentContextValue | null>(null);
@@ -43,11 +32,7 @@ function getGtag() {
   const win = window as Window & {
     gtag?: (
       ...args: Array<
-        | string
-        | number
-        | boolean
-        | (() => void)
-        | Record<string, string | number | boolean | (() => void) | undefined>
+        string | number | boolean | (() => void) | Record<string, string | number | boolean | (() => void) | undefined>
       >
     ) => void;
   };
@@ -100,7 +85,9 @@ export function ConsentProvider({
   const copy = consentCopy[locale];
   const [consent, setConsent] = useState<ConsentState | null>(initialConsent);
   const [panelOpen, setPanelOpen] = useState(!initialConsent);
-  const [draft, setDraft] = useState<ConsentPreferences>(initialConsent ? { analytics: initialConsent.analytics } : { analytics: false });
+  const [draft, setDraft] = useState<ConsentPreferences>(
+    initialConsent ? { analytics: initialConsent.analytics } : { analytics: false },
+  );
 
   useEffect(() => {
     if (!consent) {
@@ -272,7 +259,11 @@ export function ConsentProvider({
               >
                 {copy.saveSelection}
               </button>
-              <button type="button" className="cookie-banner__button cookie-banner__button--primary" onClick={value.saveAll}>
+              <button
+                type="button"
+                className="cookie-banner__button cookie-banner__button--primary"
+                onClick={value.saveAll}
+              >
                 {copy.acceptAll}
               </button>
             </div>
