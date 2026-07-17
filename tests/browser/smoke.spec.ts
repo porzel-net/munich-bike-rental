@@ -1,4 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function dismissConsentBanner(page: Page) {
+  const button = page.getByRole("button", { name: /nur notwendige akzeptieren|necessary only/i });
+  if (await button.isVisible()) {
+    await button.click();
+  }
+}
 
 test("renders the German and English landing pages without console errors", async ({ page }) => {
   const errors: string[] = [];
@@ -14,19 +21,24 @@ test("renders the German and English landing pages without console errors", asyn
   expect(errors).toEqual([]);
 });
 
-test("keeps main interactions available", async ({ page }) => {
+test("keeps main interactions available", async ({ page }, testInfo) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /menü|menu/i }).click();
-  await expect(page.getByLabel("Mobile primary")).toBeVisible();
+  await dismissConsentBanner(page);
+  if (testInfo.project.name === "mobile") {
+    await page.getByRole("button", { name: /menü|menu/i }).click();
+    await expect(page.getByLabel("Mobile primary")).toBeVisible();
+  }
   await page.locator(".portfolio-card").first().click();
   await expect(page.locator(".bike-modal")).toBeVisible();
-  await page.locator("#location").scrollIntoViewIfNeeded();
-  await page.locator("select[name=location]").selectOption("regensburg");
+  const locationSelect = page.locator("select[name=location]");
+  await locationSelect.scrollIntoViewIfNeeded();
+  await locationSelect.selectOption("regensburg");
   await expect(page.locator("select[name=bikeSize] option")).toHaveCount(8);
 });
 
 test("validates both forms without submitting", async ({ page }) => {
   await page.goto("/");
+  await dismissConsentBanner(page);
   await page.locator("section#contact button[type=submit]").click();
   await expect(page.locator("#name-error")).toBeVisible();
   await page.goto("/wartung");

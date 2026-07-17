@@ -31,6 +31,12 @@ const date = requiredLine(10).refine(isCalendarDate, "Invalid calendar date");
 const time = requiredLine(5).regex(TIME_PATTERN, "Invalid time");
 const locale = z.enum(["de", "en"]).default("de");
 const honeypot = optionalLine(200);
+const message = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_MESSAGE_LENGTH)
+  .transform((value) => value.replace(/\r\n?/g, "\n"));
 
 export const contactInquirySchema = z
   .object({
@@ -52,7 +58,7 @@ export const contactInquirySchema = z
     computerMountType: optionalLine(32),
     needsHelmet: booleanInput.default(false),
     needsClothing: booleanInput.default(false),
-    message: requiredLine(MAX_MESSAGE_LENGTH),
+    message,
     bikeTitle: optionalLine(120),
     locale,
     affiliateKey: optionalLine(120),
@@ -81,7 +87,7 @@ export const maintenanceInquirySchema = z.object({
   bikeModel: requiredLine(160),
   serviceType: z.enum(maintenanceServiceTypes),
   pickup: booleanInput.default(false),
-  message: requiredLine(MAX_MESSAGE_LENGTH),
+  message,
   locale,
   website: honeypot,
 });

@@ -1,0 +1,4 @@
+# Include this file from the `http` block in nginx.conf before loading the site configuration.
+# It limits public requests before they reach the application container.
+limit_req_zone $binary_remote_addr zone=inquiry_per_ip:10m rate=6r/m;
+limit_conn_zone $binary_remote_addr zone=connections_per_ip:10m;

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fileURLToPath } from "node:url";
 
 const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn() }));
 vi.mock("nodemailer", () => ({ default: { createTransport: vi.fn(() => ({ sendMail })) } }));
@@ -45,7 +46,8 @@ function request(body: object, ip = "198.51.100.10") {
 }
 
 describe("inquiry schemas", () => {
-  it("rejects invalid calendar dates and a missing contact name", () => {
+  it("accepts multiline messages but rejects invalid dates and header injection", () => {
+    expect(contactInquirySchema.safeParse({ ...validContact, message: "First line\nSecond line" }).success).toBe(true);
     expect(contactInquirySchema.safeParse({ ...validContact, periodFrom: "2026-02-31" }).success).toBe(false);
     expect(contactInquirySchema.safeParse({ ...validContact, name: " " }).success).toBe(false);
     expect(
@@ -79,22 +81,38 @@ describe("inquiry server helpers", () => {
     expect(consumeRateLimit("contact:test", 3)).toBe(false);
   });
 
-  it("uses unique order number suffixes and validates mail configuration", () => {
+  it("uses unique order number suffixes and validates mail configuration", async () => {
     expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"), "abcdef-0000")).toMatch(/-abcdef$/);
     expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"), "123456-0000")).not.toBe(
       createOrderNumber(new Date("2026-07-17T10:00:00Z"), "abcdef-0000"),
     );
     expect(
-      getMailConfig({ SMTP_HOST: "smtp.example.com", SMTP_USER: "user", SMTP_PASSWORD: "secret", SMTP_PORT: "70000" }),
-    ).toBeNull();
-    expect(
-      getMailConfig({
+      await getMailConfig({
         SMTP_HOST: "smtp.example.com",
         SMTP_USER: "user",
         SMTP_PASSWORD: "secret",
-        MAIL_TIMEOUT_SECONDS: "20",
-      })?.timeout,
+        SMTP_PORT: "70000",
+      }),
+    ).toBeNull();
+    expect(
+      (
+        await getMailConfig({
+          SMTP_HOST: "smtp.example.com",
+          SMTP_USER: "user",
+          SMTP_PASSWORD: "secret",
+          MAIL_TIMEOUT_SECONDS: "20",
+        })
+      )?.timeout,
     ).toBe(20_000);
+    expect(
+      (
+        await getMailConfig({
+          SMTP_HOST: "smtp.example.com",
+          SMTP_USER: "user",
+          SMTP_PASSWORD_FILE: fileURLToPath(new URL("../fixtures/smtp-password.txt", import.meta.url)),
+        })
+      )?.password,
+    ).toBe("test-password-from-file");
   });
 });
 

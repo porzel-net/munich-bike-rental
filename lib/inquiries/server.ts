@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
@@ -152,10 +153,28 @@ function parseTimeoutMs(value: string | undefined) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1_000) : undefined;
 }
 
-export function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = process.env) {
+async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string) {
+  const directValue = environment[name];
+  if (directValue) {
+    return directValue;
+  }
+
+  const filePath = environment[`${name}_FILE`];
+  if (!filePath) {
+    return undefined;
+  }
+
+  try {
+    return (await readFile(filePath, "utf8")).replace(/\r?\n$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = process.env) {
   const host = environment.SMTP_HOST?.trim();
   const user = environment.SMTP_USER?.trim();
-  const password = environment.SMTP_PASSWORD;
+  const password = await readSecret(environment, "SMTP_PASSWORD");
   const port = Number(environment.SMTP_PORT ?? "587");
 
   if (!host || !user || !password || !Number.isInteger(port) || port < 1 || port > 65_535) {
@@ -194,7 +213,7 @@ export function createOrderNumber(date = new Date(), random: string = crypto.ran
 }
 
 export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {
-  const config = getMailConfig();
+  const config = await getMailConfig();
   if (!config) {
     return false;
   }

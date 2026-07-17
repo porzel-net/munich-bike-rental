@@ -15,17 +15,26 @@ services:
       MAIL_TIMEOUT_SECONDS: ${MAIL_TIMEOUT_SECONDS:-20}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_PASSWORD_FILE: ${SMTP_PASSWORD_FILE:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-anfrage@munich-bike-rental.de}
       MAIL_TO_ADDRESS: ${MAIL_TO_ADDRESS:-hallo@munich-bike-rental.de}
     expose:
       - "3000"
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+    pids_limit: ${APP_PIDS_LIMIT:-128}
+    mem_limit: ${APP_MEMORY_LIMIT:-512m}
+    cpus: ${APP_CPU_LIMIT:-1.0}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     restart: unless-stopped
     healthcheck:
       test:

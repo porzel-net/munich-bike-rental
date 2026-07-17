@@ -56,6 +56,9 @@ Lege auf dem Server eine `.env`-Datei neben der Compose-Datei an. Diese Datei st
 
 ```dotenv
 APP_IMAGE=ghcr.io/porzel-net/munich-bike-rental:latest
+APP_PIDS_LIMIT=128
+APP_MEMORY_LIMIT=512m
+APP_CPU_LIMIT=1.0
 SITE_URL=https://www.deine-domain.tld
 APP_ORIGIN=https://www.deine-domain.tld
 SMTP_HOST=smtp.example.com
@@ -65,7 +68,8 @@ MAIL_USE_SSL=true
 MAIL_USE_STARTTLS=false
 MAIL_TIMEOUT_SECONDS=20
 SMTP_USER=dein-user
-SMTP_PASSWORD=dein-passwort
+# SMTP_PASSWORD=dein-passwort
+SMTP_PASSWORD_FILE=/run/secrets/smtp_password
 MAIL_FROM_ADDRESS=anfrage@deine-domain.tld
 MAIL_TO_ADDRESS=hallo@deine-domain.tld
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-RSPEH19Q6Y
@@ -73,6 +77,8 @@ NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
 DEV_ALLOWED_ORIGINS=
 ```
+
+Für den produktiven SMTP-Zugang ist `SMTP_PASSWORD_FILE` statt `SMTP_PASSWORD` vorzuziehen. Die App liest den Inhalt einer nur lesbaren Secret-Datei, wenn die entsprechende `*_FILE`-Variable gesetzt ist. Binde diese Datei im Produktivbetrieb beispielsweise als Docker-Secret oder als schreibgeschützten Bind-Mount ein; die Beispiel-Compose-Datei erzwingt den Mount bewusst nicht, damit lokale Entwicklung ohne Secret-Backend weiterhin funktioniert.
 
 Wichtig:
 
@@ -127,8 +133,22 @@ Beispiel:
 server {
   listen 80;
   server_name deine-domain.tld;
+  return 308 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name deine-domain.tld;
+
+  ssl_certificate /etc/letsencrypt/live/deine-domain.tld/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/deine-domain.tld/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
 
   client_max_body_size 16k;
+  client_header_timeout 10s;
+  client_body_timeout 10s;
+  keepalive_timeout 15s;
+  server_tokens off;
 
   location / {
     proxy_pass http://127.0.0.1:3000;
@@ -150,7 +170,7 @@ server {
 }
 ```
 
-Wenn du TLS aktivierst, leite `80` nur auf `443` um und terminiert HTTPS im Nginx.
+Passe Zertifikatspfade und Domain an und nutze diese Konfiguration nur mit gültigem TLS-Zertifikat. Für die Limits der Anfrage-Endpunkte ist zusätzlich `docker/nginx-http-security.conf.example` im `http`-Block von Nginx einzubinden.
 
 ## Härtung
 
@@ -159,6 +179,8 @@ Das Container-Setup ist absichtlich restriktiv:
 - `read_only: true`
 - `cap_drop: [ALL]`
 - `security_opt: [no-new-privileges:true]`
+- begrenzte Prozesse, Arbeitsspeicher, CPU-Zeit und Container-Logs
+- schreibbares `/tmp` nur als `noexec,nosuid,nodev`-Tmpfs
 - kein `privileged`
 - kein Docker-Socket-Mount
 - kein Host-Networking
