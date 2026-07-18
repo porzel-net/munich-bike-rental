@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { permanentRedirect } from "next/navigation";
 import mainImage from "../main.png";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
@@ -11,11 +12,11 @@ import {
   LocationShowcase,
   PortfolioSection,
 } from "../components/home-interactive";
+import { LocationSelectionDialog, LocationSelectionPrompt } from "../components/location-selection-dialog";
 import { BlogPreviewCard } from "../components/blog-content";
 import {
   contactItems,
   faqItems,
-  footerLinks,
   portfolioItems,
   priceItems,
   resolveLocale,
@@ -23,14 +24,20 @@ import {
   translations,
 } from "../lib/home-content";
 import { blogPosts } from "../lib/blog-content";
+import {
+  defaultRentalLocation,
+  getLocationCopy,
+  rentalLocationConfigs,
+  type RentalLocationConfig,
+} from "../lib/rental-locations";
 import { siteConfig } from "../lib/site";
 
 type PageProps = {
   searchParams?: Promise<{
     lang?: string | string[];
+    standortauswahl?: string | string[];
   }>;
-  defaultLocation?: "munich" | "regensburg";
-  focusCity?: "munich" | "regensburg";
+  location: RentalLocationConfig;
 };
 
 function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; title: string; inverse?: boolean }) {
@@ -42,17 +49,19 @@ function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; 
   );
 }
 
-export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+export async function generateRentalMetadata({ searchParams, location }: PageProps): Promise<Metadata> {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
   const isGerman = lang === "de";
+  const city = location.city[lang];
+  const district = location.district[lang];
 
   const title = isGerman
-    ? "Rennrad- & Gravelbike-Verleih München & Regensburg | Your Bike Rental"
-    : "Road and gravel bike rental/maintenance Munich & Regensburg";
+    ? `Rennrad- & Gravelbike-Verleih ${city}-${district} | Your Bike Rental`
+    : `Road and gravel bike rental in ${city} ${district} | Your Bike Rental`;
   const description = isGerman
-    ? "Persönlicher Rennrad- und Gravel-Verleih in München-Maxvorstadt und Regensburg-Altstadt mit Wartung, Beratung, gepflegten Rädern und klaren Preisen."
-    : "Personal road and gravel bike rental in Munich-Maxvorstadt and Regensburg-Altstadt with maintenance, advice, serviced bikes and transparent pricing.";
+    ? `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Räder, direkte Anfrage, persönliche Beratung und klare Preise.`
+    : `Personal road and gravel bike rental in ${city} ${district} with serviced bikes, direct inquiry, personal advice and transparent pricing.`;
 
   return {
     metadataBase: new URL(siteConfig.url),
@@ -61,70 +70,35 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     },
     description,
     alternates: {
-      canonical: "/",
+      canonical: location.path,
       languages: {
-        de: "/",
-        en: "/?lang=en",
+        de: location.path,
+        en: `${location.path}?lang=en`,
       },
     },
     keywords: isGerman
       ? [
-          "Rennradverleih München",
-          "Rennradverleih Regensburg",
-          "Rennradwartung",
-          "Gravelbike Verleih München",
-          "Gravelbike Verleih Regensburg",
-          "Gravelbikewartung",
-          "Rennrad leihen München",
-          "Rennrad leihen Regensburg",
-          "Gravelbike mieten München",
-          "Gravelbike mieten Regensburg",
-          "Rennrad Wartung München",
-          "Rennrad Wartung Regensburg",
-          "Fahrradwartung München",
-          "Fahrradwartung",
-          "Bikewartung",
-          "Öl auf Wachs München",
-          "Öl auf Wachs",
-          "Rennradservice",
-          "Rennrad Maxvorstadt",
-          "Gravelbike Maxvorstadt",
-          "Rennrad Altstadt Regensburg",
-          "Gravelbike Altstadt Regensburg",
-          "Bike Verleih München",
-          "Bike Verleih Regensburg",
-          "Road bike rental Munich",
-          "Road bike rental Regensburg",
-          "Gravel bike rental Munich",
-          "Gravel bike rental Regensburg",
+          `Rennradverleih ${city}`,
+          `Rennradverleih ${city} ${district}`,
+          `Gravelbike Verleih ${city}`,
+          `Gravelbike Verleih ${city} ${district}`,
+          `Rennrad mieten ${city}`,
+          `Rennrad leihen ${city}`,
+          `Gravelbike mieten ${city}`,
+          `Bike Verleih ${city}`,
         ]
       : [
-          "road bike rental Munich",
-          "road bike rental Regensburg",
-          "roadbikemaintenance",
-          "gravel bike rental Munich",
-          "gravel bike rental Regensburg",
-          "gravelbikemaintenance",
-          "bike rental Munich",
-          "bike rental Regensburg",
-          "road bike maintenance Munich",
-          "gravel bike maintenance Munich",
-          "road bike maintenance Regensburg",
-          "gravel bike maintenance Regensburg",
-          "bike maintenance Munich",
-          "oil to wax conversion Munich",
-          "oil to wax",
-          "bike service Munich",
-          "bike service Regensburg",
-          "Maxvorstadt bike rental",
-          "Munich bike hire",
-          "road bike service",
-          "service bike Munich",
+          `road bike rental ${city}`,
+          `road bike rental ${city} ${district}`,
+          `gravel bike rental ${city}`,
+          `gravel bike rental ${city} ${district}`,
+          `bike rental ${city}`,
+          `bike hire ${city}`,
         ],
     openGraph: {
       type: "website",
       locale: isGerman ? "de_DE" : "en_US",
-      url: isGerman ? siteConfig.url : `${siteConfig.url}/?lang=en`,
+      url: isGerman ? `${siteConfig.url}${location.path}` : `${siteConfig.url}${location.path}?lang=en`,
       siteName: siteConfig.name,
       title,
       description,
@@ -134,8 +108,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
           width: 1200,
           height: 630,
           alt: isGerman
-            ? "Munich Rental - Rennrad- und Gravel-Verleih mit Wartung in München und Regensburg"
-            : "Munich Rental - road and gravel bike rental with maintenance in Munich and Regensburg",
+            ? `Your Bike Rental - Rennrad- und Gravel-Verleih in ${city}`
+            : `Your Bike Rental - road and gravel bike rental in ${city}`,
         },
       ],
     },
@@ -148,17 +122,39 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   };
 }
 
-export default async function Home({ searchParams, defaultLocation = "munich", focusCity }: PageProps) {
+export async function RentalPage({ searchParams, location }: PageProps) {
   const params = await searchParams;
   const lang = resolveLocale(params?.lang);
   const t = translations[lang];
-  const [primaryLocation, secondaryLocation] = t.location.split(" & ");
+  const copy = getLocationCopy(location, lang);
+  const localFaqItems = faqItems.map((item, index) =>
+    index === 1 ? { ...item, answer: { ...item.answer, [lang]: copy.faqPickup } } : item,
+  );
+  const localServices = services.map((service, index) =>
+    index === 1 ? { ...service, text: { ...service.text, [lang]: copy.aboutRental } } : service,
+  );
+  const localPortfolioItems =
+    location.key !== "munich"
+      ? portfolioItems
+          .filter((item) => item.title === "Endurace CF SL 8" || item.title === "Grail CF SL 7")
+          .map((item) => ({
+            ...item,
+            price: location.key === "regensburg" ? { de: "49€/Tag", en: "49€/day" } : { de: "59€/Tag", en: "59€/day" },
+          }))
+      : portfolioItems;
+  const localPriceItems =
+    location.key === "regensburg"
+      ? priceItems.map((item, index) => (index === 0 ? { ...item, cost: { de: "ab 49€", en: "from 49€" } } : item))
+      : priceItems;
+  const showLocationSelection = params?.standortauswahl === "1";
   const featuredPost = blogPosts[0];
 
   return (
     <main className="site-shell">
       <HomeTopbar
         lang={lang}
+        homePath={location.path}
+        showBlog={location.key === "munich"}
         topbar={{
           nav: t.nav,
           languageToggle: t.languageToggle,
@@ -171,30 +167,11 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
           <div className="hero__copy">
             <span className="hero__location">
               <MapPin className="hero__location-icon" aria-hidden="true" />
-              <span>{primaryLocation}</span>
-              <span className="hero__location-separator" aria-hidden="true">
-                &amp;
-              </span>
-              {secondaryLocation ? (
-                <>
-                  <MapPin className="hero__location-icon" aria-hidden="true" />
-                  <span>{secondaryLocation}</span>
-                </>
-              ) : null}
+              <span>{`${location.city[lang]} – ${location.district[lang]}`}</span>
             </span>
-            <h1 className="hero__title">{t.hero.title}</h1>
-            <p className="hero__intro">{t.hero.intro}</p>
-            {focusCity ? (
-              <p className="hero__focus">
-                {lang === "de"
-                  ? focusCity === "munich"
-                    ? "Diese Seite ist speziell auf München ausgerichtet und zeigt den Standort in der Maxvorstadt zuerst."
-                    : "Diese Seite ist speziell auf Regensburg ausgerichtet und zeigt den Standort in der Altstadt zuerst."
-                  : focusCity === "munich"
-                    ? "This page is specifically focused on Munich and shows the Maxvorstadt location first."
-                    : "This page is specifically focused on Regensburg and shows the Altstadt location first."}
-              </p>
-            ) : null}
+            <h1 className="hero__title">{copy.heroTitle}</h1>
+            <p className="hero__intro">{copy.heroIntro}</p>
+            <LocationSelectionPrompt lang={lang} currentCity={location.city[lang]} />
 
             <ul className="hero-stats">
               <li className="hero-stats__item">
@@ -220,7 +197,7 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
             <div className="hero-frame">
               <Image
                 src={mainImage}
-                alt="Munich Rental Bike-Verleih mit gepflegten Endurance-, Gravel- und Aero-Bikes in Muenchen"
+                alt={`Your Bike Rental: gepflegte Rennräder und Gravelbikes in ${location.city[lang]}`}
                 className="hero-frame__image"
                 fill
                 placeholder="blur"
@@ -241,8 +218,8 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
           <div className="maintenance-card">
             <div className="maintenance-card__content">
               <span className="maintenance-card__eyebrow">{t.maintenancePromo.eyebrow}</span>
-              <h2 className="maintenance-card__title">{t.maintenancePromo.title}</h2>
-              <p className="maintenance-card__text">{t.maintenancePromo.text}</p>
+              <h2 className="maintenance-card__title">{copy.maintenanceTitle}</h2>
+              <p className="maintenance-card__text">{copy.maintenanceText}</p>
             </div>
 
             <Link className="button--arrow maintenance-card__link" href={`/wartung${lang === "de" ? "" : "?lang=en"}`}>
@@ -259,9 +236,8 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
           portfolio: t.portfolio,
           modal: t.modal,
           form: t.form,
-          location: t.location,
         }}
-        portfolioItems={portfolioItems}
+        portfolioItems={localPortfolioItems}
       />
 
       <section id="bestprice" className="section section--promise">
@@ -274,7 +250,7 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
               </div>
 
               <blockquote className="promise-card__quote">
-                <p>{t.pricePromise.quote}</p>
+                <p>{copy.pricePromise}</p>
               </blockquote>
 
               <div className="promise-card__footer">
@@ -300,7 +276,7 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
               <SectionHeading eyebrow={t.about.eyebrow} title={t.about.title} />
 
               <ul className="hero-profile hero-profile--section">
-                {services.map((service) => (
+                {localServices.map((service) => (
                   <li key={service.title.de} className="hero-profile__item">
                     <span className="hero-profile__label">{service.title[lang]}</span>
                     <span className="hero-profile__text">{service.text[lang]}</span>
@@ -320,11 +296,11 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
         <div className="container price-grid">
           <div className="price-grid__copy">
             <SectionHeading eyebrow={t.price.eyebrow} title={t.price.title} />
-            <p className="section-copy">{t.price.intro}</p>
+            <p className="section-copy">{copy.priceIntro}</p>
           </div>
 
           <div className="price-grid__list">
-            {priceItems.map((item) => (
+            {localPriceItems.map((item) => (
               <article key={item.title.de} className="price-item">
                 <item.icon className="price-item__icon" aria-hidden="true" />
                 <div className="price-item__title">{item.title[lang]}</div>
@@ -343,7 +319,7 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
           </div>
 
           <div className="faq-grid__list">
-            {faqItems.map((item) => (
+            {localFaqItems.map((item) => (
               <details key={item.question.de} className="faq-item">
                 <summary>
                   <span>{item.question[lang]}</span>
@@ -359,16 +335,15 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
       <section id="location" className="section section--location">
         <div className="container">
           <LocationShowcase
-            lang={lang}
-            defaultLocation={defaultLocation}
             eyebrow={t.locationSection.eyebrow}
-            title={t.locationSection.title}
-            intro={t.locationSection.intro}
-            notice={t.locationSection.notice}
-            primaryAddressLabel={t.locationSection.addressLabel}
-            primaryAddress={t.locationSection.address}
-            secondaryAddressLabel={t.locationSection.secondaryAddressLabel}
-            secondaryAddress={t.locationSection.secondaryAddress}
+            title={copy.locationTitle}
+            intro={copy.locationIntro}
+            notice={copy.locationNotice}
+            addressLabel={copy.locationLabel}
+            address={location.address}
+            mapImage={location.mapImage}
+            mapsUrl={location.mapsUrl}
+            mapsLabel={lang === "de" ? "In Google Maps öffnen" : "Open in Google Maps"}
           />
         </div>
       </section>
@@ -400,67 +375,81 @@ export default async function Home({ searchParams, defaultLocation = "munich", f
 
           <ContactForm
             lang={lang}
+            defaultLocation={location.key}
             translations={{
               portfolio: t.portfolio,
               modal: t.modal,
               form: t.form,
-              location: t.location,
             }}
           />
         </div>
       </section>
 
-      <section id="blog" className="section section--blog">
-        <div className="container blog-section">
-          <div className="section-heading">
-            <span className="section-heading__eyebrow">{t.blogSection.eyebrow}</span>
-            <h2 className="section-heading__title">{t.blogSection.title}</h2>
+      {location.key === "munich" ? (
+        <section id="blog" className="section section--blog">
+          <div className="container blog-section">
+            <div className="section-heading">
+              <span className="section-heading__eyebrow">{t.blogSection.eyebrow}</span>
+              <h2 className="section-heading__title">{t.blogSection.title}</h2>
+            </div>
+
+            <p className="section-copy">{copy.blogIntro}</p>
+
+            <BlogPreviewCard
+              post={featuredPost}
+              lang={lang}
+              href={`/blog/${featuredPost.slug}?lang=${lang}`}
+              ctaLabel={t.blogSection.cta}
+            />
+
+            <div className="blog-section__footer">
+              <Link className="blog-section__link" href={`/blog?lang=${lang}`}>
+                <span>{t.blogSection.archive}</span>
+                <ArrowUpRight aria-hidden="true" />
+              </Link>
+            </div>
           </div>
-
-          <p className="section-copy">{t.blogSection.intro}</p>
-
-          <BlogPreviewCard
-            post={featuredPost}
-            lang={lang}
-            href={`/blog/${featuredPost.slug}?lang=${lang}`}
-            ctaLabel={t.blogSection.cta}
-          />
-
-          <div className="blog-section__footer">
-            <Link className="blog-section__link" href={`/blog?lang=${lang}`}>
-              <span>{t.blogSection.archive}</span>
-              <ArrowUpRight aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <footer className="footer">
         <div className="container footer__inner">
-          <div className="footer__brand">
-            <span className="footer__title">Your Bike Rental</span>
+          <div className="footer__main">
+            <div className="footer__brand">
+              <span className="footer__title">Your Bike Rental</span>
+            </div>
+
+            <ul className="footer-links">
+              {[
+                { href: location.path, label: "Startseite" },
+                ...(location.key === "munich" ? [{ href: "/blog", label: "Blog" }] : []),
+                { href: "/impressum", label: "Impressum" },
+                { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
+              ].map((item) => (
+                <li key={item.href} className="footer-links__item">
+                  <a href={item.href}>{item.label}</a>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <ul className="footer-links">
-            {footerLinks.map((item) => (
-              <li key={item.href} className="footer-links__item">
-                <a href={item.href}>{item.label}</a>
+          <ul className="footer-meta">
+            {rentalLocationConfigs.map((footerLocation) => (
+              <li key={footerLocation.path} className="footer-meta__item footer-meta__item--location">
+                <MapPin className="footer-meta__icon" aria-hidden="true" />
+                <Link href={`${footerLocation.path}${lang === "de" ? "" : "?lang=en"}`}>
+                  {`${footerLocation.city[lang]}, ${footerLocation.district[lang]}`}
+                </Link>
               </li>
             ))}
           </ul>
-
-          <ul className="footer-meta">
-            <li className="footer-meta__item footer-meta__item--location">
-              <MapPin className="footer-meta__icon" aria-hidden="true" />
-              <span>München, Maxvorstadt</span>
-            </li>
-            <li className="footer-meta__item footer-meta__item--location">
-              <MapPin className="footer-meta__icon" aria-hidden="true" />
-              <span>Regensburg, Altstadt</span>
-            </li>
-          </ul>
         </div>
       </footer>
+      <LocationSelectionDialog lang={lang} open={showLocationSelection} />
     </main>
   );
+}
+
+export default function RootRedirect() {
+  permanentRedirect(`${defaultRentalLocation.path}?standortauswahl=1`);
 }

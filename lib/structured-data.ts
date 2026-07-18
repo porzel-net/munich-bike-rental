@@ -3,6 +3,7 @@ import { portfolioItems } from "./home-content";
 import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
+import { getLocationCopy, type RentalLocationConfig } from "./rental-locations";
 
 function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
@@ -53,59 +54,89 @@ const faqEntries = [
   },
 ];
 
-export function getHomeStructuredDataJson() {
+export function getRentalStructuredDataJson(location: RentalLocationConfig) {
+  const copy = getLocationCopy(location, "de");
+  const pageUrl = `${siteConfig.url}${location.path}`;
+  const localOfferCatalog =
+    location.key === "munich"
+      ? offerCatalog
+      : offerCatalog
+          .filter((offer) => offer.name === "Endurace CF SL 8" || offer.name === "Grail CF SL 7")
+          .map((offer) => ({ ...offer, price: location.key === "regensburg" ? 49 : 59 }));
+
   return serializeJsonLd({
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "WebSite",
+        "@id": `${siteConfig.url}#website`,
         name: "Your Bike Rental",
+        alternateName: "Your Bike Rental",
         url: siteConfig.url,
-        description: siteConfig.description,
+        description: `Persönlicher Rennrad- und Gravel-Verleih in ${location.city.de}-${location.district.de}.`,
         inLanguage: ["de-DE", "en-US"],
         keywords: [
-          "Rennradverleih",
-          "Gravelbike Verleih",
-          "road bike rental",
-          "gravel bike rental",
-          "Munich",
-          "Regensburg",
+          `Rennradverleih ${location.city.de}`,
+          `Gravelbike Verleih ${location.city.de}`,
+          `Rennradverleih ${location.city.de} ${location.district.de}`,
         ],
       },
       {
         "@type": "LocalBusiness",
+        "@id": `${pageUrl}#localbusiness`,
         name: siteConfig.name,
-        description: siteConfig.description,
-        url: siteConfig.url,
+        description: `Persönlicher Rennrad- und Gravel-Verleih in ${location.city.de}-${location.district.de}.`,
+        url: pageUrl,
         telephone: siteConfig.phoneE164,
         email: siteConfig.email,
         image: `${siteConfig.url}/assets/img/hero/1.jpg`,
         priceRange: siteConfig.priceRange,
-        areaServed: siteConfig.areaServed,
-        serviceType: "Rennrad- und Gravel-Verleih sowie Wartung",
-        keywords: [
-          "Rennradverleih München",
-          "Rennradverleih Regensburg",
-          "Gravelbike Verleih München",
-          "Gravelbike Verleih Regensburg",
-        ],
+        areaServed: [location.city.de, location.district.de],
+        serviceType: "Rennrad- und Gravel-Verleih",
+        hasMap: location.mapsUrl,
+        keywords: [`Rennradverleih ${location.city.de}`, `Gravelbike Verleih ${location.city.de}`],
         address: {
           "@type": "PostalAddress",
-          streetAddress: siteConfig.address.streetAddress,
-          postalCode: siteConfig.address.postalCode,
-          addressLocality: siteConfig.address.addressLocality,
+          streetAddress: location.streetAddress,
+          postalCode: location.postalCode,
+          addressLocality: location.city.de,
           addressRegion: siteConfig.address.addressRegion,
           addressCountry: siteConfig.address.addressCountry,
         },
+        mainEntityOfPage: pageUrl,
         hasOfferCatalog: {
           "@type": "OfferCatalog",
           name: "Bike Rental Angebote",
-          itemListElement: offerCatalog,
+          itemListElement: localOfferCatalog,
         },
       },
       {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Startseite",
+            item: siteConfig.url,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: `Rennradverleih ${location.city.de}`,
+            item: pageUrl,
+          },
+        ],
+      },
+      {
         "@type": "FAQPage",
-        mainEntity: faqEntries,
+        mainEntity: faqEntries.map((entry, index) =>
+          index === 1
+            ? {
+                ...entry,
+                acceptedAnswer: { ...entry.acceptedAnswer, text: copy.faqPickup },
+              }
+            : entry,
+        ),
       },
     ],
   });

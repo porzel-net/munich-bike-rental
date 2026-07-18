@@ -7,6 +7,7 @@ import { HomeTopbar } from "../../components/home-interactive";
 import { MaintenanceForm } from "../../components/maintenance-form";
 import { footerLinks, resolveLocale, translations } from "../../lib/home-content";
 import { getMaintenanceStructuredDataJson } from "../../lib/structured-data";
+import { rentalLocationConfigs } from "../../lib/rental-locations";
 import { siteConfig } from "../../lib/site";
 
 type PageProps = {
@@ -299,27 +300,29 @@ export default async function WartungPage({ searchParams }: PageProps) {
 
       <footer className="footer">
         <div className="container footer__inner">
-          <div className="footer__brand">
-            <span className="footer__title">Your Bike Rental</span>
+          <div className="footer__main">
+            <div className="footer__brand">
+              <span className="footer__title">Your Bike Rental</span>
+            </div>
+
+            <ul className="footer-links">
+              {footerLinks.map((item) => (
+                <li key={item.href} className="footer-links__item">
+                  <a href={item.href}>{item.label}</a>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <ul className="footer-links">
-            {footerLinks.map((item) => (
-              <li key={item.href} className="footer-links__item">
-                <a href={item.href}>{item.label}</a>
+          <ul className="footer-meta">
+            {rentalLocationConfigs.map((location) => (
+              <li key={location.path} className="footer-meta__item footer-meta__item--location">
+                <MapPin className="footer-meta__icon" aria-hidden="true" />
+                <Link href={`${location.path}${lang === "de" ? "" : "?lang=en"}`}>
+                  {`${location.city[lang]}, ${location.district[lang]}`}
+                </Link>
               </li>
             ))}
-          </ul>
-
-          <ul className="footer-meta">
-            <li className="footer-meta__item footer-meta__item--location">
-              <MapPin className="footer-meta__icon" aria-hidden="true" />
-              <span>München, Maxvorstadt</span>
-            </li>
-            <li className="footer-meta__item footer-meta__item--location">
-              <MapPin className="footer-meta__icon" aria-hidden="true" />
-              <span>Regensburg, Altstadt</span>
-            </li>
           </ul>
         </div>
       </footer>

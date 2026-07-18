@@ -4,9 +4,9 @@ export const siteConfig = {
   name: "Munich Rental",
   url: siteUrl,
   description:
-    "Persoenlicher Rennrad- und Gravel-Verleih sowie Wartung in Muenchen-Maxvorstadt und Regensburg-Altstadt. Gepflegte Raeder, Beratung, Reparaturen und Oel-zu-Wachs-Umstieg.",
+    "Persönlicher Rennrad- und Gravel-Verleih in München, Regensburg, Lindau Bodensee, Friedrichshafen und Konstanz. Gepflegte Räder, direkte Beratung und klare Preise.",
   descriptionEn:
-    "Personal road and gravel bike rental and maintenance in Munich-Maxvorstadt and Regensburg-Altstadt with serviced bikes, advice, repairs and oil-to-wax conversion.",
+    "Personal road and gravel bike rental in Munich, Regensburg, Lindau, Friedrichshafen and Constance with serviced bikes, direct advice and transparent pricing.",
   email: "hallo@munich-bike-rental.de",
   phone: "+49 89 54193577",
   phoneE164: "+498954193577",
@@ -17,9 +17,18 @@ export const siteConfig = {
     addressRegion: "Bayern",
     addressCountry: "DE",
   },
-  areaServed: ["Muenchen", "Maxvorstadt", "Regensburg", "Regensburg-Altstadt", "Bayern"],
+  areaServed: [
+    "München",
+    "München-Maxvorstadt",
+    "Regensburg",
+    "Regensburg-Altstadt",
+    "Lindau Bodensee",
+    "Friedrichshafen",
+    "Konstanz",
+    "Bayern",
+  ],
   priceRange: "59 EUR-79 EUR",
   locale: "de_DE",
-  title: "Rennrad- & Gravelbike-Verleih München & Regensburg | Your Bike Rental",
+  title: "Rennrad- & Gravelbike-Verleih in München, Regensburg & am Bodensee | Your Bike Rental",
   titleTemplate: "%s | Your Bike Rental",
 };

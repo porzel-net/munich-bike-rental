@@ -342,9 +342,89 @@ button {
   transition: transform 0.2s ease;
 }
 
-.nav__link--legal {
+.nav__item--locations {
+  position: relative;
+}
+
+.nav__item--locations::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: -14px;
+  width: 252px;
+  height: 14px;
+}
+
+.nav__locations-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav__locations-trigger svg {
+  transition: transform 0.2s ease;
+}
+
+.nav__item--locations.is-open .nav__locations-trigger svg,
+.nav__item--locations:focus-within .nav__locations-trigger svg {
+  transform: rotate(180deg);
+}
+
+.nav__locations-menu {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: -14px;
+  z-index: 20;
+  display: grid;
+  width: 224px;
+  padding: 8px;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 45px rgba(17, 17, 17, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.nav__item--locations.is-open .nav__locations-menu,
+.nav__item--locations:focus-within .nav__locations-menu {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.nav__locations-link {
+  display: grid;
+  gap: 2px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  transition: background-color 0.18s ease;
+}
+
+.nav__locations-link strong {
   font-size: 14px;
-  opacity: 0.86;
+  font-weight: 700;
+}
+
+.nav__locations-link span {
+  color: #616161;
+  font-size: 12px;
+}
+
+.nav__locations-link:hover,
+.nav__locations-link:focus-visible {
+  background: rgba(65, 105, 225, 0.09);
+  outline: none;
 }
 
 .nav__link:hover::after,
@@ -460,6 +540,31 @@ button {
   color: #333;
   font-size: 18px;
   line-height: 1.85;
+}
+
+.hero__location-switch {
+  width: fit-content;
+  margin: -16px 0 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgba(65, 105, 225, 0.35);
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.hero__location-switch:hover,
+.hero__location-switch:focus-visible {
+  color: #2f52c9;
 }
 
 .hero__focus {
@@ -1475,24 +1580,6 @@ button {
   font-weight: 700;
 }
 
-.portfolio-card__badge {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(31, 102, 255, 0.16);
-  color: #1f66ff;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
 .portfolio-card__details span {
   color: #111111;
   font-family: "Poppins", Arial, Helvetica, sans-serif;
@@ -1803,11 +1890,6 @@ button {
   gap: 28px;
 }
 
-.location-showcase__cards {
-  display: grid;
-  gap: 12px;
-}
-
 .location-card {
   display: grid;
   gap: 12px;
@@ -1816,36 +1898,6 @@ button {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(17, 17, 17, 0.06);
   box-shadow: 0 12px 30px rgba(17, 17, 17, 0.05);
-}
-
-.location-card--interactive {
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    background-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.location-card--interactive:hover,
-.location-card--interactive:focus-visible {
-  transform: translateY(-1px);
-  border-color: rgba(79, 114, 231, 0.28);
-  box-shadow: 0 16px 34px rgba(17, 17, 17, 0.07);
-}
-
-.location-card--interactive.is-active {
-  border-color: rgba(79, 114, 231, 0.35);
-  background: rgba(79, 114, 231, 0.08);
-  box-shadow: 0 16px 34px rgba(79, 114, 231, 0.08);
-}
-
-.location-card--interactive.is-active .location-card__label {
-  color: var(--accent);
 }
 
 .location-card__address {
@@ -1865,8 +1917,6 @@ button {
 .location-card__address-copy {
   display: grid;
   gap: 6px;
-  justify-items: start;
-  text-align: left;
 }
 
 .location-card__label {
@@ -1929,133 +1979,15 @@ button {
   position: relative;
   width: min(100%, 600px);
   aspect-ratio: 1590 / 1040;
-  overflow: visible;
+  overflow: hidden;
   border-radius: 28px;
-}
-
-.location-map__layer {
-  position: absolute;
-  inset: 0;
-  padding: 0;
   border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 28px;
   background: #fff;
   box-shadow: var(--shadow);
-  overflow: hidden;
-  opacity: 0;
-  transform: scale(0.955) translate(36px, 28px);
-  transition:
-    opacity 0.28s ease,
-    transform 0.28s ease;
-  pointer-events: none;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.location-map__layer.is-active {
-  opacity: 1;
-  transform: none;
-  z-index: 2;
-  pointer-events: auto;
-}
-
-.location-map__layer.is-inactive {
-  opacity: 0.98;
-  z-index: 1;
-  pointer-events: auto;
-  transform: scale(0.955) translate(60px, 60px);
-}
-
-.location-map__badge {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 2;
-  color: rgba(17, 17, 17, 0.9);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-transform: uppercase;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .location-map__image {
   object-fit: cover;
-}
-
-.location-map__iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-.location-map__overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  padding: 22px;
-  background: linear-gradient(
-    180deg,
-    rgba(16, 18, 24, 0.02) 0%,
-    rgba(16, 18, 24, 0.06) 45%,
-    rgba(16, 18, 24, 0.52) 100%
-  );
-}
-
-.location-map__card {
-  max-width: 360px;
-  padding: 18px 18px 16px;
-  border-radius: 22px;
-  background: rgba(10, 12, 17, 0.86);
-  color: #fff;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(16px);
-}
-
-.location-map__eyebrow {
-  display: inline-flex;
-  margin-bottom: 10px;
-  color: rgba(255, 255, 255, 0.72);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.location-map__intro {
-  margin: 0 0 16px;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.location-map__button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 42px;
-  padding: 0 16px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #fff, #e8ecf7);
-  color: #111;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.location-map__button:hover,
-.location-map__button:focus-visible {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(255, 255, 255, 0.12);
 }
 
 .cookie-banner {
@@ -3125,10 +3057,14 @@ button {
 }
 
 .footer__inner {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 28px;
+}
+
+.footer__main {
+  min-width: 0;
 }
 
 .footer__brand {
@@ -3210,11 +3146,126 @@ button {
   line-height: 1.5;
 }
 
+.footer-meta__item--location a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.36);
+  text-underline-offset: 3px;
+  transition: color 0.2s ease;
+}
+
+.footer-meta__item--location a:hover,
+.footer-meta__item--location a:focus-visible {
+  color: #fff;
+}
+
 .footer-meta__icon {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
   color: rgba(255, 255, 255, 0.9);
+}
+
+.location-selection-dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 28px 80px rgba(10, 12, 18, 0.26);
+}
+
+.location-selection-dialog::backdrop {
+  background: rgba(9, 11, 17, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.location-selection-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px 28px 0;
+}
+
+.location-selection-dialog__eyebrow {
+  color: var(--accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.location-selection-dialog h2 {
+  max-width: 330px;
+  margin: 8px 0 0;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.45rem, 4vw, 1.85rem);
+  line-height: 1.2;
+}
+
+.location-selection-dialog__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+
+.location-selection-dialog__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.location-selection-dialog > p {
+  margin: 14px 28px 24px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.location-selection-dialog__links {
+  display: grid;
+  gap: 8px;
+  padding: 0 20px 20px;
+}
+
+.location-selection-dialog__links a {
+  display: grid;
+  gap: 3px;
+  padding: 15px 16px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 14px;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.location-selection-dialog__links a:hover,
+.location-selection-dialog__links a:focus-visible {
+  border-color: rgba(65, 105, 225, 0.35);
+  background: rgba(65, 105, 225, 0.07);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.location-selection-dialog__links strong {
+  font-size: 15px;
+}
+
+.location-selection-dialog__links span {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .legal-page {
@@ -3473,7 +3524,7 @@ button {
   }
 
   .mobile-drawer.is-open {
-    max-height: 420px;
+    max-height: 560px;
   }
 
   .nav__list--mobile {
@@ -3496,6 +3547,36 @@ button {
 
   .nav__link--mobile-anchor {
     padding-left: 22px;
+  }
+
+  .nav__item--mobile-locations {
+    padding-bottom: 10px;
+  }
+
+  .nav__item--mobile-locations > .nav__link--mobile {
+    padding-bottom: 8px;
+  }
+
+  .nav__locations-list--mobile {
+    display: grid;
+    gap: 2px;
+    list-style: none;
+    margin: 0;
+    padding: 0 8px 0 28px;
+  }
+
+  .nav__locations-link--mobile {
+    display: block;
+    padding: 9px 0;
+    color: var(--text-muted);
+    font-family: "Poppins", Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .nav__locations-link--mobile:hover,
+  .nav__locations-link--mobile:focus-visible {
+    color: var(--accent);
   }
 
   .about-grid {
@@ -3699,17 +3780,6 @@ button {
     align-items: start;
   }
 
-  .location-card--interactive.is-active {
-    background: rgba(79, 114, 231, 0.12);
-    border-color: rgba(79, 114, 231, 0.48);
-    box-shadow: 0 16px 34px rgba(79, 114, 231, 0.12);
-  }
-
-  .location-card--interactive.is-active .location-card__label,
-  .location-card--interactive.is-active .location-card__text {
-    color: var(--accent);
-  }
-
   .location-card__text {
     font-size: 15px;
   }
@@ -3719,27 +3789,8 @@ button {
     margin-left: 34px;
   }
 
-  .location-map__overlay {
-    padding: 16px;
-  }
-
-  .location-map__card {
-    max-width: min(100%, 320px);
-    padding: 16px;
-  }
-
-  .location-map__badge {
-    top: 16px;
-    left: 16px;
-    font-size: 0.98rem;
-  }
-
   .location-map {
     width: min(100%, 560px);
-  }
-
-  .location-map__layer.is-inactive {
-    transform: scale(0.94) translate(44px, 44px);
   }
 
   .cookie-banner__panel {
@@ -3780,6 +3831,7 @@ button {
   }
 
   .footer__inner {
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
   }

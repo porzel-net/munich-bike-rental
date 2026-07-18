@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import { ConsentProvider } from "../components/consent-manager";
 import { parseConsentCookie } from "../lib/consent";
-import { getHomeStructuredDataJson } from "../lib/structured-data";
+import { getRentalStructuredDataJson } from "../lib/structured-data";
 import { resolveLocale } from "../lib/home-content";
+import { getRentalLocation } from "../lib/rental-locations";
 import { siteConfig } from "../lib/site";
 
 export const metadata: Metadata = {
@@ -23,13 +24,22 @@ export const metadata: Metadata = {
   keywords: [
     "Fahrradverleih München",
     "Fahrradverleih Regensburg",
+    "Fahrradverleih Lindau Bodensee",
+    "Fahrradverleih Friedrichshafen",
+    "Fahrradverleih Konstanz",
     "Rennradverleih München",
     "Rennradverleih Regensburg",
+    "Rennradverleih Lindau Bodensee",
+    "Rennradverleih Friedrichshafen",
+    "Rennradverleih Konstanz",
     "Rennrad verleih München",
     "Rennradverleih Muenchen",
     "Rennrad mieten München",
     "Rennrad mieten Muenchen",
     "Rennrad mieten Regensburg",
+    "Rennrad mieten Lindau Bodensee",
+    "Rennrad mieten Friedrichshafen",
+    "Rennrad mieten Konstanz",
     "Rennrad leihen München",
     "Rennrad leihen Regensburg",
     "Rennrad ausleihen München",
@@ -38,6 +48,9 @@ export const metadata: Metadata = {
     "Rennraeder mieten Muenchen",
     "Gravelbike mieten München",
     "Gravelbike mieten Regensburg",
+    "Gravelbike mieten Lindau Bodensee",
+    "Gravelbike mieten Friedrichshafen",
+    "Gravelbike mieten Konstanz",
     "Gravelbike verleih München",
     "Gravelbike verleih Regensburg",
     "Gravelbike leihen München",
@@ -68,7 +81,7 @@ export const metadata: Metadata = {
     "Endurace CF SL 8",
     "Shimano 105 Di2",
     "Grail CF SL 7",
-    "Ultimate CF SL 7 eTap AXS",
+    "Ultimate CF SL 7",
     "Aeroad CF SL 8",
     "Bike maintenance Munich",
     "Road bike maintenance Munich",
@@ -96,7 +109,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: `${siteConfig.name} - Rennrad-, Gravel-Verleih in München und Regensburg`,
+        alt: `${siteConfig.name} - Rennrad- und Gravel-Verleih in München, Regensburg und am Bodensee`,
       },
     ],
   },
@@ -135,7 +148,9 @@ export default async function RootLayout({
   const searchParams = new URLSearchParams(requestHeaders.get("x-search") ?? "");
   const locale = resolveLocale(searchParams.get("lang") ?? undefined);
   const initialConsent = parseConsentCookie(requestHeaders.get("cookie"));
-  const structuredDataJson = pathname === "/" ? getHomeStructuredDataJson() : null;
+  const rentalPathMatch = pathname?.match(/^\/rennradverleih\/([^/]+)\/([^/]+)$/);
+  const rentalLocation = rentalPathMatch ? getRentalLocation(rentalPathMatch[1], rentalPathMatch[2]) : undefined;
+  const structuredDataJson = rentalLocation ? getRentalStructuredDataJson(rentalLocation) : null;
   const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "G-RSPEH19Q6Y";
   const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID ?? "";
   const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL ?? "";

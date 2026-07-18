@@ -7,6 +7,7 @@ import { HomeTopbar } from "../../components/home-interactive";
 import { blogPosts } from "../../lib/blog-content";
 import { resolveLocale, translations } from "../../lib/home-content";
 import { siteConfig } from "../../lib/site";
+import { defaultRentalLocation } from "../../lib/rental-locations";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -54,6 +55,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
     <main className="site-shell blog-shell">
       <HomeTopbar
         lang={lang}
+        homePath={defaultRentalLocation.path}
         topbar={{
           nav: t.nav,
           languageToggle: t.languageToggle,
@@ -64,7 +66,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
       <section className="section blog-archive">
         <div className="container blog-archive__inner">
           <div className="blog-page-nav">
-            <Link className="blog-page-nav__link" href={`/?lang=${lang}`}>
+            <Link className="blog-page-nav__link" href={`${defaultRentalLocation.path}?lang=${lang}`}>
               {lang === "de" ? "Zur Startseite" : "Back to homepage"}
             </Link>
             <span className="blog-page-nav__separator" aria-hidden="true">
@@ -96,7 +98,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps) {
             ))}
           </div>
 
-          <Link className="blog-section__link" href={`/?lang=${lang}#blog`}>
+          <Link className="blog-section__link" href={`${defaultRentalLocation.path}?lang=${lang}#blog`}>
             <span>{lang === "de" ? "Zur Startseite zurück" : "Back to homepage"}</span>
             <ArrowUpRight aria-hidden="true" />
           </Link>

@@ -2,19 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { ArrowUpRight, ChevronDown, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
 import { type Locale, type PortfolioItem } from "../lib/home-content";
-import {
-  bikeOptionsByLocation,
-  rentalLocationLabels,
-  rentalLocations,
-  type RentalLocation,
-} from "../lib/inquiries/catalog";
+import { bikeOptionsByLocation, rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
+import { rentalLocationConfigs } from "../lib/rental-locations";
 
 type TopbarTranslations = {
   nav: {
@@ -122,11 +118,12 @@ type SharedTranslations = {
   };
   modal: ModalTranslations;
   form: FormTranslations;
-  location: string;
 };
 
 type HomeTopbarProps = {
   lang: Locale;
+  homePath?: string;
+  showBlog?: boolean;
   topbar: TopbarTranslations;
   sectionAnchors?: Partial<{
     start: string;
@@ -152,6 +149,7 @@ type PortfolioSectionProps = {
 type ContactFormProps = {
   lang: Locale;
   translations: SharedTranslations;
+  defaultLocation?: RentalLocation;
 };
 
 type AboutImageStackProps = {
@@ -159,17 +157,15 @@ type AboutImageStackProps = {
 };
 
 type LocationShowcaseProps = {
-  lang: Locale;
-  defaultLocation?: "munich" | "regensburg";
-  autoSwitchToMunichOnFirstView?: boolean;
   eyebrow: string;
   title: string;
   intro: string;
   notice: string;
-  primaryAddressLabel: string;
-  primaryAddress: string;
-  secondaryAddressLabel: string;
-  secondaryAddress: string;
+  addressLabel: string;
+  address: string;
+  mapImage: string;
+  mapsUrl: string;
+  mapsLabel: string;
 };
 
 type ContactStatus = "idle" | "sending" | "success" | "error";
@@ -228,15 +224,11 @@ function getSetupLabel(lang: Locale, bikeTitle: string) {
     return lang === "de" ? "Gravel Setup" : "Gravel setup";
   }
 
-  if (bikeTitle === "Ultimate CF SL 7 eTap AXS") {
+  if (bikeTitle === "Ultimate CF SL 7") {
     return lang === "de" ? "Sportliches Setup" : "Sport setup";
   }
 
   return lang === "de" ? "Aggressives Setup" : "Aggressive setup";
-}
-
-function isRentalLocation(value: string): value is RentalLocation {
-  return rentalLocations.includes(value as RentalLocation);
 }
 
 function isValidContactValue(value: string) {
@@ -278,7 +270,7 @@ function validateContactForm(
   const pedalTypeValue = values.pedalType.trim();
   const computerMountTypeValue = values.computerMountType.trim();
 
-  if (!locationValue || !["munich", "regensburg"].includes(locationValue)) {
+  if (!locationValue || !rentalLocations.includes(locationValue as RentalLocation)) {
     fieldErrors.location = validation.locationRequired;
   }
 
@@ -423,179 +415,50 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
 }
 
 export function LocationShowcase({
-  lang,
-  defaultLocation = "munich",
-  autoSwitchToMunichOnFirstView = false,
   eyebrow,
   title,
   intro,
   notice,
-  primaryAddressLabel,
-  primaryAddress,
-  secondaryAddressLabel,
-  secondaryAddress,
+  addressLabel,
+  address,
+  mapImage,
+  mapsUrl,
+  mapsLabel,
 }: LocationShowcaseProps) {
-  const [activeLocation, setActiveLocation] = useState<"munich" | "regensburg">(() => defaultLocation);
-  const showcaseRef = useRef<HTMLDivElement | null>(null);
-  const autoSwitchTimerRef = useRef<number | null>(null);
-  const hasAutoSwitchedRef = useRef(false);
-  const hasInteractedRef = useRef(false);
-  const cityLabels = {
-    munich: lang === "de" ? "München" : "Munich",
-    regensburg: "Regensburg",
-  };
-
-  useEffect(() => {
-    if (!autoSwitchToMunichOnFirstView || typeof window === "undefined") {
-      return undefined;
-    }
-
-    const storageKey = "location-showcase-auto-switched";
-    hasAutoSwitchedRef.current = window.sessionStorage.getItem(storageKey) === "1";
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const isVisible = entries.some((entry) => entry.isIntersecting);
-
-        if (!isVisible || hasAutoSwitchedRef.current || hasInteractedRef.current) {
-          return;
-        }
-
-        if (autoSwitchTimerRef.current) {
-          window.clearTimeout(autoSwitchTimerRef.current);
-        }
-
-        autoSwitchTimerRef.current = window.setTimeout(() => {
-          if (hasAutoSwitchedRef.current || hasInteractedRef.current) {
-            return;
-          }
-
-          setActiveLocation("munich");
-          hasAutoSwitchedRef.current = true;
-          window.sessionStorage.setItem(storageKey, "1");
-        }, 2000);
-      },
-      { threshold: 0.35 },
-    );
-
-    if (showcaseRef.current) {
-      observer.observe(showcaseRef.current);
-    }
-
-    return () => {
-      observer.disconnect();
-      if (autoSwitchTimerRef.current) {
-        window.clearTimeout(autoSwitchTimerRef.current);
-      }
-    };
-  }, [autoSwitchToMunichOnFirstView]);
-
-  const locations = [
-    {
-      key: "munich" as const,
-      label: primaryAddressLabel,
-      address: primaryAddress,
-      city: cityLabels.munich,
-      image: "/assets/img/location/munich-maps.png",
-    },
-    {
-      key: "regensburg" as const,
-      label: secondaryAddressLabel,
-      address: secondaryAddress,
-      city: cityLabels.regensburg,
-      image: "/assets/img/location/regensburg-maps.png",
-    },
-  ];
-  const stackedLocations = activeLocation === "munich" ? [locations[0], locations[1]] : [locations[1], locations[0]];
-
   return (
-    <div className="location-grid" ref={showcaseRef}>
+    <div className="location-grid">
       <div className="location-grid__copy">
-        <div className="section-heading">
-          <span className="section-heading__eyebrow">{eyebrow}</span>
-          <h2 className="section-heading__title">{title}</h2>
-        </div>
+        <SectionHeading eyebrow={eyebrow} title={title} />
         <p className="section-copy">
           {intro} <strong>{notice}</strong>
         </p>
 
-        <div className="location-showcase__cards" aria-label={lang === "de" ? "Standorte" : "Locations"}>
-          {locations.map((location) => {
-            const isActive = location.key === activeLocation;
+        <div className="location-card">
+          <div className="location-card__address">
+            <MapPin className="location-card__icon" aria-hidden="true" />
+            <div className="location-card__address-copy">
+              <span className="location-card__label">{addressLabel}</span>
+              <p className="location-card__text">{address}</p>
+            </div>
+          </div>
 
-            return (
-              <button
-                key={location.key}
-                type="button"
-                className={`location-card location-card--interactive${isActive ? " is-active" : ""}`}
-                onClick={() => {
-                  hasInteractedRef.current = true;
-                  if (autoSwitchTimerRef.current) {
-                    window.clearTimeout(autoSwitchTimerRef.current);
-                    autoSwitchTimerRef.current = null;
-                  }
-                  setActiveLocation(location.key);
-                }}
-                aria-pressed={isActive}
-              >
-                <div className="location-card__address">
-                  <MapPin className="location-card__icon" aria-hidden="true" />
-                  <div className="location-card__address-copy">
-                    <span className="location-card__label">{location.label}</span>
-                    <p className="location-card__text">{location.address}</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+          <a className="location-card__link" href={mapsUrl} target="_blank" rel="noreferrer">
+            <span>{mapsLabel}</span>
+            <ArrowUpRight aria-hidden="true" />
+          </a>
         </div>
       </div>
 
       <div className="location-grid__visual">
         <div className="location-map">
-          {stackedLocations.map((location, index) => {
-            const isActive = location.key === activeLocation;
-            const isFront = index === 0;
-
-            return (
-              <button
-                key={location.key}
-                type="button"
-                className={`location-map__layer${isFront ? " is-active" : " is-inactive"}`}
-                style={{ zIndex: isFront ? 2 : 1 }}
-                onClick={() => {
-                  hasInteractedRef.current = true;
-                  if (autoSwitchTimerRef.current) {
-                    window.clearTimeout(autoSwitchTimerRef.current);
-                    autoSwitchTimerRef.current = null;
-                  }
-                  setActiveLocation((current) =>
-                    current === location.key ? (current === "munich" ? "regensburg" : "munich") : location.key,
-                  );
-                }}
-                aria-pressed={isActive}
-                aria-label={
-                  location.key === "munich"
-                    ? lang === "de"
-                      ? "München anzeigen"
-                      : "Show Munich"
-                    : lang === "de"
-                      ? "Regensburg anzeigen"
-                      : "Show Regensburg"
-                }
-              >
-                <span className="location-map__badge">{location.city}</span>
-                <Image
-                  src={location.image}
-                  alt={`Standortbild für ${location.address}`}
-                  fill
-                  sizes="(max-width: 632px) calc(100vw - 32px), 600px"
-                  quality={72}
-                  className="location-map__image"
-                />
-              </button>
-            );
-          })}
+          <Image
+            src={mapImage}
+            alt={`Google Maps Standort für ${address}`}
+            fill
+            sizes="(max-width: 1100px) 100vw, 560px"
+            quality={72}
+            className="location-map__image"
+          />
         </div>
       </div>
     </div>
@@ -744,21 +607,39 @@ function BikeModal({
   );
 }
 
-export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backLink }: HomeTopbarProps) {
+export function HomeTopbar({
+  lang,
+  homePath,
+  showBlog = true,
+  topbar,
+  sectionAnchors,
+  hiddenNavItems,
+  backLink,
+}: HomeTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [locationsOpen, setLocationsOpen] = useState(false);
   const pageHref = (path: string) => buildPathWithSearch({ pathname: path, searchParams, lang });
   const sectionHref = (hash: string, override?: string) => {
     if (pathname === "/wartung" && override) {
       return override;
     }
 
-    return pathname === "/" ? hash : buildPathWithSearch({ pathname: "/", searchParams, hash, lang });
+    if (pathname === "/" || pathname.startsWith("/rennradverleih/")) {
+      return hash;
+    }
+
+    return buildPathWithSearch({
+      pathname: homePath ?? "/rennradverleih/münchen/maxvorstadt",
+      searchParams,
+      hash,
+      lang,
+    });
   };
   const maintenanceHref =
-    pathname === "/" ? pageHref("/wartung") : sectionHref("#wartung", sectionAnchors?.maintenance);
+    pathname === "/wartung" ? sectionHref("#wartung", sectionAnchors?.maintenance) : pageHref("/wartung");
   const isHidden = (item: "start" | "maintenance" | "bikes" | "prices" | "faq" | "contact") =>
     hiddenNavItems?.includes(item) ?? false;
 
@@ -829,20 +710,53 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
                   </a>
                 </li>
               ) : null}
-              <li className="nav__item">
-                <Link href={pageHref("/blog")} className="nav__link">
-                  {topbar.nav.blog}
-                </Link>
-              </li>
-              <li className="nav__item">
-                <a href={pageHref("/impressum")} className="nav__link nav__link--legal">
-                  {topbar.nav.imprint}
-                </a>
-              </li>
-              <li className="nav__item">
-                <a href={pageHref("/datenschutzerklaerung")} className="nav__link nav__link--legal">
-                  {topbar.nav.privacy}
-                </a>
+              {showBlog ? (
+                <li className="nav__item">
+                  <Link href={pageHref("/blog")} className="nav__link">
+                    {topbar.nav.blog}
+                  </Link>
+                </li>
+              ) : null}
+              <li
+                className={`nav__item nav__item--locations${locationsOpen ? " is-open" : ""}`}
+                onMouseEnter={() => setLocationsOpen(true)}
+                onMouseLeave={() => setLocationsOpen(false)}
+                onFocus={() => setLocationsOpen(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setLocationsOpen(false);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setLocationsOpen(false);
+                    event.currentTarget.querySelector<HTMLButtonElement>("button")?.focus();
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  className="nav__link nav__locations-trigger"
+                  aria-expanded={locationsOpen}
+                  aria-haspopup="true"
+                  onClick={() => setLocationsOpen((value) => !value)}
+                >
+                  <span>{lang === "de" ? "Standorte" : "Locations"}</span>
+                  <ChevronDown aria-hidden="true" size={15} />
+                </button>
+                <div className="nav__locations-menu" aria-label={lang === "de" ? "Standorte" : "Locations"}>
+                  {rentalLocationConfigs.map((location) => (
+                    <Link
+                      key={location.path}
+                      href={pageHref(location.path)}
+                      className="nav__locations-link"
+                      onClick={() => setLocationsOpen(false)}
+                    >
+                      <strong>{location.city[lang]}</strong>
+                      <span>{location.district[lang]}</span>
+                    </Link>
+                  ))}
+                </div>
               </li>
             </ul>
           </nav>
@@ -945,10 +859,32 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
                 </a>
               </li>
             ) : null}
-            <li className="nav__item nav__item--mobile">
-              <Link href={pageHref("/blog")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
-                {topbar.nav.blog}
-              </Link>
+            {showBlog ? (
+              <li className="nav__item nav__item--mobile">
+                <Link
+                  href={pageHref("/blog")}
+                  className="nav__link nav__link--mobile"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {topbar.nav.blog}
+                </Link>
+              </li>
+            ) : null}
+            <li className="nav__item nav__item--mobile nav__item--mobile-locations">
+              <span className="nav__link nav__link--mobile">{lang === "de" ? "Standorte" : "Locations"}</span>
+              <ul className="nav__locations-list--mobile">
+                {rentalLocationConfigs.map((location) => (
+                  <li key={location.path}>
+                    <Link
+                      href={pageHref(location.path)}
+                      className="nav__locations-link--mobile"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {`${location.city[lang]} – ${location.district[lang]}`}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </li>
             <li className="nav__item nav__item--mobile">
               <a
@@ -977,8 +913,6 @@ export function HomeTopbar({ lang, topbar, sectionAnchors, hiddenNavItems, backL
 
 export function PortfolioSection({ lang, translations, portfolioItems }: PortfolioSectionProps) {
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
-  const roadBikeTitles = new Set(["Endurace CF SL 8", "Aeroad CF SL 8"]);
-  const grailBikeTitle = "Grail CF SL 7";
 
   useEffect(() => {
     document.body.classList.toggle("modal-open", Boolean(activeBike));
@@ -1019,24 +953,6 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 />
               </div>
 
-              <span className="portfolio-card__badge" aria-hidden="true">
-                {item.title === grailBikeTitle
-                  ? lang === "de"
-                    ? "München & Regensburg"
-                    : "Munich & Regensburg"
-                  : item.title === "Aeroad CF SL 8"
-                    ? lang === "de"
-                      ? "München"
-                      : "Munich"
-                    : roadBikeTitles.has(item.title)
-                      ? lang === "de"
-                        ? "München & Regensburg"
-                        : "Munich & Regensburg"
-                      : lang === "de"
-                        ? "München"
-                        : "Munich"}
-              </span>
-
               <div className="portfolio-card__overlay" aria-hidden="true">
                 <p>{item.description[lang]}</p>
               </div>
@@ -1074,10 +990,10 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
   );
 }
 
-export function ContactForm({ lang, translations }: ContactFormProps) {
+export function ContactForm({ lang, translations, defaultLocation = "munich" }: ContactFormProps) {
   const { trackLead, analyticsAllowed, saveAll } = useConsent();
   const searchParams = useSearchParams();
-  const [location, setLocation] = useState<RentalLocation>("munich");
+  const [location, setLocation] = useState<RentalLocation>(defaultLocation);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [phone, setPhone] = useState("");
@@ -1209,7 +1125,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
       setContact("");
       setPhone("");
       setHeight("");
-      setLocation("munich");
+      setLocation(defaultLocation);
       setBikeSize("");
       setContactMessage("");
       setPeriodFrom("");
@@ -1244,45 +1160,7 @@ export function ContactForm({ lang, translations }: ContactFormProps) {
     <form className="contact-form" onSubmit={handleContactSubmit} noValidate>
       <InquiryHoneypot />
       <div className="contact-form__fields">
-        <div className="contact-form__field">
-          <label htmlFor="location">{translations.form.location}</label>
-          <select
-            id="location"
-            name="location"
-            value={location}
-            aria-invalid={Boolean(fieldErrors.location)}
-            aria-describedby={fieldErrors.location ? "location-error" : undefined}
-            onChange={(event) => {
-              const nextLocation = isRentalLocation(event.target.value) ? event.target.value : "munich";
-              const nextBikeOptions = bikeOptionsByLocation[nextLocation];
-              if (bikeSize && !nextBikeOptions.some((option) => option === bikeSize)) {
-                setBikeSize("");
-                setFieldErrors((current) => {
-                  if (!current.bikeSize) {
-                    return current;
-                  }
-
-                  const next = { ...current };
-                  delete next.bikeSize;
-                  return next;
-                });
-              }
-              setLocation(nextLocation);
-              clearFieldError("location");
-            }}
-          >
-            {rentalLocations.map((option) => (
-              <option key={option} value={option}>
-                {rentalLocationLabels[lang][option]}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.location ? (
-            <p className="contact-form__error" id="location-error">
-              {fieldErrors.location}
-            </p>
-          ) : null}
-        </div>
+        <input type="hidden" name="location" value={location} />
         <div className="contact-form__field">
           <label htmlFor="name">{translations.form.name}</label>
           <input

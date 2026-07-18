@@ -17,7 +17,7 @@ export default function DatenschutzerklaerungPage() {
   return (
     <main className="legal-page">
       <div className="container legal-page__inner">
-        <Link className="legal-page__back" href="/">
+        <Link className="legal-page__back" href="/rennradverleih/münchen/maxvorstadt">
           Zurück zur Startseite
         </Link>
 

@@ -1,11 +1,23 @@
 import type { Locale } from "../home-content";
 
-export const rentalLocations = ["munich", "regensburg"] as const;
+export const rentalLocations = ["munich", "regensburg", "lindau", "friedrichshafen", "konstanz"] as const;
 export type RentalLocation = (typeof rentalLocations)[number];
 
 export const rentalLocationLabels: Record<Locale, Record<RentalLocation, string>> = {
-  de: { munich: "München", regensburg: "Regensburg" },
-  en: { munich: "Munich", regensburg: "Regensburg" },
+  de: {
+    munich: "München",
+    regensburg: "Regensburg",
+    lindau: "Lindau Bodensee",
+    friedrichshafen: "Friedrichshafen",
+    konstanz: "Konstanz",
+  },
+  en: {
+    munich: "Munich",
+    regensburg: "Regensburg",
+    lindau: "Lindau (Lake Constance)",
+    friedrichshafen: "Friedrichshafen",
+    konstanz: "Constance",
+  },
 };
 
 export const bikeOptionsByLocation = {
@@ -17,12 +29,39 @@ export const bikeOptionsByLocation = {
     "Grail CF SL 7 - S",
     "Grail CF SL 7 - M",
     "Grail CF SL 7 - L",
-    "Ultimate CF SL 7 eTap AXS - M",
-    "Ultimate CF SL 7 eTap AXS - L",
+    "Ultimate CF SL 7 - M",
+    "Ultimate CF SL 7 - L",
     "Aeroad CF SL 8 - S",
     "Aeroad CF SL 8 - M",
   ],
   regensburg: [
+    "Endurace CF SL 8 - XS",
+    "Endurace CF SL 8 - S",
+    "Endurace CF SL 8 - M",
+    "Endurace CF SL 8 - L",
+    "Grail CF SL 7 - S",
+    "Grail CF SL 7 - M",
+    "Grail CF SL 7 - L",
+  ],
+  lindau: [
+    "Endurace CF SL 8 - XS",
+    "Endurace CF SL 8 - S",
+    "Endurace CF SL 8 - M",
+    "Endurace CF SL 8 - L",
+    "Grail CF SL 7 - S",
+    "Grail CF SL 7 - M",
+    "Grail CF SL 7 - L",
+  ],
+  friedrichshafen: [
+    "Endurace CF SL 8 - XS",
+    "Endurace CF SL 8 - S",
+    "Endurace CF SL 8 - M",
+    "Endurace CF SL 8 - L",
+    "Grail CF SL 7 - S",
+    "Grail CF SL 7 - M",
+    "Grail CF SL 7 - L",
+  ],
+  konstanz: [
     "Endurace CF SL 8 - XS",
     "Endurace CF SL 8 - S",
     "Endurace CF SL 8 - M",

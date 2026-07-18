@@ -9,6 +9,7 @@ import { blogPosts, getBlogImageSrc, getBlogPostBySlug, getCanonicalBlogSlug } f
 import { resolveLocale, translations } from "../../../lib/home-content";
 import { getBlogPostStructuredDataJson } from "../../../lib/structured-data";
 import { siteConfig } from "../../../lib/site";
+import { defaultRentalLocation } from "../../../lib/rental-locations";
 
 type PageProps = {
   params: Promise<{
@@ -101,6 +102,7 @@ export default async function BlogPostPage({ params, searchParams }: PageProps) 
 
       <HomeTopbar
         lang={lang}
+        homePath={defaultRentalLocation.path}
         topbar={{
           nav: t.nav,
           languageToggle: t.languageToggle,
@@ -111,7 +113,7 @@ export default async function BlogPostPage({ params, searchParams }: PageProps) 
       <section className="section blog-post">
         <div className="container blog-post__inner">
           <div className="blog-page-nav">
-            <Link className="blog-page-nav__link" href={`/?lang=${lang}`}>
+            <Link className="blog-page-nav__link" href={`${defaultRentalLocation.path}?lang=${lang}`}>
               {lang === "de" ? "Zur Startseite" : "Back to homepage"}
             </Link>
             <span className="blog-page-nav__separator" aria-hidden="true">

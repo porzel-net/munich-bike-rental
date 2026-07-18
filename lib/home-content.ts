@@ -70,7 +70,7 @@ export type PriceItem = {
 };
 
 export const footerLinks = [
-  { href: "/", label: "Startseite" },
+  { href: "/rennradverleih/münchen/maxvorstadt", label: "Startseite" },
   { href: "/blog", label: "Blog" },
   { href: "/impressum", label: "Impressum" },
   { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
@@ -189,7 +189,7 @@ export const portfolioItems: PortfolioItem[] = [
     },
   },
   {
-    title: "Ultimate CF SL 7 eTap AXS",
+    title: "Ultimate CF SL 7",
     subtitle: { de: "M / L", en: "M / L" },
     price: { de: "59€/Tag", en: "59€/day" },
     description: {

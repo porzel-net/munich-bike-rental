@@ -41,13 +41,17 @@ function formatFullFaqSection(index: number) {
 export function buildLlmsTxt() {
   return `# ${siteConfig.name}
 
-> Personal road and gravel bike rental and maintenance in Munich-Maxvorstadt and Regensburg-Altstadt with owned bikes, direct contact and clear pricing.
+> Personal road and gravel bike rental and maintenance across southern Germany with owned bikes, direct contact and clear pricing.
 
 This website is for a local bicycle rental service. The most useful pages are the home page, the legal pages, and the contact section. If you need location, prices, or bike details, use the home page sections below.
 
 ## Core pages
 
-- [Home](${siteConfig.url}/): Overview, available bikes, prices, FAQ and contact.
+- [Munich road & gravel bike rental](${siteConfig.url}/rennradverleih/münchen/maxvorstadt): Available bikes, prices, FAQ and contact in Munich-Maxvorstadt.
+- [Regensburg road & gravel bike rental](${siteConfig.url}/rennradverleih/regensburg/altstadt): Available bikes, prices, FAQ and contact in Regensburg-Altstadt.
+- [Lindau road & gravel bike rental](${siteConfig.url}/rennradverleih/lindau/aeschach): Available bikes, prices, FAQ and contact in Lindau-Aeschach.
+- [Friedrichshafen road & gravel bike rental](${siteConfig.url}/rennradverleih/friedrichshafen/innenstadt): Available bikes, prices, FAQ and contact in Friedrichshafen city centre.
+- [Konstanz road & gravel bike rental](${siteConfig.url}/rennradverleih/konstanz/altstadt): Available bikes, prices, FAQ and contact in Konstanz-Altstadt.
 - [Maintenance](${siteConfig.url}/wartung): Road bike maintenance, oil-to-wax switch, parts replacement, repairs, pickup service and service requests.
 - [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
@@ -57,7 +61,7 @@ This website is for a local bicycle rental service. The most useful pages are th
 ## Key facts
 
 - Business name: ${siteConfig.name}
-- Location: Munich-Maxvorstadt, Germany, with a second pickup location in Regensburg-Altstadt
+- Locations: Munich-Maxvorstadt, Regensburg-Altstadt, Lindau-Aeschach, Friedrichshafen city centre and Konstanz-Altstadt, Germany
 - Email: ${siteConfig.email}
 - Phone: ${siteConfig.phone}
 - Website: ${siteConfig.url}
@@ -104,7 +108,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 ## Site summary
 
 - Domain: ${siteConfig.url}
-- Location: Munich-Maxvorstadt, Germany, plus Regensburg-Altstadt as a second pickup location
+- Locations: Munich-Maxvorstadt, Regensburg-Altstadt, Lindau-Aeschach, Friedrichshafen city centre and Konstanz-Altstadt, Germany
 - Email: ${siteConfig.email}
 - Phone: ${siteConfig.phone}
 - Address: ${siteConfig.address.streetAddress}, ${siteConfig.address.postalCode} ${siteConfig.address.addressLocality}
@@ -113,7 +117,11 @@ The project uses a single-page home experience with sections for bikes, prices, 
 
 ## Important pages
 
-- [Home](${siteConfig.url}/): Main landing page with hero, bikes, prices, FAQ and contact.
+- [Munich road & gravel bike rental](${siteConfig.url}/rennradverleih/münchen/maxvorstadt): Main rental page for Munich-Maxvorstadt.
+- [Regensburg road & gravel bike rental](${siteConfig.url}/rennradverleih/regensburg/altstadt): Main rental page for Regensburg-Altstadt.
+- [Lindau road & gravel bike rental](${siteConfig.url}/rennradverleih/lindau/aeschach): Main rental page for Lindau-Aeschach.
+- [Friedrichshafen road & gravel bike rental](${siteConfig.url}/rennradverleih/friedrichshafen/innenstadt): Main rental page for Friedrichshafen city centre.
+- [Konstanz road & gravel bike rental](${siteConfig.url}/rennradverleih/konstanz/altstadt): Main rental page for Konstanz-Altstadt.
 - [Maintenance](${siteConfig.url}/wartung): Dedicated maintenance page for service requests and bike-care questions.
 - [Imprint](${siteConfig.url}/impressum): Legal operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Privacy and data processing information.
