@@ -1,6 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function dismissConsentBanner(page: Page) {
+  const locationDialog = page.getByRole("dialog", {
+    name: /wo möchtest du dein bike abholen|where would you like to pick up your bike/i,
+  });
+  if (await locationDialog.isVisible()) {
+    await locationDialog.getByRole("button", { name: /schließen|close/i }).click();
+  }
+
   const button = page.getByRole("button", { name: /nur notwendige akzeptieren|necessary only/i });
   if (await button.isVisible()) {
     await button.click();
@@ -27,13 +34,22 @@ test("keeps main interactions available", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile") {
     await page.getByRole("button", { name: /menü|menu/i }).click();
     await expect(page.getByLabel("Mobile primary")).toBeVisible();
+    await page.getByRole("button", { name: /menü|menu/i }).click();
+    await expect(page.locator(".mobile-drawer")).not.toHaveClass(/is-open/);
   }
   await page.locator(".portfolio-card").first().click();
   await expect(page.locator(".bike-modal")).toBeVisible();
-  const locationSelect = page.locator("select[name=location]");
-  await locationSelect.scrollIntoViewIfNeeded();
-  await locationSelect.selectOption("regensburg");
-  await expect(page.locator("select[name=bikeSize] option")).toHaveCount(8);
+  await page
+    .locator(".bike-modal")
+    .getByRole("button", { name: /schließen|close/i })
+    .click();
+  await expect(page.locator(".bike-modal")).not.toBeVisible();
+
+  await expect(page.locator('input[name="location"]')).toHaveValue("munich");
+  const bikeSizeSelect = page.locator("select[name=bikeSize]");
+  await bikeSizeSelect.scrollIntoViewIfNeeded();
+  await expect(bikeSizeSelect.locator("option")).toHaveCount(12);
+  await bikeSizeSelect.selectOption({ index: 1 });
 });
 
 test("validates both forms without submitting", async ({ page }) => {
@@ -48,6 +64,7 @@ test("validates both forms without submitting", async ({ page }) => {
 
 test("preserves the reference layout", async ({ page }, testInfo) => {
   await page.goto("/");
+  await dismissConsentBanner(page);
   await expect(page).toHaveScreenshot(`${testInfo.project.name}-home.png`, {
     fullPage: true,
     animations: "disabled",
