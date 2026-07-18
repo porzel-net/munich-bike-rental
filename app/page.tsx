@@ -70,10 +70,11 @@ export async function generateRentalMetadata({ searchParams, location }: PagePro
     },
     description,
     alternates: {
-      canonical: location.path,
+      canonical: isGerman ? location.path : `${location.path}?lang=en`,
       languages: {
         de: location.path,
         en: `${location.path}?lang=en`,
+        "x-default": location.path,
       },
     },
     keywords: isGerman

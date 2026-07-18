@@ -61,10 +61,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     },
     description,
     alternates: {
-      canonical: "/wartung",
+      canonical: isGerman ? "/wartung" : "/wartung?lang=en",
       languages: {
         de: "/wartung",
         en: "/wartung?lang=en",
+        "x-default": "/wartung",
       },
     },
     keywords: isGerman
