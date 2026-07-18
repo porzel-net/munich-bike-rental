@@ -3524,7 +3524,10 @@ button {
   }
 
   .mobile-drawer.is-open {
-    max-height: 560px;
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .nav__list--mobile {
