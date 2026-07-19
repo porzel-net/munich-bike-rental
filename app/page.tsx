@@ -239,6 +239,7 @@ export async function RentalPage({ searchParams, location }: PageProps) {
           form: t.form,
         }}
         portfolioItems={localPortfolioItems}
+        showEnduracePromo={location.key === "munich"}
       />
 
       <section id="bestprice" className="section section--promise">

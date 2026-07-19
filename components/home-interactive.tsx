@@ -144,6 +144,7 @@ type PortfolioSectionProps = {
   lang: Locale;
   translations: SharedTranslations;
   portfolioItems: PortfolioItem[];
+  showEnduracePromo?: boolean;
 };
 
 type ContactFormProps = {
@@ -911,7 +912,12 @@ export function HomeTopbar({
   );
 }
 
-export function PortfolioSection({ lang, translations, portfolioItems }: PortfolioSectionProps) {
+export function PortfolioSection({
+  lang,
+  translations,
+  portfolioItems,
+  showEnduracePromo = false,
+}: PortfolioSectionProps) {
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
 
   useEffect(() => {
@@ -937,7 +943,11 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
           {portfolioItems.map((item) => (
             <button
               key={item.title}
-              className={`portfolio-card ${item.title === "Aeroad CF SL 8" ? "portfolio-card--promo" : ""}`}
+              className={`portfolio-card ${
+                item.title === "Aeroad CF SL 8" || (showEnduracePromo && item.title === "Endurace CF SL 8")
+                  ? "portfolio-card--promo"
+                  : ""
+              }`}
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -963,6 +973,14 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   <span>{lang === "de" ? "Dauerhaften" : "Permanent"}</span>
                   <span>{lang === "de" ? "Juli - August" : "July - August"}</span>
                   <span>{lang === "de" ? "Rabatt" : "Discount"}</span>
+                </span>
+              ) : null}
+              {showEnduracePromo && item.title === "Endurace CF SL 8" ? (
+                <span className="portfolio-card__promo" aria-hidden="true">
+                  <strong>50%</strong>
+                  <span>{lang === "de" ? "Rabatt insgesamt" : "Total discount"}</span>
+                  <span>{lang === "de" ? "Vom 6.8.–13.8." : "From Aug 6–13"}</span>
+                  <span>{lang === "de" ? "Für Größe S" : "For size S"}</span>
                 </span>
               ) : null}
               <div className="portfolio-card__details">
