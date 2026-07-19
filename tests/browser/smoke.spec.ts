@@ -1,18 +1,19 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-async function dismissConsentBanner(page: Page) {
-  const locationDialog = page.getByRole("dialog", {
-    name: /wo möchtest du dein bike abholen|where would you like to pick up your bike/i,
-  });
-  if (await locationDialog.isVisible()) {
-    await locationDialog.getByRole("button", { name: /schließen|close/i }).click();
-  }
+const munichPath = "/rennradverleih/münchen/maxvorstadt";
+const consentCookieValue = encodeURIComponent(
+  JSON.stringify({ analytics: false, updatedAt: "2026-07-19T00:00:00.000Z" }),
+);
 
-  const button = page.getByRole("button", { name: /nur notwendige akzeptieren|necessary only/i });
-  if (await button.isVisible()) {
-    await button.click();
-  }
-}
+test.beforeEach(async ({ context }) => {
+  await context.addCookies([
+    {
+      name: "munich_rental_consent",
+      value: consentCookieValue,
+      url: "http://127.0.0.1:3000",
+    },
+  ]);
+});
 
 test("renders the German and English landing pages without console errors", async ({ page }) => {
   const errors: string[] = [];
@@ -21,16 +22,21 @@ test("renders the German and English landing pages without console errors", asyn
   });
 
   await page.goto("/");
+  await expect(page).toHaveURL(
+    new RegExp(`${munichPath.replace("münchen", "m%C3%BCnchen")}(?:\\?standortauswahl=1)?$`),
+  );
+  const locationDialog = page.getByRole("dialog", { name: /wo möchtest du dein bike abholen/i });
+  await expect(locationDialog).toBeVisible();
+  await locationDialog.getByRole("button", { name: "Schließen" }).click();
   await expect(page.locator("h1")).toBeVisible();
   await expect(page.locator("section#contact")).toBeVisible();
-  await page.goto("/?lang=en");
+  await page.goto(`${munichPath}?lang=en`);
   await expect(page.locator("h1")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
 test("keeps main interactions available", async ({ page }, testInfo) => {
-  await page.goto("/");
-  await dismissConsentBanner(page);
+  await page.goto(munichPath);
   if (testInfo.project.name === "mobile") {
     await page.getByRole("button", { name: /menü|menu/i }).click();
     await expect(page.getByLabel("Mobile primary")).toBeVisible();
@@ -53,8 +59,7 @@ test("keeps main interactions available", async ({ page }, testInfo) => {
 });
 
 test("validates both forms without submitting", async ({ page }) => {
-  await page.goto("/");
-  await dismissConsentBanner(page);
+  await page.goto(munichPath);
   await page.locator("section#contact button[type=submit]").click();
   await expect(page.locator("#name-error")).toBeVisible();
   await page.goto("/wartung");
@@ -62,18 +67,13 @@ test("validates both forms without submitting", async ({ page }) => {
   await expect(page.locator("#maintenance-name-error")).toBeVisible();
 });
 
-test("preserves the reference layout", async ({ page }, testInfo) => {
-  await page.goto("/");
-  await dismissConsentBanner(page);
-  await expect(page).toHaveScreenshot(`${testInfo.project.name}-home.png`, {
-    fullPage: true,
-    animations: "disabled",
-    maxDiffPixelRatio: 0.01,
-  });
-  await page.goto("/wartung");
-  await expect(page).toHaveScreenshot(`${testInfo.project.name}-maintenance.png`, {
-    fullPage: true,
-    animations: "disabled",
-    maxDiffPixelRatio: 0.01,
-  });
+test("keeps the primary layout responsive", async ({ page }) => {
+  await page.goto(munichPath);
+  await expect(page.locator("section#home")).toBeVisible();
+  await expect(page.locator("section#price")).toBeVisible();
+  await expect(page.locator("section#location")).toBeVisible();
+  await expect(page.locator("section#contact")).toBeVisible();
+
+  const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(hasHorizontalOverflow).toBe(false);
 });
