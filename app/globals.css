@@ -2000,6 +2000,7 @@ button {
 .cookie-banner__panel {
   display: grid;
   gap: 12px;
+  width: min(440px, 100%);
   padding: 16px;
   border-radius: 22px;
   background:
@@ -2008,7 +2009,6 @@ button {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 28px 80px rgba(10, 12, 18, 0.38);
-  backdrop-filter: blur(18px);
 }
 
 .cookie-banner__header {

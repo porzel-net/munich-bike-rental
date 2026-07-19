@@ -72,7 +72,7 @@ SMTP_USER=dein-user
 SMTP_PASSWORD_FILE=/run/secrets/smtp_password
 MAIL_FROM_ADDRESS=anfrage@deine-domain.tld
 MAIL_TO_ADDRESS=hallo@deine-domain.tld
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-RSPEH19Q6Y
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
 DEV_ALLOWED_ORIGINS=
@@ -88,8 +88,8 @@ Wichtig:
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht
 - `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden
-- `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst, wenn der Nutzer im Cookie-Banner zugestimmt hat
-- `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional und aktivieren die direkte Google-Ads-Conversion für das Lead-Event
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst nach Einwilligung in den Zweck „Analytics“
+- `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional. Sind beide gesetzt, aktiviert die Einwilligung in den Zweck „Marketing“ die direkte Google-Ads-Conversion für das Lead-Event.
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
 

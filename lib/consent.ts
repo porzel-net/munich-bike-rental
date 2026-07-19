@@ -1,5 +1,7 @@
 export type ConsentPreferences = {
+  necessary: true;
   analytics: boolean;
+  marketing: boolean;
 };
 
 export type ConsentState = ConsentPreferences & {
@@ -49,7 +51,16 @@ export function parseConsentCookie(cookieHeader: string | null | undefined): Con
       isConsentPreferences(parsed) &&
       typeof (parsed as { updatedAt?: unknown }).updatedAt === "string"
     ) {
-      return parsed as ConsentState;
+      const parsedState = parsed as ConsentState;
+
+      // Consent cookies written before the marketing purpose was introduced remain valid,
+      // but must never implicitly grant marketing consent.
+      return {
+        necessary: true,
+        analytics: parsedState.analytics,
+        marketing: typeof (parsed as { marketing?: unknown }).marketing === "boolean" ? parsed.marketing : false,
+        updatedAt: parsedState.updatedAt,
+      };
     }
   } catch {
     return null;
@@ -61,7 +72,9 @@ export function parseConsentCookie(cookieHeader: string | null | undefined): Con
 export function buildConsentCookieValue(preferences: ConsentPreferences) {
   return encodeURIComponent(
     JSON.stringify({
+      necessary: true,
       analytics: preferences.analytics,
+      marketing: preferences.marketing,
       updatedAt: new Date().toISOString(),
     }),
   );

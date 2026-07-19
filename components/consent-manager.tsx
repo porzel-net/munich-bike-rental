@@ -3,7 +3,15 @@
 import Link from "next/link";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { buildConsentCookieValue, type ConsentPreferences, type ConsentState } from "../lib/consent";
 import { consentCopy } from "../lib/consent-copy";
@@ -11,7 +19,8 @@ import { consentCopy } from "../lib/consent-copy";
 type ConsentContextValue = {
   locale: "de" | "en";
   analyticsAllowed: boolean;
-  openSettings: () => void;
+  marketingAllowed: boolean;
+  openSettings: (trigger?: HTMLElement | null) => void;
   saveNecessaryOnly: () => void;
   saveAll: () => void;
   saveSelection: (preferences: ConsentPreferences) => void;
@@ -44,6 +53,41 @@ function normalizeSearchLocale(searchParams: ReturnType<typeof useSearchParams>,
   return searchParams.get("lang") === "en" ? "en" : fallback;
 }
 
+function getBannerIntro(
+  locale: "de" | "en",
+  hasAnalyticsTracking: boolean,
+  hasMarketingTracking: boolean,
+  necessaryIntro: string,
+) {
+  if (locale === "de") {
+    if (hasAnalyticsTracking && hasMarketingTracking) {
+      return `${necessaryIntro} Mit Ihrer Zustimmung laden wir Google Analytics und Google Ads Conversion-Tracking zur Erfolgsmessung.`;
+    }
+
+    if (hasAnalyticsTracking) {
+      return `${necessaryIntro} Mit Ihrer Zustimmung laden wir Google Analytics zur Erfolgsmessung.`;
+    }
+
+    if (hasMarketingTracking) {
+      return `${necessaryIntro} Mit Ihrer Zustimmung laden wir Google Ads Conversion-Tracking zur Erfolgsmessung.`;
+    }
+  } else {
+    if (hasAnalyticsTracking && hasMarketingTracking) {
+      return `${necessaryIntro} With your consent we load Google Analytics and Google Ads conversion tracking for measurement.`;
+    }
+
+    if (hasAnalyticsTracking) {
+      return `${necessaryIntro} With your consent we load Google Analytics for measurement.`;
+    }
+
+    if (hasMarketingTracking) {
+      return `${necessaryIntro} With your consent we load Google Ads conversion tracking for measurement.`;
+    }
+  }
+
+  return necessaryIntro;
+}
+
 export function useConsent() {
   const value = useContext(ConsentContext);
 
@@ -51,6 +95,7 @@ export function useConsent() {
     return {
       locale: "de" as const,
       analyticsAllowed: false,
+      marketingAllowed: false,
       openSettings: () => {},
       saveNecessaryOnly: () => {},
       saveAll: () => {},
@@ -85,20 +130,57 @@ export function ConsentProvider({
   const copy = consentCopy[locale];
   const [consent, setConsent] = useState<ConsentState | null>(initialConsent);
   const [panelOpen, setPanelOpen] = useState(!initialConsent);
+  const [googleTagReady, setGoogleTagReady] = useState(false);
   const [draft, setDraft] = useState<ConsentPreferences>(
-    initialConsent ? { analytics: initialConsent.analytics } : { analytics: false },
+    initialConsent
+      ? { necessary: true, analytics: initialConsent.analytics, marketing: initialConsent.marketing }
+      : { necessary: true, analytics: false, marketing: false },
   );
+  const initialDialogFocusRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const hasGoogleAnalyticsTracking = Boolean(googleAnalyticsId);
+  const hasGoogleAdsTracking = Boolean(googleAdsConversionId && googleAdsConversionLabel);
+  const analyticsAllowed = Boolean(consent?.analytics && hasGoogleAnalyticsTracking);
+  const marketingAllowed = Boolean(consent?.marketing && hasGoogleAdsTracking);
+  const isConsentDialogOpen = panelOpen || !consent;
+  const bannerIntro = getBannerIntro(locale, hasGoogleAnalyticsTracking, hasGoogleAdsTracking, copy.bannerIntro);
 
   useEffect(() => {
     if (!consent) {
       return;
     }
 
-    writeConsentCookie({ analytics: consent.analytics });
+    writeConsentCookie({
+      necessary: true,
+      analytics: consent.analytics,
+      marketing: consent.marketing,
+    });
   }, [consent]);
 
   useEffect(() => {
-    if (!consent?.analytics || !googleAnalyticsId) {
+    if (!isConsentDialogOpen) {
+      const returnFocusTarget = returnFocusRef.current;
+      returnFocusRef.current = null;
+
+      window.requestAnimationFrame(() => {
+        const focusTarget =
+          returnFocusTarget && document.contains(returnFocusTarget) ? returnFocusTarget : settingsTriggerRef.current;
+        focusTarget?.focus();
+      });
+
+      return;
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => initialDialogFocusRef.current?.focus());
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+    };
+  }, [isConsentDialogOpen]);
+
+  useEffect(() => {
+    if (!analyticsAllowed || !googleAnalyticsId || !googleTagReady) {
       return;
     }
 
@@ -115,110 +197,187 @@ export function ConsentProvider({
       page_path: pagePath,
       page_title: document.title,
     });
-  }, [consent?.analytics, googleAnalyticsId, pathname, searchParams]);
+  }, [analyticsAllowed, googleAnalyticsId, googleTagReady, pathname, searchParams]);
 
-  const value = useMemo<ConsentContextValue>(
-    () => ({
-      locale,
-      analyticsAllowed: Boolean(consent?.analytics && googleAnalyticsId),
-      openSettings: () => {
-        setDraft(consent ? { analytics: consent.analytics } : { analytics: false });
-        setPanelOpen(true);
-      },
-      saveNecessaryOnly: () => {
-        const next = { analytics: false };
-        setConsent({ ...next, updatedAt: new Date().toISOString() });
-        setDraft(next);
-        setPanelOpen(false);
-      },
-      saveAll: () => {
-        const next = { analytics: true };
-        setConsent({ ...next, updatedAt: new Date().toISOString() });
-        setDraft(next);
-        setPanelOpen(false);
-      },
-      saveSelection: (preferences: ConsentPreferences) => {
-        setConsent({ ...preferences, updatedAt: new Date().toISOString() });
-        setDraft(preferences);
-        setPanelOpen(false);
-      },
-      trackLead: ({ bikeTitle, language, contactMethod }) => {
-        if (!consent?.analytics || !googleAnalyticsId) {
-          return;
-        }
+  useEffect(() => {
+    if (!googleTagReady) {
+      return;
+    }
 
-        const gtag = getGtag();
-        if (!gtag) {
-          return;
-        }
+    const gtag = getGtag();
+    if (!gtag) {
+      return;
+    }
 
-        gtag("event", "generate_lead", {
-          event_category: "contact",
-          event_label: bikeTitle || "contact_form",
-          language,
-          contact_method: contactMethod,
-          page_location: window.location.href,
-        });
+    gtag("consent", "update", {
+      analytics_storage: analyticsAllowed ? "granted" : "denied",
+      ad_storage: marketingAllowed ? "granted" : "denied",
+      ad_user_data: marketingAllowed ? "granted" : "denied",
+      ad_personalization: "denied",
+    });
 
-        gtag("event", "conversion_event_submit_lead_form", {
-          event_callback: () => undefined,
-          event_timeout: 2000,
-          event_category: "contact",
-          event_label: bikeTitle || "contact_form",
-          language,
-          contact_method: contactMethod,
-          page_location: window.location.href,
-        });
+    if (analyticsAllowed && googleAnalyticsId) {
+      gtag("config", googleAnalyticsId, {
+        send_page_view: false,
+        anonymize_ip: true,
+        allow_google_signals: false,
+      });
+    }
 
-        if (googleAdsConversionId && googleAdsConversionLabel) {
-          gtag("event", "conversion", {
-            send_to: `${googleAdsConversionId}/${googleAdsConversionLabel}`,
-            value: 1,
-            currency: "EUR",
-            event_label: bikeTitle || "contact_form",
-          });
-        }
-      },
-    }),
-    [consent, googleAnalyticsId, googleAdsConversionId, googleAdsConversionLabel, locale],
-  );
+    if (marketingAllowed && googleAdsConversionId) {
+      gtag("config", googleAdsConversionId);
+    }
+  }, [analyticsAllowed, googleAdsConversionId, googleAnalyticsId, googleTagReady, marketingAllowed]);
+
+  const openSettings = (trigger?: HTMLElement | null) => {
+    returnFocusRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setDraft(
+      consent
+        ? { necessary: true, analytics: consent.analytics, marketing: consent.marketing }
+        : { necessary: true, analytics: false, marketing: false },
+    );
+    setPanelOpen(true);
+  };
+
+  const saveNecessaryOnly = () => {
+    const next: ConsentPreferences = { necessary: true, analytics: false, marketing: false };
+    setConsent({ ...next, updatedAt: new Date().toISOString() });
+    setDraft(next);
+    setPanelOpen(false);
+  };
+
+  const saveAll = () => {
+    const next: ConsentPreferences = {
+      necessary: true,
+      analytics: hasGoogleAnalyticsTracking,
+      marketing: hasGoogleAdsTracking,
+    };
+    setConsent({ ...next, updatedAt: new Date().toISOString() });
+    setDraft(next);
+    setPanelOpen(false);
+  };
+
+  const saveSelection = (preferences: ConsentPreferences) => {
+    const next: ConsentPreferences = {
+      necessary: true,
+      analytics: hasGoogleAnalyticsTracking && preferences.analytics,
+      marketing: hasGoogleAdsTracking && preferences.marketing,
+    };
+    setConsent({ ...next, updatedAt: new Date().toISOString() });
+    setDraft(next);
+    setPanelOpen(false);
+  };
+
+  const closeSettings = () => {
+    if (consent) {
+      setDraft({ necessary: true, analytics: consent.analytics, marketing: consent.marketing });
+      setPanelOpen(false);
+      return;
+    }
+
+    saveNecessaryOnly();
+  };
+
+  const trackLead: ConsentContextValue["trackLead"] = ({ bikeTitle, language, contactMethod }) => {
+    const gtag = getGtag();
+    if (!gtag) {
+      return;
+    }
+
+    if (analyticsAllowed) {
+      gtag("event", "generate_lead", {
+        event_category: "contact",
+        event_label: bikeTitle || "contact_form",
+        language,
+        contact_method: contactMethod,
+        page_location: window.location.href,
+      });
+
+      gtag("event", "conversion_event_submit_lead_form", {
+        event_callback: () => undefined,
+        event_timeout: 2000,
+        event_category: "contact",
+        event_label: bikeTitle || "contact_form",
+        language,
+        contact_method: contactMethod,
+        page_location: window.location.href,
+      });
+    }
+
+    if (marketingAllowed && googleAdsConversionId && googleAdsConversionLabel) {
+      gtag("event", "conversion", {
+        send_to: `${googleAdsConversionId}/${googleAdsConversionLabel}`,
+        value: 1,
+        currency: "EUR",
+        event_label: bikeTitle || "contact_form",
+      });
+    }
+  };
+
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSettings();
+      return;
+    }
+  };
+
+  const value: ConsentContextValue = {
+    locale,
+    analyticsAllowed,
+    marketingAllowed,
+    openSettings,
+    saveNecessaryOnly,
+    saveAll,
+    saveSelection,
+    trackLead,
+  };
 
   return (
     <ConsentContext.Provider value={value}>
       {children}
 
-      {consent?.analytics && googleAnalyticsId ? (
+      {analyticsAllowed || marketingAllowed ? (
         <>
-          <Script
-            id="google-analytics-loader"
-            src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
-            strategy="afterInteractive"
-            nonce={nonce}
-          />
-          <Script id="google-analytics-init" strategy="afterInteractive" nonce={nonce}>
+          <Script id="google-tag-init" strategy="afterInteractive" nonce={nonce}>
             {`
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', '${googleAnalyticsId}', {
-                send_page_view: false,
-                anonymize_ip: true,
-                allow_google_signals: false
+              gtag('consent', 'default', {
+                analytics_storage: 'denied',
+                ad_storage: 'denied',
+                ad_user_data: 'denied',
+                ad_personalization: 'denied'
               });
             `}
           </Script>
+          <Script
+            id="google-tag-loader"
+            src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId ?? googleAdsConversionId}`}
+            strategy="afterInteractive"
+            nonce={nonce}
+            onLoad={() => setGoogleTagReady(true)}
+          />
         </>
       ) : null}
 
-      {panelOpen || !consent ? (
-        <div className="cookie-banner" role="dialog" aria-modal="true" aria-label={copy.bannerTitle}>
+      {isConsentDialogOpen ? (
+        <div
+          className="cookie-banner"
+          role="dialog"
+          aria-labelledby="cookie-banner-title"
+          onKeyDown={handleDialogKeyDown}
+        >
           <div className="cookie-banner__panel">
             <div className="cookie-banner__header">
               <div>
                 <span className="cookie-banner__eyebrow">{copy.bannerTitle}</span>
-                <h2 className="cookie-banner__title">{copy.bannerTitle}</h2>
+                <h2 className="cookie-banner__title" id="cookie-banner-title">
+                  {copy.bannerTitle}
+                </h2>
               </div>
-              <p className="cookie-banner__intro">{copy.bannerIntro}</p>
+              <p className="cookie-banner__intro">{bannerIntro}</p>
             </div>
 
             <div className="cookie-banner__choices">
@@ -227,51 +386,62 @@ export function ConsentProvider({
                   <strong>{copy.necessaryTitle}</strong>
                   <span>{copy.necessaryText}</span>
                 </span>
-                <input type="checkbox" checked disabled aria-label={copy.necessaryTitle} />
+                <input type="checkbox" checked={draft.necessary} disabled aria-label={copy.necessaryTitle} />
               </label>
 
-              <label className="cookie-banner__choice">
-                <span className="cookie-banner__choice-copy">
-                  <strong>{copy.analyticsTitle}</strong>
-                  <span>{copy.analyticsText}</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={draft.analytics}
-                  onChange={(event) => setDraft((current) => ({ ...current, analytics: event.target.checked }))}
-                  aria-label={copy.analyticsTitle}
-                />
-              </label>
+              {hasGoogleAnalyticsTracking ? (
+                <label className="cookie-banner__choice">
+                  <span className="cookie-banner__choice-copy">
+                    <strong>{copy.analyticsTitle}</strong>
+                    <span>{copy.analyticsText}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={draft.analytics}
+                    onChange={(event) => setDraft((current) => ({ ...current, analytics: event.target.checked }))}
+                    aria-label={copy.analyticsTitle}
+                  />
+                </label>
+              ) : null}
+
+              {hasGoogleAdsTracking ? (
+                <label className="cookie-banner__choice">
+                  <span className="cookie-banner__choice-copy">
+                    <strong>{copy.marketingTitle}</strong>
+                    <span>{copy.marketingText}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={draft.marketing}
+                    onChange={(event) => setDraft((current) => ({ ...current, marketing: event.target.checked }))}
+                    aria-label={copy.marketingTitle}
+                  />
+                </label>
+              ) : null}
             </div>
 
             <div className="cookie-banner__actions">
               <button
                 type="button"
                 className="cookie-banner__button cookie-banner__button--ghost"
-                onClick={value.saveNecessaryOnly}
+                onClick={saveNecessaryOnly}
+                ref={initialDialogFocusRef}
               >
                 {copy.acceptNecessary}
               </button>
               <button
                 type="button"
                 className="cookie-banner__button cookie-banner__button--ghost"
-                onClick={() => value.saveSelection(draft)}
+                onClick={() => saveSelection(draft)}
               >
                 {copy.saveSelection}
               </button>
-              <button
-                type="button"
-                className="cookie-banner__button cookie-banner__button--primary"
-                onClick={value.saveAll}
-              >
+              <button type="button" className="cookie-banner__button cookie-banner__button--primary" onClick={saveAll}>
                 {copy.acceptAll}
               </button>
             </div>
 
             <div className="cookie-banner__footer">
-              <button type="button" className="cookie-banner__link" onClick={value.openSettings}>
-                {copy.settingsButton}
-              </button>
               <Link href="/datenschutzerklaerung" className="cookie-banner__link">
                 {copy.privacyLink}
               </Link>
@@ -281,7 +451,12 @@ export function ConsentProvider({
       ) : null}
 
       {!panelOpen && consent ? (
-        <button type="button" className="cookie-settings-trigger" onClick={value.openSettings}>
+        <button
+          type="button"
+          className="cookie-settings-trigger"
+          onClick={(event) => openSettings(event.currentTarget)}
+          ref={settingsTriggerRef}
+        >
           {copy.settingsButton}
         </button>
       ) : null}

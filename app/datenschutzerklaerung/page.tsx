@@ -159,7 +159,7 @@ export default function DatenschutzerklaerungPage() {
             Sofern wir Schutz- und Routingdienste von Cloudflare einsetzen, können zusätzlich technisch notwendige
             Sicherheits- oder Challenge-Cookies bzw. vergleichbare Identifikatoren gesetzt werden. Genauere Details sind
             im Abschnitt „Schutz- und Routingdienste“ zu finden. Cookies oder ähnliche Technologien von Google Analytics
-            werden erst nach Ihrer ausdrücklichen Einwilligung geladen.
+            und Google Ads Conversion-Tracking werden erst nach Ihrer ausdrücklichen Einwilligung geladen.
           </p>
           <h4>b) Rechtsgrundlage und Zweck der Datenverarbeitung</h4>
           <p>
@@ -277,6 +277,42 @@ export default function DatenschutzerklaerungPage() {
             Sie können Ihre Einwilligung jederzeit über die Cookie-Einstellungen widerrufen. Die Speicherdauer der von
             Google gesetzten Cookies richtet sich nach den jeweiligen Google-Einstellungen und der von Google
             verwendeten Konfiguration.
+          </p>
+          <h3>Google Ads Conversion-Tracking</h3>
+          <h4>a) Zweck und Umfang der Datenverarbeitung</h4>
+          <p>
+            Soweit Google Ads Conversion-Tracking aktiviert ist, messen wir damit, ob eine Google-Anzeige zu einer
+            Anfrage über die Website führt. Die Verarbeitung dient der Erfolgsmessung, der Auswertung von Kampagnen und
+            der Optimierung unseres Werbebudgets. Google Ads Conversion-Tracking wird nur geladen, wenn Sie im
+            Cookie-Banner dem Zweck „Marketing“ zugestimmt haben.
+          </p>
+          <h4>b) Rechtsgrundlage</h4>
+          <p>
+            Rechtsgrundlage für das Speichern und Auslesen von Informationen auf Ihrem Endgerät sowie die anschließende
+            Verarbeitung personenbezogener Daten ist Ihre Einwilligung nach § 25 Abs. 1 TDDDG und Art. 6 Abs. 1 S. 1
+            lit. a DSGVO.
+          </p>
+          <h4>c) Datenkategorien und Empfänger</h4>
+          <p>
+            Dabei können insbesondere die Information über eine ausgelöste Conversion (z. B. erfolgreiche Anfrage),
+            Zeitpunkt und Seite des Ereignisses, Kennungen aus einem Anzeigenklick (z. B. GCLID), Cookie- und ähnliche
+            Online-Kennungen, gekürzte IP-Adresse, Browser-, Geräte- und Referrer-Informationen verarbeitet werden. Als
+            Empfänger erhält Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland, die Daten; je nach
+            Konfiguration können weitere Google-Unternehmen als Auftragsverarbeiter eingebunden sein.
+          </p>
+          <h4>d) Drittlandtransfer</h4>
+          <p>
+            Eine Übermittlung an Google LLC mit Sitz in den USA oder andere Empfänger außerhalb der EU bzw. des EWR kann
+            nicht ausgeschlossen werden. Soweit ein solcher Transfer erfolgt, stützt Google ihn nach eigener Angabe auf
+            geeignete Garantien, insbesondere die EU-Standardvertragsklauseln, und – soweit anwendbar – auf die
+            Teilnahme am EU-U.S. Data Privacy Framework. Nähere Informationen finden Sie in den Datenschutzhinweisen von
+            Google.
+          </p>
+          <h4>e) Widerruf und Speicherdauer</h4>
+          <p>
+            Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft über die Cookie-Einstellungen widerrufen.
+            Die Speicherdauer von Conversion-Cookies sowie die Aufbewahrung der Conversion-Daten richten sich nach den
+            jeweils in unserem Google-Ads-Konto und bei Google eingestellten Aufbewahrungs- und Löschfristen.
           </p>
           <h3>Verschlüsselte Übertragung</h3>
           <p>

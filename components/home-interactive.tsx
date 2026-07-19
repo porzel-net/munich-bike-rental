@@ -991,7 +991,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 }
 
 export function ContactForm({ lang, translations, defaultLocation = "munich" }: ContactFormProps) {
-  const { trackLead, analyticsAllowed, saveAll } = useConsent();
+  const { trackLead, saveAll } = useConsent();
   const searchParams = useSearchParams();
   const [location, setLocation] = useState<RentalLocation>(defaultLocation);
   const [name, setName] = useState("");
@@ -1144,12 +1144,10 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
       setOrderNumber(result?.orderNumber ?? null);
       setContactStatus("success");
 
-      if (analyticsAllowed) {
-        trackLead({
-          language: lang,
-          contactMethod: "email",
-        });
-      }
+      trackLead({
+        language: lang,
+        contactMethod: "email",
+      });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : translations.form.validation.submitFailed);
       setContactStatus("error");

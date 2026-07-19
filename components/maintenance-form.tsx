@@ -114,7 +114,7 @@ function validateMaintenanceForm(
 }
 
 export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
-  const { trackLead, analyticsAllowed } = useConsent();
+  const { trackLead } = useConsent();
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [bikeModel, setBikeModel] = useState("");
@@ -203,18 +203,15 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
       setOrderNumber(result?.orderNumber ?? null);
       setStatus("success");
 
-      if (analyticsAllowed) {
-        const serviceLabel =
-          translations.serviceTypeOptions[
-            serviceTypeValue as keyof MaintenanceFormTranslations["serviceTypeOptions"]
-          ] ?? serviceTypeValue;
+      const serviceLabel =
+        translations.serviceTypeOptions[serviceTypeValue as keyof MaintenanceFormTranslations["serviceTypeOptions"]] ??
+        serviceTypeValue;
 
-        trackLead({
-          bikeTitle: serviceLabel || bikeModelValue || undefined,
-          language: lang,
-          contactMethod: "email",
-        });
-      }
+      trackLead({
+        bikeTitle: serviceLabel || bikeModelValue || undefined,
+        language: lang,
+        contactMethod: "email",
+      });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : translations.validation.submitFailed);
       setStatus("error");

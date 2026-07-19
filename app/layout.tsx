@@ -151,9 +151,9 @@ export default async function RootLayout({
   const rentalPathMatch = pathname?.match(/^\/rennradverleih\/([^/]+)\/([^/]+)$/);
   const rentalLocation = rentalPathMatch ? getRentalLocation(rentalPathMatch[1], rentalPathMatch[2]) : undefined;
   const structuredDataJson = rentalLocation ? getRentalStructuredDataJson(rentalLocation) : null;
-  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "G-RSPEH19Q6Y";
-  const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID ?? "";
-  const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL ?? "";
+  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
+  const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID?.trim();
+  const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL?.trim();
 
   return (
     <html lang={locale}>

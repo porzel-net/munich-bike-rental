@@ -15,6 +15,35 @@ test.beforeEach(async ({ context }) => {
   ]);
 });
 
+test("keeps the consent banner keyboard operable and the page clickable", async ({ context, page }) => {
+  await context.clearCookies();
+  await page.goto(munichPath);
+
+  const consentDialog = page.getByRole("dialog", { name: "Cookies und externe Inhalte" });
+  const necessaryOnlyButton = consentDialog.getByRole("button", { name: "Nur notwendige akzeptieren" });
+  const privacyLink = consentDialog.getByRole("link", { name: "Zur Datenschutzerklärung" });
+
+  await expect(consentDialog).toBeVisible();
+  await expect(necessaryOnlyButton).toBeFocused();
+  await expect(privacyLink).toBeVisible();
+  await page.locator(".portfolio-card").first().click();
+  await expect(page.locator(".bike-modal")).toBeVisible();
+  await page
+    .locator(".bike-modal")
+    .getByRole("button", { name: /schließen/i })
+    .click();
+  await necessaryOnlyButton.focus();
+  await page.keyboard.press("Escape");
+  await expect(consentDialog).not.toBeVisible();
+
+  const settingsButton = page.getByRole("button", { name: "Cookie-Einstellungen" });
+  await settingsButton.click();
+  await expect(consentDialog).toBeVisible();
+  await expect(necessaryOnlyButton).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(settingsButton).toBeFocused();
+});
+
 test("renders the German and English landing pages without console errors", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => {
