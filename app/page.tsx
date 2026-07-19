@@ -57,7 +57,7 @@ export async function generateRentalMetadata({ searchParams, location }: PagePro
   const district = location.district[lang];
 
   const title = isGerman
-    ? `Rennrad- & Gravelbike-Verleih ${city}-${district} | Your Bike Rental`
+    ? `Dein Rennradverleih & Gravelverleih in ${city} | Your Bike Rental`
     : `Road and gravel bike rental in ${city} ${district} | Your Bike Rental`;
   const description = isGerman
     ? `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Räder, direkte Anfrage, persönliche Beratung und klare Preise.`
