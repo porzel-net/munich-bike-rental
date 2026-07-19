@@ -3829,10 +3829,6 @@ button {
     width: 100%;
   }
 
-  .cookie-settings-trigger {
-    display: none;
-  }
-
   .footer__inner {
     display: flex;
     flex-direction: column;
