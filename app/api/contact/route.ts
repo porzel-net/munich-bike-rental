@@ -10,14 +10,27 @@ function createMailBody(payload: Awaited<ReturnType<typeof contactInquirySchema.
   const isGerman = payload.locale === "de";
   const yesNo = isGerman ? { yes: "Ja", no: "Nein" } : { yes: "Yes", no: "No" };
   const period = `${payload.periodFrom} - ${payload.periodTo}`;
-  const pedalLabel = payload.needsPedals
-    ? pedalTypeLabels[payload.locale][payload.pedalType as keyof typeof pedalTypeLabels.de]
-    : yesNo.no;
-  const mountLabel = payload.needsComputerMount
-    ? computerMountTypeLabels[payload.locale][payload.computerMountType as keyof typeof computerMountTypeLabels.de]
-    : yesNo.no;
   const location = rentalLocationLabels[payload.locale][payload.location];
   const affiliateLine = payload.affiliateKey ? `Affiliate-Key: ${payload.affiliateKey}` : null;
+  const bikeDetails = payload.bikes.flatMap((bike, index) => {
+    const pedalLabel = bike.needsPedals
+      ? pedalTypeLabels[payload.locale][bike.pedalType as keyof typeof pedalTypeLabels.de]
+      : yesNo.no;
+    const mountLabel = bike.needsComputerMount
+      ? computerMountTypeLabels[payload.locale][bike.computerMountType as keyof typeof computerMountTypeLabels.de]
+      : yesNo.no;
+
+    return [
+      `Bike ${index + 1}`,
+      `${isGerman ? "Körpergröße" : "Height"}: ${bike.height} cm`,
+      `${isGerman ? "Rennrad" : "Road bike"}: ${bike.bikeSize}`,
+      `${isGerman ? "Pedale" : "Pedals"}: ${bike.needsPedals ? `${yesNo.yes}, ${pedalLabel}` : yesNo.no}`,
+      `${isGerman ? "Fahrradcomputerhalterung" : "Bike computer mount"}: ${bike.needsComputerMount ? `${yesNo.yes}, ${mountLabel}` : yesNo.no}`,
+      `${isGerman ? "Helm" : "Helmet"}: ${bike.needsHelmet ? yesNo.yes : yesNo.no}`,
+      `${isGerman ? "Kleidung" : "Clothing"}: ${bike.needsClothing ? yesNo.yes : yesNo.no}`,
+      "",
+    ];
+  });
 
   return [
     isGerman ? "Neue Bike-Anfrage" : "New bike inquiry",
@@ -26,16 +39,14 @@ function createMailBody(payload: Awaited<ReturnType<typeof contactInquirySchema.
     `${isGerman ? "Name" : "Name"}: ${payload.name}`,
     `${isGerman ? "Kontakt" : "Contact"}: ${payload.contact}`,
     `${isGerman ? "Telefon" : "Phone"}: ${payload.phone}`,
-    `${isGerman ? "Körpergröße" : "Height"}: ${payload.height}`,
     `${isGerman ? "Standort" : "Location"}: ${location}`,
-    `${isGerman ? "Rennrad" : "Road bike"}: ${payload.bikeSize}`,
+    `${isGerman ? "Anzahl Bikes" : "Number of bikes"}: ${payload.bikes.length}`,
     `${isGerman ? "Zeitraum" : "Rental period"}: ${period}`,
     `${isGerman ? "Abholuhrzeit" : "Pickup time"}: ${payload.pickupTime}`,
     `${isGerman ? "Abgabeuhrzeit" : "Drop-off time"}: ${payload.dropoffTime}`,
-    `${isGerman ? "Pedale" : "Pedals"}: ${payload.needsPedals ? `${yesNo.yes}, ${pedalLabel}` : yesNo.no}`,
-    `${isGerman ? "Fahrradcomputerhalterung" : "Bike computer mount"}: ${payload.needsComputerMount ? `${yesNo.yes}, ${mountLabel}` : yesNo.no}`,
-    `${isGerman ? "Helm" : "Helmet"}: ${payload.needsHelmet ? yesNo.yes : yesNo.no}`,
-    `${isGerman ? "Kleidung" : "Clothing"}: ${payload.needsClothing ? yesNo.yes : yesNo.no}`,
+    "",
+    isGerman ? "Bike-Details:" : "Bike details:",
+    ...bikeDetails,
     affiliateLine,
     "",
     isGerman ? "Nachricht:" : "Message:",
@@ -51,15 +62,17 @@ export async function POST(request: Request) {
     if ("error" in parsed) return parsed.error;
 
     const orderNumber = createOrderNumber();
-    const { locale, bikeTitle, contact } = parsed.data;
+    const { locale, bikeTitle, contact, bikes } = parsed.data;
+    const bikeCountLabel =
+      bikes.length === 1 ? (locale === "de" ? "Bike" : "bike") : locale === "de" ? "Bikes" : "bikes";
     const subject =
       locale === "de"
         ? bikeTitle
-          ? `Neue Bike-Anfrage ${orderNumber} - ${bikeTitle}`
-          : `Neue Bike-Anfrage ${orderNumber}`
+          ? `Neue Bike-Anfrage ${orderNumber} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
+          : `Neue Bike-Anfrage ${orderNumber} (${bikes.length} ${bikeCountLabel})`
         : bikeTitle
-          ? `New bike inquiry ${orderNumber} - ${bikeTitle}`
-          : `New bike inquiry ${orderNumber}`;
+          ? `New bike inquiry ${orderNumber} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
+          : `New bike inquiry ${orderNumber} (${bikes.length} ${bikeCountLabel})`;
     const sent = await sendInquiryMail({
       subject,
       text: createMailBody(parsed.data, orderNumber),

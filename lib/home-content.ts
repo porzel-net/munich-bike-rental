@@ -552,6 +552,8 @@ export const translations = {
       contact: "E-Mail-Adresse",
       phone: "Telefonnummer",
       phoneHint: "Damit wir dich bei kurzfristigen Anfragen schnell anrufen können.",
+      bikeCount: "Anzahl Bikes",
+      bike: "Bike",
       height: "Körpergröße in cm",
       bikeSize: "Rennrad",
       bikeSizeOptions: {
@@ -802,6 +804,8 @@ export const translations = {
       contact: "Email address",
       phone: "Phone number",
       phoneHint: "So we can call you quickly if the request is short notice.",
+      bikeCount: "Number of bikes",
+      bike: "Bike",
       height: "Height in cm",
       bikeSize: "Road bike",
       bikeSizeOptions: {

@@ -46,6 +46,8 @@ type FormTranslations = {
   contact: string;
   phone: string;
   phoneHint: string;
+  bikeCount: string;
+  bike: string;
   height: string;
   bikeSize: string;
   bikeSizeOptions: {
@@ -191,8 +193,23 @@ type ContactFieldErrors = Partial<Record<ContactField, string>>;
 
 type ContactFormValidation = {
   fieldErrors: ContactFieldErrors;
+  bikeErrors: BikeFieldErrors[];
   submitError: string | null;
 };
+
+type BikeFormState = {
+  height: string;
+  bikeSize: string;
+  needsPedals: boolean;
+  pedalType: string;
+  needsComputerMount: boolean;
+  computerMountType: string;
+  needsHelmet: boolean;
+  needsClothing: boolean;
+};
+
+type BikeField = "height" | "bikeSize" | "pedalType" | "computerMountType";
+type BikeFieldErrors = Partial<Record<BikeField, string>>;
 
 function buildPathWithSearch({
   pathname,
@@ -236,6 +253,19 @@ function isValidContactValue(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function createEmptyBike(): BikeFormState {
+  return {
+    height: "",
+    bikeSize: "",
+    needsPedals: false,
+    pedalType: "",
+    needsComputerMount: false,
+    computerMountType: "",
+    needsHelmet: false,
+    needsClothing: false,
+  };
+}
+
 function validateContactForm(
   translations: SharedTranslations,
   values: {
@@ -243,18 +273,11 @@ function validateContactForm(
     name: string;
     contact: string;
     phone: string;
-    height: string;
-    bikeSize: string;
+    bikes: BikeFormState[];
     periodFrom: string;
     periodTo: string;
     pickupTime: string;
     dropoffTime: string;
-    needsPedals: boolean;
-    pedalType: string;
-    needsComputerMount: boolean;
-    computerMountType: string;
-    needsHelmet: boolean;
-    needsClothing: boolean;
     message: string;
     privacyAccepted: boolean;
   },
@@ -263,13 +286,10 @@ function validateContactForm(
   const fieldErrors: ContactFieldErrors = {};
   const locationValue = values.location.trim();
   const phoneValue = values.phone.trim();
-  const heightValue = values.height.trim();
   const periodFromValue = values.periodFrom.trim();
   const periodToValue = values.periodTo.trim();
   const pickupTimeValue = values.pickupTime.trim();
   const dropoffTimeValue = values.dropoffTime.trim();
-  const pedalTypeValue = values.pedalType.trim();
-  const computerMountTypeValue = values.computerMountType.trim();
 
   if (!locationValue || !rentalLocations.includes(locationValue as RentalLocation)) {
     fieldErrors.location = validation.locationRequired;
@@ -289,18 +309,40 @@ function validateContactForm(
     fieldErrors.phone = validation.phoneRequired;
   }
 
-  if (!heightValue) {
-    fieldErrors.height = validation.heightRequired;
-  } else {
-    const heightNumber = Number(heightValue);
-    if (!/^\d{2,3}$/.test(heightValue) || !Number.isFinite(heightNumber) || heightNumber < 100 || heightNumber > 250) {
-      fieldErrors.height = validation.heightInvalid;
-    }
-  }
+  const bikeErrors = values.bikes.map((bike) => {
+    const errors: BikeFieldErrors = {};
+    const heightValue = bike.height.trim();
+    const pedalTypeValue = bike.pedalType.trim();
+    const computerMountTypeValue = bike.computerMountType.trim();
 
-  if (!values.bikeSize.trim()) {
-    fieldErrors.bikeSize = validation.bikeSizeRequired;
-  }
+    if (!heightValue) {
+      errors.height = validation.heightRequired;
+    } else {
+      const heightNumber = Number(heightValue);
+      if (
+        !/^\d{2,3}$/.test(heightValue) ||
+        !Number.isFinite(heightNumber) ||
+        heightNumber < 100 ||
+        heightNumber > 250
+      ) {
+        errors.height = validation.heightInvalid;
+      }
+    }
+
+    if (!bike.bikeSize.trim()) {
+      errors.bikeSize = validation.bikeSizeRequired;
+    }
+
+    if (bike.needsPedals && !pedalTypeValue) {
+      errors.pedalType = validation.pedalTypeRequired;
+    }
+
+    if (bike.needsComputerMount && !computerMountTypeValue) {
+      errors.computerMountType = validation.computerMountTypeRequired;
+    }
+
+    return errors;
+  });
 
   if (!periodFromValue) {
     fieldErrors.periodFrom = validation.periodFromRequired;
@@ -322,14 +364,6 @@ function validateContactForm(
     fieldErrors.dropoffTime = validation.dropoffTimeRequired;
   }
 
-  if (values.needsPedals && !pedalTypeValue) {
-    fieldErrors.pedalType = validation.pedalTypeRequired;
-  }
-
-  if (values.needsComputerMount && !computerMountTypeValue) {
-    fieldErrors.computerMountType = validation.computerMountTypeRequired;
-  }
-
   if (!values.message.trim()) {
     fieldErrors.message = validation.messageRequired;
   }
@@ -340,7 +374,11 @@ function validateContactForm(
 
   return {
     fieldErrors,
-    submitError: Object.keys(fieldErrors).length > 0 ? validation.submitValidationError : null,
+    bikeErrors,
+    submitError:
+      Object.keys(fieldErrors).length > 0 || bikeErrors.some((errors) => Object.keys(errors).length > 0)
+        ? validation.submitValidationError
+        : null,
   };
 }
 
@@ -1015,8 +1053,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [phone, setPhone] = useState("");
-  const [height, setHeight] = useState("");
-  const [bikeSize, setBikeSize] = useState("");
+  const [bikes, setBikes] = useState<BikeFormState[]>([createEmptyBike()]);
   const [contactMessage, setContactMessage] = useState(
     lang === "de"
       ? "Hey,\n\nich würde gerne ein Bike reservieren.\n\nIch freue mich über eine kurze Rückmeldung zu Verfügbarkeit und Abholung.\n\nViele Grüße"
@@ -1026,15 +1063,10 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
   const [periodTo, setPeriodTo] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [dropoffTime, setDropoffTime] = useState("");
-  const [needsPedals, setNeedsPedals] = useState(false);
-  const [pedalType, setPedalType] = useState("");
-  const [needsComputerMount, setNeedsComputerMount] = useState(false);
-  const [computerMountType, setComputerMountType] = useState("");
-  const [needsHelmet, setNeedsHelmet] = useState(false);
-  const [needsClothing, setNeedsClothing] = useState(false);
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
+  const [bikeErrors, setBikeErrors] = useState<BikeFieldErrors[]>([{}]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const affiliateKey = getAffiliateKey(searchParams);
@@ -1054,6 +1086,33 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
     setContactStatus("idle");
   };
 
+  const clearBikeFieldError = (index: number, field: BikeField) => {
+    setBikeErrors((current) =>
+      current.map((errors, errorIndex) => {
+        if (errorIndex !== index || !errors[field]) {
+          return errors;
+        }
+
+        const next = { ...errors };
+        delete next[field];
+        return next;
+      }),
+    );
+    setSubmitError(null);
+    setContactStatus("idle");
+  };
+
+  const updateBike = <K extends keyof BikeFormState>(index: number, field: K, value: BikeFormState[K]) => {
+    setBikes((current) => current.map((bike, bikeIndex) => (bikeIndex === index ? { ...bike, [field]: value } : bike)));
+  };
+
+  const resizeBikes = (count: number) => {
+    setBikes((current) => Array.from({ length: count }, (_, index) => current[index] ?? createEmptyBike()));
+    setBikeErrors((current) => Array.from({ length: count }, (_, index) => current[index] ?? {}));
+    setSubmitError(null);
+    setContactStatus("idle");
+  };
+
   const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -1062,24 +1121,21 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
       name,
       contact,
       phone,
-      height,
-      bikeSize,
+      bikes,
       periodFrom,
       periodTo,
       pickupTime,
       dropoffTime,
-      needsPedals,
-      pedalType,
-      needsComputerMount,
-      computerMountType,
-      needsHelmet,
-      needsClothing,
       message: contactMessage,
       privacyAccepted,
     });
 
-    if (Object.keys(validation.fieldErrors).length > 0) {
+    if (
+      Object.keys(validation.fieldErrors).length > 0 ||
+      validation.bikeErrors.some((errors) => Object.keys(errors).length > 0)
+    ) {
       setFieldErrors(validation.fieldErrors);
+      setBikeErrors(validation.bikeErrors);
       setSubmitError(validation.submitError);
       setContactStatus("error");
       return;
@@ -1090,19 +1146,11 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
     const nameValue = String(formData.get("name") ?? "").trim();
     const contactValue = String(formData.get("contact") ?? "").trim();
     const phoneValue = String(formData.get("phone") ?? "").trim();
-    const heightValue = String(formData.get("height") ?? "").trim();
-    const bikeSizeValue = String(formData.get("bikeSize") ?? "").trim();
     const locationValue = String(formData.get("location") ?? "").trim();
     const periodFromValue = String(formData.get("periodFrom") ?? "").trim();
     const periodToValue = String(formData.get("periodTo") ?? "").trim();
     const pickupTimeValue = String(formData.get("pickupTime") ?? "").trim();
     const dropoffTimeValue = String(formData.get("dropoffTime") ?? "").trim();
-    const needsPedalsValue = formData.get("needsPedals") === "on";
-    const pedalTypeValue = String(formData.get("pedalType") ?? "").trim();
-    const needsComputerMountValue = formData.get("needsComputerMount") === "on";
-    const computerMountTypeValue = String(formData.get("computerMountType") ?? "").trim();
-    const needsHelmetValue = formData.get("needsHelmet") === "on";
-    const needsClothingValue = formData.get("needsClothing") === "on";
     const message = String(formData.get("message") ?? "").trim();
 
     setContactStatus("sending");
@@ -1115,19 +1163,12 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
         name: nameValue,
         contact: contactValue,
         phone: phoneValue,
-        height: heightValue,
         location: locationValue,
-        bikeSize: bikeSizeValue,
+        bikes,
         periodFrom: periodFromValue,
         periodTo: periodToValue,
         pickupTime: pickupTimeValue,
         dropoffTime: dropoffTimeValue,
-        needsPedals: needsPedalsValue,
-        pedalType: needsPedalsValue ? pedalTypeValue : "",
-        needsComputerMount: needsComputerMountValue,
-        computerMountType: needsComputerMountValue ? computerMountTypeValue : "",
-        needsHelmet: needsHelmetValue,
-        needsClothing: needsClothingValue,
         message,
         locale: lang,
         affiliateKey: affiliateKey || undefined,
@@ -1142,22 +1183,16 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
       setName("");
       setContact("");
       setPhone("");
-      setHeight("");
       setLocation(defaultLocation);
-      setBikeSize("");
+      setBikes([createEmptyBike()]);
       setContactMessage("");
       setPeriodFrom("");
       setPeriodTo("");
       setPickupTime("");
       setDropoffTime("");
-      setNeedsPedals(false);
-      setPedalType("");
-      setNeedsComputerMount(false);
-      setComputerMountType("");
-      setNeedsHelmet(false);
-      setNeedsClothing(false);
       setPrivacyAccepted(false);
       setFieldErrors({});
+      setBikeErrors([{}]);
       setSubmitError(null);
       setOrderNumber(result?.orderNumber ?? null);
       setContactStatus("success");
@@ -1247,59 +1282,212 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
             </p>
           ) : null}
         </div>
-        <div className="contact-form__bike-fields">
+        <div className="contact-form__bike-count">
           <div className="contact-form__field">
-            <label htmlFor="height">{translations.form.height}</label>
-            <input
-              id="height"
-              name="height"
-              type="number"
-              min="100"
-              max="250"
-              value={height}
-              aria-invalid={Boolean(fieldErrors.height)}
-              aria-describedby={fieldErrors.height ? "height-error" : undefined}
-              onChange={(event) => {
-                setHeight(event.target.value);
-                clearFieldError("height");
-              }}
-              inputMode="numeric"
-            />
-            {fieldErrors.height ? (
-              <p className="contact-form__error" id="height-error">
-                {fieldErrors.height}
-              </p>
-            ) : null}
-          </div>
-          <div className="contact-form__field">
-            <label htmlFor="bike-size">{translations.form.bikeSize}</label>
+            <label htmlFor="bike-count">{translations.form.bikeCount}</label>
             <select
-              id="bike-size"
-              name="bikeSize"
-              value={bikeSize}
-              aria-invalid={Boolean(fieldErrors.bikeSize)}
-              aria-describedby={fieldErrors.bikeSize ? "bike-size-error" : undefined}
-              onChange={(event) => {
-                setBikeSize(event.target.value);
-                clearFieldError("bikeSize");
-              }}
+              id="bike-count"
+              name="bikeCount"
+              value={bikes.length}
+              onChange={(event) => resizeBikes(Number(event.target.value))}
             >
-              <option value="" disabled>
-                {lang === "de" ? "Rennrad auswählen" : "Choose a road bike"}
-              </option>
-              {bikeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
+              {Array.from({ length: 10 }, (_, index) => {
+                const count = index + 1;
+                return (
+                  <option key={count} value={count}>
+                    {count}
+                  </option>
+                );
+              })}
             </select>
-            {fieldErrors.bikeSize ? (
-              <p className="contact-form__error" id="bike-size-error">
-                {fieldErrors.bikeSize}
-              </p>
-            ) : null}
           </div>
         </div>
+        {bikes.map((bike, index) => {
+          const errors = bikeErrors[index] ?? {};
+          const bikePrefix = "bike-" + index;
+
+          return (
+            <div key={index} className="contact-form__bike-card">
+              <h3 className="contact-form__bike-title">
+                {translations.form.bike} {index + 1}
+              </h3>
+              <div className="contact-form__bike-fields">
+                <div className="contact-form__field">
+                  <label htmlFor={bikePrefix + "-height"}>{translations.form.height}</label>
+                  <input
+                    id={bikePrefix + "-height"}
+                    name={"bikes." + index + ".height"}
+                    type="number"
+                    min="100"
+                    max="250"
+                    value={bike.height}
+                    aria-invalid={Boolean(errors.height)}
+                    aria-describedby={errors.height ? bikePrefix + "-height-error" : undefined}
+                    onChange={(event) => {
+                      updateBike(index, "height", event.target.value);
+                      clearBikeFieldError(index, "height");
+                    }}
+                    inputMode="numeric"
+                  />
+                  {errors.height ? (
+                    <p className="contact-form__error" id={bikePrefix + "-height-error"}>
+                      {errors.height}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="contact-form__field">
+                  <label htmlFor={bikePrefix + "-size"}>{translations.form.bikeSize}</label>
+                  <select
+                    id={bikePrefix + "-size"}
+                    name={"bikes." + index + ".bikeSize"}
+                    value={bike.bikeSize}
+                    aria-invalid={Boolean(errors.bikeSize)}
+                    aria-describedby={errors.bikeSize ? bikePrefix + "-size-error" : undefined}
+                    onChange={(event) => {
+                      updateBike(index, "bikeSize", event.target.value);
+                      clearBikeFieldError(index, "bikeSize");
+                    }}
+                  >
+                    <option value="" disabled>
+                      {lang === "de" ? "Rennrad auswählen" : "Choose a road bike"}
+                    </option>
+                    {bikeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.bikeSize ? (
+                    <p className="contact-form__error" id={bikePrefix + "-size-error"}>
+                      {errors.bikeSize}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <span className="contact-form__section-title">{translations.form.equipment}</span>
+              <div className="contact-form__equipment-grid">
+                <div className="contact-form__equipment-item">
+                  <label className="contact-form__checkbox">
+                    <input
+                      type="checkbox"
+                      name={"bikes." + index + ".needsPedals"}
+                      checked={bike.needsPedals}
+                      onChange={(event) => {
+                        const nextValue = event.target.checked;
+                        updateBike(index, "needsPedals", nextValue);
+                        if (!nextValue) {
+                          updateBike(index, "pedalType", "");
+                        }
+                        clearBikeFieldError(index, "pedalType");
+                      }}
+                    />
+                    <span>{translations.form.pedals}</span>
+                  </label>
+
+                  {bike.needsPedals ? (
+                    <div className="contact-form__field">
+                      <label htmlFor={bikePrefix + "-pedal-type"}>{translations.form.pedalType}</label>
+                      <select
+                        id={bikePrefix + "-pedal-type"}
+                        name={"bikes." + index + ".pedalType"}
+                        value={bike.pedalType}
+                        aria-invalid={Boolean(errors.pedalType)}
+                        aria-describedby={errors.pedalType ? bikePrefix + "-pedal-type-error" : undefined}
+                        onChange={(event) => {
+                          updateBike(index, "pedalType", event.target.value);
+                          clearBikeFieldError(index, "pedalType");
+                        }}
+                      >
+                        <option value="" disabled>
+                          {translations.form.pedalType}
+                        </option>
+                        <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
+                        <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
+                        <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
+                        <option value="other">{translations.form.pedalTypeOptions.other}</option>
+                      </select>
+                      {errors.pedalType ? (
+                        <p className="contact-form__error" id={bikePrefix + "-pedal-type-error"}>
+                          {errors.pedalType}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="contact-form__equipment-item">
+                  <label className="contact-form__checkbox">
+                    <input
+                      type="checkbox"
+                      name={"bikes." + index + ".needsComputerMount"}
+                      checked={bike.needsComputerMount}
+                      onChange={(event) => {
+                        const nextValue = event.target.checked;
+                        updateBike(index, "needsComputerMount", nextValue);
+                        if (!nextValue) {
+                          updateBike(index, "computerMountType", "");
+                        }
+                        clearBikeFieldError(index, "computerMountType");
+                      }}
+                    />
+                    <span>{translations.form.computerMount}</span>
+                  </label>
+
+                  {bike.needsComputerMount ? (
+                    <div className="contact-form__field">
+                      <label htmlFor={bikePrefix + "-computer-mount-type"}>{translations.form.computerMountType}</label>
+                      <select
+                        id={bikePrefix + "-computer-mount-type"}
+                        name={"bikes." + index + ".computerMountType"}
+                        value={bike.computerMountType}
+                        aria-invalid={Boolean(errors.computerMountType)}
+                        aria-describedby={
+                          errors.computerMountType ? bikePrefix + "-computer-mount-type-error" : undefined
+                        }
+                        onChange={(event) => {
+                          updateBike(index, "computerMountType", event.target.value);
+                          clearBikeFieldError(index, "computerMountType");
+                        }}
+                      >
+                        <option value="" disabled>
+                          {translations.form.computerMountType}
+                        </option>
+                        <option value="garmin">{translations.form.computerMountTypeOptions.garmin}</option>
+                        <option value="wahoo">{translations.form.computerMountTypeOptions.wahoo}</option>
+                        <option value="other">{translations.form.computerMountTypeOptions.other}</option>
+                      </select>
+                      {errors.computerMountType ? (
+                        <p className="contact-form__error" id={bikePrefix + "-computer-mount-type-error"}>
+                          {errors.computerMountType}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <label className="contact-form__checkbox">
+                  <input
+                    type="checkbox"
+                    name={"bikes." + index + ".needsHelmet"}
+                    checked={bike.needsHelmet}
+                    onChange={(event) => updateBike(index, "needsHelmet", event.target.checked)}
+                  />
+                  <span>{translations.form.helmet}</span>
+                </label>
+
+                <label className="contact-form__checkbox">
+                  <input
+                    type="checkbox"
+                    name={"bikes." + index + ".needsClothing"}
+                    checked={bike.needsClothing}
+                    onChange={(event) => updateBike(index, "needsClothing", event.target.checked)}
+                  />
+                  <span>{translations.form.clothing}</span>
+                </label>
+              </div>
+            </div>
+          );
+        })}
       </div>
       <div className="contact-form__period">
         <span className="contact-form__hint">{translations.form.periodHint}</span>
@@ -1388,131 +1576,6 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
               </p>
             ) : null}
           </div>
-        </div>
-      </div>
-      <div className="contact-form__period">
-        <span className="contact-form__section-title">{translations.form.equipment}</span>
-        <div className="contact-form__equipment-grid">
-          <div className="contact-form__equipment-item">
-            <label className="contact-form__checkbox">
-              <input
-                type="checkbox"
-                name="needsPedals"
-                checked={needsPedals}
-                onChange={(event) => {
-                  const nextValue = event.target.checked;
-                  setNeedsPedals(nextValue);
-                  if (!nextValue) {
-                    setPedalType("");
-                  }
-                  clearFieldError("pedalType");
-                }}
-              />
-              <span>{translations.form.pedals}</span>
-            </label>
-
-            {needsPedals ? (
-              <div className="contact-form__field">
-                <label htmlFor="pedal-type">{translations.form.pedalType}</label>
-                <select
-                  id="pedal-type"
-                  name="pedalType"
-                  value={pedalType}
-                  aria-invalid={Boolean(fieldErrors.pedalType)}
-                  aria-describedby={fieldErrors.pedalType ? "pedal-type-error" : undefined}
-                  onChange={(event) => {
-                    setPedalType(event.target.value);
-                    clearFieldError("pedalType");
-                  }}
-                >
-                  <option value="" disabled>
-                    {translations.form.pedalType}
-                  </option>
-                  <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
-                  <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
-                  <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
-                  <option value="other">{translations.form.pedalTypeOptions.other}</option>
-                </select>
-                {fieldErrors.pedalType ? (
-                  <p className="contact-form__error" id="pedal-type-error">
-                    {fieldErrors.pedalType}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="contact-form__equipment-item">
-            <label className="contact-form__checkbox">
-              <input
-                type="checkbox"
-                name="needsComputerMount"
-                checked={needsComputerMount}
-                onChange={(event) => {
-                  const nextValue = event.target.checked;
-                  setNeedsComputerMount(nextValue);
-                  if (!nextValue) {
-                    setComputerMountType("");
-                  }
-                  clearFieldError("computerMountType");
-                }}
-              />
-              <span>{translations.form.computerMount}</span>
-            </label>
-
-            {needsComputerMount ? (
-              <div className="contact-form__field">
-                <label htmlFor="computer-mount-type">{translations.form.computerMountType}</label>
-                <select
-                  id="computer-mount-type"
-                  name="computerMountType"
-                  value={computerMountType}
-                  aria-invalid={Boolean(fieldErrors.computerMountType)}
-                  aria-describedby={fieldErrors.computerMountType ? "computer-mount-type-error" : undefined}
-                  onChange={(event) => {
-                    setComputerMountType(event.target.value);
-                    clearFieldError("computerMountType");
-                  }}
-                >
-                  <option value="" disabled>
-                    {translations.form.computerMountType}
-                  </option>
-                  <option value="garmin">{translations.form.computerMountTypeOptions.garmin}</option>
-                  <option value="wahoo">{translations.form.computerMountTypeOptions.wahoo}</option>
-                  <option value="other">{translations.form.computerMountTypeOptions.other}</option>
-                </select>
-                {fieldErrors.computerMountType ? (
-                  <p className="contact-form__error" id="computer-mount-type-error">
-                    {fieldErrors.computerMountType}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <label className="contact-form__checkbox">
-            <input
-              type="checkbox"
-              name="needsHelmet"
-              checked={needsHelmet}
-              onChange={(event) => {
-                setNeedsHelmet(event.target.checked);
-              }}
-            />
-            <span>{translations.form.helmet}</span>
-          </label>
-
-          <label className="contact-form__checkbox">
-            <input
-              type="checkbox"
-              name="needsClothing"
-              checked={needsClothing}
-              onChange={(event) => {
-                setNeedsClothing(event.target.checked);
-              }}
-            />
-            <span>{translations.form.clothing}</span>
-          </label>
         </div>
       </div>
       <textarea

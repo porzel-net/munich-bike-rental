@@ -38,37 +38,20 @@ const message = z
   .max(MAX_MESSAGE_LENGTH)
   .transform((value) => value.replace(/\r\n?/g, "\n"));
 
-export const contactInquirySchema = z
+const bikeInquirySchema = z
   .object({
-    name: requiredLine(120),
-    contact: requiredLine(254).email(),
-    phone: requiredLine(64),
     height: requiredLine(3)
       .regex(/^\d{2,3}$/)
       .refine((value) => Number(value) >= 100 && Number(value) <= 250, "Height out of range"),
-    location: z.enum(rentalLocations),
     bikeSize: z.enum(rentalBikeOptions),
-    periodFrom: date,
-    periodTo: date,
-    pickupTime: time,
-    dropoffTime: time,
     needsPedals: booleanInput.default(false),
     pedalType: optionalLine(32),
     needsComputerMount: booleanInput.default(false),
     computerMountType: optionalLine(32),
     needsHelmet: booleanInput.default(false),
     needsClothing: booleanInput.default(false),
-    message,
-    bikeTitle: optionalLine(120),
-    locale,
-    affiliateKey: optionalLine(120),
-    website: honeypot,
   })
   .superRefine((value, context) => {
-    if (value.periodFrom > value.periodTo) {
-      context.addIssue({ code: "custom", path: ["periodTo"], message: "End date is before start date" });
-    }
-
     if (value.needsPedals && !pedalTypes.includes(value.pedalType as (typeof pedalTypes)[number])) {
       context.addIssue({ code: "custom", path: ["pedalType"], message: "Invalid pedal type" });
     }
@@ -78,6 +61,29 @@ export const contactInquirySchema = z
       !computerMountTypes.includes(value.computerMountType as (typeof computerMountTypes)[number])
     ) {
       context.addIssue({ code: "custom", path: ["computerMountType"], message: "Invalid computer mount type" });
+    }
+  });
+
+export const contactInquirySchema = z
+  .object({
+    name: requiredLine(120),
+    contact: requiredLine(254).email(),
+    phone: requiredLine(64),
+    location: z.enum(rentalLocations),
+    bikes: z.array(bikeInquirySchema).min(1).max(10),
+    periodFrom: date,
+    periodTo: date,
+    pickupTime: time,
+    dropoffTime: time,
+    message,
+    bikeTitle: optionalLine(120),
+    locale,
+    affiliateKey: optionalLine(120),
+    website: honeypot,
+  })
+  .superRefine((value, context) => {
+    if (value.periodFrom > value.periodTo) {
+      context.addIssue({ code: "custom", path: ["periodTo"], message: "End date is before start date" });
     }
   });
 

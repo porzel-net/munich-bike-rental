@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import nodemailer from "nodemailer";
@@ -195,7 +194,7 @@ export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = pr
   };
 }
 
-export function createOrderNumber(date = new Date(), random: string = crypto.randomUUID()) {
+export function createOrderNumber(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     year: "numeric",
@@ -209,7 +208,7 @@ export function createOrderNumber(date = new Date(), random: string = crypto.ran
   const values = Object.fromEntries(
     parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
   );
-  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}-${random.slice(0, 6)}`;
+  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
 }
 
 export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {

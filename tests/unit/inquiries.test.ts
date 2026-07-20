@@ -20,9 +20,19 @@ const validContact = {
   name: "Max Mustermann",
   contact: "max@example.com",
   phone: "+49 123456789",
-  height: "180",
   location: "munich",
-  bikeSize: "Endurace CF SL 8 - M",
+  bikes: [
+    {
+      height: "180",
+      bikeSize: "Endurace CF SL 8 - M",
+      needsPedals: false,
+      pedalType: "",
+      needsComputerMount: false,
+      computerMountType: "",
+      needsHelmet: false,
+      needsClothing: false,
+    },
+  ],
   periodFrom: "2026-07-20",
   periodTo: "2026-07-21",
   pickupTime: "10:00",
@@ -58,6 +68,39 @@ describe("inquiry schemas", () => {
     ).toBe(false);
   });
 
+  it("validates each bike independently", () => {
+    expect(
+      contactInquirySchema.safeParse({
+        ...validContact,
+        bikes: [
+          ...validContact.bikes,
+          {
+            height: "172",
+            bikeSize: "Grail CF SL 7 - M",
+            needsPedals: true,
+            pedalType: "spdSl",
+            needsComputerMount: true,
+            computerMountType: "garmin",
+            needsHelmet: true,
+            needsClothing: false,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      contactInquirySchema.safeParse({
+        ...validContact,
+        bikes: [{ ...validContact.bikes[0], needsPedals: true, pedalType: "" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      contactInquirySchema.safeParse({
+        ...validContact,
+        bikes: Array.from({ length: 11 }, () => validContact.bikes[0]),
+      }).success,
+    ).toBe(false);
+  });
+
   it("requires a known maintenance service", () => {
     expect(
       maintenanceInquirySchema.safeParse({
@@ -84,11 +127,8 @@ describe("inquiry server helpers", () => {
     expect(consumeRateLimit("contact:test", 3)).toBe(false);
   });
 
-  it("uses unique order number suffixes and validates mail configuration", async () => {
-    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"), "abcdef-0000")).toMatch(/-abcdef$/);
-    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"), "123456-0000")).not.toBe(
-      createOrderNumber(new Date("2026-07-17T10:00:00Z"), "abcdef-0000"),
-    );
+  it("uses the timestamp as the order number and validates mail configuration", async () => {
+    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"))).toBe("#20260717120000");
     expect(
       await getMailConfig({
         SMTP_HOST: "smtp.example.com",
@@ -147,6 +187,40 @@ describe("contact route", () => {
       (await contactPost(request({ ...validContact, website: "https://bot.invalid" }, "198.51.100.11"))).status,
     ).toBe(400);
     expect((await contactPost(request({ ...validContact, name: "" }, "198.51.100.12"))).status).toBe(400);
+  });
+
+  it("includes all bike details in the email", async () => {
+    const response = await contactPost(
+      request({
+        ...validContact,
+        bikes: [
+          validContact.bikes[0],
+          {
+            height: "172",
+            bikeSize: "Grail CF SL 7 - M",
+            needsPedals: true,
+            pedalType: "spdSl",
+            needsComputerMount: true,
+            computerMountType: "garmin",
+            needsHelmet: true,
+            needsClothing: true,
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const mail = sendMail.mock.calls[0]?.[0];
+    expect(mail.subject).toContain("(2 Bikes)");
+    expect(mail.text).toContain("Anzahl Bikes: 2");
+    expect(mail.text).toContain("Bike 1");
+    expect(mail.text).toContain("Körpergröße: 180 cm");
+    expect(mail.text).toContain("Bike 2");
+    expect(mail.text).toContain("Körpergröße: 172 cm");
+    expect(mail.text).toContain("Rennrad: Grail CF SL 7 - M");
+    expect(mail.text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
+    expect(mail.text).toContain("Kleidung: Ja");
+    expect(Object.keys(mail)).not.toEqual(expect.arrayContaining(["raw", "path", "href"]));
   });
 
   it("returns a configuration error without SMTP credentials", async () => {
