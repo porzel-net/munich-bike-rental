@@ -226,6 +226,8 @@ export async function sendInquiryMail({ subject, text, replyTo }: { subject: str
     connectionTimeout: config.timeout,
     greetingTimeout: config.timeout,
     socketTimeout: config.timeout,
+    disableFileAccess: true,
+    disableUrlAccess: true,
     auth: { user: config.user, pass: config.password },
   });
 

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fileURLToPath } from "node:url";
 
-const { sendMail } = vi.hoisted(() => ({ sendMail: vi.fn() }));
-vi.mock("nodemailer", () => ({ default: { createTransport: vi.fn(() => ({ sendMail })) } }));
+const { createTransport, sendMail } = vi.hoisted(() => {
+  const sendMail = vi.fn();
+  return { createTransport: vi.fn(() => ({ sendMail })), sendMail };
+});
+vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
 import { POST as contactPost } from "../../app/api/contact/route";
 import { contactInquirySchema, maintenanceInquirySchema } from "../../lib/inquiries/schemas";
@@ -137,6 +140,9 @@ describe("contact route", () => {
   it("sends a valid inquiry and rejects bot and invalid input", async () => {
     expect((await contactPost(request(validContact))).status).toBe(200);
     expect(sendMail).toHaveBeenCalledOnce();
+    expect(createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ disableFileAccess: true, disableUrlAccess: true }),
+    );
     expect(
       (await contactPost(request({ ...validContact, website: "https://bot.invalid" }, "198.51.100.11"))).status,
     ).toBe(400);
