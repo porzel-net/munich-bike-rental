@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { computerMountTypeLabels, pedalTypeLabels, rentalLocationLabels } from "../../../lib/inquiries/catalog";
+import { getDatabase } from "../../../lib/db/client";
+import { isRequestAvailable } from "../../../lib/inventory/repository";
+import { saveRentalInquiry } from "../../../lib/inquiries/repository";
 import { contactInquirySchema } from "../../../lib/inquiries/schemas";
 import { createOrderNumber, jsonError, parseInquiryRequest, sendInquiryMail } from "../../../lib/inquiries/server";
 
@@ -63,6 +66,10 @@ export async function POST(request: Request) {
 
     const orderNumber = createOrderNumber();
     const { locale, bikeTitle, contact, bikes } = parsed.data;
+    const database = getDatabase();
+    if (!isRequestAvailable(database, parsed.data.location, bikes)) {
+      return jsonError(400, "validation_error", "Requested bike or equipment is unavailable at this location");
+    }
     const bikeCountLabel =
       bikes.length === 1 ? (locale === "de" ? "Bike" : "bike") : locale === "de" ? "Bikes" : "bikes";
     const subject =
@@ -73,13 +80,22 @@ export async function POST(request: Request) {
         : bikeTitle
           ? `New bike inquiry ${orderNumber} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
           : `New bike inquiry ${orderNumber} (${bikes.length} ${bikeCountLabel})`;
-    const sent = await sendInquiryMail({
-      subject,
-      text: createMailBody(parsed.data, orderNumber),
-      replyTo: contact,
-    });
+    let sent: boolean;
+    try {
+      sent = await sendInquiryMail({
+        subject,
+        text: createMailBody(parsed.data, orderNumber),
+        replyTo: contact,
+      });
+    } catch {
+      return jsonError(500, "send_failed", "Unable to send message");
+    }
 
-    if (!sent) return jsonError(500, "config_incomplete", "Mail configuration is incomplete");
+    if (!sent) {
+      return jsonError(500, "config_incomplete", "Mail configuration is incomplete");
+    }
+
+    saveRentalInquiry(database, parsed.data, orderNumber);
     return NextResponse.json({ ok: true, orderNumber }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return jsonError(500, "send_failed", "Unable to send message");

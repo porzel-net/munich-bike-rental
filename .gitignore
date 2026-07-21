@@ -24,5 +24,8 @@ pnpm-debug.log*
 # release artifacts
 *.tar
 
+# local SQLite data
+data/
+
 # test artifacts
 test-results/

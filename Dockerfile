@@ -3,7 +3,7 @@ ARG SITE_URL=https://www.munich-bike-rental.de
 FROM node:22.23.1-bookworm-slim AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
 
 FROM node:22.23.1-bookworm-slim AS builder
@@ -11,6 +11,9 @@ WORKDIR /app
 ARG SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SITE_URL=${SITE_URL}
+# Better Auth initializes the database while Next collects route metadata. The
+# runtime uses /data/bikerental.db from docker-compose instead.
+ENV DATABASE_URL=/tmp/bikerental.db
 RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -35,6 +38,7 @@ RUN groupadd --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 
 USER nextjs
 

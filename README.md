@@ -18,6 +18,7 @@ Das Ziel-Setup ist:
 - der externe Zugriff läuft über einen Nginx Reverse Proxy auf dem Host
 - der Container veröffentlicht keine `80`/`443`-Ports
 - der Container läuft als Non-Root-User, mit Read-Only-Filesystem und ohne zusätzliche Capabilities
+- Bike-Anfragen werden zusätzlich zum E-Mail-Versand in einer persistenten SQLite-Datenbank gespeichert
 
 ## Deployment-Flow
 
@@ -61,6 +62,8 @@ APP_MEMORY_LIMIT=512m
 APP_CPU_LIMIT=1.0
 SITE_URL=https://www.deine-domain.tld
 APP_ORIGIN=https://www.deine-domain.tld
+# Lokal: ./data/bikerental.db. Im Docker-Stack ist der feste, persistente Pfad /data/bikerental.db gesetzt.
+DATABASE_URL=./data/bikerental.db
 SMTP_HOST=smtp.example.com
 SMTP_PORT=465
 SMTP_SECURE=true
@@ -85,6 +88,9 @@ Wichtig:
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL` und `APP_ORIGIN` müssen zur echten Domain passen
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
+- Die SQLite-Datei gehört niemals ins Image. Der Compose-Stack verwendet das Named Volume `app-data`; der Einmal-Service `database-init` setzt dessen Eigentümer auf den Non-Root-App-User und die Rechte auf `0700`.
+- Drizzle führt versionierte Migrationen aus `drizzle/` beim ersten Zugriff auf den Anfrage-Endpunkt aus. Das Volume bleibt bei Image-Updates und Container-Neustarts erhalten. Lösche es nicht mit `docker compose down -v`, sofern die Anfragen erhalten bleiben sollen.
+- SQLite ist für diesen einzelnen App-Container vorgesehen. Mehrere parallele App-Replikas dürfen nicht dasselbe SQLite-Volume beschreiben.
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht
 - `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden
@@ -218,6 +224,24 @@ Registry-Status prüfen:
 ```bash
 docker images | grep bikerental
 ```
+
+## Datenbank und Migrationen
+
+Das Drizzle-Schema liegt in `lib/db/schema.ts`; die generierten SQL-Migrationen werden mit versioniert. Neue Schemaänderungen werden lokal so erstellt:
+
+```bash
+pnpm db:generate
+DATABASE_URL=./data/bikerental.db pnpm db:migrate
+```
+
+Im Docker-Setup wird `DATABASE_URL` bewusst auf `/data/bikerental.db` gesetzt und das Volume an genau diesem Pfad eingehängt. Dadurch gehen Anfragen weder bei einem Image-Neubau noch bei einem Container-Austausch verloren. Sichere das Volume regelmäßig, beispielsweise auf dem Host:
+
+```bash
+docker run --rm -v <compose-projekt>_app-data:/data -v "$PWD":/backup busybox \
+  sh -c 'tar czf /backup/bikerental-db-backup.tgz -C /data .'
+```
+
+Die Datenbank enthält personenbezogene Kontakt- und Mietdaten. Backups gehören verschlüsselt abgelegt und sollten nur für berechtigte Personen zugänglich sein.
 
 ## Hinweise
 

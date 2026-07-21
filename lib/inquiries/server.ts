@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import nodemailer from "nodemailer";
@@ -194,7 +195,7 @@ export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = pr
   };
 }
 
-export function createOrderNumber(date = new Date()) {
+export function createOrderNumber(date = new Date(), randomSuffix = randomBytes(4).toString("hex")) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     year: "numeric",
@@ -208,7 +209,7 @@ export function createOrderNumber(date = new Date()) {
   const values = Object.fromEntries(
     parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
   );
-  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
+  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}-${randomSuffix}`;
 }
 
 export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {

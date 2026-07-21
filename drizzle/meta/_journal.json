@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784623843656,
+      "tag": "0000_high_onslaught",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784624248152,
+      "tag": "0001_cooing_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784625306293,
+      "tag": "0002_narrow_nico_minoru",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784625615714,
+      "tag": "0003_luxuriant_thunderbolt",
+      "breakpoints": true
+    }
+  ]
+}

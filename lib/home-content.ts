@@ -1,18 +1,18 @@
 import type { StaticImageData } from "next/image";
 import { Bike, CalendarClock, CalendarRange, GraduationCap, Package, type LucideIcon } from "lucide-react";
 
-import aeroadPreview from "../public/bikes/aeroad-cf-sl-8-disc/preview.png";
-import aeroadReal1 from "../public/bikes/aeroad-cf-sl-8-disc/real1.png";
-import aeroadReal2 from "../public/bikes/aeroad-cf-sl-8-disc/real2.png";
-import aeroadReal3 from "../public/bikes/aeroad-cf-sl-8-disc/real3.png";
-import aeroadReal4 from "../public/bikes/aeroad-cf-sl-8-disc/real4.png";
-import enduracePreview from "../public/bikes/endurace-cf-sl-8-di2/preview.png";
-import enduraceReal1 from "../public/bikes/endurace-cf-sl-8-di2/real1.png";
-import enduraceReal2 from "../public/bikes/endurace-cf-sl-8-di2/real2.png";
-import ultimatePreview from "../public/bikes/ultimate-cf-sl-7eTap-axs/preview.png";
-import ultimateReal1 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real1.png";
-import ultimateReal2 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real2.png";
-import ultimateReal3 from "../public/bikes/ultimate-cf-sl-7eTap-axs/real3.png";
+const aeroadPreview = "/bikes/aeroad-cf-sl-8-disc/preview.png";
+const aeroadReal1 = "/bikes/aeroad-cf-sl-8-disc/real1.png";
+const aeroadReal2 = "/bikes/aeroad-cf-sl-8-disc/real2.png";
+const aeroadReal3 = "/bikes/aeroad-cf-sl-8-disc/real3.png";
+const aeroadReal4 = "/bikes/aeroad-cf-sl-8-disc/real4.png";
+const enduracePreview = "/bikes/endurace-cf-sl-8-di2/preview.png";
+const enduraceReal1 = "/bikes/endurace-cf-sl-8-di2/real1.png";
+const enduraceReal2 = "/bikes/endurace-cf-sl-8-di2/real2.png";
+const ultimatePreview = "/bikes/ultimate-cf-sl-7eTap-axs/preview.png";
+const ultimateReal1 = "/bikes/ultimate-cf-sl-7eTap-axs/real1.png";
+const ultimateReal2 = "/bikes/ultimate-cf-sl-7eTap-axs/real2.png";
+const ultimateReal3 = "/bikes/ultimate-cf-sl-7eTap-axs/real3.png";
 
 export type Locale = "de" | "en";
 

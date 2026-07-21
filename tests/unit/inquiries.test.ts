@@ -7,6 +7,15 @@ const { createTransport, sendMail } = vi.hoisted(() => {
 });
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
+const { getDatabase, isRequestAvailable, saveRentalInquiry } = vi.hoisted(() => ({
+  getDatabase: vi.fn(),
+  isRequestAvailable: vi.fn(),
+  saveRentalInquiry: vi.fn(),
+}));
+vi.mock("../../lib/db/client", () => ({ getDatabase }));
+vi.mock("../../lib/inventory/repository", () => ({ isRequestAvailable }));
+vi.mock("../../lib/inquiries/repository", () => ({ saveRentalInquiry }));
+
 import { POST as contactPost } from "../../app/api/contact/route";
 import { contactInquirySchema, maintenanceInquirySchema } from "../../lib/inquiries/schemas";
 import {
@@ -128,7 +137,7 @@ describe("inquiry server helpers", () => {
   });
 
   it("uses the timestamp as the order number and validates mail configuration", async () => {
-    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"))).toBe("#20260717120000");
+    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"), "abc12345")).toBe("#20260717120000-abc12345");
     expect(
       await getMailConfig({
         SMTP_HOST: "smtp.example.com",
@@ -166,6 +175,11 @@ describe("contact route", () => {
     resetRateLimitsForTests();
     sendMail.mockReset();
     sendMail.mockResolvedValue({});
+    getDatabase.mockReset();
+    getDatabase.mockReturnValue({});
+    isRequestAvailable.mockReset();
+    isRequestAvailable.mockReturnValue(true);
+    saveRentalInquiry.mockReset();
     process.env = {
       ...environment,
       SMTP_HOST: "smtp.example.com",
@@ -180,6 +194,14 @@ describe("contact route", () => {
   it("sends a valid inquiry and rejects bot and invalid input", async () => {
     expect((await contactPost(request(validContact))).status).toBe(200);
     expect(sendMail).toHaveBeenCalledOnce();
+    expect(saveRentalInquiry).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ name: validContact.name, contact: validContact.contact, bikes: validContact.bikes }),
+      expect.stringMatching(/^#\d{14}-[a-f0-9]{8}$/),
+    );
+    expect(sendMail.mock.invocationCallOrder[0]).toBeLessThan(
+      saveRentalInquiry.mock.invocationCallOrder[0] ?? Infinity,
+    );
     expect(createTransport).toHaveBeenCalledWith(
       expect.objectContaining({ disableFileAccess: true, disableUrlAccess: true }),
     );
@@ -226,5 +248,13 @@ describe("contact route", () => {
   it("returns a configuration error without SMTP credentials", async () => {
     delete process.env.SMTP_HOST;
     expect((await contactPost(request(validContact))).status).toBe(500);
+    expect(saveRentalInquiry).not.toHaveBeenCalled();
+  });
+
+  it("does not persist an inquiry when mail delivery throws", async () => {
+    sendMail.mockRejectedValueOnce(new Error("SMTP unavailable"));
+
+    expect((await contactPost(request(validContact))).status).toBe(500);
+    expect(saveRentalInquiry).not.toHaveBeenCalled();
   });
 });
