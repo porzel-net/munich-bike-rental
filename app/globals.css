@@ -1,9 +1,3 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-
-@custom-variant dark (&:is(.dark *));
-
 @font-face {
   font-family: "Poppins";
   src: url("/fonts/poppins-100.ttf") format("truetype");
@@ -61,7 +55,6 @@
 }
 
 :root {
-  --accent: oklch(0.97 0 0);
   --brand-accent: #4169e1;
   --font-app-sans: "Mulish", Arial, Helvetica, sans-serif;
   --bg-light: #f9f9f9;
@@ -72,38 +65,7 @@
   --text: #111111;
   --text-muted: #777777;
   --surface: #ffffff;
-  --border: oklch(0.922 0 0);
   --shadow: 0 24px 80px rgba(17, 17, 17, 0.12);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
 }
 
 html {
@@ -3332,6 +3294,234 @@ button {
   font-size: 13px;
 }
 
+.booking-confirmation-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 28px 80px rgba(10, 12, 18, 0.26);
+}
+
+.booking-confirmation-dialog::backdrop {
+  background: rgba(9, 11, 17, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.booking-confirmation-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px 28px 0;
+}
+
+.booking-confirmation-dialog__eyebrow {
+  color: #639754;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.booking-confirmation-dialog h2 {
+  max-width: 470px;
+  margin: 8px 0 0;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.45rem, 4vw, 1.85rem);
+  line-height: 1.2;
+}
+
+.booking-confirmation-dialog__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+
+.booking-confirmation-dialog__close:hover,
+.booking-confirmation-dialog__close:focus-visible {
+  background: #f4f4f4;
+  outline: none;
+}
+
+.booking-confirmation-dialog__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.booking-confirmation-dialog__body,
+.booking-confirmation-dialog__loading,
+.booking-confirmation-dialog__error {
+  margin: 18px 28px 28px;
+}
+
+.booking-confirmation-dialog__loading,
+.booking-confirmation-dialog__error {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.booking-confirmation-dialog__error {
+  color: #b91c1c;
+}
+
+.booking-confirmation-dialog__success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(99, 151, 84, 0.28);
+  border-radius: 14px;
+  background: rgba(99, 151, 84, 0.1);
+  color: #426537;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.booking-confirmation-dialog__success svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.booking-confirmation-dialog__payment-note {
+  margin-bottom: 18px;
+  padding: 13px 14px;
+  border: 1px solid rgba(65, 105, 225, 0.18);
+  border-radius: 14px;
+  background: rgba(65, 105, 225, 0.06);
+}
+
+.booking-confirmation-dialog__payment-note strong {
+  display: block;
+  color: #111;
+  font-size: 14px;
+}
+
+.booking-confirmation-dialog__payment-note p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.booking-confirmation-dialog__payment-note small {
+  display: block;
+  margin-top: 8px;
+  color: #111;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.booking-confirmation-dialog__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 14px;
+  background: rgba(17, 17, 17, 0.08);
+}
+
+.booking-confirmation-dialog__summary > div {
+  min-width: 0;
+  padding: 11px 13px;
+  background: #fff;
+}
+
+.booking-confirmation-dialog__summary dt,
+.booking-confirmation-dialog__message > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.booking-confirmation-dialog__summary dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #111;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.booking-confirmation-dialog__bikes {
+  margin-top: 18px;
+}
+
+.booking-confirmation-dialog__bikes h3 {
+  margin: 0 0 8px;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 15px;
+}
+
+.booking-confirmation-dialog__bike {
+  display: grid;
+  gap: 3px;
+  margin-top: 7px;
+  padding: 11px 13px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 12px;
+}
+
+.booking-confirmation-dialog__bike strong {
+  color: #111;
+  font-size: 14px;
+}
+
+.booking-confirmation-dialog__bike span,
+.booking-confirmation-dialog__bike small {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.booking-confirmation-dialog__message {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.booking-confirmation-dialog__message p {
+  margin: 6px 0 0;
+  color: #111;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 560px) {
+  .booking-confirmation-dialog__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-confirmation-dialog__header {
+    padding: 22px 20px 0;
+  }
+
+  .booking-confirmation-dialog__body,
+  .booking-confirmation-dialog__loading,
+  .booking-confirmation-dialog__error {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+}
+
 .legal-page {
   min-height: 100vh;
   padding: 140px 0 90px;
@@ -4101,94 +4291,5 @@ button {
     left: 28%;
     top: 46%;
     width: 44%;
-  }
-}
-
-@theme inline {
-  --font-heading: var(--font-app-sans);
-  --font-sans: var(--font-app-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
   }
 }

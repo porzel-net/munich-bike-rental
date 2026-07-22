@@ -7,13 +7,18 @@ const { createTransport, sendMail } = vi.hoisted(() => {
 });
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
-const { getDatabase, isRequestAvailable, saveRentalInquiry } = vi.hoisted(() => ({
-  getDatabase: vi.fn(),
-  isRequestAvailable: vi.fn(),
-  saveRentalInquiry: vi.fn(),
-}));
+const { getDatabase, getLocationInventory, isRequestAvailable, calculateInquiryPrice, saveRentalInquiry } = vi.hoisted(
+  () => ({
+    getDatabase: vi.fn(),
+    getLocationInventory: vi.fn(),
+    isRequestAvailable: vi.fn(),
+    calculateInquiryPrice: vi.fn(),
+    saveRentalInquiry: vi.fn(),
+  }),
+);
 vi.mock("../../lib/db/client", () => ({ getDatabase }));
-vi.mock("../../lib/inventory/repository", () => ({ isRequestAvailable }));
+vi.mock("../../lib/inventory/repository", () => ({ getLocationInventory, isRequestAvailable }));
+vi.mock("../../lib/inventory/pricing", () => ({ calculateInquiryPrice }));
 vi.mock("../../lib/inquiries/repository", () => ({ saveRentalInquiry }));
 
 import { POST as contactPost } from "../../app/api/contact/route";
@@ -137,12 +142,12 @@ describe("inquiry server helpers", () => {
   });
 
   it("uses the timestamp as the order number and validates mail configuration", async () => {
-    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"), "abc12345")).toBe("#20260717120000-abc12345");
+    expect(createOrderNumber(new Date("2026-07-17T10:00:00Z"))).toBe("#20260717120000");
     expect(
       await getMailConfig({
         SMTP_HOST: "smtp.example.com",
-        SMTP_USER: "user",
-        SMTP_PASSWORD: "secret",
+        SMTP_REQUEST_USER: "user",
+        SMTP_REQUEST_PASSWORD: "secret",
         SMTP_PORT: "70000",
       }),
     ).toBeNull();
@@ -150,8 +155,8 @@ describe("inquiry server helpers", () => {
       (
         await getMailConfig({
           SMTP_HOST: "smtp.example.com",
-          SMTP_USER: "user",
-          SMTP_PASSWORD: "secret",
+          SMTP_REQUEST_USER: "user",
+          SMTP_REQUEST_PASSWORD: "secret",
           MAIL_TIMEOUT_SECONDS: "20",
         })
       )?.timeout,
@@ -160,8 +165,8 @@ describe("inquiry server helpers", () => {
       (
         await getMailConfig({
           SMTP_HOST: "smtp.example.com",
-          SMTP_USER: "user",
-          SMTP_PASSWORD_FILE: fileURLToPath(new URL("../fixtures/smtp-password.txt", import.meta.url)),
+          SMTP_REQUEST_USER: "user",
+          SMTP_REQUEST_PASSWORD_FILE: fileURLToPath(new URL("../fixtures/smtp-password.txt", import.meta.url)),
         })
       )?.password,
     ).toBe("test-password-from-file");
@@ -177,14 +182,18 @@ describe("contact route", () => {
     sendMail.mockResolvedValue({});
     getDatabase.mockReset();
     getDatabase.mockReturnValue({});
+    getLocationInventory.mockReset();
+    getLocationInventory.mockReturnValue({});
     isRequestAvailable.mockReset();
     isRequestAvailable.mockReturnValue(true);
+    calculateInquiryPrice.mockReset();
+    calculateInquiryPrice.mockReturnValue({ totalCents: 23_100 });
     saveRentalInquiry.mockReset();
     process.env = {
       ...environment,
       SMTP_HOST: "smtp.example.com",
-      SMTP_USER: "user",
-      SMTP_PASSWORD: "secret",
+      SMTP_REQUEST_USER: "user",
+      SMTP_REQUEST_PASSWORD: "secret",
       SMTP_PORT: "587",
       MAIL_TIMEOUT_SECONDS: "20",
       APP_ORIGIN: "http://localhost:3000",
@@ -197,7 +206,12 @@ describe("contact route", () => {
     expect(saveRentalInquiry).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ name: validContact.name, contact: validContact.contact, bikes: validContact.bikes }),
-      expect.stringMatching(/^#\d{14}-[a-f0-9]{8}$/),
+      expect.stringMatching(/^#\d{14}$/),
+      23_100,
+      expect.any(Date),
+      "unanswered",
+      "automatic",
+      null,
     );
     expect(sendMail.mock.invocationCallOrder[0]).toBeLessThan(
       saveRentalInquiry.mock.invocationCallOrder[0] ?? Infinity,
@@ -242,6 +256,7 @@ describe("contact route", () => {
     expect(mail.text).toContain("Rennrad: Grail CF SL 7 - M");
     expect(mail.text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
     expect(mail.text).toContain("Kleidung: Ja");
+    expect(mail.text).toContain("Gesamtpreis: 231,00 €");
     expect(Object.keys(mail)).not.toEqual(expect.arrayContaining(["raw", "path", "href"]));
   });
 

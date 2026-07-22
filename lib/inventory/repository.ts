@@ -12,6 +12,8 @@ import type { Locale, PortfolioItem } from "../home-content";
 export type LocationInventory = {
   portfolioItems: PortfolioItem[];
   bikeOptions: string[];
+  bikePrices: Array<{ option: string; dailyPriceCents: number }>;
+  equipmentPrices: Array<{ key: string; priceCents: number }>;
   pedalTypes: Array<{ value: string; label: Record<Locale, string>; priceCents: number }>;
   computerMountTypes: Array<{ value: string; label: Record<Locale, string>; priceCents: number }>;
   helmetAvailable: boolean;
@@ -60,6 +62,12 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   const bikeOptions = bikes.flatMap((bike) =>
     sizes.filter((size) => size.locationBikeId === bike.id).map((size) => `${bike.title} - ${size.size}`),
   );
+  const bikePrices = bikes.flatMap((bike) =>
+    sizes
+      .filter((size) => size.locationBikeId === bike.id)
+      .map((size) => ({ option: `${bike.title} - ${size.size}`, dailyPriceCents: bike.priceCentsPerDay })),
+  );
+  const portfolioBikes = [...new Map(bikes.map((bike) => [bike.title, bike])).values()];
   const optionList = (category: string, prefix: string) =>
     equipment
       .filter((item) => item.category === category)
@@ -70,7 +78,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       }));
 
   return {
-    portfolioItems: bikes.map((bike) => ({
+    portfolioItems: portfolioBikes.map((bike) => ({
       title: bike.title,
       subtitle: {
         de: bikeOptions
@@ -93,11 +101,13 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       equipment: JSON.parse(bike.equipmentJson) as PortfolioItem["equipment"],
     })),
     bikeOptions,
+    bikePrices,
+    equipmentPrices: equipment.map((item) => ({ key: item.equipmentKey, priceCents: item.priceCents })),
     pedalTypes: optionList("pedal", "pedal-"),
     computerMountTypes: optionList("computer-mount", "mount-"),
     helmetAvailable: equipment.some((item) => item.equipmentKey === "helmet"),
     clothingAvailable: equipment.some((item) => item.equipmentKey === "clothing"),
-    accessoryFromCents: Math.min(...equipment.map((item) => item.priceCents), 0),
+    accessoryFromCents: equipment.length ? Math.min(...equipment.map((item) => item.priceCents)) : 0,
     minimumBikePriceCents: Math.min(...bikes.map((item) => item.priceCentsPerDay), 0),
     discounts: discounts.map((discount) => ({
       key: discount.discountKey,

@@ -18,10 +18,13 @@ CREATE TABLE `account` (
 CREATE UNIQUE INDEX `auth_account_provider_account_unique` ON `account` (`provider_id`,`account_id`);--> statement-breakpoint
 CREATE INDEX `auth_account_user_id_idx` ON `account` (`user_id`);--> statement-breakpoint
 CREATE TABLE `rateLimit` (
-	`key` text PRIMARY KEY NOT NULL,
+	`id` text PRIMARY KEY NOT NULL,
+	`key` text NOT NULL,
 	`count` integer NOT NULL,
 	`last_request` integer NOT NULL
 );
+--> statement-breakpoint
+CREATE UNIQUE INDEX `auth_rate_limit_key_unique` ON `rateLimit` (`key`);
 --> statement-breakpoint
 CREATE TABLE `session` (
 	`id` text PRIMARY KEY NOT NULL,

@@ -3,6 +3,9 @@ import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-o
 
 export const inquiryLocales = ["de", "en"] as const;
 export const inquiryMailStatuses = ["pending", "sent", "failed"] as const;
+export const inquiryStatuses = ["rejected", "pending", "confirmed", "executed", "cancelled", "unanswered"] as const;
+export const inquirySources = ["automatic", "manual"] as const;
+export const inquiryMailActionTypes = ["confirmation", "rejection"] as const;
 
 export const rentalInquiries = sqliteTable(
   "rental_inquiries",
@@ -20,8 +23,13 @@ export const rentalInquiries = sqliteTable(
     message: text("message").notNull(),
     bikeTitle: text("bike_title"),
     affiliateKey: text("affiliate_key"),
+    /** Final quote in cents at the moment the successfully mailed inquiry was created. */
+    totalPriceCents: integer("total_price_cents").notNull().default(0),
     locale: text("locale", { enum: inquiryLocales }).notNull(),
     mailStatus: text("mail_status", { enum: inquiryMailStatuses }).notNull().default("pending"),
+    status: text("status", { enum: inquiryStatuses }).notNull().default("unanswered"),
+    source: text("source", { enum: inquirySources }).notNull().default("automatic"),
+    mailThreadMessageId: text("mail_thread_message_id"),
     mailSentAt: integer("mail_sent_at", { mode: "timestamp_ms" }),
     submittedAt: integer("submitted_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -29,8 +37,12 @@ export const rentalInquiries = sqliteTable(
     uniqueIndex("rental_inquiries_order_number_unique").on(table.orderNumber),
     index("rental_inquiries_submitted_at_idx").on(table.submittedAt),
     index("rental_inquiries_mail_status_submitted_at_idx").on(table.mailStatus, table.submittedAt),
+    index("rental_inquiries_status_submitted_at_idx").on(table.status, table.submittedAt),
+    index("rental_inquiries_source_submitted_at_idx").on(table.source, table.submittedAt),
     check("rental_inquiries_locale_check", sql`${table.locale} in ('de', 'en')`),
     check("rental_inquiries_mail_status_check", sql`${table.mailStatus} in ('pending', 'sent', 'failed')`),
+    check("rental_inquiries_status_check", sql`${table.status} in ('rejected', 'pending', 'confirmed', 'executed', 'cancelled', 'unanswered')`),
+    check("rental_inquiries_source_check", sql`${table.source} in ('automatic', 'manual')`),
   ],
 );
 
@@ -57,13 +69,67 @@ export const rentalInquiryBikes = sqliteTable(
   ],
 );
 
+export const rentalInquiryMailActions = sqliteTable(
+  "rental_inquiry_mail_actions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    inquiryId: integer("inquiry_id")
+      .notNull()
+      .references(() => rentalInquiries.id, { onDelete: "cascade" }),
+    action: text("action", { enum: inquiryMailActionTypes }).notNull(),
+    messageId: text("message_id"),
+    threadMessageId: text("thread_message_id"),
+    mailboxMoved: integer("mailbox_moved", { mode: "boolean" }).notNull().default(false),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("rental_inquiry_mail_actions_inquiry_action_unique").on(table.inquiryId, table.action),
+    index("rental_inquiry_mail_actions_inquiry_id_idx").on(table.inquiryId),
+  ],
+);
+
+export const rentalBookingConfirmationTokens = sqliteTable(
+  "rental_booking_confirmation_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    inquiryId: integer("inquiry_id")
+      .notNull()
+      .references(() => rentalInquiries.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    confirmedAt: integer("confirmed_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("rental_booking_confirmation_tokens_hash_unique").on(table.tokenHash),
+    index("rental_booking_confirmation_tokens_inquiry_id_idx").on(table.inquiryId),
+    index("rental_booking_confirmation_tokens_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
 export const rentalInquiryRelations = relations(rentalInquiries, ({ many }) => ({
   bikes: many(rentalInquiryBikes),
+  mailActions: many(rentalInquiryMailActions),
+  confirmationTokens: many(rentalBookingConfirmationTokens),
 }));
 
 export const rentalInquiryBikeRelations = relations(rentalInquiryBikes, ({ one }) => ({
   inquiry: one(rentalInquiries, {
     fields: [rentalInquiryBikes.inquiryId],
+    references: [rentalInquiries.id],
+  }),
+}));
+
+export const rentalInquiryMailActionRelations = relations(rentalInquiryMailActions, ({ one }) => ({
+  inquiry: one(rentalInquiries, {
+    fields: [rentalInquiryMailActions.inquiryId],
+    references: [rentalInquiries.id],
+  }),
+}));
+
+export const rentalBookingConfirmationTokenRelations = relations(rentalBookingConfirmationTokens, ({ one }) => ({
+  inquiry: one(rentalInquiries, {
+    fields: [rentalBookingConfirmationTokens.inquiryId],
     references: [rentalInquiries.id],
   }),
 }));

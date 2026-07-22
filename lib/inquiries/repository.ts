@@ -1,12 +1,16 @@
 import type { AppDatabase } from "../db/client";
-import { rentalInquiryBikes, rentalInquiries } from "../db/schema";
+import { accountingRevenues, inquirySources, inquiryStatuses, rentalInquiryBikes, rentalInquiries } from "../db/schema";
 import type { ContactInquiry } from "./schemas";
 
 export function saveRentalInquiry(
   db: AppDatabase,
   payload: ContactInquiry,
   orderNumber: string,
+  totalPriceCents: number,
   submittedAt = new Date(),
+  status: (typeof inquiryStatuses)[number] = "unanswered",
+  source: (typeof inquirySources)[number] = "automatic",
+  mailThreadMessageId?: string | null,
 ) {
   return db.transaction((transaction) => {
     const inquiry = transaction
@@ -24,8 +28,12 @@ export function saveRentalInquiry(
         message: payload.message,
         bikeTitle: payload.bikeTitle || null,
         affiliateKey: payload.affiliateKey || null,
+        totalPriceCents,
         locale: payload.locale,
         mailStatus: "sent",
+        status,
+        source,
+        mailThreadMessageId: mailThreadMessageId ?? null,
         mailSentAt: submittedAt,
         submittedAt,
       })
@@ -49,6 +57,22 @@ export function saveRentalInquiry(
         })),
       )
       .run();
+
+    if (status === "confirmed" || status === "cancelled") {
+      transaction
+        .insert(accountingRevenues)
+        .values({
+          inquiryId: inquiry.id,
+          amountCents: status === "cancelled" ? Math.round(totalPriceCents / 2) : totalPriceCents,
+          paidAmountCents: 0,
+          paymentReceivedAt: null,
+          payerName: payload.name,
+          notes: "",
+          createdAt: submittedAt,
+          updatedAt: submittedAt,
+        })
+        .run();
+    }
 
     return inquiry;
   });

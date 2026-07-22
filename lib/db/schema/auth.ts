@@ -18,6 +18,7 @@ export const authUser = sqliteTable(
     banned: integer("banned", { mode: "boolean" }).notNull().default(false),
     banReason: text("ban_reason"),
     banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
+    mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(true),
     twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
@@ -111,12 +112,62 @@ export const authTwoFactor = sqliteTable(
   ],
 );
 
+export const authPasskey = sqliteTable(
+  "passkey",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull(),
+    counter: integer("counter").notNull(),
+    deviceType: text("device_type").notNull(),
+    backedUp: integer("backed_up", { mode: "boolean" }).notNull(),
+    transports: text("transports"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }),
+    aaguid: text("aaguid"),
+  },
+  (table) => [
+    uniqueIndex("passkey_credential_id_unique").on(table.credentialID),
+    index("passkey_user_id_idx").on(table.userId),
+  ],
+);
+
 /** Persistent, atomic Better Auth rate-limit counters; never use in-memory limits in production. */
 export const authRateLimit = sqliteTable("rateLimit", {
-  key: text("key").primaryKey(),
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
   count: integer("count").notNull(),
   lastRequest: integer("last_request").notNull(),
 });
+
+/** One-time, server-owned account invitations. The URL contains only an opaque token. */
+export const authInvitation = sqliteTable(
+  "auth_invitation",
+  {
+    id: text("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    tokenCiphertext: text("token_ciphertext"),
+    name: text("name").notNull(),
+    role: text("role").notNull(),
+    locationKey: text("location_key"),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    createdBy: text("created_by").references(() => authUser.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("auth_invitation_token_hash_unique").on(table.tokenHash),
+    index("auth_invitation_expires_at_idx").on(table.expiresAt),
+    check("auth_invitation_role_check", sql`${table.role} in ('admin', 'standortuser')`),
+    check(
+      "auth_invitation_location_key_check",
+      sql`${table.locationKey} is null or ${table.locationKey} in ('munich', 'regensburg', 'lindau', 'friedrichshafen', 'konstanz')`,
+    ),
+  ],
+);
 
 export const authSchema = {
   user: authUser,
@@ -124,5 +175,6 @@ export const authSchema = {
   account: authAccount,
   verification: authVerification,
   twoFactor: authTwoFactor,
+  passkey: authPasskey,
   rateLimit: authRateLimit,
 };

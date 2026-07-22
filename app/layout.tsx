@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
-import "./globals.css";
 import { ConsentProvider } from "../components/consent-manager";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { parseConsentCookie } from "../lib/consent";
 import { getRentalStructuredDataJson } from "../lib/structured-data";
 import { resolveLocale } from "../lib/home-content";
@@ -169,7 +169,7 @@ export default async function RootLayout({
           googleAdsConversionId={googleAdsConversionId}
           googleAdsConversionLabel={googleAdsConversionLabel}
         >
-          {children}
+          <TooltipProvider>{children}</TooltipProvider>
         </ConsentProvider>
       </body>
     </html>

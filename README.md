@@ -70,28 +70,43 @@ SMTP_SECURE=true
 MAIL_USE_SSL=true
 MAIL_USE_STARTTLS=false
 MAIL_TIMEOUT_SECONDS=20
-SMTP_USER=dein-user
-# SMTP_PASSWORD=dein-passwort
-SMTP_PASSWORD_FILE=/run/secrets/smtp_password
-MAIL_FROM_ADDRESS=anfrage@deine-domain.tld
-MAIL_TO_ADDRESS=hallo@deine-domain.tld
+SMTP_REQUEST_USER=dein-request-user
+# SMTP_REQUEST_PASSWORD=dein-request-passwort
+SMTP_REQUEST_PASSWORD_FILE=/run/secrets/smtp_request_password
+MAIL_REQUEST_FROM_ADDRESS=anfrage@deine-domain.tld
+MAIL_REQUEST_TO_ADDRESS=hallo@deine-domain.tld
+SMTP_MAIN_USER=dein-main-user
+# SMTP_MAIN_PASSWORD=dein-main-passwort
+SMTP_MAIN_PASSWORD_FILE=/run/secrets/smtp_main_password
+MAIL_MAIN_FROM_ADDRESS=hallo@deine-domain.tld
+IMAP_MAIN_HOST=imap.example.com
+IMAP_MAIN_PORT=993
+IMAP_MAIN_SECURE=true
+IMAP_MAIN_USER=dein-main-user
+IMAP_MAIN_PASSWORD_FILE=/run/secrets/imap_password
+IMAP_MAIN_SENT_MAILBOX=Sent
+IMAP_MAIN_REJECTED_MAILBOX=Abgelehnt
+IMAP_MAIN_PENDING_MAILBOX=Ausstehend
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
 DEV_ALLOWED_ORIGINS=
 ```
 
-Für den produktiven SMTP-Zugang ist `SMTP_PASSWORD_FILE` statt `SMTP_PASSWORD` vorzuziehen. Die App liest den Inhalt einer nur lesbaren Secret-Datei, wenn die entsprechende `*_FILE`-Variable gesetzt ist. Binde diese Datei im Produktivbetrieb beispielsweise als Docker-Secret oder als schreibgeschützten Bind-Mount ein; die Beispiel-Compose-Datei erzwingt den Mount bewusst nicht, damit lokale Entwicklung ohne Secret-Backend weiterhin funktioniert.
+Für produktive Zugänge sind `SMTP_REQUEST_PASSWORD_FILE`, `SMTP_MAIN_PASSWORD_FILE` und optional `IMAP_MAIN_PASSWORD_FILE` statt Klartext-Passwörtern vorzuziehen. Die App liest den Inhalt einer nur lesbaren Secret-Datei, wenn die entsprechende `*_FILE`-Variable gesetzt ist. Binde diese Dateien im Produktivbetrieb beispielsweise als Docker-Secrets oder schreibgeschützte Bind-Mounts ein.
 
 Wichtig:
 
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL` und `APP_ORIGIN` müssen zur echten Domain passen
+- `CALENDAR_FEED_TOKEN` schützt den abonnierbaren Apple-Kalender-Feed. In Apple Kalender wird die angezeigte Webcal-URL aus der Buchungsseite abonniert.
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
 - Die SQLite-Datei gehört niemals ins Image. Der Compose-Stack verwendet das Named Volume `app-data`; der Einmal-Service `database-init` setzt dessen Eigentümer auf den Non-Root-App-User und die Rechte auf `0700`.
 - Drizzle führt versionierte Migrationen aus `drizzle/` beim ersten Zugriff auf den Anfrage-Endpunkt aus. Das Volume bleibt bei Image-Updates und Container-Neustarts erhalten. Lösche es nicht mit `docker compose down -v`, sofern die Anfragen erhalten bleiben sollen.
 - SQLite ist für diesen einzelnen App-Container vorgesehen. Mehrere parallele App-Replikas dürfen nicht dasselbe SQLite-Volume beschreiben.
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
+- `SMTP_REQUEST_*` steuert den Versand der Website-Anfragen; `SMTP_MAIN_*` steuert Buchungsbestätigungen und Ablehnungen aus dem Adminbereich
+- `IMAP_MAIN_*` wird für die Suche automatischer Mailverläufe sowie das Verschieben gesendeter Mails nach `Abgelehnt` bzw. `Ausstehend` verwendet
 - `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht
 - `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst nach Einwilligung in den Zweck „Analytics“

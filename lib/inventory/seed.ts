@@ -1,4 +1,4 @@
-import { count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 import { portfolioItems } from "../home-content";
 import { bikeOptionsByLocation } from "../inquiries/catalog";
@@ -52,10 +52,68 @@ function bikeKey(title: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+function sizeKey(size: string) {
+  return size
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function normalizeExistingBikeSizes(db: AppDatabase) {
+  const bikes = db.select().from(rentalLocationBikes).all();
+  db.transaction((transaction) => {
+    for (const bike of bikes) {
+      const sizes = transaction
+        .select()
+        .from(rentalLocationBikeSizes)
+        .where(eq(rentalLocationBikeSizes.locationBikeId, bike.id))
+        .all();
+      if (sizes.length <= 1) {
+        if (sizes[0] && !bike.bikeKey.endsWith(`-${sizeKey(sizes[0].size)}`)) {
+          transaction
+            .update(rentalLocationBikes)
+            .set({ bikeKey: `${bike.bikeKey}-${sizeKey(sizes[0].size)}` })
+            .where(eq(rentalLocationBikes.id, bike.id))
+            .run();
+        }
+        continue;
+      }
+      for (const [sizeIndex, size] of sizes.entries()) {
+        const newBike = transaction
+          .insert(rentalLocationBikes)
+          .values({
+            location: bike.location,
+            bikeKey: `${bike.bikeKey}-${sizeKey(size.size)}`,
+            title: bike.title,
+            priceCentsPerDay: bike.priceCentsPerDay,
+            descriptionDe: bike.descriptionDe,
+            descriptionEn: bike.descriptionEn,
+            image: bike.image,
+            galleryJson: bike.galleryJson,
+            factsJson: bike.factsJson,
+            equipmentJson: bike.equipmentJson,
+            displayOrder: bike.displayOrder + sizeIndex,
+            isAvailable: bike.isAvailable,
+          })
+          .returning({ id: rentalLocationBikes.id })
+          .get();
+        transaction
+          .insert(rentalLocationBikeSizes)
+          .values({ locationBikeId: newBike.id, size: size.size, isAvailable: size.isAvailable })
+          .run();
+      }
+      transaction.delete(rentalLocationBikes).where(eq(rentalLocationBikes.id, bike.id)).run();
+    }
+  });
+}
+
 export function seedRentalInventoryIfEmpty(db: AppDatabase) {
   const needsInventory = (db.select({ value: count() }).from(rentalLocationBikes).get()?.value ?? 0) === 0;
   const needsDiscounts = (db.select({ value: count() }).from(rentalLocationDiscounts).get()?.value ?? 0) === 0;
-  if (!needsInventory && !needsDiscounts) return;
+  if (!needsInventory && !needsDiscounts) {
+    normalizeExistingBikeSizes(db);
+    return;
+  }
 
   db.transaction((transaction) => {
     for (const [location, offeredBikes] of Object.entries(bikeOptionsByLocation)) {
@@ -63,30 +121,29 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
         const offers = portfolioItems.filter((item) => offeredBikes.some((bike) => bike.startsWith(item.title)));
         for (const [index, item] of offers.entries()) {
           const key = bikeKey(item.title);
-          const inserted = transaction
-            .insert(rentalLocationBikes)
-            .values({
-              location,
-              bikeKey: key,
-              title: item.title,
-              priceCentsPerDay: locationPrices[location as keyof typeof locationPrices],
-              descriptionDe: item.description.de,
-              descriptionEn: item.description.en,
-              image: imagePath(item.image),
-              galleryJson: JSON.stringify(item.gallery.map(imagePath)),
-              factsJson: JSON.stringify(item.facts),
-              equipmentJson: JSON.stringify(item.equipment),
-              displayOrder: index + 1,
-            })
-            .returning({ id: rentalLocationBikes.id })
-            .get();
           const sizes = offeredBikes
             .filter((bike) => bike.startsWith(item.title + " - "))
             .map((bike) => bike.slice(item.title.length + 3));
-          transaction
-            .insert(rentalLocationBikeSizes)
-            .values(sizes.map((size) => ({ locationBikeId: inserted.id, size })))
-            .run();
+          for (const [sizeIndex, size] of sizes.entries()) {
+            const inserted = transaction
+              .insert(rentalLocationBikes)
+              .values({
+                location,
+                bikeKey: `${key}-${sizeKey(size)}`,
+                title: item.title,
+                priceCentsPerDay: locationPrices[location as keyof typeof locationPrices],
+                descriptionDe: item.description.de,
+                descriptionEn: item.description.en,
+                image: imagePath(item.image),
+                galleryJson: JSON.stringify(item.gallery.map(imagePath)),
+                factsJson: JSON.stringify(item.facts),
+                equipmentJson: JSON.stringify(item.equipment),
+                displayOrder: index + sizeIndex,
+              })
+              .returning({ id: rentalLocationBikes.id })
+              .get();
+            transaction.insert(rentalLocationBikeSizes).values({ locationBikeId: inserted.id, size }).run();
+          }
         }
         transaction
           .insert(rentalLocationEquipment)
@@ -112,4 +169,5 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
       }
     }
   });
+  normalizeExistingBikeSizes(db);
 }

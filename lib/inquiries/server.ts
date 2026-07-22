@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import nodemailer from "nodemailer";
@@ -153,7 +152,7 @@ function parseTimeoutMs(value: string | undefined) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1_000) : undefined;
 }
 
-async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string) {
+export async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string) {
   const directValue = environment[name];
   if (directValue) {
     return directValue;
@@ -171,17 +170,60 @@ async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string)
   }
 }
 
-export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = process.env) {
-  const host = environment.SMTP_HOST?.trim();
-  const user = environment.SMTP_USER?.trim();
-  const password = await readSecret(environment, "SMTP_PASSWORD");
-  const port = Number(environment.SMTP_PORT ?? "587");
+export type MailAccount = "request" | "main";
+
+export type MailConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS: boolean;
+  timeout?: number;
+  user: string;
+  password: string;
+  fromAddress: string;
+  toAddress: string;
+};
+
+const accountEnv = {
+  request: {
+    host: "SMTP_REQUEST_HOST",
+    port: "SMTP_REQUEST_PORT",
+    secure: "SMTP_REQUEST_SECURE",
+    user: "SMTP_REQUEST_USER",
+    password: "SMTP_REQUEST_PASSWORD",
+    from: "MAIL_REQUEST_FROM_ADDRESS",
+    to: "MAIL_REQUEST_TO_ADDRESS",
+  },
+  main: {
+    host: "SMTP_MAIN_HOST",
+    port: "SMTP_MAIN_PORT",
+    secure: "SMTP_MAIN_SECURE",
+    user: "SMTP_MAIN_USER",
+    password: "SMTP_MAIN_PASSWORD",
+    from: "MAIL_MAIN_FROM_ADDRESS",
+    to: "MAIL_MAIN_TO_ADDRESS",
+  },
+} as const;
+
+export async function getMailConfig(
+  environment: Partial<NodeJS.ProcessEnv> = process.env,
+  account: MailAccount = "request",
+): Promise<MailConfig | null> {
+  const names = accountEnv[account];
+  const host = (environment[names.host] ?? environment.SMTP_HOST)?.trim();
+  const user = environment[names.user]?.trim();
+  const password = await readSecret(environment, names.password);
+  const port = Number(environment[names.port] ?? environment.SMTP_PORT ?? "587");
 
   if (!host || !user || !password || !Number.isInteger(port) || port < 1 || port > 65_535) {
     return null;
   }
 
-  const secure = parseBoolean(environment.SMTP_SECURE) ?? parseBoolean(environment.MAIL_USE_SSL) ?? port === 465;
+  const secure =
+    parseBoolean(environment[names.secure]) ??
+    parseBoolean(environment.SMTP_SECURE) ??
+    parseBoolean(environment.MAIL_USE_SSL) ??
+    port === 465;
   return {
     host,
     port,
@@ -190,12 +232,12 @@ export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = pr
     timeout: parseTimeoutMs(environment.MAIL_TIMEOUT_SECONDS),
     user,
     password,
-    fromAddress: environment.MAIL_FROM_ADDRESS ?? "anfrage@munich-bike-rental.de",
-    toAddress: environment.MAIL_TO_ADDRESS ?? "hallo@munich-bike-rental.de",
+    fromAddress: environment[names.from]?.trim() ?? (account === "main" ? user : "anfrage@munich-bike-rental.de"),
+    toAddress: environment[names.to]?.trim() ?? (account === "main" ? "" : "hallo@munich-bike-rental.de"),
   };
 }
 
-export function createOrderNumber(date = new Date(), randomSuffix = randomBytes(4).toString("hex")) {
+export function createOrderNumber(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
     year: "numeric",
@@ -209,13 +251,31 @@ export function createOrderNumber(date = new Date(), randomSuffix = randomBytes(
   const values = Object.fromEntries(
     parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
   );
-  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}-${randomSuffix}`;
+  return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
 }
 
-export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {
-  const config = await getMailConfig();
+export type SentMail = { messageId: string | null };
+
+export async function sendConfiguredMail({
+  account,
+  subject,
+  text,
+  to,
+  replyTo,
+  inReplyTo,
+  references,
+}: {
+  account: MailAccount;
+  subject: string;
+  text: string;
+  to: string;
+  replyTo?: string;
+  inReplyTo?: string;
+  references?: string | string[];
+}): Promise<SentMail | null> {
+  const config = await getMailConfig(process.env, account);
   if (!config) {
-    return false;
+    return null;
   }
 
   const transporter = nodemailer.createTransport({
@@ -231,13 +291,22 @@ export async function sendInquiryMail({ subject, text, replyTo }: { subject: str
     auth: { user: config.user, pass: config.password },
   });
 
-  await transporter.sendMail({
+  const result = await transporter.sendMail({
     from: `Munich Rental <${config.fromAddress}>`,
-    to: config.toAddress,
+    to,
     replyTo,
+    inReplyTo,
+    references,
     subject,
     text,
   });
 
-  return true;
+  return { messageId: typeof result.messageId === "string" ? result.messageId : null };
+}
+
+export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {
+  const config = await getMailConfig(process.env, "request");
+  if (!config || !config.toAddress) return null;
+
+  return sendConfiguredMail({ account: "request", subject, text, to: config.toAddress, replyTo });
 }

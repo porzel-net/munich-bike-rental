@@ -63,6 +63,11 @@ export function proxy(request: NextRequest) {
     response.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
   }
 
+  if (request.nextUrl.pathname === "/admin" || request.nextUrl.pathname.startsWith("/admin/")) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet");
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  }
+
   return response;
 }
 

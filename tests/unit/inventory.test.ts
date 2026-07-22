@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createDatabaseConnection } from "../../lib/db/client";
-import { calculateRentalPrice } from "../../lib/inventory/pricing";
+import { calculateInquiryPrice, calculateRentalPrice } from "../../lib/inventory/pricing";
 import { getLocationInventory, isRequestAvailable } from "../../lib/inventory/repository";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -67,5 +67,48 @@ describe("location inventory", () => {
         isStudent: true,
       }),
     ).toMatchObject({ subtotalCents: 14700, discountPercentage: 20, discountCents: 2940, totalCents: 11760 });
+  });
+
+  it("prices each selected asset once and applies discounts to every qualifying rental day", () => {
+    const db = createTestDatabase();
+    const inventory = getLocationInventory(db, "regensburg");
+
+    expect(
+      calculateInquiryPrice(inventory, {
+        name: "Max Mustermann",
+        contact: "max@example.com",
+        phone: "+49 123456789",
+        location: "regensburg",
+        periodFrom: "2026-07-20", // Monday
+        periodTo: "2026-07-24", // Friday: five rental days, both dates included
+        pickupTime: "10:00",
+        dropoffTime: "16:00",
+        message: "Bitte Verfügbarkeit bestätigen.",
+        bikeTitle: "",
+        affiliateKey: "",
+        locale: "de",
+        website: "",
+        bikes: [
+          {
+            height: "180",
+            bikeSize: "Endurace CF SL 8 - M",
+            needsPedals: true,
+            pedalType: "spdSl",
+            needsComputerMount: true,
+            computerMountType: "garmin",
+            needsHelmet: true,
+            needsClothing: true,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      rentalDays: 5,
+      bikeSubtotalCents: 24_500,
+      equipmentSubtotalCents: 2_000,
+      // Long-term discount (20%) wins over the non-stackable weekday discount on all five days.
+      discountCents: 4_900,
+      totalCents: 21_600,
+      appliedDiscountKeys: ["long-term"],
+    });
   });
 });
