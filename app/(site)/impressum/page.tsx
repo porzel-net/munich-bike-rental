@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-import { siteConfig } from "../../lib/site";
+import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: {

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { generateRentalMetadata, RentalPage } from "../../../page";
-import { getRentalLocation, rentalLocationConfigs } from "../../../../lib/rental-locations";
+import { getRentalLocation, rentalLocationConfigs } from "@/lib/rental-locations";
 
 type PageProps = {
   params: Promise<{
@@ -10,6 +10,7 @@ type PageProps = {
   }>;
   searchParams?: Promise<{
     lang?: string | string[];
+    bookingToken?: string | string[];
   }>;
 };
 

@@ -126,6 +126,7 @@ export function ConsentProvider({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const locale = normalizeSearchLocale(searchParams, initialLocale);
   const copy = consentCopy[locale];
   const [consent, setConsent] = useState<ConsentState | null>(initialConsent);
@@ -143,7 +144,7 @@ export function ConsentProvider({
   const hasGoogleAdsTracking = Boolean(googleAdsConversionId && googleAdsConversionLabel);
   const analyticsAllowed = Boolean(consent?.analytics && hasGoogleAnalyticsTracking);
   const marketingAllowed = Boolean(consent?.marketing && hasGoogleAdsTracking);
-  const isConsentDialogOpen = panelOpen || !consent;
+  const isConsentDialogOpen = !isAdminRoute && (panelOpen || !consent);
   const bannerIntro = getBannerIntro(locale, hasGoogleAnalyticsTracking, hasGoogleAdsTracking, copy.bannerIntro);
 
   useEffect(() => {
@@ -450,7 +451,7 @@ export function ConsentProvider({
         </div>
       ) : null}
 
-      {!panelOpen && consent ? (
+      {!isAdminRoute && !panelOpen && consent ? (
         <button
           type="button"
           className="cookie-settings-trigger"

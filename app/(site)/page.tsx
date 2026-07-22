@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
-import mainImage from "../main.png";
+import mainImage from "@/main.png";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
 import {
@@ -11,31 +11,26 @@ import {
   HomeTopbar,
   LocationShowcase,
   PortfolioSection,
-} from "../components/home-interactive";
-import { LocationSelectionDialog, LocationSelectionPrompt } from "../components/location-selection-dialog";
-import { BlogPreviewCard } from "../components/blog-content";
-import {
-  contactItems,
-  faqItems,
-  portfolioItems,
-  priceItems,
-  resolveLocale,
-  services,
-  translations,
-} from "../lib/home-content";
-import { blogPosts } from "../lib/blog-content";
+} from "@/components/home-interactive";
+import { LocationSelectionDialog, LocationSelectionPrompt } from "@/components/location-selection-dialog";
+import { BlogPreviewCard } from "@/components/blog-content";
+import { contactItems, faqItems, priceItems, resolveLocale, services, translations } from "@/lib/home-content";
+import { blogPosts } from "@/lib/blog-content";
 import {
   defaultRentalLocation,
   getLocationCopy,
   rentalLocationConfigs,
   type RentalLocationConfig,
-} from "../lib/rental-locations";
-import { siteConfig } from "../lib/site";
+} from "@/lib/rental-locations";
+import { siteConfig } from "@/lib/site";
+import { getDatabase } from "@/lib/db/client";
+import { getLocationInventory } from "@/lib/inventory/repository";
 
 type PageProps = {
   searchParams?: Promise<{
     lang?: string | string[];
     standortauswahl?: string | string[];
+    bookingToken?: string | string[];
   }>;
   location: RentalLocationConfig;
 };
@@ -134,19 +129,23 @@ export async function RentalPage({ searchParams, location }: PageProps) {
   const localServices = services.map((service, index) =>
     index === 1 ? { ...service, text: { ...service.text, [lang]: copy.aboutRental } } : service,
   );
-  const localPortfolioItems =
-    location.key !== "munich"
-      ? portfolioItems
-          .filter((item) => item.title === "Endurace CF SL 8" || item.title === "Grail CF SL 7")
-          .map((item) => ({
-            ...item,
-            price: location.key === "regensburg" ? { de: "49€/Tag", en: "49€/day" } : { de: "59€/Tag", en: "59€/day" },
-          }))
-      : portfolioItems;
-  const localPriceItems =
-    location.key === "regensburg"
-      ? priceItems.map((item, index) => (index === 0 ? { ...item, cost: { de: "ab 49€", en: "from 49€" } } : item))
-      : priceItems;
+  const inventory = getLocationInventory(getDatabase(), location.key);
+  const localPortfolioItems = inventory.portfolioItems;
+  const localPriceItems = priceItems.map((item, index) => {
+    if (index === 0) {
+      const price = (inventory.minimumBikePriceCents / 100).toFixed(0);
+      return { ...item, cost: { de: `ab ${price}€`, en: `from ${price}€` } };
+    }
+    if (index === 4) {
+      const price = (inventory.accessoryFromCents / 100).toFixed(0);
+      return { ...item, cost: { de: `ab ${price}€`, en: `from ${price}€` } };
+    }
+    const discount = inventory.discounts[index - 1];
+    if (discount) {
+      return { ...item, title: discount.label, cost: { de: `${discount.percentage}%`, en: `${discount.percentage}%` } };
+    }
+    return item;
+  });
   const showLocationSelection = params?.standortauswahl === "1";
   const featuredPost = blogPosts[0];
 
@@ -378,6 +377,7 @@ export async function RentalPage({ searchParams, location }: PageProps) {
           <ContactForm
             lang={lang}
             defaultLocation={location.key}
+            inventory={inventory}
             translations={{
               portfolio: t.portfolio,
               modal: t.modal,

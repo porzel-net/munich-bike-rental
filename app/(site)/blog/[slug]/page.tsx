@@ -3,13 +3,13 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 
-import { BlogArticle } from "../../../components/blog-content";
-import { HomeTopbar } from "../../../components/home-interactive";
-import { blogPosts, getBlogImageSrc, getBlogPostBySlug, getCanonicalBlogSlug } from "../../../lib/blog-content";
-import { resolveLocale, translations } from "../../../lib/home-content";
-import { getBlogPostStructuredDataJson } from "../../../lib/structured-data";
-import { siteConfig } from "../../../lib/site";
-import { defaultRentalLocation } from "../../../lib/rental-locations";
+import { BlogArticle } from "@/components/blog-content";
+import { HomeTopbar } from "@/components/home-interactive";
+import { blogPosts, getBlogImageSrc, getBlogPostBySlug, getCanonicalBlogSlug } from "@/lib/blog-content";
+import { resolveLocale, translations } from "@/lib/home-content";
+import { getBlogPostStructuredDataJson } from "@/lib/structured-data";
+import { siteConfig } from "@/lib/site";
+import { defaultRentalLocation } from "@/lib/rental-locations";
 
 type PageProps = {
   params: Promise<{

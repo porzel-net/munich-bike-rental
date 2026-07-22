@@ -3,12 +3,12 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { MapPin } from "lucide-react";
 
-import { HomeTopbar } from "../../components/home-interactive";
-import { MaintenanceForm } from "../../components/maintenance-form";
-import { footerLinks, resolveLocale, translations } from "../../lib/home-content";
-import { getMaintenanceStructuredDataJson } from "../../lib/structured-data";
-import { rentalLocationConfigs } from "../../lib/rental-locations";
-import { siteConfig } from "../../lib/site";
+import { HomeTopbar } from "@/components/home-interactive";
+import { MaintenanceForm } from "@/components/maintenance-form";
+import { footerLinks, resolveLocale, translations } from "@/lib/home-content";
+import { getMaintenanceStructuredDataJson } from "@/lib/structured-data";
+import { rentalLocationConfigs } from "@/lib/rental-locations";
+import { siteConfig } from "@/lib/site";
 
 type PageProps = {
   searchParams?: Promise<{

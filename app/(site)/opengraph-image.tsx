@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-import { siteConfig } from "../lib/site";
+import { siteConfig } from "@/lib/site";
 
 export const runtime = "edge";
 

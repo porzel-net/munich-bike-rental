@@ -8,7 +8,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
 import { type Locale, type PortfolioItem } from "../lib/home-content";
-import { bikeOptionsByLocation, rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
+import { rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
+import type { LocationInventory } from "../lib/inventory/repository";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
 import { rentalLocationConfigs } from "../lib/rental-locations";
 
@@ -153,6 +154,7 @@ type ContactFormProps = {
   lang: Locale;
   translations: SharedTranslations;
   defaultLocation?: RentalLocation;
+  inventory: LocationInventory;
 };
 
 type AboutImageStackProps = {
@@ -1046,7 +1048,7 @@ export function PortfolioSection({
   );
 }
 
-export function ContactForm({ lang, translations, defaultLocation = "munich" }: ContactFormProps) {
+export function ContactForm({ lang, translations, defaultLocation = "munich", inventory }: ContactFormProps) {
   const { trackLead, saveAll } = useConsent();
   const searchParams = useSearchParams();
   const [location, setLocation] = useState<RentalLocation>(defaultLocation);
@@ -1070,7 +1072,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const affiliateKey = getAffiliateKey(searchParams);
-  const bikeOptions = bikeOptionsByLocation[location];
+  const bikeOptions = inventory.bikeOptions;
 
   const clearFieldError = (field: ContactField) => {
     setFieldErrors((current) => {
@@ -1366,124 +1368,137 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
               </div>
               <span className="contact-form__section-title">{translations.form.equipment}</span>
               <div className="contact-form__equipment-grid">
-                <div className="contact-form__equipment-item">
-                  <label className="contact-form__checkbox">
-                    <input
-                      type="checkbox"
-                      name={"bikes." + index + ".needsPedals"}
-                      checked={bike.needsPedals}
-                      onChange={(event) => {
-                        const nextValue = event.target.checked;
-                        updateBike(index, "needsPedals", nextValue);
-                        if (!nextValue) {
-                          updateBike(index, "pedalType", "");
-                        }
-                        clearBikeFieldError(index, "pedalType");
-                      }}
-                    />
-                    <span>{translations.form.pedals}</span>
-                  </label>
-
-                  {bike.needsPedals ? (
-                    <div className="contact-form__field">
-                      <label htmlFor={bikePrefix + "-pedal-type"}>{translations.form.pedalType}</label>
-                      <select
-                        id={bikePrefix + "-pedal-type"}
-                        name={"bikes." + index + ".pedalType"}
-                        value={bike.pedalType}
-                        aria-invalid={Boolean(errors.pedalType)}
-                        aria-describedby={errors.pedalType ? bikePrefix + "-pedal-type-error" : undefined}
+                {inventory.pedalTypes.length > 0 ? (
+                  <div className="contact-form__equipment-item">
+                    <label className="contact-form__checkbox">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".needsPedals"}
+                        checked={bike.needsPedals}
                         onChange={(event) => {
-                          updateBike(index, "pedalType", event.target.value);
+                          const nextValue = event.target.checked;
+                          updateBike(index, "needsPedals", nextValue);
+                          if (!nextValue) {
+                            updateBike(index, "pedalType", "");
+                          }
                           clearBikeFieldError(index, "pedalType");
                         }}
-                      >
-                        <option value="" disabled>
-                          {translations.form.pedalType}
-                        </option>
-                        <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
-                        <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
-                        <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
-                        <option value="other">{translations.form.pedalTypeOptions.other}</option>
-                      </select>
-                      {errors.pedalType ? (
-                        <p className="contact-form__error" id={bikePrefix + "-pedal-type-error"}>
-                          {errors.pedalType}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                      />
+                      <span>{translations.form.pedals}</span>
+                    </label>
 
-                <div className="contact-form__equipment-item">
+                    {bike.needsPedals ? (
+                      <div className="contact-form__field">
+                        <label htmlFor={bikePrefix + "-pedal-type"}>{translations.form.pedalType}</label>
+                        <select
+                          id={bikePrefix + "-pedal-type"}
+                          name={"bikes." + index + ".pedalType"}
+                          value={bike.pedalType}
+                          aria-invalid={Boolean(errors.pedalType)}
+                          aria-describedby={errors.pedalType ? bikePrefix + "-pedal-type-error" : undefined}
+                          onChange={(event) => {
+                            updateBike(index, "pedalType", event.target.value);
+                            clearBikeFieldError(index, "pedalType");
+                          }}
+                        >
+                          <option value="" disabled>
+                            {translations.form.pedalType}
+                          </option>
+                          {inventory.pedalTypes.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label[lang]}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.pedalType ? (
+                          <p className="contact-form__error" id={bikePrefix + "-pedal-type-error"}>
+                            {errors.pedalType}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {inventory.computerMountTypes.length > 0 ? (
+                  <div className="contact-form__equipment-item">
+                    <label className="contact-form__checkbox">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".needsComputerMount"}
+                        checked={bike.needsComputerMount}
+                        onChange={(event) => {
+                          const nextValue = event.target.checked;
+                          updateBike(index, "needsComputerMount", nextValue);
+                          if (!nextValue) {
+                            updateBike(index, "computerMountType", "");
+                          }
+                          clearBikeFieldError(index, "computerMountType");
+                        }}
+                      />
+                      <span>{translations.form.computerMount}</span>
+                    </label>
+
+                    {bike.needsComputerMount ? (
+                      <div className="contact-form__field">
+                        <label htmlFor={bikePrefix + "-computer-mount-type"}>
+                          {translations.form.computerMountType}
+                        </label>
+                        <select
+                          id={bikePrefix + "-computer-mount-type"}
+                          name={"bikes." + index + ".computerMountType"}
+                          value={bike.computerMountType}
+                          aria-invalid={Boolean(errors.computerMountType)}
+                          aria-describedby={
+                            errors.computerMountType ? bikePrefix + "-computer-mount-type-error" : undefined
+                          }
+                          onChange={(event) => {
+                            updateBike(index, "computerMountType", event.target.value);
+                            clearBikeFieldError(index, "computerMountType");
+                          }}
+                        >
+                          <option value="" disabled>
+                            {translations.form.computerMountType}
+                          </option>
+                          {inventory.computerMountTypes.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label[lang]}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.computerMountType ? (
+                          <p className="contact-form__error" id={bikePrefix + "-computer-mount-type-error"}>
+                            {errors.computerMountType}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {inventory.helmetAvailable ? (
                   <label className="contact-form__checkbox">
                     <input
                       type="checkbox"
-                      name={"bikes." + index + ".needsComputerMount"}
-                      checked={bike.needsComputerMount}
-                      onChange={(event) => {
-                        const nextValue = event.target.checked;
-                        updateBike(index, "needsComputerMount", nextValue);
-                        if (!nextValue) {
-                          updateBike(index, "computerMountType", "");
-                        }
-                        clearBikeFieldError(index, "computerMountType");
-                      }}
+                      name={"bikes." + index + ".needsHelmet"}
+                      checked={bike.needsHelmet}
+                      onChange={(event) => updateBike(index, "needsHelmet", event.target.checked)}
                     />
-                    <span>{translations.form.computerMount}</span>
+                    <span>{translations.form.helmet}</span>
                   </label>
+                ) : null}
 
-                  {bike.needsComputerMount ? (
-                    <div className="contact-form__field">
-                      <label htmlFor={bikePrefix + "-computer-mount-type"}>{translations.form.computerMountType}</label>
-                      <select
-                        id={bikePrefix + "-computer-mount-type"}
-                        name={"bikes." + index + ".computerMountType"}
-                        value={bike.computerMountType}
-                        aria-invalid={Boolean(errors.computerMountType)}
-                        aria-describedby={
-                          errors.computerMountType ? bikePrefix + "-computer-mount-type-error" : undefined
-                        }
-                        onChange={(event) => {
-                          updateBike(index, "computerMountType", event.target.value);
-                          clearBikeFieldError(index, "computerMountType");
-                        }}
-                      >
-                        <option value="" disabled>
-                          {translations.form.computerMountType}
-                        </option>
-                        <option value="garmin">{translations.form.computerMountTypeOptions.garmin}</option>
-                        <option value="wahoo">{translations.form.computerMountTypeOptions.wahoo}</option>
-                        <option value="other">{translations.form.computerMountTypeOptions.other}</option>
-                      </select>
-                      {errors.computerMountType ? (
-                        <p className="contact-form__error" id={bikePrefix + "-computer-mount-type-error"}>
-                          {errors.computerMountType}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-
-                <label className="contact-form__checkbox">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".needsHelmet"}
-                    checked={bike.needsHelmet}
-                    onChange={(event) => updateBike(index, "needsHelmet", event.target.checked)}
-                  />
-                  <span>{translations.form.helmet}</span>
-                </label>
-
-                <label className="contact-form__checkbox">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".needsClothing"}
-                    checked={bike.needsClothing}
-                    onChange={(event) => updateBike(index, "needsClothing", event.target.checked)}
-                  />
-                  <span>{translations.form.clothing}</span>
-                </label>
+                {inventory.clothingAvailable ? (
+                  <label className="contact-form__checkbox">
+                    <input
+                      type="checkbox"
+                      name={"bikes." + index + ".needsClothing"}
+                      checked={bike.needsClothing}
+                      onChange={(event) => updateBike(index, "needsClothing", event.target.checked)}
+                    />
+                    <span>{translations.form.clothing}</span>
+                  </label>
+                ) : null}
               </div>
             </div>
           );

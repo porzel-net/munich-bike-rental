@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
-import { BlogPreviewCard } from "../../components/blog-content";
-import { HomeTopbar } from "../../components/home-interactive";
-import { blogPosts } from "../../lib/blog-content";
-import { resolveLocale, translations } from "../../lib/home-content";
-import { siteConfig } from "../../lib/site";
-import { defaultRentalLocation } from "../../lib/rental-locations";
+import { BlogPreviewCard } from "@/components/blog-content";
+import { HomeTopbar } from "@/components/home-interactive";
+import { blogPosts } from "@/lib/blog-content";
+import { resolveLocale, translations } from "@/lib/home-content";
+import { siteConfig } from "@/lib/site";
+import { defaultRentalLocation } from "@/lib/rental-locations";
 
 type PageProps = {
   searchParams?: Promise<{
