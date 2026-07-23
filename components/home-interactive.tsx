@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowUpRight, ChevronDown, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, CircleHelp, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
@@ -78,6 +78,9 @@ type FormTranslations = {
   };
   helmet: string;
   clothing: string;
+  repairKit: string;
+  glasses: string;
+  glassesPreview: string;
   message: string;
   messageHint: string;
   privacy: string;
@@ -206,6 +209,8 @@ type BikeFormState = {
   computerMountType: string;
   needsHelmet: boolean;
   needsClothing: boolean;
+  repairKitIncluded: boolean;
+  needsGlasses: boolean;
 };
 
 type BikeField = "height" | "bikeSize" | "pedalType" | "computerMountType";
@@ -263,6 +268,8 @@ function createEmptyBike(): BikeFormState {
     computerMountType: "",
     needsHelmet: false,
     needsClothing: false,
+    repairKitIncluded: true,
+    needsGlasses: false,
   };
 }
 
@@ -1484,6 +1491,46 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
                   />
                   <span>{translations.form.clothing}</span>
                 </label>
+
+                <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                  <input
+                    type="checkbox"
+                    name={"bikes." + index + ".repairKitIncluded"}
+                    checked={bike.repairKitIncluded}
+                    disabled
+                    readOnly
+                  />
+                  <span>{translations.form.repairKit}</span>
+                </label>
+
+                <div className="contact-form__equipment-item contact-form__equipment-item--glasses">
+                  <div className="contact-form__equipment-option">
+                    <label className="contact-form__checkbox">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".needsGlasses"}
+                        checked={bike.needsGlasses}
+                        onChange={(event) => updateBike(index, "needsGlasses", event.target.checked)}
+                      />
+                      <span>{translations.form.glasses}</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="contact-form__equipment-help"
+                      aria-label={translations.form.glassesPreview}
+                    >
+                      <CircleHelp aria-hidden="true" size={17} />
+                      <span className="contact-form__equipment-tooltip" role="tooltip">
+                        <Image
+                          src="/assets/img/accessories/road-bike-glasses.jpg"
+                          alt={translations.form.glassesPreview}
+                          width={240}
+                          height={180}
+                        />
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           );

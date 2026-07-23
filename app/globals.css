@@ -2911,6 +2911,85 @@ button {
   gap: 12px;
 }
 
+.contact-form__equipment-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.contact-form__equipment-option .contact-form__checkbox {
+  flex: 1;
+  min-width: 0;
+}
+
+.contact-form__checkbox--fixed {
+  cursor: default;
+}
+
+.contact-form__checkbox--fixed input {
+  cursor: default;
+}
+
+.contact-form__equipment-help {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 0;
+  padding: 0;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 50%;
+  cursor: help;
+}
+
+.contact-form__equipment-help:hover,
+.contact-form__equipment-help:focus-visible {
+  color: #111;
+  border-color: rgba(17, 17, 17, 0.36);
+  outline: none;
+}
+
+.contact-form__equipment-tooltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 10;
+  width: 240px;
+  padding: 8px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 14px;
+  box-shadow: 0 16px 34px rgba(17, 17, 17, 0.18);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0.18s ease;
+}
+
+.contact-form__equipment-tooltip img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 9px;
+}
+
+.contact-form__equipment-help:hover .contact-form__equipment-tooltip,
+.contact-form__equipment-help:focus-visible .contact-form__equipment-tooltip {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 .contact-form__equipment-item > .contact-form__checkbox {
   min-height: 76px;
 }

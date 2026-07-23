@@ -28,6 +28,8 @@ function createMailBody(payload: Awaited<ReturnType<typeof contactInquirySchema.
       `${isGerman ? "Fahrradcomputerhalterung" : "Bike computer mount"}: ${bike.needsComputerMount ? `${yesNo.yes}, ${mountLabel}` : yesNo.no}`,
       `${isGerman ? "Helm" : "Helmet"}: ${bike.needsHelmet ? yesNo.yes : yesNo.no}`,
       `${isGerman ? "Kleidung" : "Clothing"}: ${bike.needsClothing ? yesNo.yes : yesNo.no}`,
+      `${isGerman ? "Reparaturset" : "Repair kit"}: ${bike.repairKitIncluded ? (isGerman ? "Inklusive" : "Included") : yesNo.no}`,
+      `${isGerman ? "Rennradbrille" : "Road cycling glasses"}: ${bike.needsGlasses ? yesNo.yes : yesNo.no}`,
       "",
     ];
   });

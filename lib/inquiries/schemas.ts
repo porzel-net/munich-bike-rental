@@ -50,6 +50,8 @@ const bikeInquirySchema = z
     computerMountType: optionalLine(32),
     needsHelmet: booleanInput.default(false),
     needsClothing: booleanInput.default(false),
+    repairKitIncluded: z.literal(true).default(true),
+    needsGlasses: booleanInput.default(false),
   })
   .superRefine((value, context) => {
     if (value.needsPedals && !pedalTypes.includes(value.pedalType as (typeof pedalTypes)[number])) {
