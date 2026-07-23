@@ -3110,6 +3110,7 @@ button {
 
 .contact-form__checkbox span {
   display: block;
+  white-space: pre-line;
 }
 
 .button--arrow {

@@ -78,6 +78,7 @@ type FormTranslations = {
   };
   helmet: string;
   clothing: string;
+  bikepackingBag: string;
   repairKit: string;
   glasses: string;
   glassesPreview: string;
@@ -209,6 +210,7 @@ type BikeFormState = {
   computerMountType: string;
   needsHelmet: boolean;
   needsClothing: boolean;
+  needsBikepackingBag: boolean;
   repairKitIncluded: boolean;
   needsGlasses: boolean;
 };
@@ -268,6 +270,7 @@ function createEmptyBike(): BikeFormState {
     computerMountType: "",
     needsHelmet: false,
     needsClothing: false,
+    needsBikepackingBag: false,
     repairKitIncluded: true,
     needsGlasses: false,
   };
@@ -1490,6 +1493,16 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
                     onChange={(event) => updateBike(index, "needsClothing", event.target.checked)}
                   />
                   <span>{translations.form.clothing}</span>
+                </label>
+
+                <label className="contact-form__checkbox">
+                  <input
+                    type="checkbox"
+                    name={"bikes." + index + ".needsBikepackingBag"}
+                    checked={bike.needsBikepackingBag}
+                    onChange={(event) => updateBike(index, "needsBikepackingBag", event.target.checked)}
+                  />
+                  <span>{translations.form.bikepackingBag}</span>
                 </label>
 
                 <label className="contact-form__checkbox contact-form__checkbox--fixed">

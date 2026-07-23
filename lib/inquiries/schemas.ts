@@ -50,6 +50,7 @@ const bikeInquirySchema = z
     computerMountType: optionalLine(32),
     needsHelmet: booleanInput.default(false),
     needsClothing: booleanInput.default(false),
+    needsBikepackingBag: booleanInput.default(false),
     repairKitIncluded: z.literal(true).default(true),
     needsGlasses: booleanInput.default(false),
   })
