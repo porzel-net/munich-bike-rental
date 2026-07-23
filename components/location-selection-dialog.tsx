@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { Locale } from "../lib/home-content";
-import { rentalLocationConfigs } from "../lib/rental-locations";
+import { getLocalizedLocationPath, rentalLocationConfigs } from "../lib/rental-locations";
 
 type LocationSelectionDialogProps = {
   lang: Locale;
@@ -65,7 +65,7 @@ export function LocationSelectionDialog({ lang, open, onClose }: LocationSelecti
 
       <div className="location-selection-dialog__links">
         {rentalLocationConfigs.map((location) => (
-          <Link key={location.path} href={`${location.path}${lang === "de" ? "" : "?lang=en"}`}>
+          <Link key={location.path} href={getLocalizedLocationPath(location, lang)}>
             <strong>{location.city[lang]}</strong>
             <span>{location.district[lang]}</span>
           </Link>

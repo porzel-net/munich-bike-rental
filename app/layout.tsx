@@ -143,11 +143,13 @@ export default async function RootLayout({
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const pathname = requestHeaders.get("x-pathname");
   const searchParams = new URLSearchParams(requestHeaders.get("x-search") ?? "");
-  const locale = resolveLocale(searchParams.get("lang") ?? undefined);
+  const pathLocale = pathname?.match(/^\/(de|en)\//)?.[1];
+  const locale =
+    pathLocale === "en" || pathLocale === "de" ? pathLocale : resolveLocale(searchParams.get("lang") ?? undefined);
   const initialConsent = parseConsentCookie(requestHeaders.get("cookie"));
-  const rentalPathMatch = pathname?.match(/^\/rennradverleih\/([^/]+)\/([^/]+)$/);
+  const rentalPathMatch = pathname?.match(/^\/(?:de|en)\/rennradverleih\/([^/]+)\/([^/]+)$/);
   const rentalLocation = rentalPathMatch ? getRentalLocation(rentalPathMatch[1], rentalPathMatch[2]) : undefined;
-  const structuredDataJson = rentalLocation ? getRentalStructuredDataJson(rentalLocation) : null;
+  const structuredDataJson = rentalLocation ? getRentalStructuredDataJson(rentalLocation, locale) : null;
   const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
   const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID?.trim();
   const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL?.trim();

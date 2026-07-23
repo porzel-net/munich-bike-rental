@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
-import { generateRentalMetadata, RentalPage } from "../../../page";
-import { getRentalLocation, rentalLocationConfigs } from "../../../../lib/rental-locations";
+import { resolveLocale } from "../../../../lib/home-content";
+import { getLocalizedLocationPath, getRentalLocation, rentalLocationConfigs } from "../../../../lib/rental-locations";
 
 type PageProps = {
   params: Promise<{
@@ -19,17 +19,6 @@ export function generateStaticParams() {
   return rentalLocationConfigs.map((location) => ({ city: location.citySlug, district: location.districtSlug }));
 }
 
-export async function generateMetadata({ params, searchParams }: PageProps) {
-  const { city, district } = await params;
-  const location = getRentalLocation(city, district);
-
-  if (!location) {
-    return {};
-  }
-
-  return generateRentalMetadata({ searchParams, location });
-}
-
 export default async function LocationRentalPage({ params, searchParams }: PageProps) {
   const { city, district } = await params;
   const location = getRentalLocation(city, district);
@@ -38,5 +27,7 @@ export default async function LocationRentalPage({ params, searchParams }: PageP
     notFound();
   }
 
-  return <RentalPage searchParams={searchParams} location={location} />;
+  const query = await searchParams;
+  const locale = resolveLocale(query?.lang);
+  permanentRedirect(getLocalizedLocationPath(location, locale));
 }

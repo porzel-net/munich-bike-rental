@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const munichPath = "/rennradverleih/münchen/maxvorstadt";
+const munichPath = "/de/rennradverleih/münchen/maxvorstadt";
 const consentCookieValue = encodeURIComponent(
   JSON.stringify({ analytics: false, updatedAt: "2026-07-19T00:00:00.000Z" }),
 );
@@ -59,9 +59,19 @@ test("renders the German and English landing pages without console errors", asyn
   await locationDialog.getByRole("button", { name: "Schließen" }).click();
   await expect(page.locator("h1")).toBeVisible();
   await expect(page.locator("section#contact")).toBeVisible();
-  await page.goto(`${munichPath}?lang=en`);
+  await page.goto("/en/rennradverleih/münchen/maxvorstadt");
   await expect(page.locator("h1")).toBeVisible();
+  await page.getByRole("button", { name: /switch language to deutsch/i }).click();
+  await expect(page).toHaveURL(/\/de\/rennradverleih\/m%C3%BCnchen\/maxvorstadt$/);
   expect(errors).toEqual([]);
+});
+
+test("redirects legacy rental URLs to the localized paths", async ({ page }) => {
+  await page.goto("/rennradverleih/münchen/maxvorstadt?lang=en");
+  await expect(page).toHaveURL(/\/en\/rennradverleih\/m%C3%BCnchen\/maxvorstadt$/);
+
+  await page.goto("/rennradverleih/münchen/maxvorstadt");
+  await expect(page).toHaveURL(/\/de\/rennradverleih\/m%C3%BCnchen\/maxvorstadt$/);
 });
 
 test("keeps main interactions available", async ({ page }, testInfo) => {

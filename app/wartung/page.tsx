@@ -7,7 +7,7 @@ import { HomeTopbar } from "../../components/home-interactive";
 import { MaintenanceForm } from "../../components/maintenance-form";
 import { footerLinks, resolveLocale, translations } from "../../lib/home-content";
 import { getMaintenanceStructuredDataJson } from "../../lib/structured-data";
-import { rentalLocationConfigs } from "../../lib/rental-locations";
+import { getLocalizedLocationPath, rentalLocationConfigs } from "../../lib/rental-locations";
 import { siteConfig } from "../../lib/site";
 
 type PageProps = {
@@ -312,7 +312,7 @@ export default async function WartungPage({ searchParams }: PageProps) {
             {rentalLocationConfigs.map((location) => (
               <li key={location.path} className="footer-meta__item footer-meta__item--location">
                 <MapPin className="footer-meta__icon" aria-hidden="true" />
-                <Link href={`${location.path}${lang === "de" ? "" : "?lang=en"}`}>
+                <Link href={getLocalizedLocationPath(location, lang)}>
                   {`${location.city[lang]}, ${location.district[lang]}`}
                 </Link>
               </li>

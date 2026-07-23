@@ -47,11 +47,11 @@ This website is for a local bicycle rental service. The most useful pages are th
 
 ## Core pages
 
-- [Munich road & gravel bike rental](${siteConfig.url}/rennradverleih/münchen/maxvorstadt): Available bikes, prices, FAQ and contact in Munich-Maxvorstadt.
-- [Regensburg road & gravel bike rental](${siteConfig.url}/rennradverleih/regensburg/altstadt): Available bikes, prices, FAQ and contact in Regensburg-Altstadt.
-- [Lindau road & gravel bike rental](${siteConfig.url}/rennradverleih/lindau/aeschach): Available bikes, prices, FAQ and contact in Lindau-Aeschach.
-- [Friedrichshafen road & gravel bike rental](${siteConfig.url}/rennradverleih/friedrichshafen/innenstadt): Available bikes, prices, FAQ and contact in Friedrichshafen city centre.
-- [Konstanz road & gravel bike rental](${siteConfig.url}/rennradverleih/konstanz/altstadt): Available bikes, prices, FAQ and contact in Konstanz-Altstadt.
+- [Munich road & gravel bike rental](${siteConfig.url}/de/rennradverleih/münchen/maxvorstadt): Available bikes, prices, FAQ and contact in Munich-Maxvorstadt.
+- [Regensburg road & gravel bike rental](${siteConfig.url}/de/rennradverleih/regensburg/altstadt): Available bikes, prices, FAQ and contact in Regensburg-Altstadt.
+- [Lindau road & gravel bike rental](${siteConfig.url}/de/rennradverleih/lindau/aeschach): Available bikes, prices, FAQ and contact in Lindau-Aeschach.
+- [Friedrichshafen road & gravel bike rental](${siteConfig.url}/de/rennradverleih/friedrichshafen/innenstadt): Available bikes, prices, FAQ and contact in Friedrichshafen city centre.
+- [Konstanz road & gravel bike rental](${siteConfig.url}/de/rennradverleih/konstanz/altstadt): Available bikes, prices, FAQ and contact in Konstanz-Altstadt.
 - [Maintenance](${siteConfig.url}/wartung): Road bike maintenance, oil-to-wax switch, parts replacement, repairs, pickup service and service requests.
 - [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
@@ -117,11 +117,11 @@ The project uses a single-page home experience with sections for bikes, prices, 
 
 ## Important pages
 
-- [Munich road & gravel bike rental](${siteConfig.url}/rennradverleih/münchen/maxvorstadt): Main rental page for Munich-Maxvorstadt.
-- [Regensburg road & gravel bike rental](${siteConfig.url}/rennradverleih/regensburg/altstadt): Main rental page for Regensburg-Altstadt.
-- [Lindau road & gravel bike rental](${siteConfig.url}/rennradverleih/lindau/aeschach): Main rental page for Lindau-Aeschach.
-- [Friedrichshafen road & gravel bike rental](${siteConfig.url}/rennradverleih/friedrichshafen/innenstadt): Main rental page for Friedrichshafen city centre.
-- [Konstanz road & gravel bike rental](${siteConfig.url}/rennradverleih/konstanz/altstadt): Main rental page for Konstanz-Altstadt.
+- [Munich road & gravel bike rental](${siteConfig.url}/de/rennradverleih/münchen/maxvorstadt): Main rental page for Munich-Maxvorstadt.
+- [Regensburg road & gravel bike rental](${siteConfig.url}/de/rennradverleih/regensburg/altstadt): Main rental page for Regensburg-Altstadt.
+- [Lindau road & gravel bike rental](${siteConfig.url}/de/rennradverleih/lindau/aeschach): Main rental page for Lindau-Aeschach.
+- [Friedrichshafen road & gravel bike rental](${siteConfig.url}/de/rennradverleih/friedrichshafen/innenstadt): Main rental page for Friedrichshafen city centre.
+- [Konstanz road & gravel bike rental](${siteConfig.url}/de/rennradverleih/konstanz/altstadt): Main rental page for Konstanz-Altstadt.
 - [Maintenance](${siteConfig.url}/wartung): Dedicated maintenance page for service requests and bike-care questions.
 - [Imprint](${siteConfig.url}/impressum): Legal operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Privacy and data processing information.

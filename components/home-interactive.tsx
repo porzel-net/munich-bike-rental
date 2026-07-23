@@ -10,7 +10,7 @@ import { InquiryHoneypot } from "./inquiry-honeypot";
 import { type Locale, type PortfolioItem } from "../lib/home-content";
 import { bikeOptionsByLocation, rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
-import { rentalLocationConfigs } from "../lib/rental-locations";
+import { defaultRentalLocation, getLocalizedLocationPath, rentalLocationConfigs } from "../lib/rental-locations";
 
 type TopbarTranslations = {
   nav: {
@@ -676,16 +676,21 @@ export function HomeTopbar({
       return override;
     }
 
-    if (pathname === "/" || pathname.startsWith("/rennradverleih/")) {
+    if (
+      pathname === "/" ||
+      pathname.startsWith("/rennradverleih/") ||
+      pathname.startsWith("/de/rennradverleih/") ||
+      pathname.startsWith("/en/rennradverleih/")
+    ) {
       return hash;
     }
 
-    return buildPathWithSearch({
-      pathname: homePath ?? "/rennradverleih/münchen/maxvorstadt",
-      searchParams,
-      hash,
-      lang,
-    });
+    const targetHomePath = homePath ?? getLocalizedLocationPath(defaultRentalLocation, lang);
+    if (targetHomePath.startsWith("/de/") || targetHomePath.startsWith("/en/")) {
+      return `${targetHomePath}${hash}`;
+    }
+
+    return buildPathWithSearch({ pathname: targetHomePath, searchParams, hash, lang });
   };
   const maintenanceHref =
     pathname === "/wartung" ? sectionHref("#wartung", sectionAnchors?.maintenance) : pageHref("/wartung");
@@ -703,8 +708,17 @@ export function HomeTopbar({
 
   const navigateToLanguage = (nextLang: Locale) => {
     const search = new URLSearchParams(searchParams.toString());
-    search.set("lang", nextLang);
-    const nextUrl = `${pathname}?${search.toString()}${window.location.hash}`;
+    const localizedRentalMatch = pathname.match(/^\/(?:de|en)(\/rennradverleih\/.*)$/);
+    const nextPathname = localizedRentalMatch ? `/${nextLang}${localizedRentalMatch[1]}` : pathname;
+
+    if (localizedRentalMatch) {
+      search.delete("lang");
+    } else {
+      search.set("lang", nextLang);
+    }
+
+    const query = search.toString();
+    const nextUrl = `${nextPathname}${query ? `?${query}` : ""}${window.location.hash}`;
     router.push(nextUrl);
     setMenuOpen(false);
   };
@@ -797,7 +811,7 @@ export function HomeTopbar({
                   {rentalLocationConfigs.map((location) => (
                     <Link
                       key={location.path}
-                      href={pageHref(location.path)}
+                      href={getLocalizedLocationPath(location, lang)}
                       className="nav__locations-link"
                       onClick={() => setLocationsOpen(false)}
                     >
@@ -925,7 +939,7 @@ export function HomeTopbar({
                 {rentalLocationConfigs.map((location) => (
                   <li key={location.path}>
                     <Link
-                      href={pageHref(location.path)}
+                      href={getLocalizedLocationPath(location, lang)}
                       className="nav__locations-link--mobile"
                       onClick={() => setMenuOpen(false)}
                     >

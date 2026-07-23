@@ -70,7 +70,7 @@ export type PriceItem = {
 };
 
 export const footerLinks = [
-  { href: "/rennradverleih/münchen/maxvorstadt", label: "Startseite" },
+  { href: "/de/rennradverleih/münchen/maxvorstadt", label: "Startseite" },
   { href: "/blog", label: "Blog" },
   { href: "/impressum", label: "Impressum" },
   { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },

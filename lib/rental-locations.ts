@@ -6,6 +6,8 @@ export type RentalLocationConfig = {
   citySlug: string;
   districtSlug: string;
   path: string;
+  enPath: string;
+  legacyPath: string;
   city: Record<Locale, string>;
   district: Record<Locale, string>;
   address: string;
@@ -20,7 +22,9 @@ export const rentalLocationConfigs = [
     key: "munich",
     citySlug: "münchen",
     districtSlug: "maxvorstadt",
-    path: "/rennradverleih/münchen/maxvorstadt",
+    path: "/de/rennradverleih/münchen/maxvorstadt",
+    enPath: "/en/rennradverleih/münchen/maxvorstadt",
+    legacyPath: "/rennradverleih/münchen/maxvorstadt",
     city: { de: "München", en: "Munich" },
     district: { de: "Maxvorstadt", en: "Maxvorstadt" },
     address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
@@ -33,7 +37,9 @@ export const rentalLocationConfigs = [
     key: "regensburg",
     citySlug: "regensburg",
     districtSlug: "altstadt",
-    path: "/rennradverleih/regensburg/altstadt",
+    path: "/de/rennradverleih/regensburg/altstadt",
+    enPath: "/en/rennradverleih/regensburg/altstadt",
+    legacyPath: "/rennradverleih/regensburg/altstadt",
     city: { de: "Regensburg", en: "Regensburg" },
     district: { de: "Altstadt", en: "Old Town" },
     address: "Rote Hahnen Gasse 12, 93047 Regensburg, Altstadt",
@@ -46,7 +52,9 @@ export const rentalLocationConfigs = [
     key: "lindau",
     citySlug: "lindau",
     districtSlug: "aeschach",
-    path: "/rennradverleih/lindau/aeschach",
+    path: "/de/rennradverleih/lindau/aeschach",
+    enPath: "/en/rennradverleih/lindau/aeschach",
+    legacyPath: "/rennradverleih/lindau/aeschach",
     city: { de: "Lindau Bodensee", en: "Lindau (Lake Constance)" },
     district: { de: "Aeschach", en: "Aeschach" },
     address: "Lärchenweg 3a, 88131 Lindau Bodensee-Aeschach",
@@ -59,7 +67,9 @@ export const rentalLocationConfigs = [
     key: "friedrichshafen",
     citySlug: "friedrichshafen",
     districtSlug: "innenstadt",
-    path: "/rennradverleih/friedrichshafen/innenstadt",
+    path: "/de/rennradverleih/friedrichshafen/innenstadt",
+    enPath: "/en/rennradverleih/friedrichshafen/innenstadt",
+    legacyPath: "/rennradverleih/friedrichshafen/innenstadt",
     city: { de: "Friedrichshafen", en: "Friedrichshafen" },
     district: { de: "Innenstadt", en: "City Centre" },
     address: "Katharinenstraße 2/3, 88045 Friedrichshafen",
@@ -72,7 +82,9 @@ export const rentalLocationConfigs = [
     key: "konstanz",
     citySlug: "konstanz",
     districtSlug: "altstadt",
-    path: "/rennradverleih/konstanz/altstadt",
+    path: "/de/rennradverleih/konstanz/altstadt",
+    enPath: "/en/rennradverleih/konstanz/altstadt",
+    legacyPath: "/rennradverleih/konstanz/altstadt",
     city: { de: "Konstanz", en: "Constance" },
     district: { de: "Altstadt", en: "Old Town" },
     address: "Wessenbergstraße 12, 78462 Konstanz-Altstadt",
@@ -84,6 +96,10 @@ export const rentalLocationConfigs = [
 ] as const satisfies readonly RentalLocationConfig[];
 
 export const defaultRentalLocation = rentalLocationConfigs[0];
+
+export function getLocalizedLocationPath(location: RentalLocationConfig, locale: Locale) {
+  return locale === "en" ? location.enPath : location.path;
+}
 
 export function getRentalLocation(city: string, district: string) {
   const decodeSegment = (segment: string) => {

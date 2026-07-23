@@ -17,7 +17,7 @@ export default function ImpressumPage() {
   return (
     <main className="legal-page">
       <div className="container legal-page__inner">
-        <Link className="legal-page__back" href="/rennradverleih/münchen/maxvorstadt">
+        <Link className="legal-page__back" href="/de/rennradverleih/münchen/maxvorstadt">
           Zurück zur Startseite
         </Link>
 

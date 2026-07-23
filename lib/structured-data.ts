@@ -1,68 +1,54 @@
 import type { Locale } from "./home-content";
-import { portfolioItems } from "./home-content";
+import { faqItems, portfolioItems } from "./home-content";
 import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
-import { getLocationCopy, type RentalLocationConfig } from "./rental-locations";
+import { getLocalizedLocationPath, getLocationCopy, type RentalLocationConfig } from "./rental-locations";
 
 function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
-const offerCatalog = portfolioItems.map((item, index) => ({
-  "@type": "Offer",
-  position: index + 1,
-  name: item.title,
-  description: item.description.de,
-  price: Number(item.price.de.replace(/[^\d,.-]/g, "").replace(",", ".")),
-  priceCurrency: "EUR",
-  availability: "https://schema.org/InStock",
-}));
+function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
+  const catalog = portfolioItems.map((item, index) => ({
+    "@type": "Offer",
+    position: index + 1,
+    name: item.title,
+    description: item.description[locale],
+    price: Number(item.price[locale].replace(/[^\d,.-]/g, "").replace(",", ".")),
+    priceCurrency: "EUR",
+    availability: "https://schema.org/InStock",
+  }));
 
-const faqEntries = [
-  {
-    "@type": "Question",
-    name: "Wie läuft die Anfrage und Miete ab?",
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: "Alle Fahrräder können online über das Kontaktfeld angefragt und gemietet werden. Wir klären anschließend alles direkt per E-Mail und melden uns immer innerhalb von 24 Stunden. Eine Telefonnummer hilft uns besonders bei kurzfristigen Anfragen, damit wir bei Bedarf direkt anrufen können.",
-    },
-  },
-  {
-    "@type": "Question",
-    name: "Wo werden die Fahrräder abgeholt?",
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: "Die Abholung findet vor Ort in München-Maxvorstadt und Regensburg-Altstadt statt. Vor Ort geben wir dir das Fahrrad dann raus und gehen auf deine Wünsche ein (bspw. das Einstellen von der Sitzposition). Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.",
-    },
-  },
-  {
-    "@type": "Question",
-    name: "Sind die Fahrräder versichert?",
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: "Ja, alle Fahrräder sind über eine gewerbliche Versicherung abgesichert. Die Versicherung umfasst Diebstahl, Schäden und Zerstörung.",
-    },
-  },
-  {
-    "@type": "Question",
-    name: "Was passiert, wenn etwas beschädigt wird?",
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: "Auch in diesem Fall bist du nicht allein. Wir arbeiten mit einer gewerblichen Versicherung, damit Diebstahl, Schäden und Zerstörung abgesichert sind und wir gemeinsam eine saubere Lösung haben.",
-    },
-  },
-];
+  if (location.key === "munich") {
+    return catalog;
+  }
 
-export function getRentalStructuredDataJson(location: RentalLocationConfig) {
-  const copy = getLocationCopy(location, "de");
-  const pageUrl = `${siteConfig.url}${location.path}`;
-  const localOfferCatalog =
-    location.key === "munich"
-      ? offerCatalog
-      : offerCatalog
-          .filter((offer) => offer.name === "Endurace CF SL 8" || offer.name === "Grail CF SL 7")
-          .map((offer) => ({ ...offer, price: location.key === "regensburg" ? 49 : 59 }));
+  return catalog
+    .filter((offer) => offer.name === "Endurace CF SL 8" || offer.name === "Grail CF SL 7")
+    .map((offer) => ({ ...offer, price: location.key === "regensburg" ? 49 : 59 }));
+}
+
+function getFaqEntries(location: RentalLocationConfig, locale: Locale) {
+  const copy = getLocationCopy(location, locale);
+
+  return faqItems.map((item, index) => ({
+    "@type": "Question",
+    name: item.question[locale],
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: index === 1 ? copy.faqPickup : item.answer[locale],
+    },
+  }));
+}
+
+export function getRentalStructuredDataJson(location: RentalLocationConfig, locale: Locale) {
+  const isGerman = locale === "de";
+  const copy = getLocationCopy(location, locale);
+  const pageUrl = `${siteConfig.url}${getLocalizedLocationPath(location, locale)}`;
+  const city = location.city[locale];
+  const district = location.district[locale];
+  const localOfferCatalog = getOfferCatalog(location, locale);
 
   return serializeJsonLd({
     "@context": "https://schema.org",
@@ -73,28 +59,28 @@ export function getRentalStructuredDataJson(location: RentalLocationConfig) {
         name: "Your Bike Rental",
         alternateName: "Your Bike Rental",
         url: siteConfig.url,
-        description: `Persönlicher Rennrad- und Gravel-Verleih in ${location.city.de}-${location.district.de}.`,
-        inLanguage: ["de-DE", "en-US"],
-        keywords: [
-          `Rennradverleih ${location.city.de}`,
-          `Gravelbike Verleih ${location.city.de}`,
-          `Rennradverleih ${location.city.de} ${location.district.de}`,
-        ],
+        description: copy.heroIntro,
+        inLanguage: isGerman ? "de-DE" : "en-US",
+        keywords: isGerman
+          ? [`Rennradverleih ${city}`, `Gravelbike Verleih ${city}`, `Rennradverleih ${city} ${district}`]
+          : [`road bike rental ${city}`, `gravel bike rental ${city}`, `road bike rental ${city} ${district}`],
       },
       {
         "@type": "LocalBusiness",
         "@id": `${pageUrl}#localbusiness`,
         name: siteConfig.name,
-        description: `Persönlicher Rennrad- und Gravel-Verleih in ${location.city.de}-${location.district.de}.`,
+        description: copy.heroIntro,
         url: pageUrl,
         telephone: siteConfig.phoneE164,
         email: siteConfig.email,
         image: `${siteConfig.url}/assets/img/hero/1.jpg`,
         priceRange: siteConfig.priceRange,
-        areaServed: [location.city.de, location.district.de],
-        serviceType: "Rennrad- und Gravel-Verleih",
+        areaServed: [city, district],
+        serviceType: isGerman ? "Rennrad- und Gravel-Verleih" : "Road and gravel bike rental",
         hasMap: location.mapsUrl,
-        keywords: [`Rennradverleih ${location.city.de}`, `Gravelbike Verleih ${location.city.de}`],
+        keywords: isGerman
+          ? [`Rennradverleih ${city}`, `Gravelbike Verleih ${city}`]
+          : [`road bike rental ${city}`, `gravel bike rental ${city}`],
         address: {
           "@type": "PostalAddress",
           streetAddress: location.streetAddress,
@@ -116,27 +102,20 @@ export function getRentalStructuredDataJson(location: RentalLocationConfig) {
           {
             "@type": "ListItem",
             position: 1,
-            name: "Startseite",
+            name: isGerman ? "Startseite" : "Home",
             item: siteConfig.url,
           },
           {
             "@type": "ListItem",
             position: 2,
-            name: `Rennradverleih ${location.city.de}`,
+            name: isGerman ? `Rennradverleih ${city}` : `Road bike rental ${city}`,
             item: pageUrl,
           },
         ],
       },
       {
         "@type": "FAQPage",
-        mainEntity: faqEntries.map((entry, index) =>
-          index === 1
-            ? {
-                ...entry,
-                acceptedAnswer: { ...entry.acceptedAnswer, text: copy.faqPickup },
-              }
-            : entry,
-        ),
+        mainEntity: getFaqEntries(location, locale),
       },
     ],
   });

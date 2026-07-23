@@ -22,11 +22,13 @@ import {
   resolveLocale,
   services,
   translations,
+  type Locale,
 } from "../lib/home-content";
 import { blogPosts } from "../lib/blog-content";
 import {
   defaultRentalLocation,
   getLocationCopy,
+  getLocalizedLocationPath,
   rentalLocationConfigs,
   type RentalLocationConfig,
 } from "../lib/rental-locations";
@@ -38,6 +40,7 @@ type PageProps = {
     standortauswahl?: string | string[];
   }>;
   location: RentalLocationConfig;
+  locale?: Locale;
 };
 
 function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; title: string; inverse?: boolean }) {
@@ -49,12 +52,13 @@ function SectionHeading({ eyebrow, title, inverse = false }: { eyebrow: string; 
   );
 }
 
-export async function generateRentalMetadata({ searchParams, location }: PageProps): Promise<Metadata> {
+export async function generateRentalMetadata({ searchParams, location, locale }: PageProps): Promise<Metadata> {
   const params = await searchParams;
-  const lang = resolveLocale(params?.lang);
+  const lang = locale ?? resolveLocale(params?.lang);
   const isGerman = lang === "de";
   const city = location.city[lang];
   const district = location.district[lang];
+  const localizedPath = getLocalizedLocationPath(location, lang);
 
   const title = isGerman
     ? `Dein Rennradverleih & Gravelverleih in ${city} | Your Bike Rental`
@@ -70,10 +74,10 @@ export async function generateRentalMetadata({ searchParams, location }: PagePro
     },
     description,
     alternates: {
-      canonical: isGerman ? location.path : `${location.path}?lang=en`,
+      canonical: localizedPath,
       languages: {
         de: location.path,
-        en: `${location.path}?lang=en`,
+        en: location.enPath,
         "x-default": location.path,
       },
     },
@@ -99,7 +103,7 @@ export async function generateRentalMetadata({ searchParams, location }: PagePro
     openGraph: {
       type: "website",
       locale: isGerman ? "de_DE" : "en_US",
-      url: isGerman ? `${siteConfig.url}${location.path}` : `${siteConfig.url}${location.path}?lang=en`,
+      url: `${siteConfig.url}${localizedPath}`,
       siteName: siteConfig.name,
       title,
       description,
@@ -123,9 +127,9 @@ export async function generateRentalMetadata({ searchParams, location }: PagePro
   };
 }
 
-export async function RentalPage({ searchParams, location }: PageProps) {
+export async function RentalPage({ searchParams, location, locale }: PageProps) {
   const params = await searchParams;
-  const lang = resolveLocale(params?.lang);
+  const lang = locale ?? resolveLocale(params?.lang);
   const t = translations[lang];
   const copy = getLocationCopy(location, lang);
   const localFaqItems = faqItems.map((item, index) =>
@@ -154,7 +158,7 @@ export async function RentalPage({ searchParams, location }: PageProps) {
     <main className="site-shell">
       <HomeTopbar
         lang={lang}
-        homePath={location.path}
+        homePath={getLocalizedLocationPath(location, lang)}
         showBlog={location.key === "munich"}
         topbar={{
           nav: t.nav,
@@ -198,7 +202,11 @@ export async function RentalPage({ searchParams, location }: PageProps) {
             <div className="hero-frame">
               <Image
                 src={mainImage}
-                alt={`Your Bike Rental: gepflegte Rennräder und Gravelbikes in ${location.city[lang]}`}
+                alt={
+                  lang === "en"
+                    ? `Well-maintained road and gravel bikes for rent in ${location.city[lang]}`
+                    : `Gepflegte Rennräder und Gravelbikes zur Miete in ${location.city[lang]}`
+                }
                 className="hero-frame__image"
                 fill
                 priority
@@ -429,7 +437,7 @@ export async function RentalPage({ searchParams, location }: PageProps) {
 
             <ul className="footer-links">
               {[
-                { href: location.path, label: "Startseite" },
+                { href: getLocalizedLocationPath(location, lang), label: "Startseite" },
                 ...(location.key === "munich" ? [{ href: "/blog", label: "Blog" }] : []),
                 { href: "/impressum", label: "Impressum" },
                 { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
@@ -445,7 +453,7 @@ export async function RentalPage({ searchParams, location }: PageProps) {
             {rentalLocationConfigs.map((footerLocation) => (
               <li key={footerLocation.path} className="footer-meta__item footer-meta__item--location">
                 <MapPin className="footer-meta__icon" aria-hidden="true" />
-                <Link href={`${footerLocation.path}${lang === "de" ? "" : "?lang=en"}`}>
+                <Link href={getLocalizedLocationPath(footerLocation, lang)}>
                   {`${footerLocation.city[lang]}, ${footerLocation.district[lang]}`}
                 </Link>
               </li>
