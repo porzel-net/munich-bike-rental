@@ -201,7 +201,8 @@ export async function RentalPage({ searchParams, location }: PageProps) {
                 alt={`Your Bike Rental: gepflegte Rennräder und Gravelbikes in ${location.city[lang]}`}
                 className="hero-frame__image"
                 fill
-                placeholder="blur"
+                priority
+                unoptimized
                 sizes="(max-width: 540px) 340px, (max-width: 1100px) 420px, 470px"
               />
               <span className="hero-frame__shape" aria-hidden="true" />

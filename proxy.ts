@@ -1,4 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import mainImage from "./main.png";
+
+const noImageIndexValue = "noindex, noimageindex, nofollow";
 
 function createNonce() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -61,6 +64,15 @@ export function proxy(request: NextRequest) {
 
   if (isProduction) {
     response.headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+
+    const pathname = request.nextUrl.pathname;
+    const isStaticMedia = pathname.startsWith("/_next/static/media/");
+    const isOptimizedImage = pathname === "/_next/image";
+    const isHeroImage = pathname === mainImage.src || request.nextUrl.searchParams.get("url") === mainImage.src;
+
+    if ((isStaticMedia || isOptimizedImage) && !isHeroImage) {
+      response.headers.set("X-Robots-Tag", noImageIndexValue);
+    }
   }
 
   return response;
@@ -70,6 +82,20 @@ export const config = {
   matcher: [
     {
       source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    {
+      source: "/_next/image",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+    {
+      source: "/_next/static/media/:path*",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

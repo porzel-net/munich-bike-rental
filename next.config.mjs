@@ -18,7 +18,7 @@ if (isProduction) {
   securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
 }
 
-const aboutImageHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" }];
+const noImageIndexHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" }];
 
 const nextConfig = {
   allowedDevOrigins,
@@ -41,8 +41,32 @@ const nextConfig = {
         headers: securityHeaders,
       },
       {
-        source: "/assets/img/about/:path*",
-        headers: aboutImageHeaders,
+        source: "/assets/:path*",
+        headers: noImageIndexHeaders,
+      },
+      {
+        source: "/bikes/:path*",
+        headers: noImageIndexHeaders,
+      },
+      {
+        source: "/opengraph-image",
+        headers: noImageIndexHeaders,
+      },
+      {
+        source: "/favicon.png",
+        headers: noImageIndexHeaders,
+      },
+      {
+        source: "/google-maps-lindau.png",
+        headers: noImageIndexHeaders,
+      },
+      {
+        source: "/maps-friedrichshafen.png",
+        headers: noImageIndexHeaders,
+      },
+      {
+        source: "/maps-konstanz.png",
+        headers: noImageIndexHeaders,
       },
     ];
   },
