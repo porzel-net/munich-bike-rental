@@ -2,7 +2,7 @@ ARG SITE_URL=https://www.munich-bike-rental.de
 
 FROM node:22.23.1-bookworm-slim AS deps
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
+RUN corepack enable && corepack prepare pnpm@11.14.0 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
 
@@ -11,7 +11,7 @@ WORKDIR /app
 ARG SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SITE_URL=${SITE_URL}
-RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
+RUN corepack enable && corepack prepare pnpm@11.14.0 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
