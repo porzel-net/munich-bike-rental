@@ -101,7 +101,7 @@ export function buildLlmsFullTxt() {
 
 ## Overview
 
-${siteConfig.name} is a local road and gravel bike rental and maintenance business in Munich-Maxvorstadt and Regensburg-Altstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
+${siteConfig.name} is a local road and gravel bike rental business in Munich-Maxvorstadt and Regensburg-Altstadt, with bike maintenance offered in Munich-Maxvorstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
 
 The project uses a single-page home experience with sections for bikes, prices, FAQ and contact, plus legal pages for imprint and privacy policy.
 
@@ -130,7 +130,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 
 ## Hero message
 
-The homepage presents the business as a passion-driven, owner-operated bike rental and maintenance service in Munich and Regensburg. The main promise is:
+The homepage presents the business as a passion-driven, owner-operated bike rental service in Munich and Regensburg, with maintenance offered in Munich. The main promise is:
 
 - personal contact
 - carefully maintained bikes

@@ -175,23 +175,13 @@ export function getMaintenanceStructuredDataJson(locale: Locale) {
         "@type": "Service",
         name: isGerman ? "Rennrad- und Gravel-Wartung" : "Road and gravel bike servicing",
         description: isGerman
-          ? "Wartung fuer Rennraeder und Gravelbikes in Muenchen-Maxvorstadt und Regensburg-Altstadt mit Beratung, Teiletausch, Reparaturen und Oel-zu-Wachs-Umstieg."
-          : "Road and gravel bike servicing in Munich-Maxvorstadt and Regensburg-Altstadt with advice, part swaps, repairs and oil-to-wax conversion.",
+          ? "Wartung fuer Rennraeder und Gravelbikes in Muenchen-Maxvorstadt mit Beratung, Teiletausch, Reparaturen und Oel-zu-Wachs-Umstieg."
+          : "Road and gravel bike servicing in Munich-Maxvorstadt with advice, part swaps, repairs and oil-to-wax conversion.",
         serviceType: isGerman ? "Fahrradwartung fuer Rennrad und Gravel" : "Bike servicing for road and gravel bikes",
         keywords: isGerman
-          ? [
-              "Rennrad Wartung München",
-              "Rennrad Wartung Regensburg",
-              "Gravelbike Wartung München",
-              "Gravelbike Wartung Regensburg",
-            ]
-          : [
-              "road bike maintenance Munich",
-              "road bike maintenance Regensburg",
-              "gravel bike maintenance Munich",
-              "gravel bike maintenance Regensburg",
-            ],
-        areaServed: siteConfig.areaServed,
+          ? ["Rennrad Wartung München", "Gravelbike Wartung München"]
+          : ["road bike maintenance Munich", "gravel bike maintenance Munich"],
+        areaServed: ["München", "München-Maxvorstadt", "Bayern"],
         provider: {
           "@type": "LocalBusiness",
           name: siteConfig.name,
