@@ -584,7 +584,7 @@ export const translations = {
       },
       helmet: "Helm\n(einmalig 10€)",
       clothing: "Kleidung (Rennradhose + Rennradtrikot)\n(einmalig je 15€)",
-      bikepackingBag: "Bikepackingtasche\n(25€ einmalig)",
+      bikepackingBag: "Bikepackingtasche\n(einmalig 25€)",
       repairKit: "Reparaturset (inklusive)",
       glasses: "Rennradbrille\n(einmalig 10 €)",
       glassesPreview: "Vorschau der Rennradbrille anzeigen",
