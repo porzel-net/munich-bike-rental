@@ -222,6 +222,7 @@ describe("contact route", () => {
     expect(mail.text).toContain("Rennrad: Grail CF SL 7 - M");
     expect(mail.text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
     expect(mail.text).toContain("Kleidung: Ja");
+    expect(mail.text).toContain("Flaschenhalter: Inklusive");
     expect(mail.text).toContain("Reparaturset: Inklusive");
     expect(mail.text).toContain("Rennradbrille: Ja");
     expect(Object.keys(mail)).not.toEqual(expect.arrayContaining(["raw", "path", "href"]));

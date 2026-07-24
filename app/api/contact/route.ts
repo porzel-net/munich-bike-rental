@@ -29,6 +29,7 @@ function createMailBody(payload: Awaited<ReturnType<typeof contactInquirySchema.
       `${isGerman ? "Helm" : "Helmet"}: ${bike.needsHelmet ? yesNo.yes : yesNo.no}`,
       `${isGerman ? "Kleidung" : "Clothing"}: ${bike.needsClothing ? yesNo.yes : yesNo.no}`,
       `${isGerman ? "Bikepackingtasche" : "Bikepacking bag"}: ${bike.needsBikepackingBag ? yesNo.yes : yesNo.no}`,
+      `${isGerman ? "Flaschenhalter" : "Bottle holder"}: ${bike.bottleHolderIncluded ? (isGerman ? "Inklusive" : "Included") : yesNo.no}`,
       `${isGerman ? "Reparaturset" : "Repair kit"}: ${bike.repairKitIncluded ? (isGerman ? "Inklusive" : "Included") : yesNo.no}`,
       `${isGerman ? "Rennradbrille" : "Road cycling glasses"}: ${bike.needsGlasses ? yesNo.yes : yesNo.no}`,
       "",

@@ -79,6 +79,7 @@ type FormTranslations = {
   helmet: string;
   clothing: string;
   bikepackingBag: string;
+  bottleHolder: string;
   repairKit: string;
   glasses: string;
   glassesPreview: string;
@@ -211,6 +212,7 @@ type BikeFormState = {
   needsHelmet: boolean;
   needsClothing: boolean;
   needsBikepackingBag: boolean;
+  bottleHolderIncluded: boolean;
   repairKitIncluded: boolean;
   needsGlasses: boolean;
 };
@@ -271,6 +273,7 @@ function createEmptyBike(): BikeFormState {
     needsHelmet: false,
     needsClothing: false,
     needsBikepackingBag: false,
+    bottleHolderIncluded: true,
     repairKitIncluded: true,
     needsGlasses: false,
   };
@@ -1519,17 +1522,6 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
                   <span>{translations.form.bikepackingBag}</span>
                 </label>
 
-                <label className="contact-form__checkbox contact-form__checkbox--fixed">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".repairKitIncluded"}
-                    checked={bike.repairKitIncluded}
-                    disabled
-                    readOnly
-                  />
-                  <span>{translations.form.repairKit}</span>
-                </label>
-
                 <div className="contact-form__equipment-item contact-form__equipment-item--glasses">
                   <div className="contact-form__equipment-option">
                     <label className="contact-form__checkbox">
@@ -1558,6 +1550,28 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
                     </button>
                   </div>
                 </div>
+
+                <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                  <input
+                    type="checkbox"
+                    name={"bikes." + index + ".bottleHolderIncluded"}
+                    checked={bike.bottleHolderIncluded}
+                    disabled
+                    readOnly
+                  />
+                  <span>{translations.form.bottleHolder}</span>
+                </label>
+
+                <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                  <input
+                    type="checkbox"
+                    name={"bikes." + index + ".repairKitIncluded"}
+                    checked={bike.repairKitIncluded}
+                    disabled
+                    readOnly
+                  />
+                  <span>{translations.form.repairKit}</span>
+                </label>
               </div>
             </div>
           );

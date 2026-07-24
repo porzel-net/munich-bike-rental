@@ -337,6 +337,16 @@ export const faqItems = [
   },
   {
     question: {
+      de: "Wie sind die Stornierungsbedingungen?",
+      en: "What is the cancellation policy?",
+    },
+    answer: {
+      de: "Die Stornierungsregelung gilt erst, sobald wir die Reservierung nach dem Austausch per E-Mail gemeinsam bestätigt haben und die Zahlung eingegangen ist. Bei einer Stornierung mehr als sieben Tage vor Mietbeginn erstatten wir 25 % des Mietpreises. Wenn du zwischen sieben Tagen und 24 Stunden vor Mietbeginn stornierst, erhältst du 50 % zurück. Bei einer Stornierung innerhalb von 24 Stunden vor Mietbeginn ist leider keine Rückerstattung mehr möglich.",
+      en: "The cancellation policy applies once we have mutually confirmed the reservation by email and payment has been received. If you cancel more than seven days before the rental starts, we refund 25% of the rental price. Cancellations made between seven days and 24 hours before the rental starts receive a 50% refund. Unfortunately, cancellations within 24 hours of the rental start are non-refundable.",
+    },
+  },
+  {
+    question: {
       de: "Sind die Fahrräder versichert?",
       en: "Are the bikes insured?",
     },
@@ -585,8 +595,9 @@ export const translations = {
       helmet: "Helm\n(einmalig 10€)",
       clothing: "Kleidung (Rennradhose + Rennradtrikot)\n(einmalig je 15€)",
       bikepackingBag: "Bikepackingtasche\n(einmalig 25€)",
-      repairKit: "Reparaturset (inklusive)",
       glasses: "Rennradbrille\n(einmalig 10 €)",
+      bottleHolder: "Flaschenhalter (inklusive)",
+      repairKit: "Reparaturset (inklusive)",
       glassesPreview: "Vorschau der Rennradbrille anzeigen",
       message: "Worum geht es?",
       messageHint:
@@ -841,8 +852,9 @@ export const translations = {
       helmet: "Helmet\n(one-time €10)",
       clothing: "Clothing (bib shorts + road jersey)\n(one-time €15 each)",
       bikepackingBag: "Bikepacking bag\n(one-time €25)",
-      repairKit: "Repair kit (included)",
       glasses: "Road cycling glasses\n(one-time €10)",
+      bottleHolder: "Bottle holder (included)",
+      repairKit: "Repair kit (included)",
       glassesPreview: "Show a preview of the road cycling glasses",
       message: "What is it about?",
       messageHint:

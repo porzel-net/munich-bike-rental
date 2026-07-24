@@ -51,6 +51,7 @@ const bikeInquirySchema = z
     needsHelmet: booleanInput.default(false),
     needsClothing: booleanInput.default(false),
     needsBikepackingBag: booleanInput.default(false),
+    bottleHolderIncluded: z.literal(true).default(true),
     repairKitIncluded: z.literal(true).default(true),
     needsGlasses: booleanInput.default(false),
   })
