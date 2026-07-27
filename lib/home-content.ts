@@ -37,6 +37,7 @@ export type FormValidationText = {
   dropoffTimeRequired: string;
   messageRequired: string;
   privacyRequired: string;
+  agbRequired: string;
   submitFailed: string;
   submitOriginError: string;
   submitConfigError: string;
@@ -342,7 +343,7 @@ export const faqItems = [
       en: "What is the cancellation policy?",
     },
     answer: {
-      de: "Die Stornierungsregelung gilt erst, sobald wir die Reservierung nach dem Austausch per E-Mail gemeinsam bestätigt haben und die Zahlung eingegangen ist. Bei einer Stornierung mehr als sieben Tage vor Mietbeginn erstatten wir 25 % des Mietpreises. Wenn du zwischen sieben Tagen und 24 Stunden vor Mietbeginn stornierst, erhältst du 50 % zurück. Bei einer Stornierung innerhalb von 24 Stunden vor Mietbeginn ist leider keine Rückerstattung mehr möglich.",
+      de: "Die Stornierungsregelung gilt erst, sobald wir die Reservierung nach dem Austausch per E-Mail gemeinsam bestätigt haben und die Zahlung eingegangen ist. Bei einer Stornierung mehr als sieben Tage vor Mietbeginn erstatten wir 75 % des Mietpreises. Wenn du zwischen sieben Tagen und 24 Stunden vor Mietbeginn stornierst, erhältst du 50 % zurück. Bei einer Stornierung innerhalb von 24 Stunden vor Mietbeginn ist leider keine Rückerstattung mehr möglich.",
       en: "The cancellation policy applies once we have mutually confirmed the reservation by email and payment has been received. If you cancel more than seven days before the rental starts, we refund 25% of the rental price. Cancellations made between seven days and 24 hours before the rental starts receive a 50% refund. Unfortunately, cancellations within 24 hours of the rental start are non-refundable.",
     },
   },
@@ -511,7 +512,8 @@ export const translations = {
         yes: "Ja, bitte",
       },
       message: "Was steht an?",
-      privacy: "Ich akzeptiere die Datenschutzbestimmungen.",
+      privacy: "Die Datenschutzerklärung habe ich zur Kenntnis genommen.",
+      agb: "Ich habe die AGB für den Fahrradverleih gelesen und akzeptiere sie.",
       submit: "Wartung anfragen",
       sending: "Senden...",
       success: "Danke, deine Wartungsanfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
@@ -526,6 +528,7 @@ export const translations = {
         serviceTypeRequired: "Bitte wähle aus, worum es geht.",
         messageRequired: "Bitte beschreibe kurz, was gemacht werden soll.",
         privacyRequired: "Bitte akzeptiere die Datenschutzbestimmungen.",
+        agbRequired: "Bitte akzeptiere die AGB für den Fahrradverleih.",
         submitFailed: "Die Wartungsanfrage konnte nicht gesendet werden. Bitte versuche es erneut.",
         submitOriginError:
           "Die Wartungsanfrage konnte nicht gesendet werden, weil der Aufruf als ungültig erkannt wurde.",
@@ -603,8 +606,9 @@ export const translations = {
       message: "Worum geht es?",
       messageHint:
         "Tipp: Du kannst auch oben bei einem Bike auf Reservieren klicken. Dann wird hier automatisch ein Vorschlag mit dem Bike-Namen eingefügt.",
-      privacy: "Ich akzeptiere die Datenschutzbestimmungen.",
-      submit: "Anfrage senden",
+      privacy: "Die Datenschutzerklärung habe ich zur Kenntnis genommen.",
+      agb: "Ich habe die AGB für den Fahrradverleih gelesen und akzeptiere sie.",
+      submit: "Unverbindlich Anfragen",
       subject: "Fahrradanfrage",
       sending: "Senden...",
       success: "Danke, deine Anfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
@@ -629,6 +633,7 @@ export const translations = {
         dropoffTimeRequired: "Bitte gib deine gewünschte Abgabeuhrzeit an.",
         messageRequired: "Bitte schreibe eine kurze Nachricht.",
         privacyRequired: "Bitte akzeptiere die Datenschutzbestimmungen.",
+        agbRequired: "Bitte akzeptiere die AGB für den Fahrradverleih.",
         submitFailed: "Die Anfrage konnte nicht gesendet werden. Bitte prüfe die Eingaben und versuche es erneut.",
         submitOriginError: "Die Anfrage konnte nicht gesendet werden, weil der Aufruf als ungültig erkannt wurde.",
         submitConfigError: "Das Formular ist derzeit nicht korrekt eingerichtet. Bitte versuche es später noch einmal.",
@@ -770,6 +775,7 @@ export const translations = {
       },
       message: "What needs to be done?",
       privacy: "I accept the privacy policy.",
+      agb: "I have read and accept the terms and conditions for bike rental.",
       submit: "Ask for service",
       sending: "Sending...",
       success: "Thanks, your maintenance request has been sent. We will reply within 24 hours by email.",
@@ -784,6 +790,7 @@ export const translations = {
         serviceTypeRequired: "Please choose what you need.",
         messageRequired: "Please briefly describe what should be done.",
         privacyRequired: "Please accept the privacy policy.",
+        agbRequired: "Please accept the bike rental terms and conditions.",
         submitFailed: "The maintenance request could not be sent. Please try again.",
         submitOriginError: "The maintenance request could not be sent because the call was marked as invalid.",
         submitConfigError: "The form is not configured correctly right now. Please try again later.",
@@ -861,6 +868,7 @@ export const translations = {
       messageHint:
         "Tip: You can also click Reserve on a bike above. That will automatically insert a message draft with the bike name here.",
       privacy: "I accept the privacy policy.",
+      agb: "I have read and accept the terms and conditions for bike rental.",
       submit: "Send inquiry",
       subject: "Bike inquiry",
       sending: "Sending...",
@@ -886,6 +894,7 @@ export const translations = {
         dropoffTimeRequired: "Please enter your preferred drop-off time.",
         messageRequired: "Please write a short message.",
         privacyRequired: "Please accept the privacy policy.",
+        agbRequired: "Please accept the bike rental terms and conditions.",
         submitFailed: "The request could not be sent. Please check the fields and try again.",
         submitOriginError: "The request could not be sent because the call was marked as invalid.",
         submitConfigError: "The form is not configured correctly right now. Please try again later.",

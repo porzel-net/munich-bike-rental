@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
+import { PrivacyConsentLabel } from "./privacy-consent-label";
 import type { Locale } from "../lib/home-content";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
 import { isValidEmail } from "../lib/inquiries/schemas";
@@ -29,6 +30,7 @@ type MaintenanceFormTranslations = {
   };
   message: string;
   privacy: string;
+  agb: string;
   submit: string;
   sending: string;
   success: string;
@@ -43,6 +45,7 @@ type MaintenanceFormTranslations = {
     serviceTypeRequired: string;
     messageRequired: string;
     privacyRequired: string;
+    agbRequired: string;
     submitFailed: string;
     submitOriginError: string;
     submitConfigError: string;
@@ -53,7 +56,7 @@ type MaintenanceFormTranslations = {
 
 type MaintenanceStatus = "idle" | "sending" | "success" | "error";
 
-type MaintenanceField = "name" | "contact" | "bikeModel" | "serviceType" | "message" | "privacy";
+type MaintenanceField = "name" | "contact" | "bikeModel" | "serviceType" | "message" | "privacy" | "agb";
 
 type MaintenanceFieldErrors = Partial<Record<MaintenanceField, string>>;
 
@@ -76,6 +79,7 @@ function validateMaintenanceForm(
     serviceType: string;
     message: string;
     privacyAccepted: boolean;
+    agbAccepted: boolean;
   },
 ): MaintenanceValidation {
   const validation = translations.validation;
@@ -107,6 +111,10 @@ function validateMaintenanceForm(
     fieldErrors.privacy = validation.privacyRequired;
   }
 
+  if (!values.agbAccepted) {
+    fieldErrors.agb = validation.agbRequired;
+  }
+
   return {
     fieldErrors,
     submitError: Object.keys(fieldErrors).length > 0 ? validation.submitValidationError : null,
@@ -122,6 +130,7 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
   const [pickupRequested, setPickupRequested] = useState(false);
   const [message, setMessage] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [agbAccepted, setAgbAccepted] = useState(false);
   const [status, setStatus] = useState<MaintenanceStatus>("idle");
   const [fieldErrors, setFieldErrors] = useState<MaintenanceFieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -151,6 +160,7 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
       serviceType,
       message,
       privacyAccepted,
+      agbAccepted,
     });
 
     if (Object.keys(validation.fieldErrors).length > 0) {
@@ -198,6 +208,7 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
       setPickupRequested(false);
       setMessage("");
       setPrivacyAccepted(false);
+      setAgbAccepted(false);
       setFieldErrors({});
       setSubmitError(null);
       setOrderNumber(result?.orderNumber ?? null);
@@ -380,11 +391,40 @@ export function MaintenanceForm({ lang, translations }: MaintenanceFormProps) {
             clearFieldError("privacy");
           }}
         />
-        <span>{translations.privacy}</span>
+        <span>
+          <PrivacyConsentLabel label={translations.privacy} />
+        </span>
       </label>
       {fieldErrors.privacy ? (
         <p className="contact-form__error" id="maintenance-privacy-error">
           {fieldErrors.privacy}
+        </p>
+      ) : null}
+
+      <label className="contact-form__checkbox" htmlFor="maintenance-agb">
+        <input
+          id="maintenance-agb"
+          name="agb"
+          type="checkbox"
+          checked={agbAccepted}
+          aria-invalid={Boolean(fieldErrors.agb)}
+          aria-describedby={fieldErrors.agb ? "maintenance-agb-error" : undefined}
+          onChange={(event) => {
+            setAgbAccepted(event.target.checked);
+            clearFieldError("agb");
+          }}
+        />
+        <span>
+          <PrivacyConsentLabel
+            label={translations.agb}
+            linkText={lang === "de" ? "AGB" : "terms and conditions"}
+            href={lang === "en" ? "/en/agb" : "/de/agb"}
+          />
+        </span>
+      </label>
+      {fieldErrors.agb ? (
+        <p className="contact-form__error" id="maintenance-agb-error">
+          {fieldErrors.agb}
         </p>
       ) : null}
 

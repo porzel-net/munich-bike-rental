@@ -7,6 +7,7 @@ import { ArrowUpRight, ChevronDown, ImageIcon, MapPin, Ruler, ShieldCheck, Weigh
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
+import { PrivacyConsentLabel } from "./privacy-consent-label";
 import { type Locale, type PortfolioItem } from "../lib/home-content";
 import { bikeOptionsByLocation, rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
@@ -86,6 +87,7 @@ type FormTranslations = {
   message: string;
   messageHint: string;
   privacy: string;
+  agb: string;
   submit: string;
   sending: string;
   success: string;
@@ -110,6 +112,7 @@ type FormTranslations = {
     dropoffTimeRequired: string;
     messageRequired: string;
     privacyRequired: string;
+    agbRequired: string;
     submitFailed: string;
     submitOriginError: string;
     submitConfigError: string;
@@ -192,7 +195,8 @@ type ContactField =
   | "pedalType"
   | "computerMountType"
   | "message"
-  | "privacy";
+  | "privacy"
+  | "agb";
 
 type ContactFieldErrors = Partial<Record<ContactField, string>>;
 
@@ -293,6 +297,7 @@ function validateContactForm(
     dropoffTime: string;
     message: string;
     privacyAccepted: boolean;
+    agbAccepted: boolean;
   },
 ): ContactFormValidation {
   const validation = translations.form.validation;
@@ -383,6 +388,10 @@ function validateContactForm(
 
   if (!values.privacyAccepted) {
     fieldErrors.privacy = validation.privacyRequired;
+  }
+
+  if (!values.agbAccepted) {
+    fieldErrors.agb = validation.agbRequired;
   }
 
   return {
@@ -1092,6 +1101,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
   const [dropoffTime, setDropoffTime] = useState("");
   const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [agbAccepted, setAgbAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [bikeErrors, setBikeErrors] = useState<BikeFieldErrors[]>([{}]);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1155,6 +1165,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
       dropoffTime,
       message: contactMessage,
       privacyAccepted,
+      agbAccepted,
     });
 
     if (
@@ -1218,6 +1229,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
       setPickupTime("");
       setDropoffTime("");
       setPrivacyAccepted(false);
+      setAgbAccepted(false);
       setFieldErrors({});
       setBikeErrors([{}]);
       setSubmitError(null);
@@ -1699,11 +1711,40 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
           aria-invalid={Boolean(fieldErrors.privacy)}
           aria-describedby={fieldErrors.privacy ? "privacy-error" : undefined}
         />
-        <span>{translations.form.privacy}</span>
+        <span>
+          <PrivacyConsentLabel label={translations.form.privacy} />
+        </span>
       </label>
       {fieldErrors.privacy ? (
         <p className="contact-form__error" id="privacy-error">
           {fieldErrors.privacy}
+        </p>
+      ) : null}
+
+      <label className="contact-form__checkbox" htmlFor="agb">
+        <input
+          id="agb"
+          name="agb"
+          type="checkbox"
+          checked={agbAccepted}
+          onChange={(event) => {
+            setAgbAccepted(event.target.checked);
+            clearFieldError("agb");
+          }}
+          aria-invalid={Boolean(fieldErrors.agb)}
+          aria-describedby={fieldErrors.agb ? "agb-error" : undefined}
+        />
+        <span>
+          <PrivacyConsentLabel
+            label={translations.form.agb}
+            linkText={lang === "de" ? "AGB" : "terms and conditions"}
+            href={lang === "en" ? "/en/agb" : "/de/agb"}
+          />
+        </span>
+      </label>
+      {fieldErrors.agb ? (
+        <p className="contact-form__error" id="agb-error">
+          {fieldErrors.agb}
         </p>
       ) : null}
 

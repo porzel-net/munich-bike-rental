@@ -218,11 +218,20 @@ Stand: 24.05.2026
    Die Antwort auf Anfragen über das Formular erfolgt per E-Mail an die angegebene E-Mail-Adresse.
    Beim Versand per E-Mail werden die Kontaktangaben durch den von uns eingesetzten Mail-/SMTP-Dienstleister verarbeitet.
    Es erfolgt in diesem Zusammenhang keine Weitergabe der Daten an unbeteiligte Dritte.
+   Bei der Übergabe eines Fahrrads erfassen wir zusätzlich die Personalausweisnummer der mietenden Person. Die Nummer
+   wird dem jeweiligen Mietvorgang zugeordnet und dient der eindeutigen Zuordnung und Identifikation der Person,
+   insbesondere wenn es nachträglich zu Schäden, Verlust, Diebstahl, Unfällen oder sonstigen Unstimmigkeiten im
+   Zusammenhang mit dem Mietverhältnis kommt. Dadurch können wir die betroffene Person auch bei späteren Rückfragen
+   oder der Klärung eines Vorfalls zuverlässig einem konkreten Mietvorgang zuordnen.
    b) Rechtsgrundlage und Zweck der Datenverarbeitung
    – Art. 6 Abs. 1 S. 1 lit. b. DSGVO: Vertragserfüllung, sofern sich die Anfrage auf den Abschluss oder die
    Durchführung eines Vertrages mit uns richtet.
    – Art. 6 Abs. 1 S. 1 lit. f. DSGVO: Berechtigtes Interesse, in allen übrigen Fällen
-   Die Daten werden ausschließlich für die Beantwortung Ihrer Anfrage verarbeitet.
+   Die Daten werden für die Bearbeitung Ihrer Anfrage, die Durchführung des Mietverhältnisses sowie die eindeutige
+   Zuordnung und spätere Klärung von Schäden, Verlust, Diebstahl, Unfällen oder sonstigen Ansprüchen aus dem
+   Mietverhältnis verarbeitet. Rechtsgrundlage für die Verarbeitung der Personalausweisnummer ist Art. 6 Abs. 1 S. 1
+   lit. f DSGVO. Unser berechtigtes Interesse besteht darin, die Vertragspartner bei der Fahrradübergabe eindeutig
+   einem Mietvorgang zuordnen und berechtigte Ansprüche prüfen, durchsetzen oder abwehren zu können.
    c) Dauer der Speicherung und Widerspruchsmöglichkeit
    Die Daten werden umgehend nach der Bearbeitung Ihrer Anfrage gelöscht, soweit keine gesetzlichen
    Aufbewahrungspflichten bestehen.
@@ -230,6 +239,10 @@ Stand: 24.05.2026
    dies dann der Fall, wenn die jeweilige Konversation mit dem Nutzer beendet ist. Beendet ist die
    Konversation dann, wenn sich aus den Umständen entnehmen lässt, dass der betroffene Sachverhalt
    abschließend geklärt ist.
+   Die Personalausweisnummer wird nach Ende des Mietzeitraums gelöscht, sobald sie für die Durchführung des
+   Mietverhältnisses und die Klärung möglicher Vorfälle oder Ansprüche nicht mehr erforderlich ist. Soweit ein konkreter
+   Vorfall, eine offene Forderung oder ein Rechtsstreit besteht, wird sie bis zu dessen abschließender Klärung und
+   darüber hinaus nur im Rahmen der jeweils anwendbaren gesetzlichen Verjährungs- oder Aufbewahrungsfristen gespeichert.
    Die Daten, für die eine gesetzliche Aufbewahrungspflicht besteht werden für die gesetzlich festgelegte
    Dauer aufbewahrt (6 Jahre nach § 257 Abs. 1 Nr. 2, Abs. 4 HGB).
    Nimmt der Nutzer über das Kontaktformular oder per E-Mail Kontakt mit uns auf, so kann er der

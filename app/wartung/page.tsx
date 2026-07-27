@@ -300,11 +300,15 @@ export default async function WartungPage({ searchParams }: PageProps) {
             </div>
 
             <ul className="footer-links">
-              {footerLinks.map((item) => (
-                <li key={item.href} className="footer-links__item">
-                  <a href={item.href}>{item.label}</a>
-                </li>
-              ))}
+              {footerLinks.map((item) => {
+                const href = item.href === "/de/agb" && lang === "en" ? "/en/agb" : item.href;
+
+                return (
+                  <li key={href} className="footer-links__item">
+                    <a href={href}>{item.label}</a>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
