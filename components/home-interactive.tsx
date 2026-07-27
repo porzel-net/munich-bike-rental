@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowUpRight, ChevronDown, CircleHelp, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ImageIcon, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
@@ -1538,7 +1538,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
                       className="contact-form__equipment-help"
                       aria-label={translations.form.glassesPreview}
                     >
-                      <CircleHelp aria-hidden="true" size={17} />
+                      <ImageIcon aria-hidden="true" size={17} />
                       <span className="contact-form__equipment-tooltip" role="tooltip">
                         <Image
                           src="/assets/img/accessories/road-bike-glasses.jpg"
