@@ -3113,6 +3113,20 @@ button {
   white-space: pre-line;
 }
 
+.contact-form__checkbox a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease;
+}
+
+.contact-form__checkbox a:hover,
+.contact-form__checkbox a:focus-visible {
+  color: var(--text);
+}
+
 .button--arrow {
   display: inline-flex;
   align-items: center;
@@ -3405,6 +3419,11 @@ button {
   text-transform: uppercase;
 }
 
+.legal-page--agb h1 {
+  text-transform: none;
+  line-height: 1.08;
+}
+
 .legal-page section {
   padding: 22px 0;
   border-top: 1px solid rgba(17, 17, 17, 0.08);
@@ -3442,6 +3461,31 @@ button {
   color: #333;
   font-size: 16px;
   line-height: 1.85;
+}
+
+.legal-page__list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 24px;
+  color: #333;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.legal-page__list--ordered {
+  gap: 12px;
+  margin-top: 14px;
+  padding-left: 28px;
+}
+
+.legal-page__list--alpha {
+  padding-left: 0;
+  list-style: none;
+}
+
+.legal-page--agb section > p + p {
+  margin-top: 12px;
 }
 
 @media (max-width: 1100px) {

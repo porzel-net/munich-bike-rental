@@ -74,6 +74,7 @@ export const footerLinks = [
   { href: "/blog", label: "Blog" },
   { href: "/impressum", label: "Impressum" },
   { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
+  { href: "/de/agb", label: "AGB" },
 ];
 
 export const services: ServiceItem[] = [

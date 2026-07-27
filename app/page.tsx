@@ -441,6 +441,7 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
                 ...(location.key === "munich" ? [{ href: "/blog", label: "Blog" }] : []),
                 { href: "/impressum", label: "Impressum" },
                 { href: "/datenschutzerklaerung", label: "Datenschutzerklärung" },
+                { href: lang === "en" ? "/en/agb" : "/de/agb", label: "AGB" },
               ].map((item) => (
                 <li key={item.href} className="footer-links__item">
                   <a href={item.href}>{item.label}</a>

@@ -56,6 +56,7 @@ This website is for a local bicycle rental service. The most useful pages are th
 - [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Data processing and privacy information.
+- [Terms and conditions](${siteConfig.url}/de/agb): General terms and conditions for bicycle rental.
 - [Sitemap](${siteConfig.url}/sitemap.xml): Machine-readable list of indexable pages.
 
 ## Key facts
@@ -125,6 +126,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 - [Maintenance](${siteConfig.url}/wartung): Dedicated maintenance page for service requests and bike-care questions.
 - [Imprint](${siteConfig.url}/impressum): Legal operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Privacy and data processing information.
+- [Terms and conditions](${siteConfig.url}/en/agb): General terms and conditions for bicycle rental.
 - [Sitemap](${siteConfig.url}/sitemap.xml): Indexable page list.
 - [Robots](${siteConfig.url}/robots.txt): Crawl instructions.
 
