@@ -40,7 +40,7 @@ export default async function TeamPage() {
       <AppSidebar user={session.user} isAdmin variant="inset" />
       <SidebarInset>
         <SiteHeader title="Team" />
-        <main className="flex flex-1 flex-col p-4 lg:p-6">
+        <main className="flex flex-1 flex-col p-8 lg:p-12">
           <AdminTeamTable users={users} currentUserId={session.user.id} locationLabels={rentalLocationLabels.de} />
         </main>
       </SidebarInset>

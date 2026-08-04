@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { rentalLocationLabels, type RentalLocation } from "../inquiries/catalog";
 
-export const calendarBookingStatuses = ["pending", "confirmed", "executed"] as const;
+export const calendarBookingStatuses = ["offer_sent", "confirmed", "checked_out", "completed"] as const;
 
 export type BookingCalendarRow = {
   id: number;
@@ -42,11 +42,11 @@ function formatPrice(cents: number) {
 }
 
 function statusLabel(status: BookingCalendarRow["status"]) {
-  return status === "pending" ? "Buchung Ausstehend" : status === "confirmed" ? "Buchung Bestätigt" : "Ausgeführt";
+  return status === "offer_sent" ? "Angebot versendet" : status === "confirmed" ? "Verbindlich gebucht" : status === "checked_out" ? "Fahrrad ausgegeben" : "Abgeschlossen";
 }
 
 function calendarTitleStatus(status: BookingCalendarRow["status"]) {
-  return status === "pending" ? "Ausstehend" : "Bestätigt";
+  return status === "offer_sent" ? "Angebot" : status === "confirmed" ? "Bestätigt" : status === "checked_out" ? "Ausgegeben" : "Abgeschlossen";
 }
 
 function foldLine(line: string) {
@@ -76,7 +76,7 @@ export function buildBookingCalendarFeed(bookings: BookingCalendarRow[]) {
       `Nachricht: ${booking.message || "Keine Nachricht"}`,
     ].join("\n");
     const uid = `booking-${booking.id}@munich-bike-rental.de`;
-    const calendarStatus = booking.status === "pending" ? "TENTATIVE" : "CONFIRMED";
+    const calendarStatus = booking.status === "offer_sent" ? "TENTATIVE" : "CONFIRMED";
 
     return [
       "BEGIN:VEVENT",

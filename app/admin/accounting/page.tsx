@@ -1,88 +1,94 @@
-import { AccountingExpensesTable } from "@/components/accounting-expenses-table";
-import { AccountingRevenuesTable } from "@/components/accounting-revenues-table";
+import { desc, eq, inArray } from "drizzle-orm";
+import { redirect } from "next/navigation";
+
+import { AccountingJournalTable, type JournalEntry } from "@/components/accounting-journal-table";
 import { AppSidebar } from "@/components/app-sidebar";
+import { NevloSyncButton } from "@/components/nevlo-sync-button";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import {
-  accountingExpenses,
-  accountingRevenuePayments,
-  accountingRevenues,
-  rentalInquiries,
-} from "@/lib/db/schema";
-import { desc, eq, inArray } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { bookings, journalEntries, journalLines } from "@/lib/db/schema";
+
+function displayAmount(kind: string, lines: Array<{ account: string; amountCents: number }>) {
+  const line = (account: string) => lines.find((item) => item.account === account)?.amountCents;
+  const bank = line("bank_or_cash");
+  const receivable = line("accounts_receivable");
+  const expense = line("expense");
+  const rentalRevenue = line("rental_revenue");
+
+  if (kind === "expense") return -Math.abs(expense ?? bank ?? 0);
+  if (kind === "payment_received") return bank ?? -(receivable ?? 0);
+  if (kind === "refund_issued") return -Math.abs(bank ?? receivable ?? 0);
+  if (kind === "rental_charge" || kind === "cancellation_fee") return Math.abs(rentalRevenue ?? receivable ?? 0);
+  if (kind === "credit_note") return -Math.abs(rentalRevenue ?? receivable ?? 0);
+  if (kind === "legacy_import") {
+    if (expense !== undefined) return -Math.abs(expense);
+    if (rentalRevenue !== undefined) return Math.abs(rentalRevenue);
+    return bank ?? 0;
+  }
+  if (kind === "correction") return bank ?? 0;
+  return bank ?? rentalRevenue ?? 0;
+}
+
+function displayType(
+  kind: string,
+  lines: Array<{ account: string; amountCents: number }>,
+): JournalEntry["displayType"] {
+  const amountCents = displayAmount(kind, lines);
+  if (amountCents > 0) return "revenue";
+  if (amountCents < 0) return "expense";
+  return "other";
+}
 
 export default async function AccountingPage() {
   const session = await getServerSession();
   if (!session) return null;
   if (!isAdmin(session.user)) redirect("/admin");
 
-  const expenses = getDatabase()
+  const db = getDatabase();
+  const rows = db
     .select({
-      id: accountingExpenses.id,
-      description: accountingExpenses.description,
-      payeeName: accountingExpenses.payeeName,
-      paymentDate: accountingExpenses.paymentDate,
-      depreciationDurationMonths: accountingExpenses.depreciationDurationMonths,
-      sumCents: accountingExpenses.sumCents,
-      createdBy: accountingExpenses.createdBy,
-      createdAt: accountingExpenses.createdAt,
+      id: journalEntries.id,
+      bookingId: journalEntries.bookingId,
+      orderNumber: bookings.orderNumber,
+      customerName: bookings.customerName,
+      kind: journalEntries.kind,
+      reason: journalEntries.reason,
+      reversesEntryId: journalEntries.reversesEntryId,
+      dueAt: journalEntries.dueAt,
+      occurredAt: journalEntries.occurredAt,
+      createdAt: journalEntries.createdAt,
     })
-    .from(accountingExpenses)
-    .orderBy(desc(accountingExpenses.createdAt))
+    .from(journalEntries)
+    .leftJoin(bookings, eq(journalEntries.bookingId, bookings.id))
+    .orderBy(desc(journalEntries.occurredAt))
     .all();
-
-  const revenueRows = getDatabase()
-    .select({
-      id: accountingRevenues.id,
-      inquiryId: accountingRevenues.inquiryId,
-      orderNumber: rentalInquiries.orderNumber,
-      amountCents: accountingRevenues.amountCents,
-      paidAmountCents: accountingRevenues.paidAmountCents,
-      paymentReceivedAt: accountingRevenues.paymentReceivedAt,
-      payerName: accountingRevenues.payerName,
-      notes: accountingRevenues.notes,
-      createdAt: accountingRevenues.createdAt,
-    })
-    .from(accountingRevenues)
-    .innerJoin(rentalInquiries, eq(accountingRevenues.inquiryId, rentalInquiries.id))
-    .orderBy(desc(accountingRevenues.createdAt))
-    .all();
-  const payments = revenueRows.length
-    ? getDatabase()
-        .select({
-          id: accountingRevenuePayments.id,
-          revenueId: accountingRevenuePayments.revenueId,
-          amountCents: accountingRevenuePayments.amountCents,
-          receivedAt: accountingRevenuePayments.receivedAt,
-        })
-        .from(accountingRevenuePayments)
-        .where(inArray(accountingRevenuePayments.revenueId, revenueRows.map((revenue) => revenue.id)))
+  const lines = rows.length
+    ? db
+        .select()
+        .from(journalLines)
+        .where(
+          inArray(
+            journalLines.entryId,
+            rows.map((row) => row.id),
+          ),
+        )
         .all()
     : [];
-  const paymentsByRevenue = new Map<number, typeof payments>();
-  for (const payment of payments) {
-    const current = paymentsByRevenue.get(payment.revenueId) ?? [];
-    current.push(payment);
-    paymentsByRevenue.set(payment.revenueId, current);
-  }
-  const revenues = revenueRows.map((revenue) => ({
-    ...revenue,
-    payments:
-      paymentsByRevenue.get(revenue.id) ??
-      (revenue.paidAmountCents > 0
-        ? [
-            {
-              id: -revenue.id,
-              revenueId: revenue.id,
-              amountCents: revenue.paidAmountCents,
-              receivedAt: revenue.paymentReceivedAt ?? new Date(revenue.createdAt).toISOString().slice(0, 10),
-            },
-          ]
-        : []),
-  }));
+  const linesByEntry = new Map<number, typeof lines>();
+  for (const line of lines) linesByEntry.set(line.entryId, [...(linesByEntry.get(line.entryId) ?? []), line]);
+
+  const entries: JournalEntry[] = rows.map((row) => {
+    const entryLines = linesByEntry.get(row.id) ?? [];
+    const amount = displayAmount(row.kind, entryLines);
+    return {
+      ...row,
+      lines: entryLines,
+      displayAmountCents: amount,
+      displayType: displayType(row.kind, entryLines),
+    };
+  });
 
   return (
     <SidebarProvider
@@ -96,11 +102,15 @@ export default async function AccountingPage() {
       <AppSidebar user={session.user} isAdmin variant="inset" />
       <SidebarInset>
         <SiteHeader title="Buchhaltung" />
-        <main className="flex flex-1 flex-col p-4 lg:p-6">
-          <div className="flex flex-col gap-6">
-            <AccountingExpensesTable expenses={expenses} />
-            <AccountingRevenuesTable revenues={revenues} />
+        <main className="flex flex-1 flex-col p-8 lg:p-12">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Banktransaktionen</h2>
+              <p className="text-sm text-muted-foreground">Nevlo-Importe werden zunächst zur Prüfung vorgemerkt.</p>
+            </div>
+            <NevloSyncButton />
           </div>
+          <AccountingJournalTable entries={entries} />
         </main>
       </SidebarInset>
     </SidebarProvider>

@@ -56,6 +56,32 @@ export function calculateRentalPrice(inventory: LocationInventory, input: Rental
   };
 }
 
+/** Shared discount calculation for both public estimates and concrete offers. */
+export function calculateBikePriceWithDiscounts(
+  inventory: Pick<LocationInventory, "discounts">,
+  input: { dailyBikePriceCents: number; periodFrom: string; rentalDays: number; isStudent?: boolean },
+) {
+  const pickupDate = parseCalendarDate(input.periodFrom);
+  let discountCents = 0;
+  const appliedDiscountKeys = new Set<string>();
+  for (let dayOffset = 0; dayOffset < input.rentalDays; dayOffset += 1) {
+    const rentalDate = new Date(pickupDate.getTime() + dayOffset * 86_400_000);
+    const applicable = applicableDiscounts(
+      inventory as LocationInventory,
+      {
+        dailyPriceCents: input.dailyBikePriceCents,
+        rentalDays: input.rentalDays,
+        pickupDate: rentalDate,
+        isStudent: input.isStudent,
+      },
+      rentalDate,
+    );
+    discountCents += Math.round((input.dailyBikePriceCents * applicable.discountPercentage) / 100);
+    applicable.appliedDiscountKeys.forEach((key) => appliedDiscountKeys.add(key));
+  }
+  return { discountCents, appliedDiscountKeys: [...appliedDiscountKeys] };
+}
+
 function parseCalendarDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
@@ -79,19 +105,11 @@ export function calculateInquiryPrice(inventory: LocationInventory, payload: Con
     return total + pedals + mount + helmet + clothing;
   }, 0);
 
-  let discountCents = 0;
-  const appliedDiscountKeys = new Set<string>();
-  const pickupDate = parseCalendarDate(payload.periodFrom);
-  for (let dayOffset = 0; dayOffset < rentalDays; dayOffset += 1) {
-    const rentalDate = new Date(pickupDate.getTime() + dayOffset * 86_400_000);
-    const applicable = applicableDiscounts(
-      inventory,
-      { dailyPriceCents: dailyBikePriceCents, rentalDays, pickupDate: rentalDate },
-      rentalDate,
-    );
-    discountCents += Math.round((dailyBikePriceCents * applicable.discountPercentage) / 100);
-    applicable.appliedDiscountKeys.forEach((key) => appliedDiscountKeys.add(key));
-  }
+  const { discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(inventory, {
+    dailyBikePriceCents,
+    periodFrom: payload.periodFrom,
+    rentalDays,
+  });
 
   const bikeSubtotalCents = dailyBikePriceCents * rentalDays;
   return {
@@ -100,6 +118,6 @@ export function calculateInquiryPrice(inventory: LocationInventory, payload: Con
     equipmentSubtotalCents,
     discountCents,
     totalCents: bikeSubtotalCents + equipmentSubtotalCents - discountCents,
-    appliedDiscountKeys: [...appliedDiscountKeys],
+    appliedDiscountKeys,
   };
 }

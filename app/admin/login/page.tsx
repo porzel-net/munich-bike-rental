@@ -1,4 +1,4 @@
-import { GalleryVerticalEnd } from "lucide-react";
+import { BikeIcon } from "lucide-react";
 import Link from "next/link";
 
 import { LoginForm } from "@/components/login-form";
@@ -9,7 +9,7 @@ export default function AdminLoginPage() {
       <div className="flex w-full max-w-sm flex-col gap-6">
         <Link href="/" className="flex items-center justify-center gap-2 self-center font-medium">
           <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <GalleryVerticalEnd className="size-4" aria-hidden="true" />
+            <BikeIcon className="size-4" aria-hidden="true" />
           </div>
           <span>Your Bike Rental</span>
         </Link>

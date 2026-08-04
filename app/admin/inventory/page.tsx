@@ -96,7 +96,7 @@ export default async function InventoryPage() {
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
       <SidebarInset>
         <SiteHeader title="Inventar" />
-        <main className="flex flex-1 flex-col p-4 lg:p-6">
+        <main className="flex flex-1 flex-col p-8 lg:p-12">
           <InventoryTable
             initialBikes={bikes}
             initialEquipment={equipment}

@@ -3,3 +3,8 @@ allowBuilds:
   esbuild: true
   sharp: false
   unrs-resolver: false
+
+# Temporary until Next.js no longer resolves its transitive sharp dependency
+# to 0.34.5 upstream.
+overrides:
+  sharp: 0.35.3

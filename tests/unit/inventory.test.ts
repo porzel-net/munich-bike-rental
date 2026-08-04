@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createDatabaseConnection } from "../../lib/db/client";
+import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 import { calculateInquiryPrice, calculateRentalPrice } from "../../lib/inventory/pricing";
 import { getLocationInventory, isRequestAvailable } from "../../lib/inventory/repository";
 
@@ -12,6 +13,7 @@ afterEach(() => {
 
 function createTestDatabase() {
   const connection = createDatabaseConnection(":memory:");
+  seedRentalInventoryIfEmpty(connection.db);
   connections.push(connection);
   return connection.db;
 }

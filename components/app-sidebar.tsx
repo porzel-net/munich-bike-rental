@@ -15,11 +15,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
+  BikeIcon,
   ChartBarIcon,
   ChartNoAxesCombinedIcon,
   BoxesIcon,
-  CommandIcon,
+  CalendarDaysIcon,
   EuroIcon,
+  LayoutDashboardIcon,
   ListIcon,
   Settings2Icon,
   UsersIcon,
@@ -28,9 +30,19 @@ import {
 const data = {
   navMain: [
     {
+      title: "Dashboard",
+      url: "/admin",
+      icon: <LayoutDashboardIcon />,
+    },
+    {
       title: "Buchungen",
       url: "/admin/bookings",
       icon: <ListIcon />,
+    },
+    {
+      title: "Kalender",
+      url: "/admin/calendar",
+      icon: <CalendarDaysIcon />,
     },
     {
       title: "Inventar",
@@ -89,7 +101,7 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton className="data-[slot=sidebar-menu-button]:p-1.5!" render={<a href="/admin" />}>
-              <CommandIcon className="size-5!" />
+              <BikeIcon className="size-5!" />
               <span className="text-base font-semibold">Munich Bike Rental</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

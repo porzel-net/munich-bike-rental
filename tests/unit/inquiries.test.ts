@@ -7,22 +7,24 @@ const { createTransport, sendMail } = vi.hoisted(() => {
 });
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
-const { getDatabase, getLocationInventory, isRequestAvailable, calculateInquiryPrice, saveRentalInquiry } = vi.hoisted(
+const { getDatabase, getLocationInventory, isRequestAvailable, calculateInquiryPrice, createBooking } = vi.hoisted(
   () => ({
     getDatabase: vi.fn(),
     getLocationInventory: vi.fn(),
     isRequestAvailable: vi.fn(),
     calculateInquiryPrice: vi.fn(),
-    saveRentalInquiry: vi.fn(),
+    createBooking: vi.fn(),
   }),
 );
+const { dispatchOutboxForBooking } = vi.hoisted(() => ({ dispatchOutboxForBooking: vi.fn() }));
 vi.mock("../../lib/db/client", () => ({ getDatabase }));
 vi.mock("../../lib/inventory/repository", () => ({ getLocationInventory, isRequestAvailable }));
 vi.mock("../../lib/inventory/pricing", () => ({ calculateInquiryPrice }));
-vi.mock("../../lib/inquiries/repository", () => ({ saveRentalInquiry }));
+vi.mock("../../lib/bookings/service", () => ({ createBooking }));
+vi.mock("../../lib/bookings/outbox", () => ({ dispatchOutboxForBooking }));
 
 import { POST as contactPost } from "../../app/api/contact/route";
-import { contactInquirySchema, maintenanceInquirySchema } from "../../lib/inquiries/schemas";
+import { contactInquirySchema } from "../../lib/inquiries/schemas";
 import {
   consumeRateLimit,
   createOrderNumber,
@@ -115,20 +117,6 @@ describe("inquiry schemas", () => {
     ).toBe(false);
   });
 
-  it("requires a known maintenance service", () => {
-    expect(
-      maintenanceInquirySchema.safeParse({
-        name: "Max",
-        contact: "max@example.com",
-        bikeModel: "Canyon",
-        serviceType: "unknown",
-        pickup: false,
-        message: "Bitte prüfen",
-        locale: "de",
-        website: "",
-      }).success,
-    ).toBe(false);
-  });
 });
 
 describe("inquiry server helpers", () => {
@@ -188,7 +176,10 @@ describe("contact route", () => {
     isRequestAvailable.mockReturnValue(true);
     calculateInquiryPrice.mockReset();
     calculateInquiryPrice.mockReturnValue({ totalCents: 23_100 });
-    saveRentalInquiry.mockReset();
+    createBooking.mockReset();
+    createBooking.mockReturnValue({ id: 1, orderNumber: "#20260717120000" });
+    dispatchOutboxForBooking.mockReset();
+    dispatchOutboxForBooking.mockResolvedValue([]);
     process.env = {
       ...environment,
       SMTP_HOST: "smtp.example.com",
@@ -202,22 +193,13 @@ describe("contact route", () => {
 
   it("sends a valid inquiry and rejects bot and invalid input", async () => {
     expect((await contactPost(request(validContact))).status).toBe(200);
-    expect(sendMail).toHaveBeenCalledOnce();
-    expect(saveRentalInquiry).toHaveBeenCalledWith(
+    expect(createBooking).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ name: validContact.name, contact: validContact.contact, bikes: validContact.bikes }),
-      expect.stringMatching(/^#\d{14}$/),
-      23_100,
-      expect.any(Date),
-      "unanswered",
-      "automatic",
-      null,
-    );
-    expect(sendMail.mock.invocationCallOrder[0]).toBeLessThan(
-      saveRentalInquiry.mock.invocationCallOrder[0] ?? Infinity,
-    );
-    expect(createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({ disableFileAccess: true, disableUrlAccess: true }),
+      expect.objectContaining({
+        customerName: validContact.name,
+        customerEmail: validContact.contact,
+        quotedTotalCents: 23_100,
+      }),
     );
     expect(
       (await contactPost(request({ ...validContact, website: "https://bot.invalid" }, "198.51.100.11"))).status,
@@ -246,30 +228,25 @@ describe("contact route", () => {
     );
 
     expect(response.status).toBe(200);
-    const mail = sendMail.mock.calls[0]?.[0];
-    expect(mail.subject).toContain("(2 Bikes)");
-    expect(mail.text).toContain("Anzahl Bikes: 2");
-    expect(mail.text).toContain("Bike 1");
-    expect(mail.text).toContain("Körpergröße: 180 cm");
-    expect(mail.text).toContain("Bike 2");
-    expect(mail.text).toContain("Körpergröße: 172 cm");
-    expect(mail.text).toContain("Rennrad: Grail CF SL 7 - M");
-    expect(mail.text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
-    expect(mail.text).toContain("Kleidung: Ja");
-    expect(mail.text).toContain("Gesamtpreis: 231,00 €");
-    expect(Object.keys(mail)).not.toEqual(expect.arrayContaining(["raw", "path", "href"]));
+    const command = createBooking.mock.calls[0]?.[1];
+    expect(command.outbox.subject).toContain("(2 Bikes)");
+    const text = command.outbox.plainText("#20260717120000");
+    expect(text).toContain("Anzahl Bikes: 2");
+    expect(text).toContain("Bike 2");
+    expect(text).toContain("Körpergröße: 172 cm");
+    expect(text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
   });
 
-  it("returns a configuration error without SMTP credentials", async () => {
+  it("queues the inquiry without SMTP credentials", async () => {
     delete process.env.SMTP_HOST;
-    expect((await contactPost(request(validContact))).status).toBe(500);
-    expect(saveRentalInquiry).not.toHaveBeenCalled();
+    expect((await contactPost(request(validContact))).status).toBe(200);
+    expect(createBooking).toHaveBeenCalledOnce();
   });
 
   it("does not persist an inquiry when mail delivery throws", async () => {
-    sendMail.mockRejectedValueOnce(new Error("SMTP unavailable"));
-
+    createBooking.mockImplementationOnce(() => {
+      throw new Error("Database unavailable");
+    });
     expect((await contactPost(request(validContact))).status).toBe(500);
-    expect(saveRentalInquiry).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 import { inArray, sql } from "drizzle-orm";
 
 import type { AppDatabase } from "./db/client";
-import { rentalInquiryBikes, rentalInquiries } from "./db/schema";
+import { bookingRequestedItems, bookings } from "./db/schema";
 import { getRentalDays } from "./inventory/pricing";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "./inquiries/catalog";
 
@@ -39,7 +39,7 @@ type InquiryRow = {
   periodTo: string;
   bikeTitle: string | null;
   totalPriceCents: number;
-  status: "rejected" | "pending" | "confirmed" | "executed" | "cancelled" | "unanswered";
+  status: "inquiry_received" | "offer_sent" | "confirmed" | "checked_out" | "completed" | "rejected" | "cancelled" | "expired";
   submittedAt: Date;
 };
 
@@ -171,32 +171,32 @@ function weekdayIndexFromDate(value: Date) {
 export function getFinancialAnalyticsData(db: AppDatabase): FinancialAnalyticsData {
   const inquiryRows = db
     .select({
-      id: rentalInquiries.id,
-      location: rentalInquiries.location,
-      periodFrom: rentalInquiries.periodFrom,
-      periodTo: rentalInquiries.periodTo,
-      bikeTitle: rentalInquiries.bikeTitle,
-      totalPriceCents: rentalInquiries.totalPriceCents,
-      status: rentalInquiries.status,
-      submittedAt: rentalInquiries.submittedAt,
+      id: bookings.id,
+      location: bookings.location,
+      periodFrom: bookings.periodFrom,
+      periodTo: bookings.periodTo,
+      bikeTitle: sql<string | null>`null`,
+      totalPriceCents: bookings.quotedTotalCents,
+      status: bookings.status,
+      submittedAt: bookings.createdAt,
     })
-    .from(rentalInquiries)
+    .from(bookings)
     .all() as InquiryRow[];
 
   const bikeRows = inquiryRows.length
     ? (db
         .select({
-          inquiryId: rentalInquiryBikes.inquiryId,
-          bikeSize: rentalInquiryBikes.bikeSize,
-          needsPedals: rentalInquiryBikes.needsPedals,
-          needsComputerMount: rentalInquiryBikes.needsComputerMount,
-          needsHelmet: rentalInquiryBikes.needsHelmet,
-          needsClothing: rentalInquiryBikes.needsClothing,
+          inquiryId: bookingRequestedItems.bookingId,
+          bikeSize: bookingRequestedItems.requestedLabel,
+          needsPedals: bookingRequestedItems.needsPedals,
+          needsComputerMount: bookingRequestedItems.needsComputerMount,
+          needsHelmet: bookingRequestedItems.needsHelmet,
+          needsClothing: bookingRequestedItems.needsClothing,
         })
-        .from(rentalInquiryBikes)
+        .from(bookingRequestedItems)
         .where(
           inArray(
-            rentalInquiryBikes.inquiryId,
+            bookingRequestedItems.bookingId,
             inquiryRows.map((inquiry) => inquiry.id),
           ),
         )

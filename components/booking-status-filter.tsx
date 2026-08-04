@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SearchIcon } from "lucide-react";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { bookingPresentation } from "@/lib/bookings/presentation";
+import { rentalLocationLabels, rentalLocations } from "@/lib/inquiries/catalog";
 import type { BookingStatus } from "@/lib/db/schema";
 
 const statuses = Object.keys(bookingPresentation) as BookingStatus[];
@@ -17,15 +18,31 @@ const periods = [
   ["six_months", "Letzte 6 Monate"],
   ["year", "Letztes Jahr"],
 ] as const;
+const periodItems = periods.map(([value, label]) => ({ value, label }));
+const statusItems = [
+  { value: "all", label: "Alle Status" },
+  ...statuses.map((status) => ({ value: status, label: bookingPresentation[status].label })),
+];
+const locationItems = [
+  { value: "all", label: "Alle Standorte" },
+  ...rentalLocations.map((location) => ({
+    value: location,
+    label: rentalLocationLabels.de[location],
+  })),
+];
 
 export function BookingStatusFilter({
+  location,
   value,
   search,
   period,
+  canFilterLocations,
 }: {
+  location: string;
   value: BookingStatus | null;
   search: string;
   period: (typeof periods)[number][0];
+  canFilterLocations: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -33,14 +50,15 @@ export function BookingStatusFilter({
   const [searchValue, setSearchValue] = useState(search);
   const selectedLabel = value ? bookingPresentation[value].label : "Alle Status";
   const selectedPeriodLabel = periods.find(([key]) => key === period)?.[1] ?? "Alle Zeiträume";
+  const selectedLocationLabel = locationItems.find((item) => item.value === location)?.label ?? "Alle Standorte";
 
-  function updateParam(key: string, nextValue: string | null, emptyValue?: string) {
+  const updateParam = useCallback((key: string, nextValue: string | null, emptyValue?: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (!nextValue || nextValue === emptyValue) params.delete(key);
     else params.set(key, nextValue);
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
-  }
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     const nextSearch = searchValue.trim();
@@ -49,47 +67,76 @@ export function BookingStatusFilter({
       updateParam("q", nextSearch || null);
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [searchValue, searchParams]);
+  }, [searchValue, searchParams, updateParam]);
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-end gap-1.5 sm:flex-nowrap lg:w-auto">
+    <div className="flex w-full flex-wrap items-center gap-1.5 sm:flex-nowrap">
       <InputGroup className="w-full sm:w-80">
         <InputGroupAddon>
           <SearchIcon />
         </InputGroupAddon>
         <InputGroupInput
-        value={searchValue}
-        onChange={(event) => setSearchValue(event.target.value)}
-        name="search"
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          name="search"
           placeholder="Buchungen suchen …"
-        aria-label="Buchungen suchen"
+          aria-label="Buchungen suchen"
         />
       </InputGroup>
-      <Select value={period} onValueChange={(nextValue) => updateParam("period", nextValue, "all")}>
-        <SelectTrigger size="sm" className="w-full sm:w-40" aria-label="Zeitraum auswählen">
-          <SelectValue>{selectedPeriodLabel}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {periods.map(([key, label]) => (
-            <SelectItem key={key} value={key}>
-              {label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={value ?? "all"} onValueChange={(nextValue) => updateParam("status", nextValue, "all")}>
-        <SelectTrigger size="sm" className="w-full sm:w-40" aria-label="Nach Status filtern">
-          <SelectValue>{selectedLabel}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Alle Status</SelectItem>
-          {statuses.map((status) => (
-            <SelectItem key={status} value={status}>
-              {bookingPresentation[status].label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="ml-auto flex w-full justify-end gap-1.5 sm:w-auto">
+        {canFilterLocations ? (
+          <Select items={locationItems} value={location} onValueChange={(nextValue) => updateParam("location", nextValue, "all")}>
+            <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Standort auswählen">
+              <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {locationItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Select
+          items={periodItems}
+          value={period}
+          onValueChange={(nextValue) => updateParam("period", nextValue, "all")}
+        >
+          <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Zeitraum auswählen">
+            <SelectValue className="text-sm font-normal">{selectedPeriodLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {periodItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Select
+          items={statusItems}
+          value={value ?? "all"}
+          onValueChange={(nextValue) => updateParam("status", nextValue, "all")}
+        >
+          <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Nach Status filtern">
+            <SelectValue className="text-sm font-normal">{selectedLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {statusItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

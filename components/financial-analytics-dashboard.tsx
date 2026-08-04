@@ -32,10 +32,27 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { FinancialAnalyticsData } from "@/lib/financial-analytics";
 
 type Period = "1m" | "2m" | "3m" | "6m" | "12m" | "3y" | "all";
+const locationItems = [
+  { value: "all", label: "Alle Standorte" },
+  { value: "munich", label: "München" },
+  { value: "regensburg", label: "Regensburg" },
+  { value: "konstanz", label: "Konstanz" },
+  { value: "lindau", label: "Lindau" },
+  { value: "friedrichshafen", label: "Friedrichshafen" },
+] as const;
+const periodItems = [
+  { value: "1m", label: "1 Monat" },
+  { value: "2m", label: "2 Monate" },
+  { value: "3m", label: "3 Monate" },
+  { value: "6m", label: "6 Monate" },
+  { value: "12m", label: "12 Monate" },
+  { value: "3y", label: "3 Jahre" },
+  { value: "all", label: "Gesamt" },
+] as const;
 
 const colors = {
   primary: "var(--chart-2)",
@@ -227,6 +244,7 @@ export function FinancialAnalyticsDashboard({ data }: { data: FinancialAnalytics
     location === "all"
       ? "Alle Standorte"
       : (data.locations.find((item) => item.location === location)?.label ?? location);
+  const selectedPeriodLabel = periodItems.find((item) => item.value === period)?.label ?? "Zeitraum";
   const weekdayData = data.incomingWeekdays.map((item) => ({
     ...item,
     rentalDays: data.rentalWeekdays.find((rentalDay) => rentalDay.day === item.day)?.rentalDays ?? 0,
@@ -239,7 +257,7 @@ export function FinancialAnalyticsDashboard({ data }: { data: FinancialAnalytics
 
   return (
     <div className="flex flex-1 flex-col bg-muted/20">
-      <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col gap-6 p-8 md:p-10 lg:p-12">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-primary">
@@ -251,41 +269,42 @@ export function FinancialAnalyticsDashboard({ data }: { data: FinancialAnalytics
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-background/80 p-1.5 shadow-sm">
-            <Select value={location} onValueChange={(value) => value && setLocation(value)}>
+            <Select items={locationItems} value={location} onValueChange={(value) => value && setLocation(value)}>
               <SelectTrigger
                 size="sm"
                 className="w-[170px] rounded-xl border-0 bg-transparent shadow-none"
                 aria-label="Standort auswählen"
               >
                 <MapPin className="size-4 text-muted-foreground" />
-                <SelectValue placeholder="Alle Standorte" />
+                <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Alle Standorte</SelectItem>
-                <SelectItem value="munich">München</SelectItem>
-                <SelectItem value="regensburg">Regensburg</SelectItem>
-                <SelectItem value="konstanz">Konstanz</SelectItem>
-                <SelectItem value="lindau">Lindau</SelectItem>
-                <SelectItem value="friedrichshafen">Friedrichshafen</SelectItem>
+                <SelectGroup>
+                  {locationItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
-            <Select value={period} onValueChange={(value) => value && setPeriod(value as Period)}>
+            <Select items={periodItems} value={period} onValueChange={(value) => value && setPeriod(value as Period)}>
               <SelectTrigger
                 size="sm"
                 className="w-[160px] rounded-xl border-0 bg-transparent shadow-none"
                 aria-label="Zeitraum auswählen"
               >
                 <CalendarDays className="size-4 text-muted-foreground" />
-                <SelectValue placeholder="Zeitraum" />
+                <SelectValue className="text-sm font-normal">{selectedPeriodLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1m">1 Monat</SelectItem>
-                <SelectItem value="2m">2 Monate</SelectItem>
-                <SelectItem value="3m">3 Monate</SelectItem>
-                <SelectItem value="6m">6 Monate</SelectItem>
-                <SelectItem value="12m">12 Monate</SelectItem>
-                <SelectItem value="3y">3 Jahre</SelectItem>
-                <SelectItem value="all">Gesamt</SelectItem>
+                <SelectGroup>
+                  {periodItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>

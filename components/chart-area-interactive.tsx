@@ -122,6 +122,7 @@ const chartConfig = {
 export function ChartAreaInteractive() {
   const isMobile = useIsMobile();
   const [timeRange, setTimeRange] = React.useState("90d");
+  const timeRangeLabels = { "90d": "Letzte 3 Monate", "30d": "Letzte 30 Tage", "7d": "Letzte 7 Tage" };
 
   const selectedTimeRange = isMobile ? "7d" : timeRange;
 
@@ -174,7 +175,7 @@ export function ChartAreaInteractive() {
               size="sm"
               aria-label="Select a value"
             >
-              <SelectValue placeholder="Last 3 months" />
+              <SelectValue>{timeRangeLabels[selectedTimeRange as keyof typeof timeRangeLabels]}</SelectValue>
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="90d" className="rounded-lg">

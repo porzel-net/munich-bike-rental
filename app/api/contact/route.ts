@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 
 import { computerMountTypeLabels, pedalTypeLabels, rentalLocationLabels } from "../../../lib/inquiries/catalog";
 import { getDatabase } from "../../../lib/db/client";
-import { getLocationInventory, isRequestAvailable } from "../../../lib/inventory/repository";
-import { calculateInquiryPrice } from "../../../lib/inventory/pricing";
-import { saveRentalInquiry } from "../../../lib/inquiries/repository";
+import { createBooking } from "../../../lib/bookings/service";
+import { dispatchOutboxForBooking } from "../../../lib/bookings/outbox";
+import { estimateInquiryQuote } from "../../../lib/bookings/quotes";
 import { contactInquirySchema } from "../../../lib/inquiries/schemas";
-import { createOrderNumber, jsonError, parseInquiryRequest, sendInquiryMail } from "../../../lib/inquiries/server";
+import { jsonError, parseInquiryRequest } from "../../../lib/inquiries/server";
 
 export const runtime = "nodejs";
 
@@ -78,52 +78,56 @@ export async function POST(request: Request) {
     const parsed = await parseInquiryRequest(request, "contact", contactInquirySchema);
     if ("error" in parsed) return parsed.error;
 
-    const orderNumber = createOrderNumber();
     const { locale, bikeTitle, contact, bikes } = parsed.data;
     const database = getDatabase();
-    if (!isRequestAvailable(database, parsed.data.location, bikes)) {
-      return jsonError(400, "validation_error", "Requested bike or equipment is unavailable at this location");
-    }
-    const totalPriceCents = calculateInquiryPrice(
-      getLocationInventory(database, parsed.data.location),
-      parsed.data,
-    ).totalCents;
+    // An inquiry is deliberately accepted even if the requested model is not
+    // currently offerable. Staff can reject it or send a concrete alternative.
+    const totalPriceCents = estimateInquiryQuote(database, parsed.data).totalCents;
     const bikeCountLabel =
       bikes.length === 1 ? (locale === "de" ? "Bike" : "bike") : locale === "de" ? "Bikes" : "bikes";
     const subject =
       locale === "de"
         ? bikeTitle
-          ? `Neue Bike-Anfrage ${orderNumber} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
-          : `Neue Bike-Anfrage ${orderNumber} (${bikes.length} ${bikeCountLabel})`
+          ? `Neue Bike-Anfrage {{orderNumber}} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
+          : `Neue Bike-Anfrage {{orderNumber}} (${bikes.length} ${bikeCountLabel})`
         : bikeTitle
-          ? `New bike inquiry ${orderNumber} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
-          : `New bike inquiry ${orderNumber} (${bikes.length} ${bikeCountLabel})`;
-    let sent;
-    try {
-      sent = await sendInquiryMail({
+          ? `New bike inquiry {{orderNumber}} - ${bikeTitle} (${bikes.length} ${bikeCountLabel})`
+          : `New bike inquiry {{orderNumber}} (${bikes.length} ${bikeCountLabel})`;
+    const created = createBooking(database, {
+      customerName: parsed.data.name,
+      customerEmail: contact,
+      customerPhone: parsed.data.phone,
+      location: parsed.data.location,
+      periodFrom: parsed.data.periodFrom,
+      periodTo: parsed.data.periodTo,
+      pickupTime: parsed.data.pickupTime,
+      dropoffTime: parsed.data.dropoffTime,
+      customerMessage: parsed.data.message,
+      communicationLocale: locale,
+      source: "web",
+      quotedTotalCents: totalPriceCents,
+      requestedItems: bikes.map((bike) => ({
+        requestedLabel: bike.bikeSize,
+        heightCm: Number(bike.height),
+        needsPedals: bike.needsPedals,
+        pedalType: bike.pedalType,
+        needsComputerMount: bike.needsComputerMount,
+        computerMountType: bike.computerMountType,
+        needsHelmet: bike.needsHelmet,
+        needsClothing: bike.needsClothing,
+      })),
+      outbox: {
+        recipient: process.env.MAIL_REQUEST_TO_ADDRESS ?? "hallo@munich-bike-rental.de",
         subject,
-        text: createMailBody(parsed.data, orderNumber, totalPriceCents),
-        replyTo: contact,
-      });
-    } catch {
-      return jsonError(500, "send_failed", "Unable to send message");
-    }
-
-    if (!sent) {
-      return jsonError(500, "config_incomplete", "Mail configuration is incomplete");
-    }
-
-    saveRentalInquiry(
-      database,
-      parsed.data,
-      orderNumber,
-      totalPriceCents,
-      new Date(),
-      "unanswered",
-      "automatic",
-      sent.messageId,
+        plainText: (orderNumber) => createMailBody(parsed.data, orderNumber, totalPriceCents),
+        kind: "new_inquiry",
+      },
+    });
+    await dispatchOutboxForBooking(database, created.id);
+    return NextResponse.json(
+      { ok: true, orderNumber: created.orderNumber, totalPriceCents },
+      { headers: { "Cache-Control": "no-store" } },
     );
-    return NextResponse.json({ ok: true, orderNumber, totalPriceCents }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return jsonError(500, "send_failed", "Unable to send message");
   }

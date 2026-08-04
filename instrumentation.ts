@@ -6,15 +6,15 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./lib/auth");
 
-    const [{ getDatabase }, { expirePendingBookingConfirmations }] = await Promise.all([
+    const [{ getDatabase }, { expireDueOffers }] = await Promise.all([
       import("./lib/db/client"),
-      import("./lib/inquiries/confirmation"),
+      import("./lib/bookings/service"),
     ]);
     const sweep = () => {
       try {
-        expirePendingBookingConfirmations(getDatabase());
+        expireDueOffers(getDatabase());
       } catch (error) {
-        console.error("Failed to expire pending booking confirmations", error);
+        console.error("Failed to expire due booking offers", error);
       }
     };
 

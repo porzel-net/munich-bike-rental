@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { maintenanceServiceTypes, rentalLocations } from "./catalog";
+import { rentalLocations } from "./catalog";
 
 const MAX_MESSAGE_LENGTH = 4_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -84,19 +84,7 @@ export const contactInquirySchema = z
     }
   });
 
-export const maintenanceInquirySchema = z.object({
-  name: requiredLine(120),
-  contact: requiredLine(254).email(),
-  bikeModel: requiredLine(160),
-  serviceType: z.enum(maintenanceServiceTypes),
-  pickup: booleanInput.default(false),
-  message,
-  locale,
-  website: honeypot,
-});
-
 export type ContactInquiry = z.infer<typeof contactInquirySchema>;
-export type MaintenanceInquiry = z.infer<typeof maintenanceInquirySchema>;
 
 export function isValidEmail(value: string) {
   return z.string().trim().email().safeParse(value).success;

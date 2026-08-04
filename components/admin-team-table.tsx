@@ -4,7 +4,6 @@ import { useState } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -142,89 +141,85 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle>Team</CardTitle>
-              <CardDescription>Nutzer und Berechtigungen verwalten.</CardDescription>
-            </div>
-            <Button variant="outline" size="icon-sm" onClick={() => setIsInviteOpen(true)}>
-              <Plus />
-              <span className="sr-only">Neuen Einladungslink erstellen</span>
-            </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Team</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Nutzer und Berechtigungen verwalten.</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {message ? <p className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{message}</p> : null}
-          <Table>
-            <TableBody>
-              {users.map((user) => {
-                const isCurrentUser = user.id === currentUserId;
-                return (
-                  <TableRow key={user.id}>
-                    <TableCell className="w-10">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                        <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{user.name}</span>
-                        <span className="text-sm text-muted-foreground">{user.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      <div className="flex flex-col">
-                        <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
-                        <span>
-                          {user.role === "admin"
-                            ? "Alle Standorte"
-                            : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="w-8">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                          <MoreHorizontal />
-                          <span className="sr-only">Aktionen für {user.name}</span>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
-                            Bearbeiten
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => void deleteUser(user)}
-                            disabled={isCurrentUser}
-                          >
-                            Löschen
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          <Button variant="outline" size="icon-sm" onClick={() => setIsInviteOpen(true)}>
+            <Plus />
+            <span className="sr-only">Neuen Einladungslink erstellen</span>
+          </Button>
+        </div>
+        {message ? <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{message}</p> : null}
+        <Table>
+          <TableBody>
+            {users.map((user) => {
+              const isCurrentUser = user.id === currentUserId;
+              return (
+                <TableRow key={user.id}>
+                  <TableCell className="w-10">
+                    <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                      <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{user.name}</span>
+                      <span className="text-sm text-muted-foreground">{user.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    <div className="flex flex-col">
+                      <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
+                      <span>
+                        {user.role === "admin"
+                          ? "Alle Standorte"
+                          : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="w-8">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                        <MoreHorizontal />
+                        <span className="sr-only">Aktionen für {user.name}</span>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
+                          Bearbeiten
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => void deleteUser(user)}
+                          disabled={isCurrentUser}
+                        >
+                          Löschen
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
 
       <Dialog open={editingUser !== null} onOpenChange={(open) => !open && setEditingUser(null)}>
         <DialogContent className="max-w-md p-0">
-          <Card className="rounded-4xl shadow-none ring-0">
-            <CardHeader>
+          <div className="rounded-4xl bg-card p-6 shadow-none ring-0">
+            <div className="mb-6">
               <DialogHeader>
                 <DialogTitle>Nutzer bearbeiten</DialogTitle>
                 <DialogDescription>
                   {editingUser?.name} · {editingUser?.email}
                 </DialogDescription>
               </DialogHeader>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div>
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="team-edit-role">Rolle</FieldLabel>
@@ -268,21 +263,21 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
                   {isSaving ? "Speichern …" : "Speichern"}
                 </Button>
               </DialogFooter>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isInviteOpen} onOpenChange={closeInviteDialog}>
         <DialogContent className="max-w-md p-0">
-          <Card className="rounded-4xl shadow-none ring-0">
-            <CardHeader>
+          <div className="rounded-4xl bg-card p-6 shadow-none ring-0">
+            <div className="mb-6">
               <DialogHeader>
                 <DialogTitle>Einladungslink erstellen</DialogTitle>
                 <DialogDescription>Lege fest, wer dem Team beitreten darf.</DialogDescription>
               </DialogHeader>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div>
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="team-invite-name">Name</FieldLabel>
@@ -355,8 +350,8 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
                   {isInviting ? "Link wird erzeugt …" : "Link erstellen"}
                 </Button>
               </DialogFooter>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>

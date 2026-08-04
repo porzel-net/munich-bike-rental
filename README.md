@@ -91,6 +91,10 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
 DEV_ALLOWED_ORIGINS=
+# Nur für den Stripe-Sandbox-Test: serverseitiger Testschlüssel, niemals sk_live_ verwenden.
+STRIPE_SECRET_KEY=sk_test_...
+# Signaturgeheimnis des Stripe-Webhooks für bezahlte Angebote.
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
 Für produktive Zugänge sind `SMTP_REQUEST_PASSWORD_FILE`, `SMTP_MAIN_PASSWORD_FILE` und optional `IMAP_MAIN_PASSWORD_FILE` statt Klartext-Passwörtern vorzuziehen. Die App liest den Inhalt einer nur lesbaren Secret-Datei, wenn die entsprechende `*_FILE`-Variable gesetzt ist. Binde diese Dateien im Produktivbetrieb beispielsweise als Docker-Secrets oder schreibgeschützte Bind-Mounts ein.
@@ -102,7 +106,7 @@ Wichtig:
 - `CALENDAR_FEED_TOKEN` schützt den abonnierbaren Apple-Kalender-Feed. In Apple Kalender wird die angezeigte Webcal-URL aus der Buchungsseite abonniert.
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
 - Die SQLite-Datei gehört niemals ins Image. Der Compose-Stack verwendet das Named Volume `app-data`; der Einmal-Service `database-init` setzt dessen Eigentümer auf den Non-Root-App-User und die Rechte auf `0700`.
-- Drizzle führt versionierte Migrationen aus `drizzle/` beim ersten Zugriff auf den Anfrage-Endpunkt aus. Das Volume bleibt bei Image-Updates und Container-Neustarts erhalten. Lösche es nicht mit `docker compose down -v`, sofern die Anfragen erhalten bleiben sollen.
+- Vor dem Umschalten auf eine neue Admin-Version: verschlüsseltes Backup anlegen, `/api/admin/bookings/migration-preflight` als Administrator prüfen, dann Migration und Datenabgleich ausführen. Das Volume bleibt bei Image-Updates und Container-Neustarts erhalten. Lösche es nicht mit `docker compose down -v`, sofern die Anfragen erhalten bleiben sollen.
 - SQLite ist für diesen einzelnen App-Container vorgesehen. Mehrere parallele App-Replikas dürfen nicht dasselbe SQLite-Volume beschreiben.
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `SMTP_REQUEST_*` steuert den Versand der Website-Anfragen; `SMTP_MAIN_*` steuert Buchungsbestätigungen und Ablehnungen aus dem Adminbereich
@@ -111,6 +115,8 @@ Wichtig:
 - `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst nach Einwilligung in den Zweck „Analytics“
 - `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional. Sind beide gesetzt, aktiviert die Einwilligung in den Zweck „Marketing“ die direkte Google-Ads-Conversion für das Lead-Event.
+- Die isolierte Stripe-Testseite ist unter `/stripe-test` erreichbar. Dafür im Stripe-Dashboard den Sandbox-Modus aktivieren, unter „Developers → API keys“ den Secret Key kopieren und als `STRIPE_SECRET_KEY` setzen. Die Seite verwendet Stripe Checkout und legt keine Buchung an.
+- Der öffentliche Angebotslink startet unter `/api/booking-confirmation-v2/checkout` eine Checkout-Session mit dem unveränderlichen Gesamtbetrag des versendeten Angebots. Die verbindliche Buchung und die vollständige Zahlung werden erst durch den signaturgeprüften Webhook `/api/stripe/webhook` verarbeitet. Dafür `STRIPE_WEBHOOK_SECRET` setzen.
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
 
@@ -257,6 +263,20 @@ docker run --rm -v <compose-projekt>_app-data:/data -v "$PWD":/backup busybox \
 ```
 
 Die Datenbank enthält personenbezogene Kontakt- und Mietdaten. Backups gehören verschlüsselt abgelegt und sollten nur für berechtigte Personen zugänglich sein.
+
+### Buchungs-Umstellung und Outbox
+
+Nach einem Upgrade mit Bestandsdaten zuerst den geschützten Preflight aufrufen. Er muss `{ "ok": true }` liefern; andernfalls müssen die aufgeführten aktiven Altbuchungen vor dem Umschalten konkreten Assets zugeordnet werden. Der Inventar-Bootstrap ist eine einmalige Administratoraktion über `POST /api/admin/inventory/bootstrap`; er wird bewusst nicht mehr beim Start oder in einem öffentlichen Request ausgeführt.
+
+Der Outbox-Dispatcher wird minütlich vom Host ausgelöst. Setze `OUTBOX_DISPATCH_TOKEN` und verwende beispielsweise:
+
+```bash
+* * * * * curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $OUTBOX_DISPATCH_TOKEN" \
+  https://deine-domain.tld/api/internal/dispatch-mail-outbox >/dev/null
+```
+
+Der Dispatcher verwendet Leasing und Backoff. Bei IMAP-Ausfall bleibt der archivierte Plain-Text-Verlauf in der Buchungsansicht sichtbar.
 
 ## Hinweise
 

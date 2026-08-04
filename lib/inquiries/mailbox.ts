@@ -1,6 +1,12 @@
 import { ImapFlow } from "imapflow";
 
+import { eq } from "drizzle-orm";
+
+import type { AppDatabase } from "../db/client";
+import { bookings, communicationMessages } from "../db/schema";
+
 import { readSecret } from "./server";
+import { repairMojibake } from "./text";
 
 type MailboxConfig = {
   host: string;
@@ -35,18 +41,198 @@ async function getMailboxConfig(environment: Partial<NodeJS.ProcessEnv> = proces
   } satisfies MailboxConfig;
 }
 
+function unfoldHeaders(source: string) {
+  const separator = source.search(/\r?\n\r?\n/);
+  const headerSource = separator >= 0 ? source.slice(0, separator) : source;
+  const headers = new Map<string, string>();
+  for (const line of headerSource.replace(/\r?\n[ \t]+/g, " ").split(/\r?\n/)) {
+    const match = line.match(/^([^:]+):\s*(.*)$/);
+    if (match) headers.set(match[1].toLowerCase(), match[2]);
+  }
+  return { headers, body: separator >= 0 ? source.slice(separator).replace(/^\r?\n\r?\n/, "") : "" };
+}
+
+function headerParameter(value: string | undefined, name: string) {
+  return (
+    value?.match(new RegExp(`${name}\\s*=\\s*(?:"([^"]+)"|([^;\\s]+))`, "i"))?.[1] ??
+    value?.match(new RegExp(`${name}\\s*=\\s*(?:"([^"]+)"|([^;\\s]+))`, "i"))?.[2]
+  );
+}
+
+function decodeBytes(bytes: Buffer, charset: string | undefined) {
+  const normalized = charset?.trim().toLowerCase();
+  return normalized === "iso-8859-1" || normalized === "latin1" || normalized === "windows-1252"
+    ? bytes.toString("latin1")
+    : bytes.toString("utf8");
+}
+
+function decodeQuotedPrintable(body: string) {
+  const bytes: number[] = [];
+  for (let index = 0; index < body.length; index += 1) {
+    if (body[index] === "=" && /^[0-9a-f]{2}$/i.test(body.slice(index + 1, index + 3))) {
+      bytes.push(Number.parseInt(body.slice(index + 1, index + 3), 16));
+      index += 2;
+    } else if (body[index] === "=" && (body[index + 1] === "\r" || body[index + 1] === "\n")) {
+      if (body[index + 1] === "\r" && body[index + 2] === "\n") index += 2;
+      else index += 1;
+    } else {
+      bytes.push(body.charCodeAt(index));
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+function decodeTransferEncoding(body: string, encoding: string | undefined, charset: string | undefined) {
+  const normalized = encoding?.trim().toLowerCase();
+  if (normalized === "base64") return decodeBytes(Buffer.from(body.replace(/\s+/g, ""), "base64"), charset);
+  if (normalized === "quoted-printable") return decodeBytes(decodeQuotedPrintable(body), charset);
+  return body;
+}
+
+function splitMultipart(body: string, boundary: string) {
+  const marker = `--${boundary}`;
+  return body
+    .split(marker)
+    .slice(1)
+    .filter((part) => !part.trim().startsWith("--"))
+    .map((part) => part.replace(/^\r?\n/, "").replace(/\r?\n$/, ""));
+}
+
+function htmlToText(body: string) {
+  return body
+    .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>(?=\s*)/gi, "\n")
+    .replace(/<\/p>|<\/div>|<\/li>|<\/tr>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"');
+}
+
+function extractMimeText(source: string): { plain: string; html: string } {
+  const { headers, body } = unfoldHeaders(source);
+  const contentType = headers.get("content-type") ?? "text/plain";
+  const boundary = headerParameter(contentType, "boundary");
+  if (boundary) {
+    const parts = splitMultipart(body, boundary).map(extractMimeText);
+    return {
+      plain: parts.map((part) => part.plain).find(Boolean) ?? "",
+      html: parts.map((part) => part.html).find(Boolean) ?? "",
+    };
+  }
+  const decoded = decodeTransferEncoding(
+    body,
+    headers.get("content-transfer-encoding"),
+    headerParameter(contentType, "charset"),
+  );
+  return contentType.toLowerCase().startsWith("text/html")
+    ? { plain: "", html: decoded }
+    : { plain: decoded, html: "" };
+}
+
+function plainTextFromSource(source: Buffer | string | undefined) {
+  const { plain, html } = extractMimeText(source?.toString() ?? "");
+  return repairMojibake(plain || htmlToText(html))
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Archive matching IMAP messages as plain text; the DB remains the fallback. */
+export async function syncBookingMailThread(db: AppDatabase, bookingId: number, orderNumber: string) {
+  const config = await getMailboxConfig();
+  if (!config) return { configured: false, synced: 0 };
+  const client = new ImapFlow({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: { user: config.user, pass: config.password },
+    disableAutoIdle: true,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+  let synced = 0;
+  let inferredLocale: "de" | "en" | null = null;
+  try {
+    await client.connect();
+    for (const mailbox of await getSearchMailboxes(client, config)) {
+      let lock;
+      try {
+        lock = await client.getMailboxLock(mailbox, { readOnly: true });
+        const matches = await client.search({ text: orderNumber }, { uid: true });
+        if (!matches || !matches.length) continue;
+        for await (const message of client.fetch(
+          matches.slice(-50),
+          { envelope: true, source: true, internalDate: true },
+          { uid: true },
+        )) {
+          const messageId = message.envelope?.messageId;
+          if (!messageId) continue;
+          const sender = message.envelope?.from?.[0]?.address ?? "unknown";
+          const recipients = (message.envelope?.to ?? [])
+            .map((address) => address.address ?? "")
+            .filter(Boolean)
+            .join(", ");
+          const subject = message.envelope?.subject ?? "";
+          if (/^New bike inquiry\b/i.test(subject)) inferredLocale = "en";
+          if (/^Neue Bike-Anfrage\b/i.test(subject)) inferredLocale = "de";
+          const sentAt =
+            message.internalDate instanceof Date
+              ? message.internalDate
+              : message.internalDate
+                ? new Date(message.internalDate)
+                : new Date();
+          const existing = db
+            .select({ id: communicationMessages.id })
+            .from(communicationMessages)
+            .where(eq(communicationMessages.rfcMessageId, messageId))
+            .get();
+          const values = {
+            bookingId,
+            direction: sender.toLocaleLowerCase() === config.user.toLocaleLowerCase() ? "outbound" : "inbound",
+            rfcMessageId: messageId,
+            sender,
+            recipients,
+            subject,
+            plainText: plainTextFromSource(message.source),
+            sentAt,
+            archivedAt: new Date(),
+          } as const;
+          if (existing)
+            db.update(communicationMessages).set(values).where(eq(communicationMessages.id, existing.id)).run();
+          else db.insert(communicationMessages).values(values).run();
+          synced += 1;
+        }
+      } catch {
+        // A localized or unavailable mailbox should not prevent checking the next one.
+      } finally {
+        lock?.release();
+      }
+    }
+    if (inferredLocale)
+      db.update(bookings)
+        .set({ communicationLocale: inferredLocale, updatedAt: new Date() })
+        .where(eq(bookings.id, bookingId))
+        .run();
+    return { configured: true, synced };
+  } catch {
+    return { configured: true, synced, error: "imap_unavailable" as const };
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
+}
+
 function uniqueMailboxes(mailboxes: string[]) {
   return [...new Set(mailboxes.filter(Boolean))];
 }
 
 async function getSearchMailboxes(client: ImapFlow, config: MailboxConfig) {
   const listed = await client.list();
-  const paths = listed.map((mailbox) => mailbox.path);
-  return uniqueMailboxes([
-    "INBOX",
-    config.sentMailbox,
-    ...paths.filter((path) => /inbox|posteingang|sent|gesendet/i.test(path)),
-  ]);
+  return uniqueMailboxes(["INBOX", config.sentMailbox, ...listed.map((mailbox) => mailbox.path)]);
 }
 
 export async function findBookingThreadMessageId(orderNumber: string): Promise<string | null> {

@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { inArray } from "drizzle-orm";
 
 import { getDatabase } from "../../../../lib/db/client";
-import { rentalInquiryBikes, rentalInquiries } from "../../../../lib/db/schema";
+import { bookingRequestedItems, bookings } from "../../../../lib/db/schema";
 import { calendarBookingStatuses, buildBookingCalendarFeed } from "../../../../lib/calendar/booking-feed";
 import { rentalLocationConfigs } from "../../../../lib/rental-locations";
 
@@ -27,43 +27,31 @@ export async function GET(
   }
 
   const db = getDatabase();
-  const inquiries = db
+  const bookingsForCalendar = db
     .select({
-      id: rentalInquiries.id,
-      orderNumber: rentalInquiries.orderNumber,
-      name: rentalInquiries.name,
-      email: rentalInquiries.email,
-      phone: rentalInquiries.phone,
-      location: rentalInquiries.location,
-      periodFrom: rentalInquiries.periodFrom,
-      periodTo: rentalInquiries.periodTo,
-      pickupTime: rentalInquiries.pickupTime,
-      dropoffTime: rentalInquiries.dropoffTime,
-      message: rentalInquiries.message,
-      totalPriceCents: rentalInquiries.totalPriceCents,
-      status: rentalInquiries.status,
-      source: rentalInquiries.source,
-      submittedAt: rentalInquiries.submittedAt,
+      id: bookings.id, orderNumber: bookings.orderNumber, name: bookings.customerName, email: bookings.customerEmail, phone: bookings.customerPhone,
+      location: bookings.location, periodFrom: bookings.periodFrom, periodTo: bookings.periodTo, pickupTime: bookings.pickupTime, dropoffTime: bookings.dropoffTime,
+      message: bookings.customerMessage, totalPriceCents: bookings.quotedTotalCents, status: bookings.status, source: bookings.source, submittedAt: bookings.createdAt,
     })
-    .from(rentalInquiries)
-    .where(inArray(rentalInquiries.status, calendarBookingStatuses))
+    .from(bookings)
+    .where(inArray(bookings.status, calendarBookingStatuses))
     .all();
 
-  const bikes = inquiries.length
+  const bikes = bookingsForCalendar.length
     ? db
-        .select({ inquiryId: rentalInquiryBikes.inquiryId, bikeSize: rentalInquiryBikes.bikeSize })
-        .from(rentalInquiryBikes)
-        .where(inArray(rentalInquiryBikes.inquiryId, inquiries.map((inquiry) => inquiry.id)))
+        .select({ inquiryId: bookingRequestedItems.bookingId, bikeSize: bookingRequestedItems.requestedLabel })
+        .from(bookingRequestedItems)
+        .where(inArray(bookingRequestedItems.bookingId, bookingsForCalendar.map((booking) => booking.id)))
         .all()
     : [];
   const bikesByInquiry = new Map<number, string[]>();
   for (const bike of bikes) bikesByInquiry.set(bike.inquiryId, [...(bikesByInquiry.get(bike.inquiryId) ?? []), bike.bikeSize]);
 
   const feed = buildBookingCalendarFeed(
-    inquiries.map((inquiry) => ({
+    bookingsForCalendar.map((inquiry) => ({
       ...inquiry,
       status: inquiry.status as (typeof calendarBookingStatuses)[number],
-      source: inquiry.source as "automatic" | "manual",
+      source: inquiry.source === "manual" ? "manual" : "automatic",
       bikes: bikesByInquiry.get(inquiry.id) ?? [],
       locationAddress: rentalLocationConfigs.find((location) => location.key === inquiry.location)?.address ?? inquiry.location,
     })),

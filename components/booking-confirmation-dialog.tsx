@@ -52,7 +52,7 @@ export function BookingConfirmationDialog({ token }: BookingConfirmationDialogPr
     if (!dialog.open) dialog.showModal();
     let active = true;
 
-    fetch("/api/booking-confirmation", {
+    fetch("/api/booking-confirmation-v2", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: effectiveToken }),
@@ -97,10 +97,10 @@ export function BookingConfirmationDialog({ token }: BookingConfirmationDialogPr
             {errorCode === "expired"
               ? "Neuen Buchungslink anfordern"
               : error
-              ? "Link prüfen"
-              : alreadyConfirmed
-                ? "Deine Buchung ist bereits bestätigt"
-                : "Deine Buchung ist bestätigt"}
+                ? "Link prüfen"
+                : alreadyConfirmed
+                  ? "Deine Buchung ist bereits bestätigt"
+                  : "Deine Buchung ist bestätigt"}
           </h2>
         </div>
         <button type="button" className="booking-confirmation-dialog__close" onClick={close} aria-label="Schließen">
@@ -112,7 +112,7 @@ export function BookingConfirmationDialog({ token }: BookingConfirmationDialogPr
       {error ? (
         <p className="booking-confirmation-dialog__error">
           {errorCode === "expired"
-            ? "Dein Buchungslink ist nur 24 Stunden gültig und inzwischen abgelaufen. Bitte fordere einen neuen Buchungslink an."
+            ? "Dein Buchungslink ist nur 36 Stunden gültig und inzwischen abgelaufen. Bitte fordere einen neuen Buchungslink an."
             : error}
         </p>
       ) : null}

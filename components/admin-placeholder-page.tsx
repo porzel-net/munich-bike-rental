@@ -28,7 +28,7 @@ export async function AdminPlaceholderPage({ title, description, adminOnly = fal
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
       <SidebarInset>
         <SiteHeader title={title} />
-        <main className="flex flex-1 flex-col p-4 lg:p-6">
+        <main className="flex flex-1 flex-col p-8 lg:p-12">
           <Card className="min-h-64 flex-1">
             <CardHeader>
               <CardTitle>{title}</CardTitle>

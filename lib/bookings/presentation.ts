@@ -1,5 +1,18 @@
 import type { BookingStatus } from "../db/schema";
 
+export const accountLabels: Record<string, string> = {
+  accounts_receivable: "Forderungen",
+  bank_or_cash: "Bank / Kasse",
+  stripe_clearing: "Stripe-Verrechnung",
+  rental_revenue: "Mietumsatz",
+  cancellation_fee_revenue: "Stornogebühren",
+  expense: "Aufwand",
+};
+
+export function formatAccountLabel(account: string) {
+  return accountLabels[account] ?? account.replaceAll("_", " ");
+}
+
 export const bookingPresentation: Record<
   BookingStatus,
   {
@@ -21,12 +34,12 @@ export const bookingPresentation: Record<
 export function paymentPresentation(status: "open" | "refund_due" | "settled", openCents: number) {
   if (status === "open")
     return {
-      label: `${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(openCents / 100)} offen`,
+      label: `Noch ausstehend: ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(openCents / 100)}`,
       badge: "outline" as const,
     };
   if (status === "refund_due")
     return {
-      label: `${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(-openCents / 100)} Erstattung offen`,
+      label: `Noch zu erstatten: ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(-openCents / 100)}`,
       badge: "destructive" as const,
     };
   return { label: "Ausgeglichen", badge: "secondary" as const };

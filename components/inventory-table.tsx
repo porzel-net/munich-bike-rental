@@ -5,7 +5,6 @@ import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import type { AdminInventoryBike, AdminInventoryEquipment } from "@/app/admin/inventory/page";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogClose,
@@ -17,14 +16,17 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type LocationOption = { key: AdminInventoryBike["location"]; label: string };
 type InventoryKind = "bike" | "equipment";
 type EquipmentCategory = AdminInventoryEquipment["category"];
 type EditingItem = (AdminInventoryBike & { kind: "bike" }) | (AdminInventoryEquipment & { kind: "equipment" });
+type LocationFilter = "all" | LocationOption["key"];
 
 const euroFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+const allLocationsItem = { value: "all", label: "Alle Standorte" } as const;
 const categoryLabels: Record<EquipmentCategory, string> = {
   pedal: "Pedale",
   "computer-mount": "Computer-Halterung",
@@ -50,9 +52,20 @@ export function InventoryTable({
   const [bikes, setBikes] = useState(initialBikes);
   const [equipment, setEquipment] = useState(initialEquipment);
   const [kind, setKind] = useState<InventoryKind>("bike");
-  const [locationFilter, setLocationFilter] = useState<string>(canManageAllLocations ? "all" : locations[0]?.key);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>(
+    canManageAllLocations ? "all" : locations[0]?.key ?? "all",
+  );
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const locationItems = [
+    allLocationsItem,
+    ...locations.map((location) => ({
+      value: location.key,
+      label: location.label,
+    })),
+  ] as const;
+  const selectedLocationLabel =
+    locationFilter === "all" ? allLocationsItem.label : locations.find((location) => location.key === locationFilter)?.label;
 
   const visibleBikes = useMemo(
     () => (locationFilter === "all" ? bikes : bikes.filter((bike) => bike.location === locationFilter)),
@@ -146,149 +159,140 @@ export function InventoryTable({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-            <div>
-              <CardTitle>Inventar</CardTitle>
-              <CardDescription>Bikes und Ausrüstung je Standort für die Landingpage pflegen.</CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {canManageAllLocations ? (
-                <select
-                  className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
-                  value={locationFilter}
-                  onChange={(event) => setLocationFilter(event.target.value)}
-                  aria-label="Standort filtern"
-                >
-                  <option value="all">Alle Standorte</option>
-                  {locations.map((location) => (
-                    <option key={location.key} value={location.key}>
-                      {location.label}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              <Button
-                type="button"
-                size="icon-sm"
-                aria-label="Inventar hinzufügen"
-                title="Inventar hinzufügen"
-                onClick={() => openCreate(kind)}
-              >
-                <PlusIcon />
-              </Button>
-            </div>
-          </div>
-          <div className="flex gap-2 pt-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={kind === "bike" ? "default" : "outline"}
-              onClick={() => setKind("bike")}
-            >
-              Bikes ({visibleBikes.length})
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={kind === "equipment" ? "default" : "outline"}
-              onClick={() => setKind("equipment")}
-            >
-              Ausrüstung ({visibleEquipment.length})
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {kind === "bike" ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Bike / Typ</TableHead>
-                  <TableHead>Größe</TableHead>
-                  <TableHead>Standort</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Preis / Tag</TableHead>
-                  <TableHead className="w-24" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={kind === "bike" ? "default" : "outline"}
+          onClick={() => setKind("bike")}
+        >
+          Bikes ({visibleBikes.length})
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={kind === "equipment" ? "default" : "outline"}
+          onClick={() => setKind("equipment")}
+        >
+          Ausrüstung ({visibleEquipment.length})
+        </Button>
+        {canManageAllLocations ? (
+          <Select
+            items={locationItems}
+            value={locationFilter}
+            onValueChange={(value) => value && setLocationFilter(value as LocationFilter)}
+          >
+            <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Standort filtern">
+              <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {locationItems.map((location) => (
+                  <SelectItem key={location.value} value={location.value}>
+                    {location.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Button
+          type="button"
+          size="icon-sm"
+          aria-label="Inventar hinzufügen"
+          title="Inventar hinzufügen"
+          onClick={() => openCreate(kind)}
+        >
+          <PlusIcon />
+        </Button>
+      </div>
+      {kind === "bike" ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Bike / Typ</TableHead>
+              <TableHead>Größe</TableHead>
+              <TableHead>Standort</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Preis / Tag</TableHead>
+              <TableHead className="w-24" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleBikes.length === 0 ? (
+              <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
+            ) : (
+              visibleBikes.map((bike) => (
+                <TableRow key={bike.id}>
+                  <TableCell className="font-medium">{bike.title}</TableCell>
+                  <TableCell>{bike.size}</TableCell>
+                  <TableCell>
+                    {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
+                  </TableCell>
+                  <TableCell>
+                    <StatusButton
+                      active={bike.isAvailable}
+                      onClick={() => toggleAvailability({ ...bike, kind: "bike" })}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {euroFormatter.format(bike.priceCents / 100)}
+                  </TableCell>
+                  <TableCell>
+                    <RowActions
+                      onEdit={() => openEdit({ ...bike, kind: "bike" })}
+                      onDelete={() => deleteItem({ ...bike, kind: "bike" })}
+                    />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleBikes.length === 0 ? (
-                  <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
-                ) : (
-                  visibleBikes.map((bike) => (
-                    <TableRow key={bike.id}>
-                      <TableCell className="font-medium">{bike.title}</TableCell>
-                      <TableCell>{bike.size}</TableCell>
-                      <TableCell>
-                        {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
-                      </TableCell>
-                      <TableCell>
-                        <StatusButton
-                          active={bike.isAvailable}
-                          onClick={() => toggleAvailability({ ...bike, kind: "bike" })}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {euroFormatter.format(bike.priceCents / 100)}
-                      </TableCell>
-                      <TableCell>
-                        <RowActions
-                          onEdit={() => openEdit({ ...bike, kind: "bike" })}
-                          onDelete={() => deleteItem({ ...bike, kind: "bike" })}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ausrüstung</TableHead>
-                  <TableHead>Art</TableHead>
-                  <TableHead>Standort</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Preis</TableHead>
-                  <TableHead className="w-24" />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Ausrüstung</TableHead>
+              <TableHead>Art</TableHead>
+              <TableHead>Standort</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Preis</TableHead>
+              <TableHead className="w-24" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleEquipment.length === 0 ? (
+              <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
+            ) : (
+              visibleEquipment.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{categoryLabels[item.category]}</TableCell>
+                  <TableCell>{item.labelDe}</TableCell>
+                  <TableCell>
+                    {locations.find((location) => location.key === item.location)?.label ?? item.location}
+                  </TableCell>
+                  <TableCell>
+                    <StatusButton
+                      active={item.isAvailable}
+                      onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {euroFormatter.format(item.priceCents / 100)}
+                  </TableCell>
+                  <TableCell>
+                    <RowActions
+                      onEdit={() => openEdit({ ...item, kind: "equipment" })}
+                      onDelete={() => deleteItem({ ...item, kind: "equipment" })}
+                    />
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleEquipment.length === 0 ? (
-                  <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
-                ) : (
-                  visibleEquipment.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{categoryLabels[item.category]}</TableCell>
-                      <TableCell>{item.labelDe}</TableCell>
-                      <TableCell>
-                        {locations.find((location) => location.key === item.location)?.label ?? item.location}
-                      </TableCell>
-                      <TableCell>
-                        <StatusButton
-                          active={item.isAvailable}
-                          onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {euroFormatter.format(item.priceCents / 100)}
-                      </TableCell>
-                      <TableCell>
-                        <RowActions
-                          onEdit={() => openEdit({ ...item, kind: "equipment" })}
-                          onDelete={() => deleteItem({ ...item, kind: "equipment" })}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      )}
       <InventoryDialog
         key={`${kind}-${editingItem?.kind ?? "new"}-${editingItem?.id ?? "new"}-${dialogOpen}`}
         open={dialogOpen}

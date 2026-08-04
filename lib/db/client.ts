@@ -1,17 +1,37 @@
-import { chmodSync, existsSync, mkdirSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
-import { seedRentalInventoryIfEmpty } from "../inventory/seed";
 import * as schema from "./schema";
 
 const SQLITE_BUSY_TIMEOUT_MS = 5_000;
 
 export const createDrizzleClient = (client: InstanceType<typeof Database>) => drizzle({ client, schema });
 export type AppDatabase = ReturnType<typeof createDrizzleClient>;
+const sqliteClients = new WeakMap<AppDatabase, InstanceType<typeof Database>>();
+
+/**
+ * SQLite's normal deferred transaction permits two concurrent confirmations to
+ * both read an available asset.  Commands which allocate stock use this helper
+ * to acquire the write lock before their availability query.
+ */
+export function runInImmediateTransaction<T>(db: AppDatabase, work: () => T): T {
+  const client = sqliteClients.get(db);
+  if (!client) throw new Error("Database client is not registered");
+  client.exec("BEGIN IMMEDIATE");
+  try {
+    const result = work();
+    client.exec("COMMIT");
+    return result;
+  } catch (error) {
+    client.exec("ROLLBACK");
+    throw error;
+  }
+}
 
 export function getDatabasePath(environment: Partial<NodeJS.ProcessEnv> = process.env) {
   const configuredPath = environment.DATABASE_URL?.trim();
@@ -44,9 +64,54 @@ function configureSqlite(client: InstanceType<typeof Database>) {
   client.pragma("synchronous = NORMAL");
 }
 
-function restoreMissingInquiryBikes(client: InstanceType<typeof Database>) {
+/**
+ * Drizzle records a migration only after all of its statements succeed. A
+ * historic local run of 0022 could therefore leave its first `ALTER TABLE`
+ * behind while rolling back before writing its journal row. Resume exactly
+ * that known, data-preserving partial state before handing control back to the
+ * normal migrator. Fresh databases and fully applied installations bypass it.
+ */
+function recoverInterruptedBookingMigration(client: InstanceType<typeof Database>, migrationsFolder: string) {
+  const migrationName = "0022_panoramic_blue_blade.sql";
+  const migrationCreatedAt = 1_784_725_430_888;
+  const hasTable = (name: string) =>
+    Boolean(client.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+  const hasColumn = (table: "communication_messages" | "journal_entries", column: string) =>
+    hasTable(table) &&
+    (client.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(
+      (entry) => entry.name === column,
+    );
+  if (!hasColumn("communication_messages", "thread_message_id") || !hasTable("__drizzle_migrations")) return;
+
+  const migrationHash = createHash("sha256")
+    .update(readFileSync(join(migrationsFolder, migrationName)))
+    .digest("hex");
+  const alreadyRecorded = Boolean(
+    client
+      .prepare("SELECT 1 FROM __drizzle_migrations WHERE created_at = ? OR hash = ?")
+      .get(migrationCreatedAt, migrationHash),
+  );
+  if (alreadyRecorded) return;
+
+  client.transaction(() => {
+    if (!hasColumn("journal_entries", "due_at")) client.exec("ALTER TABLE journal_entries ADD COLUMN due_at integer");
+    client.exec(`
+      CREATE TRIGGER IF NOT EXISTS journal_entries_append_only_update BEFORE UPDATE ON journal_entries BEGIN SELECT RAISE(ABORT, 'journal_entries are append-only'); END;
+      CREATE TRIGGER IF NOT EXISTS journal_entries_append_only_delete BEFORE DELETE ON journal_entries BEGIN SELECT RAISE(ABORT, 'journal_entries are append-only'); END;
+      CREATE TRIGGER IF NOT EXISTS journal_lines_append_only_update BEFORE UPDATE ON journal_lines BEGIN SELECT RAISE(ABORT, 'journal_lines are append-only'); END;
+      CREATE TRIGGER IF NOT EXISTS journal_lines_append_only_delete BEFORE DELETE ON journal_lines BEGIN SELECT RAISE(ABORT, 'journal_lines are append-only'); END;
+    `);
+    client
+      .prepare("INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)")
+      .run(migrationHash, migrationCreatedAt);
+  })();
+}
+
+export function restoreMissingInquiryBikesForExplicitRepair(client: InstanceType<typeof Database>) {
   const legacyTables = client
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('legacy_bike_requests', 'legacy_bike_request_items')")
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('legacy_bike_requests', 'legacy_bike_request_items')",
+    )
     .all() as Array<{ name: string }>;
   if (legacyTables.length !== 2) return;
 
@@ -82,9 +147,17 @@ function restoreMissingInquiryBikes(client: InstanceType<typeof Database>) {
       const bikes = legacyBikes.all(inquiry.order_number.replace(/^#/, "")) as Array<Record<string, unknown>>;
       for (const bike of bikes) {
         const model =
-          bike.item_original_bike_model || bike.item_bike_model || bike.original_bike_model || bike.bike_model || "Fahrrad";
+          bike.item_original_bike_model ||
+          bike.item_bike_model ||
+          bike.original_bike_model ||
+          bike.bike_model ||
+          "Fahrrad";
         const size =
-          bike.item_requested_bike_size || bike.item_bike_size || bike.requested_bike_size || bike.bike_size || "Unbekannt";
+          bike.item_requested_bike_size ||
+          bike.item_bike_size ||
+          bike.requested_bike_size ||
+          bike.bike_size ||
+          "Unbekannt";
         const bikeSize = String(model).toLocaleLowerCase().includes(String(size).toLocaleLowerCase())
           ? String(model)
           : `${model} - ${size}`;
@@ -109,9 +182,9 @@ export function createDatabaseConnection(databasePath: string, migrationsFolder 
   const client = new Database(databasePath);
   configureSqlite(client);
   const db = createDrizzleClient(client);
+  sqliteClients.set(db, client);
+  recoverInterruptedBookingMigration(client, migrationsFolder);
   migrate(db, { migrationsFolder });
-  restoreMissingInquiryBikes(client);
-  seedRentalInventoryIfEmpty(db);
 
   if (databasePath !== ":memory:" && existsSync(databasePath)) {
     chmodSync(databasePath, 0o600);

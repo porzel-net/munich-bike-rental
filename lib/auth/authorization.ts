@@ -3,7 +3,7 @@ import { rentalLocations, type RentalLocation } from "../inquiries/catalog";
 export const adminRoles = ["admin", "standortuser"] as const;
 export type AdminRole = (typeof adminRoles)[number];
 
-type AuthorizedUser = {
+export type AuthorizedUser = {
   locationKey?: string | null;
   role?: string | null;
 };

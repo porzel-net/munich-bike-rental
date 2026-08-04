@@ -91,9 +91,6 @@ test("validates both forms without submitting", async ({ page }) => {
   await page.goto(munichPath);
   await page.locator("section#contact button[type=submit]").click();
   await expect(page.locator("#name-error")).toBeVisible();
-  await page.goto("/wartung");
-  await page.locator(".maintenance-form button[type=submit]").click();
-  await expect(page.locator("#maintenance-name-error")).toBeVisible();
 });
 
 test("keeps the primary layout responsive", async ({ page }) => {

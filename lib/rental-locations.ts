@@ -117,8 +117,6 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
       locationNotice: "We only hand out bikes; there is no storefront.",
       locationLabel: `${city} ${district} address`,
       faqPickup: `Bike pickup takes place directly in ${city} ${district}. We hand over the bike on site and adjust it to your needs, for example the saddle position. We will coordinate the exact process with you by email after your request.`,
-      maintenanceTitle: `Want to have your road or gravel bike serviced in ${city}?`,
-      maintenanceText: `For an oil-to-wax conversion or a small service, you can send us a maintenance request here.`,
       aboutRental: `We are a personal bike rental in ${city} and rent out only our own endurance, gravel, all-round and aero bikes, so every bike is ready to ride right away.`,
       blogIntro: `Short, practical insights about road bikes, fit and routes in and around ${city}.`,
     };
@@ -134,8 +132,6 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
     locationNotice: "Wir geben nur raus, es gibt keine Ladenfläche",
     locationLabel: `Adresse ${city}`,
     faqPickup: `Die Abholung findet direkt in ${city}-${district} statt. Vor Ort geben wir dir das Fahrrad heraus und passen es auf deine Wünsche an, zum Beispiel die Sitzposition. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.`,
-    maintenanceTitle: `Willst du dein Rennrad oder Gravelbike in ${city} warten lassen?`,
-    maintenanceText: `Wenn du zum Beispiel von Öl auf Wachs wechseln möchtest oder einen kleinen Service brauchst, geht es hier zur Wartung.`,
     aboutRental: `Wir sind ein persönlicher Bike-Verleih in ${city} und verleihen ausschließlich unsere eigenen Endurance-, Gravel-, Allround- und Aero-Bikes, damit jedes Rad sofort startklar ist.`,
     blogIntro: `Kurze, praktische Einblicke rund um Rennrad, Passform und Touren in und um ${city}.`,
   };

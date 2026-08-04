@@ -16,7 +16,6 @@ import { rentalLocationConfigs } from "../lib/rental-locations";
 type TopbarTranslations = {
   nav: {
     start: string;
-    maintenance: string;
     bikes: string;
     prices: string;
     faq: string;
@@ -128,15 +127,7 @@ type HomeTopbarProps = {
   homePath?: string;
   showBlog?: boolean;
   topbar: TopbarTranslations;
-  sectionAnchors?: Partial<{
-    start: string;
-    maintenance: string;
-    bikes: string;
-    prices: string;
-    faq: string;
-    contact: string;
-  }>;
-  hiddenNavItems?: Array<"start" | "maintenance" | "bikes" | "prices" | "faq" | "contact">;
+  hiddenNavItems?: Array<"start" | "bikes" | "prices" | "faq" | "contact">;
   backLink?: {
     href: string;
     label: string;
@@ -653,7 +644,6 @@ export function HomeTopbar({
   homePath,
   showBlog = true,
   topbar,
-  sectionAnchors,
   hiddenNavItems,
   backLink,
 }: HomeTopbarProps) {
@@ -663,11 +653,7 @@ export function HomeTopbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationsOpen, setLocationsOpen] = useState(false);
   const pageHref = (path: string) => buildPathWithSearch({ pathname: path, searchParams, lang });
-  const sectionHref = (hash: string, override?: string) => {
-    if (pathname === "/wartung" && override) {
-      return override;
-    }
-
+  const sectionHref = (hash: string) => {
     if (pathname === "/" || pathname.startsWith("/rennradverleih/")) {
       return hash;
     }
@@ -679,9 +665,7 @@ export function HomeTopbar({
       lang,
     });
   };
-  const maintenanceHref =
-    pathname === "/wartung" ? sectionHref("#wartung", sectionAnchors?.maintenance) : pageHref("/wartung");
-  const isHidden = (item: "start" | "maintenance" | "bikes" | "prices" | "faq" | "contact") =>
+  const isHidden = (item: "start" | "bikes" | "prices" | "faq" | "contact") =>
     hiddenNavItems?.includes(item) ?? false;
 
   useEffect(() => {
@@ -704,7 +688,7 @@ export function HomeTopbar({
   return (
     <header className="topbar">
       <div className="container topbar__inner">
-        <a className="brand" href={sectionHref("#home", sectionAnchors?.start)} aria-label="Your Bike Rental home">
+        <a className="brand" href={sectionHref("#home")} aria-label="Your Bike Rental home">
           <span className="brand__text">Your Bike Rental</span>
         </a>
 
@@ -712,41 +696,34 @@ export function HomeTopbar({
           <nav className="nav nav--desktop" aria-label="Primary">
             <ul className="nav__list">
               <li className="nav__item">
-                <a href={sectionHref("#home", sectionAnchors?.start)} className="nav__link">
+                <a href={sectionHref("#home")} className="nav__link">
                   {topbar.nav.start}
                 </a>
               </li>
-              {!isHidden("maintenance") ? (
-                <li className="nav__item">
-                  <a href={maintenanceHref} className="nav__link nav__link--anchor">
-                    {topbar.nav.maintenance}
-                  </a>
-                </li>
-              ) : null}
               {!isHidden("bikes") ? (
                 <li className="nav__item">
-                  <a href={sectionHref("#portfolio", sectionAnchors?.bikes)} className="nav__link nav__link--anchor">
+                  <a href={sectionHref("#portfolio")} className="nav__link nav__link--anchor">
                     {topbar.nav.bikes}
                   </a>
                 </li>
               ) : null}
               {!isHidden("prices") ? (
                 <li className="nav__item">
-                  <a href={sectionHref("#price", sectionAnchors?.prices)} className="nav__link nav__link--anchor">
+                  <a href={sectionHref("#price")} className="nav__link nav__link--anchor">
                     {topbar.nav.prices}
                   </a>
                 </li>
               ) : null}
               {!isHidden("faq") ? (
                 <li className="nav__item">
-                  <a href={sectionHref("#faq", sectionAnchors?.faq)} className="nav__link nav__link--anchor">
+                  <a href={sectionHref("#faq")} className="nav__link nav__link--anchor">
                     {topbar.nav.faq}
                   </a>
                 </li>
               ) : null}
               {!isHidden("contact") ? (
                 <li className="nav__item">
-                  <a href={sectionHref("#contact", sectionAnchors?.contact)} className="nav__link nav__link--anchor">
+                  <a href={sectionHref("#contact")} className="nav__link nav__link--anchor">
                     {topbar.nav.contact}
                   </a>
                 </li>
@@ -838,28 +815,17 @@ export function HomeTopbar({
           <ul className="nav__list nav__list--mobile">
             <li className="nav__item nav__item--mobile">
               <a
-                href={sectionHref("#home", sectionAnchors?.start)}
+                href={sectionHref("#home")}
                 className="nav__link nav__link--mobile"
                 onClick={() => setMenuOpen(false)}
               >
                 {topbar.nav.start}
               </a>
             </li>
-            {!isHidden("maintenance") ? (
-              <li className="nav__item nav__item--mobile">
-                <a
-                  href={maintenanceHref}
-                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {topbar.nav.maintenance}
-                </a>
-              </li>
-            ) : null}
             {!isHidden("bikes") ? (
               <li className="nav__item nav__item--mobile">
                 <a
-                  href={sectionHref("#portfolio", sectionAnchors?.bikes)}
+                  href={sectionHref("#portfolio")}
                   className="nav__link nav__link--mobile nav__link--mobile-anchor"
                   onClick={() => setMenuOpen(false)}
                 >
@@ -870,7 +836,7 @@ export function HomeTopbar({
             {!isHidden("prices") ? (
               <li className="nav__item nav__item--mobile">
                 <a
-                  href={sectionHref("#price", sectionAnchors?.prices)}
+                  href={sectionHref("#price")}
                   className="nav__link nav__link--mobile nav__link--mobile-anchor"
                   onClick={() => setMenuOpen(false)}
                 >
@@ -881,7 +847,7 @@ export function HomeTopbar({
             {!isHidden("faq") ? (
               <li className="nav__item nav__item--mobile">
                 <a
-                  href={sectionHref("#faq", sectionAnchors?.faq)}
+                  href={sectionHref("#faq")}
                   className="nav__link nav__link--mobile nav__link--mobile-anchor"
                   onClick={() => setMenuOpen(false)}
                 >
@@ -892,7 +858,7 @@ export function HomeTopbar({
             {!isHidden("contact") ? (
               <li className="nav__item nav__item--mobile">
                 <a
-                  href={sectionHref("#contact", sectionAnchors?.contact)}
+                  href={sectionHref("#contact")}
                   className="nav__link nav__link--mobile nav__link--mobile-anchor"
                   onClick={() => setMenuOpen(false)}
                 >

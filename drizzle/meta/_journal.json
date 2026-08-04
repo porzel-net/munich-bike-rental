@@ -148,6 +148,62 @@
       "when": 1784657000000,
       "tag": "0020_restore_inquiry_bikes",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1784723610562,
+      "tag": "0021_real_quasar",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1784725430888,
+      "tag": "0022_panoramic_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1784725600000,
+      "tag": "0023_migrate_legacy_booking_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1784725629488,
+      "tag": "0024_yummy_pete_wisdom",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1784727000000,
+      "tag": "0025_offer_price_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1784728000000,
+      "tag": "0026_booking_assignees",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1785766666233,
+      "tag": "0028_mute_bucky",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1785767000000,
+      "tag": "0029_booking_public_links",
+      "breakpoints": true
     }
   ]
 }

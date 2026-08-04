@@ -76,8 +76,6 @@ export const rentalBikeOptions = [...new Set(Object.values(bikeOptionsByLocation
 
 export const pedalTypes = ["platform", "spdSl", "lookKeo2Max", "other"] as const;
 export const computerMountTypes = ["garmin", "wahoo", "other"] as const;
-export const maintenanceServiceTypes = ["wax", "cleaning", "parts", "repair", "advice"] as const;
-
 export const pedalTypeLabels = {
   de: { platform: "Plattformpedale", spdSl: "SPD-SL", lookKeo2Max: "Look Keo2 Max", other: "Andere" },
   en: { platform: "Platform pedals", spdSl: "SPD-SL", lookKeo2Max: "Look Keo2 Max", other: "Other" },

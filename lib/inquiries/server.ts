@@ -95,7 +95,7 @@ export function resetRateLimitsForTests() {
 
 export async function parseInquiryRequest<T extends { website?: unknown }>(
   request: Request,
-  endpoint: "contact" | "maintenance",
+  endpoint: "contact",
   schema: z.ZodType<T>,
 ): Promise<{ data: T } | { error: NextResponse }> {
   const origin = request.headers.get("origin");
