@@ -42,5 +42,5 @@ export function paymentPresentation(status: "open" | "refund_due" | "settled", o
       label: `Noch zu erstatten: ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(-openCents / 100)}`,
       badge: "destructive" as const,
     };
-  return { label: "Ausgeglichen", badge: "secondary" as const };
+  return { label: "Ausgeglichen", badge: "success" as const };
 }

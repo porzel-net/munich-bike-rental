@@ -23,6 +23,8 @@ import {
   EuroIcon,
   LayoutDashboardIcon,
   ListIcon,
+  MessageCircleIcon,
+  ScrollTextIcon,
   Settings2Icon,
   UsersIcon,
 } from "lucide-react";
@@ -54,6 +56,10 @@ const data = {
       url: "/admin/accounting",
       icon: <EuroIcon />,
       adminOnly: true,
+      items: [
+        { title: "EÜR 2026", url: "/admin/accounting" },
+        { title: "Banktransaktionen", url: "/admin/accounting/transactions" },
+      ],
     },
     {
       title: "Google Analysen",
@@ -76,6 +82,18 @@ const data = {
   ],
   navSecondary: [
     {
+      title: "AI Logs",
+      url: "/admin/ai-logs",
+      icon: <ScrollTextIcon />,
+      adminOnly: true,
+    },
+    {
+      title: "WhatsApp",
+      url: "/admin/settings/whatsapp",
+      icon: <MessageCircleIcon />,
+      adminOnly: true,
+    },
+    {
       title: "Einstellungen",
       url: "/admin/settings",
       icon: <Settings2Icon />,
@@ -94,6 +112,7 @@ export function AppSidebar({
   isAdmin: boolean;
 }) {
   const navItems = data.navMain.filter((item) => !item.adminOnly || isAdmin);
+  const secondaryNavItems = data.navSecondary.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -109,7 +128,7 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navItems} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary items={secondaryNavItems} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={{ ...user, avatar: "/favicon.png" }} />

@@ -116,7 +116,6 @@ describe("inquiry schemas", () => {
       }).success,
     ).toBe(false);
   });
-
 });
 
 describe("inquiry server helpers", () => {
@@ -207,7 +206,7 @@ describe("contact route", () => {
     expect((await contactPost(request({ ...validContact, name: "" }, "198.51.100.12"))).status).toBe(400);
   });
 
-  it("includes all bike details in the email", async () => {
+  it("keeps all bike details on the booking and skips the old internal inquiry mail", async () => {
     const response = await contactPost(
       request({
         ...validContact,
@@ -229,12 +228,18 @@ describe("contact route", () => {
 
     expect(response.status).toBe(200);
     const command = createBooking.mock.calls[0]?.[1];
-    expect(command.outbox.subject).toContain("(2 Bikes)");
-    const text = command.outbox.plainText("#20260717120000");
-    expect(text).toContain("Anzahl Bikes: 2");
-    expect(text).toContain("Bike 2");
-    expect(text).toContain("Körpergröße: 172 cm");
-    expect(text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
+    expect(command.outbox).toBeUndefined();
+    expect(command.requestedItems).toHaveLength(2);
+    expect(command.requestedItems[1]).toMatchObject({
+      requestedLabel: "Grail CF SL 7 - M",
+      heightCm: 172,
+      needsPedals: true,
+      pedalType: "spdSl",
+      needsComputerMount: true,
+      computerMountType: "garmin",
+      needsHelmet: true,
+      needsClothing: true,
+    });
   });
 
   it("queues the inquiry without SMTP credentials", async () => {

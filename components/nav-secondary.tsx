@@ -18,6 +18,7 @@ export function NavSecondary({
     title: string;
     url: string;
     icon: React.ReactNode;
+    adminOnly?: boolean;
   }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (

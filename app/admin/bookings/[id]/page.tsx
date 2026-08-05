@@ -1,8 +1,10 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import * as React from "react";
+import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { BookingAiAnalysisButton } from "@/components/booking-ai-analysis-button";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAssigneeCard } from "@/components/booking-assignee-card";
 import { BookingCommandActions } from "@/components/booking-command-actions";
@@ -12,68 +14,70 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Item, ItemActions, ItemGroup, ItemHeader, ItemSeparator, ItemTitle } from "@/components/ui/item";
+import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
+import { hasAssetConflict } from "@/lib/bookings/availability";
 import { getAssignableBookingUsers } from "@/lib/bookings/assignees";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
 import { formatEuro } from "@/lib/bookings/money";
-import { bookingPresentation, formatAccountLabel, paymentPresentation } from "@/lib/bookings/presentation";
+import { bookingPresentation, paymentPresentation } from "@/lib/bookings/presentation";
 import { getDatabase } from "@/lib/db/client";
+import { getLatestEmailActionReview, isEmailActionEligible, reviewQuestions } from "@/lib/inquiries/email-action";
 import { getLocationInventory } from "@/lib/inventory/repository";
-import { computerMountTypeLabels, pedalTypeLabels, rentalLocationLabels, type RentalLocation } from "@/lib/inquiries/catalog";
 import {
-  bookingEvents,
+  computerMountTypeLabels,
+  pedalTypeLabels,
+  rentalLocationLabels,
+  type RentalLocation,
+} from "@/lib/inquiries/catalog";
+import {
   bookingOfferItems,
   bookingOffers,
   bookingRequestedItems,
   bookings,
   authUser,
   journalEntries,
-  journalLines,
   rentalAssets,
 } from "@/lib/db/schema";
 import type { BookingAssigneeUser } from "@/lib/bookings/assignees";
 
-const offerStatusLabels = {
-  sent: "versendet",
-  accepted: "angenommen",
-  expired: "abgelaufen",
-  revoked: "widerrufen",
-} as const;
-
-const journalKindLabels: Record<string, string> = {
-  rental_charge: "Mietpreis",
-  cancellation_fee: "Stornogebühr",
-  payment_received: "Zahlungseingang",
-  refund_issued: "Erstattung",
-  credit_note: "Gutschrift",
-  expense: "Aufwand",
-  correction: "Korrektur",
-  legacy_import: "Übernommene Buchung",
+const nextActionCopy: Record<string, { title: string; description: string }> = {
+  inquiry_received: {
+    title: "Angebot erstellen",
+    description: "Prüfe die Anfrage und stelle ein passendes Fahrradangebot zusammen.",
+  },
+  offer_sent: {
+    title: "Angebot prüfen oder überarbeiten",
+    description: "Das Angebot wurde versendet. Du kannst es anpassen oder die Buchung stornieren.",
+  },
+  expired: {
+    title: "Angebot neu erstellen",
+    description: "Das bisherige Angebot ist abgelaufen und kann neu versendet werden.",
+  },
+  confirmed: {
+    title: "Fahrradausgabe vorbereiten",
+    description: "Bei der Übergabe kannst du die Ausgabe direkt dokumentieren.",
+  },
+  checked_out: {
+    title: "Buchung abschließen",
+    description: "Nach der Rückgabe wird die Buchung endgültig abgeschlossen.",
+  },
+  completed: {
+    title: "Vorgang abgeschlossen",
+    description: "Für diese Buchung ist keine weitere Statusaktion erforderlich.",
+  },
+  rejected: {
+    title: "Anfrage abgeschlossen",
+    description: "Diese Anfrage wurde abgelehnt und kann nicht weiter bearbeitet werden.",
+  },
+  cancelled: {
+    title: "Buchung abgeschlossen",
+    description: "Diese Buchung wurde storniert und kann nicht weiter bearbeitet werden.",
+  },
 };
-
-const eventLabels: Record<string, string> = {
-  booking_created: "Buchung erstellt",
-  booking_directly_confirmed: "Buchung direkt bestätigt",
-  offer_sent: "Angebot versendet",
-  offer_revised: "Angebot angepasst",
-  alternative_offer_sent: "Alternativangebot versendet",
-  offer_confirmed: "Angebot bestätigt",
-  booking_confirmed: "Buchung bestätigt",
-  booking_cancelled: "Buchung storniert",
-  booking_rejected: "Buchung abgelehnt",
-  booking_checked_out: "Fahrrad ausgegeben",
-  booking_completed: "Buchung abgeschlossen",
-  offer_expired: "Angebot abgelaufen",
-  booking_assignee_changed: "Sachbearbeiter geändert",
-};
-
-function eventLabel(eventType: string) {
-  return eventLabels[eventType] ?? eventType.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
-}
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
@@ -95,7 +99,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         .where(eq(authUser.id, booking.assignedUserId))
         .get() as BookingAssigneeUser | undefined) ?? null)
     : null;
-  const eligibleAssignees = isAdmin(session.user) ? getAssignableBookingUsers(db, booking.location as RentalLocation) : [];
+  const eligibleAssignees = isAdmin(session.user)
+    ? getAssignableBookingUsers(db, booking.location as RentalLocation)
+    : [];
   const canSelfAssign = !isAdmin(session.user) && assignee === null;
 
   const items = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, id)).all();
@@ -105,41 +111,35 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .where(eq(bookingOffers.bookingId, id))
     .orderBy(desc(bookingOffers.offerNumber))
     .all();
-  const events = db
-    .select()
-    .from(bookingEvents)
-    .where(eq(bookingEvents.bookingId, id))
-    .orderBy(desc(bookingEvents.occurredAt))
-    .all();
-  const actorIds = events.flatMap((event) => (event.actorUserId ? [event.actorUserId] : []));
-  const actors = actorIds.length
-    ? db
-        .select({ id: authUser.id, name: authUser.name, email: authUser.email })
-        .from(authUser)
-        .where(inArray(authUser.id, actorIds))
-        .all()
-    : [];
-  const actorNames = new Map(actors.map((actor) => [actor.id, actor.name || actor.email]));
   const entries = db
     .select()
     .from(journalEntries)
     .where(eq(journalEntries.bookingId, id))
     .orderBy(desc(journalEntries.occurredAt))
     .all();
-  const lines = entries.length
-    ? db
-        .select()
-        .from(journalLines)
-        .where(
-          inArray(
-            journalLines.entryId,
-            entries.map((entry) => entry.id),
-          ),
-        )
-        .all()
-    : [];
-  const linesByEntry = new Map<number, typeof lines>();
-  for (const line of lines) linesByEntry.set(line.entryId, [...(linesByEntry.get(line.entryId) ?? []), line]);
+  const latestEmailActionReview = getLatestEmailActionReview(db, booking.id);
+  const emailActionQuestions = reviewQuestions(latestEmailActionReview);
+  const emailActionEligible = isEmailActionEligible(booking.createdAt, []);
+  const hasPendingEmailAction =
+    latestEmailActionReview?.status === "needs_action" ||
+    latestEmailActionReview?.status === "error" ||
+    (!latestEmailActionReview && booking.status === "inquiry_received" && emailActionEligible);
+  const emailActionStatusLabel = !latestEmailActionReview
+    ? booking.status === "inquiry_received" && emailActionEligible
+      ? "Antwort erforderlich"
+      : emailActionEligible
+        ? "Noch nicht geprüft"
+        : "Außerhalb des Prüfzeitraums"
+    : latestEmailActionReview.status === "error"
+      ? "Manuelle Prüfung nötig"
+      : hasPendingEmailAction
+        ? "Antwort erforderlich"
+        : "Alle Fragen beantwortet";
+  const emailActionBadgeVariant: "outline" | "destructive" | "success" = !latestEmailActionReview
+    ? "outline"
+    : hasPendingEmailAction
+      ? "destructive"
+      : "success";
   const payment = getBookingPaymentStatus(db, booking.id);
   const paymentView = paymentPresentation(payment.status, payment.openCents);
   const statusView = bookingPresentation[booking.status];
@@ -151,10 +151,45 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .from(rentalAssets)
     .where(and(eq(rentalAssets.location, booking.location), eq(rentalAssets.state, "active")))
     .all();
+  const unavailableAssetIds = availableAssets
+    .filter((asset) => hasAssetConflict(db, booking, asset.id))
+    .map((asset) => asset.id);
+  const unavailableAssetIdSet = new Set(unavailableAssetIds);
+  const requestedQuantities = new Map<string, number>();
+  for (const item of items)
+    requestedQuantities.set(item.requestedLabel, (requestedQuantities.get(item.requestedLabel) ?? 0) + 1);
+  const likelyUnavailable =
+    booking.status === "inquiry_received" &&
+    [...requestedQuantities].some(([requestedLabel, quantity]) => {
+      const matchingAssets = availableAssets.filter((asset) => asset.label === requestedLabel);
+      const availableQuantity = matchingAssets.filter((asset) => !unavailableAssetIdSet.has(asset.id)).length;
+      return availableQuantity < quantity;
+    });
   const requestedDailyPrices = new Map(
     getLocationInventory(db, booking.location).bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]),
   );
   const latestOffer = offers[0];
+  const nextAction =
+    nextActionCopy[booking.status] ??
+    ({ title: "Buchung prüfen", description: "Wähle die passende Aktion für diese Buchung." } as const);
+  const bookingInfoColumns: Array<Array<{ label: string; value: React.ReactNode }>> = [
+    [
+      { label: "Buchungsnummer", value: <Kbd>{booking.orderNumber}</Kbd> },
+      { label: "Kunde", value: booking.customerName },
+      { label: "E-Mail", value: booking.customerEmail },
+      { label: "Telefonnummer", value: booking.customerPhone },
+      { label: "Anzahl Fahrräder", value: String(items.length) },
+      { label: "Buchungswert", value: formatEuro(latestOffer?.totalCents ?? booking.quotedTotalCents) },
+    ],
+    [
+      { label: "Zeitraum", value: `${booking.periodFrom} – ${booking.periodTo}` },
+      { label: "Abholung", value: booking.pickupTime },
+      { label: "Rückgabe", value: booking.dropoffTime },
+      { label: "Standort", value: `${locationLabel} · ${booking.communicationLocale.toUpperCase()}` },
+      { label: "Status", value: <Badge variant={statusView.badge}>{statusView.label}</Badge> },
+      { label: "Zahlungsstatus", value: <Badge variant={paymentView.badge}>{paymentView.label}</Badge> },
+    ],
+  ];
   const offered = latestOffer
     ? db
         .select({ item: bookingOfferItems, asset: rentalAssets })
@@ -165,7 +200,14 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     : [];
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
       <SidebarInset>
         <SiteHeader title="Buchung bearbeiten" />
@@ -176,9 +218,25 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 ← Buchungsübersicht
               </Button>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight">{booking.orderNumber}</h1>
+                <div className="flex items-center gap-2">
+                  {hasPendingEmailAction ? (
+                    <span
+                      aria-label="Offene Kundenfrage"
+                      className="size-3 rounded-full bg-red-500 ring-2 ring-red-100"
+                    />
+                  ) : null}
+                  <h1 className="text-2xl font-semibold tracking-tight">{booking.orderNumber}</h1>
+                </div>
                 <Badge variant={statusView.badge}>{statusView.label}</Badge>
                 <Badge variant={paymentView.badge}>{paymentView.label}</Badge>
+                {likelyUnavailable && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                  >
+                    Wahrscheinlich nicht annehmbar
+                  </Badge>
+                )}
                 <BookingAssigneeBadge assigneeName={assignee?.name ?? null} />
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -186,34 +244,190 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 {booking.pickupTime} – {booking.periodTo} {booking.dropoffTime}
               </p>
             </div>
-            {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ? (
-              <BookingEditDialog
-                bookingId={booking.id}
-                expectedVersion={booking.version}
-                customerName={booking.customerName}
-                customerEmail={booking.customerEmail}
-                customerPhone={booking.customerPhone}
-                periodFrom={booking.periodFrom}
-                periodTo={booking.periodTo}
-                pickupTime={booking.pickupTime}
-                dropoffTime={booking.dropoffTime}
-                customerMessage={booking.customerMessage}
-                communicationLocale={booking.communicationLocale}
-                requestedItems={items}
-                commercialEditingAllowed={commercialEditingAllowed}
-              />
-            ) : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <BookingAiAnalysisButton bookingId={booking.id} />
+              {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ? (
+                <BookingEditDialog
+                  bookingId={booking.id}
+                  expectedVersion={booking.version}
+                  customerName={booking.customerName}
+                  customerEmail={booking.customerEmail}
+                  customerPhone={booking.customerPhone}
+                  periodFrom={booking.periodFrom}
+                  periodTo={booking.periodTo}
+                  pickupTime={booking.pickupTime}
+                  dropoffTime={booking.dropoffTime}
+                  customerMessage={booking.customerMessage}
+                  communicationLocale={booking.communicationLocale}
+                  requestedItems={items}
+                  commercialEditingAllowed={commercialEditingAllowed}
+                />
+              ) : null}
+            </div>
           </div>
 
-          <Card>
+          <Card
+            className={
+              hasPendingEmailAction
+                ? "border-red-200 bg-red-50/40 dark:border-red-950 dark:bg-red-950/20"
+                : latestEmailActionReview?.status === "no_action"
+                  ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-950 dark:bg-emerald-950/20"
+                  : ""
+            }
+          >
             <CardHeader>
-              <CardTitle>Nächste Aktion</CardTitle>
-              <CardDescription>
-                Statuswechsel, Angebote und Finanzaktionen sind nachvollziehbar protokolliert.
-              </CardDescription>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle>Antwortstatus</CardTitle>
+                <Badge variant={emailActionBadgeVariant}>{emailActionStatusLabel}</Badge>
+              </div>
             </CardHeader>
+            {hasPendingEmailAction ? (
+              <CardContent className="space-y-3 pt-0">
+                <p className="text-sm leading-6">
+                  {latestEmailActionReview?.summary ??
+                    "Neue Buchungsanfrage: Bitte prüfe den Eingang und beantworte die Anfrage."}
+                </p>
+                {emailActionQuestions.length ? (
+                  <div>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Offene Punkte</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                      {emailActionQuestions.map((question) => (
+                        <li key={question}>{question}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {latestEmailActionReview ? (
+                  <p className="text-xs text-muted-foreground">
+                    Quelle:{" "}
+                    {latestEmailActionReview.source === "inquiry_rule"
+                      ? "Eingangsregel"
+                      : (latestEmailActionReview.model ?? "KI-Fallback")}
+                    {latestEmailActionReview.createdAt
+                      ? ` · geprüft am ${new Date(latestEmailActionReview.createdAt).toLocaleString("de-DE")}`
+                      : ""}
+                  </p>
+                ) : null}
+              </CardContent>
+            ) : null}
+          </Card>
+
+          <Card>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <div className="text-sm font-medium">Buchungsinformationen</div>
+                </div>
+                <div className="grid gap-x-8 sm:grid-cols-2">
+                  {bookingInfoColumns.map((column, columnIndex) => (
+                    <ItemGroup className="gap-2 text-muted-foreground" data-size="xs" key={columnIndex}>
+                      {column.map(({ label, value }, index) => (
+                        <React.Fragment key={label}>
+                          {index > 0 && <ItemSeparator />}
+                          <Item variant="default" size="xs" className="border-0 px-0 py-0">
+                            <ItemHeader>
+                              <ItemTitle className="font-normal">{label}</ItemTitle>
+                              <ItemActions className="min-w-0 max-w-[70%] justify-end text-right">
+                                <span className="break-words">{value}</span>
+                              </ItemActions>
+                            </ItemHeader>
+                          </Item>
+                        </React.Fragment>
+                      ))}
+                    </ItemGroup>
+                  ))}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {items.map((item) => {
+                    const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
+                    const requestedDailyPriceCents = requestedDailyPrices.get(item.requestedLabel);
+                    const accessories = [
+                      item.needsPedals
+                        ? item.pedalType
+                          ? (pedalTypeLabels.de[item.pedalType as keyof typeof pedalTypeLabels.de] ?? item.pedalType)
+                          : "Pedale"
+                        : null,
+                      item.needsComputerMount
+                        ? item.computerMountType
+                          ? (computerMountTypeLabels.de[
+                              item.computerMountType as keyof typeof computerMountTypeLabels.de
+                            ] ?? item.computerMountType)
+                          : "Computerhalterung"
+                        : null,
+                      item.needsHelmet ? "Helm" : null,
+                      item.needsClothing ? "Kleidung" : null,
+                    ].filter((value): value is string => Boolean(value));
+                    const priceCents = match?.item.itemPriceCents ?? requestedDailyPriceCents;
+                    const concreteBikeDiffers = match && match.asset.displayName !== item.requestedLabel;
+
+                    return (
+                      <div className="h-full rounded-xl border p-4" key={item.id}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                              Fahrrad {item.position}
+                            </p>
+                            <p className="mt-1 font-medium">{item.requestedLabel}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {item.heightCm} cm
+                              {accessories.length ? ` · ${accessories.join(" · ")}` : " · Kein Zubehör"}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-xs text-muted-foreground">Preis/Tag</p>
+                            <p className="mt-1 font-medium">
+                              {priceCents !== undefined ? formatEuro(priceCents) : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        {concreteBikeDiffers ? (
+                          <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
+                            <span className="text-muted-foreground">Konkretes Fahrrad:</span> {match.asset.displayName}
+                          </p>
+                        ) : null}
+                        {!match && latestOffer ? (
+                          <p className="mt-3 text-sm text-muted-foreground">Noch nicht zugeordnet.</p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Nachricht</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+                    {booking.customerMessage || "Keine Nachricht hinterlegt."}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/15">
+            <CardHeader className="border-b border-border/60 pb-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Nächste Aktion</CardTitle>
+                  <CardDescription className="mt-1">
+                    Die wichtigsten Schritte für diese Buchung direkt an einem Ort.
+                  </CardDescription>
+                </div>
+                <Badge variant={statusView.badge}>{statusView.label}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5 pt-6">
+              <div className="rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+                <p className="text-xs font-medium tracking-wide text-primary uppercase">Empfohlener nächster Schritt</p>
+                <p className="mt-2 text-base font-semibold">{nextAction.title}</p>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/25 p-3 sm:px-4">
+                <div>
+                  <p className="text-sm font-medium">Zuständigkeit</p>
+                  <p className="text-sm text-muted-foreground">
+                    {assignee ? `${assignee.name} bearbeitet diese Buchung.` : "Noch niemand zugewiesen."}
+                  </p>
+                </div>
                 <BookingAssigneeCard
                   bookingId={booking.id}
                   bookingLocationLabel={locationLabel}
@@ -223,8 +437,14 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   isAdmin={isAdmin(session.user)}
                   canSelfAssign={canSelfAssign}
                 />
+              </div>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-medium">Aktionen</h3>
+                </div>
                 <BookingCommandActions
                   bookingId={booking.id}
+                  bookingTotalCents={latestOffer?.totalCents ?? booking.quotedTotalCents}
                   status={booking.status}
                   customerName={booking.customerName}
                   senderName={session.user.name}
@@ -233,6 +453,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     id: item.id,
                     label: `${item.position}. ${item.requestedLabel} (${item.heightCm} cm)`,
                     requestedLabel: item.requestedLabel,
+                    heightCm: item.heightCm,
                     accessories: {
                       needsPedals: item.needsPedals,
                       pedalType: item.pedalType,
@@ -243,203 +464,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     },
                   }))}
                   availableAssets={availableAssets}
+                  unavailableAssetIds={unavailableAssetIds}
                   journalEntries={entries.map((entry) => ({ id: entry.id, label: `${entry.kind}: ${entry.reason}` }))}
                 />
               </div>
             </CardContent>
           </Card>
-
-          <Tabs defaultValue="booking" className="w-full">
-            <TabsList className="w-full">
-              <TabsTrigger value="booking" className="flex-1">
-                Buchung & Angebot
-              </TabsTrigger>
-              <TabsTrigger value="finance" className="flex-1">
-                Finanzen
-              </TabsTrigger>
-              <TabsTrigger value="history" className="flex-1">
-                Ereignisse
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="booking" className="mt-4">
-              <div className="grid gap-6 xl:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Kunde und Zeitraum</CardTitle>
-                    <CardDescription>
-                      {booking.customerName} · {booking.customerEmail} · {booking.customerPhone}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Abholung</p>
-                        <p>
-                          {booking.periodFrom} · {booking.pickupTime}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Rückgabe</p>
-                        <p>
-                          {booking.periodTo} · {booking.dropoffTime}
-                        </p>
-                      </div>
-                    </div>
-                    <Separator />
-                    <div>
-                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Nachricht</p>
-                      <p className="mt-2 whitespace-pre-wrap leading-6">
-                        {booking.customerMessage || "Keine Nachricht hinterlegt."}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Anfrage und Angebot</CardTitle>
-                    <CardDescription>
-                      {latestOffer
-                        ? `Angebotsversion ${latestOffer.offerNumber} · ${offerStatusLabels[latestOffer.status]}`
-                        : "Noch kein konkretes Angebot versendet. Angefragte Katalogpreise werden angezeigt."}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {items.map((item) => {
-                      const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
-                      const requestedDailyPriceCents = requestedDailyPrices.get(item.requestedLabel);
-                      const accessories = [
-                        item.needsPedals
-                          ? item.pedalType
-                            ? (pedalTypeLabels.de[item.pedalType as keyof typeof pedalTypeLabels.de] ?? item.pedalType)
-                            : "Pedale"
-                          : null,
-                        item.needsComputerMount
-                          ? item.computerMountType
-                            ? (computerMountTypeLabels.de[
-                                item.computerMountType as keyof typeof computerMountTypeLabels.de
-                              ] ?? item.computerMountType)
-                            : "Computerhalterung"
-                          : null,
-                        item.needsHelmet ? "Helm" : null,
-                        item.needsClothing ? "Kleidung" : null,
-                      ].filter((value): value is string => Boolean(value));
-                      const priceCents = match?.item.itemPriceCents ?? requestedDailyPriceCents;
-                      const concreteBikeDiffers = match && match.asset.displayName !== item.requestedLabel;
-
-                      return (
-                        <div className="rounded-xl border p-4" key={item.id}>
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                                Fahrrad {item.position}
-                              </p>
-                              <p className="mt-1 font-medium">{item.requestedLabel}</p>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                {item.heightCm} cm
-                                {accessories.length ? ` · ${accessories.join(" · ")}` : " · Kein Zubehör"}
-                              </p>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <p className="text-xs text-muted-foreground">Preis/Tag</p>
-                              <p className="mt-1 font-medium">
-                                {priceCents !== undefined ? formatEuro(priceCents) : "—"}
-                              </p>
-                            </div>
-                          </div>
-                          {concreteBikeDiffers ? (
-                            <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-                              <span className="text-muted-foreground">Konkretes Fahrrad:</span>{" "}
-                              {match.asset.displayName}
-                            </p>
-                          ) : null}
-                          {!match && latestOffer ? (
-                            <p className="mt-3 text-sm text-muted-foreground">Noch nicht zugeordnet.</p>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                    {!latestOffer ? (
-                      <p className="pt-2 text-sm text-muted-foreground">
-                        Die Preise sind unverbindliche Katalogpreise. Zubehör, Rabatte und die konkrete Zuordnung werden
-                        im Angebot festgelegt.
-                      </p>
-                    ) : null}
-                    {latestOffer ? (
-                      <div className="flex items-center justify-between border-t pt-4">
-                        <span className="text-sm text-muted-foreground">Verbindlicher Angebotswert</span>
-                        <span className="text-lg font-semibold">{formatEuro(latestOffer.totalCents)}</span>
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            <TabsContent value="finance" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Finanzjournal</CardTitle>
-                  <CardDescription>Zahlungsstatus: {paymentView.label}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {entries.length ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Datum</TableHead>
-                          <TableHead>Buchungsvorgang</TableHead>
-                          <TableHead>Beschreibung</TableHead>
-                          <TableHead>Buchungszeilen</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {entries.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell>{entry.occurredAt.toLocaleString("de-DE")}</TableCell>
-                            <TableCell>{journalKindLabels[entry.kind] ?? entry.kind}</TableCell>
-                            <TableCell>
-                              {entry.reason}
-                              {entry.dueAt ? ` · fällig ${entry.dueAt.toLocaleDateString("de-DE")}` : ""}
-                            </TableCell>
-                            <TableCell className="whitespace-normal">
-                              {(linesByEntry.get(entry.id) ?? []).map((line) => (
-                                <p key={line.id}>
-                                  {formatAccountLabel(line.account)}: {formatEuro(line.amountCents)}
-                                </p>
-                              ))}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Für diese Buchung wurden noch keine Finanzvorgänge erfasst.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="history" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Buchungsverlauf</CardTitle>
-                  <CardDescription>Alle Änderungen werden mit Datum und Begründung dokumentiert.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {events.map((event) => (
-                    <div className="grid gap-1 border-l-2 border-muted pl-4" key={event.id}>
-                      <p className="font-medium">{eventLabel(event.eventType)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {event.occurredAt.toLocaleString("de-DE")}
-                        {` · Bearbeiter: ${event.actorUserId ? (actorNames.get(event.actorUserId) ?? "Unbekannt") : "System"}`}
-                        {event.reason ? ` · ${event.reason}` : ""}
-                      </p>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
 
           <Card>
             <CardHeader>

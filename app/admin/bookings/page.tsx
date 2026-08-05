@@ -1,23 +1,34 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
+import { BookingAiBatchAnalysisButton } from "@/components/booking-ai-batch-analysis-button";
+import { BookingPreflightDialog } from "@/components/booking-preflight-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
+import { hasAssetConflict } from "@/lib/bookings/availability";
 import { getDatabase } from "@/lib/db/client";
-import { bookingRequestedItems, bookings, journalEntries, journalLines } from "@/lib/db/schema";
+import {
+  bookingRequestedItems,
+  bookings,
+  emailActionReviews,
+  journalEntries,
+  journalLines,
+  rentalAssets,
+} from "@/lib/db/schema";
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import { formatEuro } from "@/lib/bookings/money";
 import { getBookingMigrationPreflight } from "@/lib/bookings/preflight";
 import { BookingStatusFilter } from "@/components/booking-status-filter";
 import type { BookingStatus } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
+import { EMAIL_ACTION_START_AT } from "@/lib/inquiries/email-action";
 import { authUser } from "@/lib/db/schema";
 
 type BookingPeriod = "all" | "week" | "month" | "six_months" | "year";
@@ -48,7 +59,10 @@ function bookingShortId(orderNumber: string) {
 }
 
 function PaymentBadge({ openCents }: { openCents: number | undefined }) {
-  if (openCents === undefined || openCents === 0) return null;
+  if (openCents === undefined) return null;
+  if (openCents === 0) {
+    return <Badge variant="success">Ausgeglichen</Badge>;
+  }
   const isOpen = openCents > 0;
   return (
     <Badge
@@ -67,7 +81,7 @@ function PaymentBadge({ openCents }: { openCents: number | undefined }) {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; period?: string; location?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; period?: string; location?: string; assignee?: string }>;
 }) {
   const session = await getServerSession();
   if (!session) return null;
@@ -79,14 +93,45 @@ export default async function BookingsPage({
   const requestedStatus = params.status;
   const status = requestedStatus && requestedStatus in bookingPresentation ? (requestedStatus as BookingStatus) : null;
   const location = administrator ? resolveLocationFilter(params.location) : assignedLocation!;
+  const availableAssignees = db
+    .select({ id: authUser.id, name: authUser.name })
+    .from(authUser)
+    .where(
+      administrator
+        ? undefined
+        : or(
+            eq(authUser.role, "admin"),
+            and(eq(authUser.role, "standortuser"), eq(authUser.locationKey, assignedLocation as RentalLocation)),
+          ),
+    )
+    .orderBy(asc(authUser.name))
+    .all();
+  const requestedAssignee = params.assignee;
+  const assignee =
+    requestedAssignee === "unassigned"
+      ? "unassigned"
+      : requestedAssignee && availableAssignees.some((user) => user.id === requestedAssignee)
+        ? requestedAssignee
+        : "all";
   const search = params.q?.trim().toLocaleLowerCase("de-DE") ?? "";
   const datePeriod = getBookingPeriod(params.period);
   const preflight = administrator ? getBookingMigrationPreflight(db) : null;
-  const bookingConditions = [administrator || location === "all" ? null : eq(bookings.location, location), status ? eq(bookings.status, status) : null].filter(
-    (condition): condition is NonNullable<typeof condition> => condition !== null,
-  );
+  const bookingConditions = [
+    administrator || location === "all" ? null : eq(bookings.location, location),
+    status ? eq(bookings.status, status) : null,
+    assignee === "unassigned"
+      ? isNull(bookings.assignedUserId)
+      : assignee !== "all"
+        ? eq(bookings.assignedUserId, assignee)
+        : null,
+  ].filter((condition): condition is NonNullable<typeof condition> => condition !== null);
   const queriedRows = bookingConditions.length
-    ? db.select().from(bookings).where(and(...bookingConditions)).orderBy(desc(bookings.createdAt)).all()
+    ? db
+        .select()
+        .from(bookings)
+        .where(and(...bookingConditions))
+        .orderBy(desc(bookings.createdAt))
+        .all()
     : db.select().from(bookings).orderBy(desc(bookings.createdAt)).all();
   const items = queriedRows.length
     ? db
@@ -100,18 +145,44 @@ export default async function BookingsPage({
         )
         .all()
     : [];
+  const activeAssets = db
+    .select({ id: rentalAssets.id, location: rentalAssets.location, displayName: rentalAssets.displayName })
+    .from(rentalAssets)
+    .where(eq(rentalAssets.state, "active"))
+    .all();
+  const activeAssetsByLocationAndLabel = new Map<string, typeof activeAssets>();
+  for (const asset of activeAssets) {
+    const key = `${asset.location}\u0000${asset.displayName}`;
+    activeAssetsByLocationAndLabel.set(key, [...(activeAssetsByLocationAndLabel.get(key) ?? []), asset]);
+  }
   const itemsByBooking = new Map<number, string[]>();
+  const requestedItemsByBooking = new Map<number, typeof items>();
   for (const item of items)
     itemsByBooking.set(item.bookingId, [...(itemsByBooking.get(item.bookingId) ?? []), item.requestedLabel]);
+  for (const item of items)
+    requestedItemsByBooking.set(item.bookingId, [...(requestedItemsByBooking.get(item.bookingId) ?? []), item]);
   const assigneeIds = queriedRows.flatMap((row) => (row.assignedUserId ? [row.assignedUserId] : []));
   const assignees = assigneeIds.length
-    ? db
-        .select({ id: authUser.id, name: authUser.name })
-        .from(authUser)
-        .where(inArray(authUser.id, assigneeIds))
-        .all()
+    ? db.select({ id: authUser.id, name: authUser.name }).from(authUser).where(inArray(authUser.id, assigneeIds)).all()
     : [];
   const assigneeNames = new Map(assignees.map((assignee) => [assignee.id, assignee.name]));
+  const actionReviews = queriedRows.length
+    ? db
+        .select()
+        .from(emailActionReviews)
+        .where(
+          inArray(
+            emailActionReviews.bookingId,
+            queriedRows.map((row) => row.id),
+          ),
+        )
+        .orderBy(desc(emailActionReviews.createdAt), desc(emailActionReviews.id))
+        .all()
+    : [];
+  const latestActionReviewByBooking = new Map<number, (typeof actionReviews)[number]>();
+  for (const review of actionReviews) {
+    if (!latestActionReviewByBooking.has(review.bookingId)) latestActionReviewByBooking.set(review.bookingId, review);
+  }
   const receivableLines = queriedRows.length
     ? db
         .select({ bookingId: journalEntries.bookingId, amountCents: journalLines.amountCents })
@@ -141,7 +212,7 @@ export default async function BookingsPage({
       row.customerEmail,
       row.customerPhone,
       rentalLocationLabels.de[row.location as keyof typeof rentalLocationLabels.de] ?? row.location,
-      row.assignedUserId ? assigneeNames.get(row.assignedUserId) ?? "" : "",
+      row.assignedUserId ? (assigneeNames.get(row.assignedUserId) ?? "") : "",
       bookingPresentation[row.status].label,
       ...(openCents > 0 ? ["offen", "unbezahlt"] : []),
       ...(itemsByBooking.get(row.id) ?? []),
@@ -174,16 +245,8 @@ export default async function BookingsPage({
               </p>
             </div>
             <div className="flex gap-2">
-              {administrator && (
-                <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/preflight" />}>
-                  Mögliche Probleme
-                  {preflight && !preflight.ok && (
-                    <Badge className="ml-1" variant="destructive">
-                      {preflight.unmapped.length + preflight.allocationConflicts.length}
-                    </Badge>
-                  )}
-                </Button>
-              )}
+              {administrator && <BookingAiBatchAnalysisButton />}
+              {administrator && preflight && <BookingPreflightDialog result={preflight} />}
               <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
                 Manuelle Buchung
               </Button>
@@ -194,6 +257,8 @@ export default async function BookingsPage({
               canFilterLocations={administrator}
               location={location}
               value={status}
+              assignee={assignee}
+              assignees={availableAssignees}
               search={params.q ?? ""}
               period={datePeriod.selected}
             />
@@ -204,6 +269,27 @@ export default async function BookingsPage({
                   const location =
                     rentalLocationLabels.de[row.location as keyof typeof rentalLocationLabels.de] ?? row.location;
                   const requestedBikes = itemsByBooking.get(row.id) ?? [];
+                  const requestedItems = requestedItemsByBooking.get(row.id) ?? [];
+                  const requestedQuantities = new Map<string, number>();
+                  for (const item of requestedItems)
+                    requestedQuantities.set(
+                      item.requestedLabel,
+                      (requestedQuantities.get(item.requestedLabel) ?? 0) + 1,
+                    );
+                  const likelyUnavailable =
+                    row.status === "inquiry_received" &&
+                    [...requestedQuantities].some(([requestedLabel, quantity]) => {
+                      const assets = activeAssetsByLocationAndLabel.get(`${row.location}\u0000${requestedLabel}`) ?? [];
+                      const availableQuantity = assets.filter((asset) => !hasAssetConflict(db, row, asset.id)).length;
+                      return availableQuantity < quantity;
+                    });
+                  const latestActionReview = latestActionReviewByBooking.get(row.id);
+                  const hasPendingEmailAction =
+                    latestActionReview?.status === "needs_action" ||
+                    latestActionReview?.status === "error" ||
+                    (!latestActionReview &&
+                      row.status === "inquiry_received" &&
+                      row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime());
                   return (
                     <Item
                       className="cursor-pointer hover:bg-muted/80"
@@ -212,7 +298,13 @@ export default async function BookingsPage({
                       variant="muted"
                     >
                       <ItemMedia>
-                        <div className="flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
+                        <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
+                          {hasPendingEmailAction ? (
+                            <span
+                              aria-label="Offene Kundenfrage"
+                              className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
+                            />
+                          ) : null}
                           {bookingShortId(row.orderNumber)}
                         </div>
                       </ItemMedia>
@@ -228,9 +320,17 @@ export default async function BookingsPage({
                       </ItemContent>
                       <div className="flex shrink-0 items-center gap-4">
                         <Badge variant={view.badge}>{view.label}</Badge>
+                        {likelyUnavailable && (
+                          <Badge
+                            variant="outline"
+                            className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                          >
+                            Wahrscheinlich nicht annehmbar
+                          </Badge>
+                        )}
                         <PaymentBadge openCents={openByBooking.get(row.id)} />
                         <BookingAssigneeBadge
-                          assigneeName={row.assignedUserId ? assigneeNames.get(row.assignedUserId) ?? null : null}
+                          assigneeName={row.assignedUserId ? (assigneeNames.get(row.assignedUserId) ?? null) : null}
                         />
                         <div className="flex min-w-20 flex-col items-end gap-0.5">
                           <span className="text-xs tracking-wider text-muted-foreground uppercase">Wert</span>

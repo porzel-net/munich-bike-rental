@@ -1,5 +1,60 @@
 import { repairMojibake } from "./text";
 
+export type MailThreadMessage = {
+  rfcMessageId: string | null;
+  threadMessageId: string | null;
+  inReplyTo: string | null;
+  referencesHeader: string | null;
+};
+
+/** Extracts RFC 5322 message IDs while keeping their original angle brackets. */
+export function parseMailMessageIds(value: string | null | undefined) {
+  if (!value) return [];
+  return [...value.matchAll(/<[^<>\s]+>/g)].map(([messageId]) => messageId);
+}
+
+function uniqueMessageIds(messageIds: string[]) {
+  return [...new Set(messageIds.filter(Boolean))];
+}
+
+/**
+ * Builds the References header for a reply. Existing References headers are
+ * preferred; older archived messages without them are reconstructed through
+ * the stored In-Reply-To chain.
+ */
+export function buildMailThreadReferences(
+  parentMessageId: string,
+  parent: MailThreadMessage | null,
+  messages: readonly MailThreadMessage[] = [],
+) {
+  if (!parent) return [parentMessageId];
+
+  const byMessageId = new Map(
+    messages
+      .filter((message): message is MailThreadMessage & { rfcMessageId: string } => Boolean(message.rfcMessageId))
+      .map((message) => [message.rfcMessageId, message]),
+  );
+  const references = parseMailMessageIds(parent.referencesHeader);
+  if (references.length) return uniqueMessageIds([...references, parentMessageId]);
+
+  const reconstructed: string[] = [];
+  const visited = new Set<string>();
+  let current: MailThreadMessage | undefined = parent;
+  while (current) {
+    const currentMessageId = current.rfcMessageId;
+    if (!currentMessageId || visited.has(currentMessageId)) break;
+    visited.add(currentMessageId);
+
+    const replyTo = current.inReplyTo;
+    if (!replyTo) break;
+    reconstructed.unshift(replyTo);
+    current = byMessageId.get(replyTo);
+  }
+
+  if (parent.threadMessageId) reconstructed.unshift(parent.threadMessageId);
+  return uniqueMessageIds([...reconstructed, parentMessageId]);
+}
+
 function isQuotedHistoryLine(line: string) {
   const trimmed = line.trimStart();
   return (

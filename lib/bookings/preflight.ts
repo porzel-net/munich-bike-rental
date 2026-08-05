@@ -13,11 +13,17 @@ export type UnmappedActiveBooking = {
 
 export type ConflictingHistoricAllocation = { assetId: number; firstBookingId: number; secondBookingId: number };
 
+export type BookingMigrationPreflight = {
+  ok: boolean;
+  unmapped: UnmappedActiveBooking[];
+  allocationConflicts: ConflictingHistoricAllocation[];
+};
+
 /**
  * Production migration gate: a confirmed historic booking must have an asset
  * for every requested bike before legacy booking writes are retired.
  */
-export function getBookingMigrationPreflight(db: AppDatabase) {
+export function getBookingMigrationPreflight(db: AppDatabase): BookingMigrationPreflight {
   const unmapped = db.all<UnmappedActiveBooking>(sql`
     SELECT b.id, b.order_number AS orderNumber, b.location, b.status,
       (SELECT count(*) FROM booking_requested_items i WHERE i.booking_id = b.id) AS requestedItems,

@@ -204,6 +204,55 @@
       "when": 1785767000000,
       "tag": "0029_booking_public_links",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1785768000000,
+      "tag": "0030_accounting_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1785769000000,
+      "tag": "0031_booking_mail_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1785949646259,
+      "tag": "0032_real_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1785950211800,
+      "tag": "0033_illegal_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1785952520501,
+      "tag": "0034_cool_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1785954000000,
+      "tag": "0035_fix_financial_category_euer_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1785954600000,
+      "tag": "0036_normalize_financial_categories",
+      "breakpoints": true
     }
   ]
 }

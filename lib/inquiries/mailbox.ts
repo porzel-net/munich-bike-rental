@@ -6,7 +6,9 @@ import type { AppDatabase } from "../db/client";
 import { bookings, communicationMessages } from "../db/schema";
 
 import { readSecret } from "./server";
+import { parseMailMessageIds } from "./mail-thread";
 import { repairMojibake } from "./text";
+import { reviewBookingEmailThread } from "./email-action";
 
 type MailboxConfig = {
   host: string;
@@ -16,6 +18,7 @@ type MailboxConfig = {
   password: string;
   sentMailbox: string;
   rejectedMailbox: string;
+  ownAddresses: string[];
 };
 
 export type MailboxOperationResult =
@@ -38,6 +41,16 @@ async function getMailboxConfig(environment: Partial<NodeJS.ProcessEnv> = proces
     password,
     sentMailbox: environment.IMAP_MAIN_SENT_MAILBOX?.trim() || "Sent",
     rejectedMailbox: environment.IMAP_MAIN_REJECTED_MAILBOX?.trim() || "Abgelehnt",
+    ownAddresses: [
+      user,
+      environment.SMTP_MAIN_USER,
+      environment.MAIL_MAIN_FROM_ADDRESS,
+      environment.SMTP_REQUEST_USER,
+      environment.MAIL_REQUEST_FROM_ADDRESS,
+      "anfrage@munich-bike-rental.de",
+    ]
+      .map((address) => address?.trim().toLocaleLowerCase())
+      .filter((address): address is string => Boolean(address)),
   } satisfies MailboxConfig;
 }
 
@@ -142,7 +155,12 @@ function plainTextFromSource(source: Buffer | string | undefined) {
 }
 
 /** Archive matching IMAP messages as plain text; the DB remains the fallback. */
-export async function syncBookingMailThread(db: AppDatabase, bookingId: number, orderNumber: string) {
+export async function syncBookingMailThread(
+  db: AppDatabase,
+  bookingId: number,
+  orderNumber: string,
+  options: { reviewNewMessages?: boolean } = {},
+) {
   const config = await getMailboxConfig();
   if (!config) return { configured: false, synced: 0 };
   const client = new ImapFlow({
@@ -157,6 +175,7 @@ export async function syncBookingMailThread(db: AppDatabase, bookingId: number, 
   });
   let synced = 0;
   let inferredLocale: "de" | "en" | null = null;
+  const newMessageIds: number[] = [];
   try {
     await client.connect();
     for (const mailbox of await getSearchMailboxes(client, config)) {
@@ -178,6 +197,10 @@ export async function syncBookingMailThread(db: AppDatabase, bookingId: number, 
             .filter(Boolean)
             .join(", ");
           const subject = message.envelope?.subject ?? "";
+          const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
+          const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
+          const referencesHeader = headers.get("references")?.trim() || null;
+          const references = parseMailMessageIds(referencesHeader);
           if (/^New bike inquiry\b/i.test(subject)) inferredLocale = "en";
           if (/^Neue Bike-Anfrage\b/i.test(subject)) inferredLocale = "de";
           const sentAt =
@@ -193,8 +216,11 @@ export async function syncBookingMailThread(db: AppDatabase, bookingId: number, 
             .get();
           const values = {
             bookingId,
-            direction: sender.toLocaleLowerCase() === config.user.toLocaleLowerCase() ? "outbound" : "inbound",
+            direction: config.ownAddresses.includes(sender.toLocaleLowerCase()) ? "outbound" : "inbound",
             rfcMessageId: messageId,
+            threadMessageId: references[0] ?? inReplyTo ?? messageId,
+            inReplyTo,
+            referencesHeader,
             sender,
             recipients,
             subject,
@@ -202,9 +228,17 @@ export async function syncBookingMailThread(db: AppDatabase, bookingId: number, 
             sentAt,
             archivedAt: new Date(),
           } as const;
-          if (existing)
+          if (existing) {
             db.update(communicationMessages).set(values).where(eq(communicationMessages.id, existing.id)).run();
-          else db.insert(communicationMessages).values(values).run();
+          } else {
+            db.insert(communicationMessages).values(values).run();
+            const inserted = db
+              .select({ id: communicationMessages.id })
+              .from(communicationMessages)
+              .where(eq(communicationMessages.rfcMessageId, messageId))
+              .get();
+            if (inserted) newMessageIds.push(inserted.id);
+          }
           synced += 1;
         }
       } catch {
@@ -218,6 +252,9 @@ export async function syncBookingMailThread(db: AppDatabase, bookingId: number, 
         .set({ communicationLocale: inferredLocale, updatedAt: new Date() })
         .where(eq(bookings.id, bookingId))
         .run();
+    if (options.reviewNewMessages !== false) {
+      for (const newMessageId of newMessageIds) await reviewBookingEmailThread(db, bookingId, newMessageId);
+    }
     return { configured: true, synced };
   } catch {
     return { configured: true, synced, error: "imap_unavailable" as const };
@@ -249,6 +286,7 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
   });
+  let latest: { messageId: string; timestamp: number } | null = null;
 
   try {
     await client.connect();
@@ -258,11 +296,22 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
         lock = await client.getMailboxLock(mailbox, { readOnly: true });
         const matches = await client.search({ text: orderNumber }, { uid: true });
         if (matches && matches.length) {
-          let messageId: string | null = null;
-          for await (const message of client.fetch(matches.slice(-5), { envelope: true }, { uid: true })) {
-            messageId = message.envelope?.messageId ?? messageId;
+          for await (const message of client.fetch(
+            matches.slice(-50),
+            { envelope: true, internalDate: true },
+            { uid: true },
+          )) {
+            const messageId = message.envelope?.messageId;
+            if (!messageId) continue;
+            const internalDate =
+              message.internalDate instanceof Date
+                ? message.internalDate
+                : message.internalDate
+                  ? new Date(message.internalDate)
+                  : message.envelope?.date;
+            const timestamp = internalDate?.getTime() ?? 0;
+            if (!latest || timestamp >= latest.timestamp) latest = { messageId, timestamp };
           }
-          if (messageId) return messageId;
         }
       } catch {
         // A localized or unavailable mailbox should not prevent checking the next one.
@@ -276,7 +325,7 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
     await client.logout().catch(() => client.close());
   }
 
-  return null;
+  return latest?.messageId ?? null;
 }
 
 export async function moveMailToMailbox(

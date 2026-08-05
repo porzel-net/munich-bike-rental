@@ -87,6 +87,12 @@ IMAP_MAIN_PASSWORD_FILE=/run/secrets/imap_password
 IMAP_MAIN_SENT_MAILBOX=Sent
 IMAP_MAIN_REJECTED_MAILBOX=Abgelehnt
 IMAP_MAIN_PENDING_MAILBOX=Ausstehend
+# Mail poller and AI review of incoming customer questions
+MAIL_SYNC_TOKEN=replace-with-a-long-random-token
+OPENAI_API_KEY=sk-...
+# Alternativ als Docker Secret: OPENAI_API_KEY_FILE=/run/secrets/openai_api_key
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_REASONING_EFFORT=middle
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID=AW-XXXXXXXXX
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL=XXXXXXXXXXXX
@@ -111,11 +117,12 @@ Wichtig:
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `SMTP_REQUEST_*` steuert den Versand der Website-Anfragen; `SMTP_MAIN_*` steuert Buchungsbestätigungen und Ablehnungen aus dem Adminbereich
 - `IMAP_MAIN_*` wird für die Suche automatischer Mailverläufe sowie das Verschieben gesendeter Mails nach `Abgelehnt` bzw. `Ausstehend` verwendet
+- Der geschützte Endpunkt `POST /api/internal/sync-incoming-mail` soll mit `Authorization: Bearer $MAIL_SYNC_TOKEN` regelmäßig (empfohlen: jede Minute) aufgerufen werden. Er synchronisiert neue Mailnachrichten, löst die Fragenprüfung aus und speichert das Ergebnis pro Buchung.
+- Für die Fragenprüfung wird serverseitig die OpenAI Responses API mit `OPENAI_MODEL` (Standard `gpt-5.6-luna`) und dem Produktlabel `OPENAI_REASONING_EFFORT=middle` verwendet. Der öffentliche API-Parameter wird dafür auf `medium` abgebildet. Der alte Kurzname `gpt-luna` wird automatisch auf `gpt-5.6-luna` abgebildet. Der API-Key darf nicht mit `NEXT_PUBLIC_` beginnen.
 - `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht
 - `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst nach Einwilligung in den Zweck „Analytics“
 - `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional. Sind beide gesetzt, aktiviert die Einwilligung in den Zweck „Marketing“ die direkte Google-Ads-Conversion für das Lead-Event.
-- Die isolierte Stripe-Testseite ist unter `/stripe-test` erreichbar. Dafür im Stripe-Dashboard den Sandbox-Modus aktivieren, unter „Developers → API keys“ den Secret Key kopieren und als `STRIPE_SECRET_KEY` setzen. Die Seite verwendet Stripe Checkout und legt keine Buchung an.
 - Der öffentliche Angebotslink startet unter `/api/booking-confirmation-v2/checkout` eine Checkout-Session mit dem unveränderlichen Gesamtbetrag des versendeten Angebots. Die verbindliche Buchung und die vollständige Zahlung werden erst durch den signaturgeprüften Webhook `/api/stripe/webhook` verarbeitet. Dafür `STRIPE_WEBHOOK_SECRET` setzen.
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`

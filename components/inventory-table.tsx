@@ -53,7 +53,7 @@ export function InventoryTable({
   const [equipment, setEquipment] = useState(initialEquipment);
   const [kind, setKind] = useState<InventoryKind>("bike");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>(
-    canManageAllLocations ? "all" : locations[0]?.key ?? "all",
+    canManageAllLocations ? "all" : (locations[0]?.key ?? "all"),
   );
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -65,7 +65,9 @@ export function InventoryTable({
     })),
   ] as const;
   const selectedLocationLabel =
-    locationFilter === "all" ? allLocationsItem.label : locations.find((location) => location.key === locationFilter)?.label;
+    locationFilter === "all"
+      ? allLocationsItem.label
+      : locations.find((location) => location.key === locationFilter)?.label;
 
   const visibleBikes = useMemo(
     () => (locationFilter === "all" ? bikes : bikes.filter((bike) => bike.location === locationFilter)),
@@ -480,18 +482,18 @@ function InventoryDialog({
           <FieldGroup className="py-6">
             <Field>
               <FieldLabel htmlFor="inventory-location">Standort</FieldLabel>
-              <select
-                id="inventory-location"
-                className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm"
-                value={location}
-                onChange={(event) => setLocation(event.target.value as LocationOption["key"])}
-              >
-                {locations.map((entry) => (
-                  <option key={entry.key} value={entry.key}>
-                    {entry.label}
-                  </option>
-                ))}
-              </select>
+              <Select value={location} onValueChange={(value) => value && setLocation(value as LocationOption["key"])}>
+                <SelectTrigger id="inventory-location" className="w-full">
+                  <SelectValue>{locations.find((entry) => entry.key === location)?.label}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((entry) => (
+                    <SelectItem key={entry.key} value={entry.key}>
+                      {entry.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             {kind === "bike" ? (
               <>
@@ -521,18 +523,18 @@ function InventoryDialog({
               <>
                 <Field>
                   <FieldLabel htmlFor="inventory-category">Ausrüstung</FieldLabel>
-                  <select
-                    id="inventory-category"
-                    className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm"
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value as EquipmentCategory)}
-                  >
-                    {Object.entries(categoryLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={category} onValueChange={(value) => value && setCategory(value as EquipmentCategory)}>
+                    <SelectTrigger id="inventory-category" className="w-full">
+                      <SelectValue>{categoryLabels[category]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categoryLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>

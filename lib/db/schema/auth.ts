@@ -15,6 +15,7 @@ export const authUser = sqliteTable(
     image: text("image"),
     role: text("role").notNull().default("standortuser"),
     locationKey: text("location_key"),
+    whatsappPhone: text("whatsapp_phone"),
     banned: integer("banned", { mode: "boolean" }).notNull().default(false),
     banReason: text("ban_reason"),
     banExpires: integer("ban_expires", { mode: "timestamp_ms" }),

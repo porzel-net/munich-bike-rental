@@ -6,7 +6,10 @@ import { financialAccounts, financialTransactions } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
 
 function accountCode(account: NevloAccount) {
-  const suffix = account.id.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase().slice(0, 40);
+  const suffix = account.id
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .toLowerCase()
+    .slice(0, 40);
   return `nevlo_${suffix || "bank"}`;
 }
 
@@ -15,6 +18,11 @@ function amountToCents(amount: number) {
   const cents = Math.round(amount * 100);
   if (cents === 0) throw new Error("Nevlo-Transaktionen mit Betrag 0 werden nicht importiert.");
   return cents;
+}
+
+function optionalAmountToCents(amount?: number) {
+  if (amount === undefined || amount === null || !Number.isFinite(amount)) return null;
+  return Math.round(amount * 100);
 }
 
 function transactionKind(transaction: NevloTransaction): (typeof financialTransactions)["kind"]["enumValues"][number] {
@@ -43,12 +51,15 @@ function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
     .where(and(eq(financialAccounts.provider, "nevlo"), eq(financialAccounts.providerAccountId, account.id)))
     .get();
   const now = new Date();
+  const providerBalanceCents = optionalAmountToCents(account.balance);
+  const providerBalanceAt = account.lastSyncedAt || now.toISOString();
   if (existing) {
     db.update(financialAccounts)
       .set({
         name: account.accountName || existing.name,
         currency: account.currency || existing.currency,
         notes: `Nevlo-Bankkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
+        ...(providerBalanceCents === null ? {} : { providerBalanceCents, providerBalanceAt }),
         updatedAt: now,
       })
       .where(eq(financialAccounts.id, existing.id))
@@ -66,6 +77,8 @@ function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
       provider: "nevlo",
       providerAccountId: account.id,
       openingBalanceCents: 0,
+      providerBalanceCents,
+      providerBalanceAt: providerBalanceCents === null ? null : providerBalanceAt,
       notes: `Nevlo-Bankkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
       createdAt: now,
       updatedAt: now,
@@ -148,9 +161,7 @@ export async function syncNevloTransactions(
       dateFrom: input.dateFrom || process.env.NEVLO_SYNC_DATE_FROM?.trim(),
       dateTo: input.dateTo || process.env.NEVLO_SYNC_DATE_TO?.trim(),
     });
-    results.push(
-      runInImmediateTransaction(db, () => importTransactions(db, account, transactions)),
-    );
+    results.push(runInImmediateTransaction(db, () => importTransactions(db, account, transactions)));
   }
   return {
     accounts: results.map(({ account, inserted, skipped }) => ({
@@ -164,4 +175,3 @@ export async function syncNevloTransactions(
     skipped: results.reduce((sum, result) => sum + result.skipped, 0),
   };
 }
-

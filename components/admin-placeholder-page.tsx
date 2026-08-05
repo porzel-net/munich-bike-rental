@@ -9,9 +9,15 @@ type AdminPlaceholderPageProps = {
   title: string;
   description?: string;
   adminOnly?: boolean;
+  showPlaceholder?: boolean;
 };
 
-export async function AdminPlaceholderPage({ title, description, adminOnly = false }: AdminPlaceholderPageProps) {
+export async function AdminPlaceholderPage({
+  title,
+  description,
+  adminOnly = false,
+  showPlaceholder = true,
+}: AdminPlaceholderPageProps) {
   const session = await getServerSession();
   if (!session) return null;
   if (adminOnly && !isAdmin(session.user)) redirect("/admin");
@@ -29,12 +35,14 @@ export async function AdminPlaceholderPage({ title, description, adminOnly = fal
       <SidebarInset>
         <SiteHeader title={title} />
         <main className="flex flex-1 flex-col p-8 lg:p-12">
-          <Card className="min-h-64 flex-1">
-            <CardHeader>
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>{description ?? "Diese Seite wird vorbereitet."}</CardDescription>
-            </CardHeader>
-          </Card>
+          {showPlaceholder && (
+            <Card className="min-h-64 flex-1">
+              <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description ?? "Diese Seite wird vorbereitet."}</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
         </main>
       </SidebarInset>
     </SidebarProvider>

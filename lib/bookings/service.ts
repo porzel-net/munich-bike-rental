@@ -13,7 +13,6 @@ import {
   bookingPublicLinks,
   bookingRequestedItems,
   bookings,
-  communicationMessages,
   journalEntries,
   journalLines,
   mailOutbox,
@@ -272,19 +271,6 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
       })
       .run();
   }
-  if (bookingValues.source === "web")
-    db.insert(communicationMessages)
-      .values({
-        bookingId,
-        direction: "inbound",
-        sender: bookingValues.customerEmail,
-        recipients: "Munich Bike Rental",
-        subject: `${bookingValues.communicationLocale === "de" ? "Neue Bike-Anfrage" : "New bike inquiry"} ${orderNumber}`,
-        plainText: bookingValues.customerMessage,
-        sentAt: createdAt,
-        archivedAt: createdAt,
-      })
-      .run();
   if (outbox)
     db.insert(mailOutbox)
       .values({
@@ -302,6 +288,7 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
       })
       .run();
   if (bookingValues.source === "web") {
+    const internalCopyAddress = process.env.MAIL_REQUEST_TO_ADDRESS?.trim() || "hallo@munich-bike-rental.de";
     const requested = db
       .select()
       .from(bookingRequestedItems)
@@ -340,7 +327,7 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
         idempotencyKey: `inquiry:${orderNumber}:customer_confirmation`,
         kind: "inquiry_received",
         locale: bookingValues.communicationLocale,
-        recipient: bookingValues.customerEmail,
+        recipient: [bookingValues.customerEmail, internalCopyAddress].join(", "),
         subject: customerNotice.subject,
         plainText: customerNotice.text,
         status: "queued",
@@ -841,6 +828,7 @@ function confirmOfferRecord(
   offer: typeof bookingOffers.$inferSelect,
   actorUserId?: string | null,
   payment?: StripeOfferPayment,
+  offerToken?: string,
 ) {
   if (offer.status === "accepted") return { bookingId: offer.bookingId, alreadyConfirmed: true };
   if (offer.status !== "sent" || offer.expiresAt.getTime() <= Date.now())
@@ -914,6 +902,7 @@ function confirmOfferRecord(
     locale: booking.communicationLocale,
     name: booking.customerName,
     orderNumber: booking.orderNumber,
+    offerToken,
   });
   queueCustomerMail(db, booking, {
     kind: "booking_confirmed",
@@ -930,18 +919,24 @@ export function confirmOffer(db: AppDatabase, token: string, actorUserId?: strin
   return runInImmediateTransaction(db, () => {
     const offer = db.select().from(bookingOffers).where(eq(bookingOffers.tokenHash, hash)).get();
     if (!offer) throw new BookingCommandError("This offer is no longer available");
-    return confirmOfferRecord(db, offer, actorUserId);
+    return confirmOfferRecord(db, offer, actorUserId, undefined, token);
   });
 }
 
 export function confirmOfferWithStripePayment(
   db: AppDatabase,
-  input: { offerId: number; amountCents: number; sessionId: string },
+  input: { offerId: number; amountCents: number; sessionId: string; offerToken?: string },
 ) {
   return runInImmediateTransaction(db, () => {
     const offer = db.select().from(bookingOffers).where(eq(bookingOffers.id, input.offerId)).get();
     if (!offer) throw new BookingCommandError("This offer is no longer available");
-    return confirmOfferRecord(db, offer, null, { amountCents: input.amountCents, sessionId: input.sessionId });
+    return confirmOfferRecord(
+      db,
+      offer,
+      null,
+      { amountCents: input.amountCents, sessionId: input.sessionId },
+      input.offerToken,
+    );
   });
 }
 

@@ -328,6 +328,7 @@ export const communicationMessages = sqliteTable(
     rfcMessageId: text("rfc_message_id"),
     threadMessageId: text("thread_message_id"),
     inReplyTo: text("in_reply_to"),
+    referencesHeader: text("references_header"),
     sender: text("sender").notNull(),
     recipients: text("recipients").notNull(),
     subject: text("subject").notNull(),
@@ -338,6 +339,36 @@ export const communicationMessages = sqliteTable(
   (table) => [
     uniqueIndex("communication_messages_rfc_message_unique").on(table.rfcMessageId),
     index("communication_messages_booking_sent_idx").on(table.bookingId, table.sentAt),
+  ],
+);
+
+export const emailActionReviewStatuses = ["needs_action", "no_action", "error"] as const;
+export type EmailActionReviewStatus = (typeof emailActionReviewStatuses)[number];
+
+/** The latest structured answer from the mail-action automation for a thread event. */
+export const emailActionReviews = sqliteTable(
+  "email_action_reviews",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "restrict" }),
+    triggerMessageId: integer("trigger_message_id")
+      .notNull()
+      .references(() => communicationMessages.id, { onDelete: "restrict" }),
+    status: text("status", { enum: emailActionReviewStatuses }).notNull(),
+    source: text("source", { enum: ["inquiry_rule", "openai", "fallback"] }).notNull(),
+    summary: text("summary").notNull(),
+    openQuestionsJson: text("open_questions_json").notNull().default("[]"),
+    model: text("model"),
+    reasoningEffort: text("reasoning_effort"),
+    promptVersion: text("prompt_version").notNull(),
+    errorMessage: text("error_message"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("email_action_reviews_trigger_message_unique").on(table.triggerMessageId),
+    index("email_action_reviews_booking_created_idx").on(table.bookingId, table.createdAt),
   ],
 );
 
@@ -356,6 +387,7 @@ export const mailOutbox = sqliteTable(
     subject: text("subject").notNull(),
     plainText: text("plain_text").notNull(),
     inReplyTo: text("in_reply_to"),
+    referencesHeader: text("references_header"),
     status: text("status", { enum: outboxStatuses }).notNull().default("queued"),
     attempts: integer("attempts").notNull().default(0),
     nextAttemptAt: integer("next_attempt_at", { mode: "timestamp_ms" }).notNull(),

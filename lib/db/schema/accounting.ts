@@ -48,6 +48,34 @@ export const financialAllocationKinds = [
 export const financialMatchMethods = ["automatic", "rule", "manual", "imported", "unmatched"] as const;
 export const financialCounterpartyTypes = ["customer", "supplier", "employee", "platform", "other"] as const;
 export const financialCategoryTypes = ["income", "expense", "fee", "transfer", "tax", "other"] as const;
+export const financialEuerTreatments = [
+  "income",
+  "expense",
+  "tax_payment",
+  "input_vat",
+  "output_vat",
+  "asset_acquisition",
+  "transfer",
+  "excluded",
+  "needs_review",
+] as const;
+export const financialEuerLines = [
+  "rental_income",
+  "other_operating_income",
+  "services",
+  "wages",
+  "depreciation",
+  "rent",
+  "repairs",
+  "insurance",
+  "advertising",
+  "office",
+  "travel",
+  "other_operating_expense",
+  "vat",
+  "asset_acquisition",
+  "not_applicable",
+] as const;
 export const financialReconciliationKinds = ["stripe_payout", "bank_deposit", "manual_group"] as const;
 export const financialReconciliationStatuses = ["open", "matched", "difference", "closed"] as const;
 export const financialDocumentTypes = ["receipt", "invoice", "contract", "bank_statement", "other"] as const;
@@ -83,6 +111,8 @@ export const financialCategories = sqliteTable(
     name: text("name").notNull(),
     categoryType: text("category_type", { enum: financialCategoryTypes }).notNull(),
     accountCode: text("account_code").notNull(),
+    euerTreatment: text("euer_treatment", { enum: financialEuerTreatments }).notNull().default("needs_review"),
+    euerLine: text("euer_line", { enum: financialEuerLines }).notNull().default("not_applicable"),
     parentId: integer("parent_id").references((): AnySQLiteColumn => financialCategories.id, { onDelete: "restrict" }),
     isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
@@ -130,6 +160,8 @@ export const financialAccounts = sqliteTable(
     providerAccountId: text("provider_account_id"),
     openingBalanceCents: integer("opening_balance_cents").notNull().default(0),
     openingBalanceDate: text("opening_balance_date"),
+    providerBalanceCents: integer("provider_balance_cents"),
+    providerBalanceAt: text("provider_balance_at"),
     notes: text("notes").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),

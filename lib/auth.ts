@@ -57,6 +57,11 @@ export const auth = betterAuth({
         required: false,
         input: false,
       },
+      whatsappPhone: {
+        type: "string",
+        required: false,
+        input: false,
+      },
       mustChangePassword: {
         type: "boolean",
         required: true,

@@ -239,17 +239,19 @@ export function renderBookingNotice(input: {
   locale: "de" | "en";
   name: string;
   orderNumber: string;
+  offerToken?: string;
   cancellationFeeCents?: number;
   senderFirstName?: string;
 }) {
   const de = input.locale === "de";
   const recipientFirstName = input.name.trim().split(/\s+/)[0] || input.name;
   const senderFirstName = input.senderFirstName ?? "Munich Bike Rental";
+  const offerLink = input.offerToken ? bookingPageUrl(input.offerToken) : null;
   const text =
     input.kind === "confirmed"
       ? de
-        ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} ist verbindlich bestätigt.\n\nViele Grüße\nMunich Bike Rental`
-        : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.\n\nKind regards\nMunich Bike Rental`
+        ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} ist verbindlich bestätigt.${offerLink ? `\n\nAlle Informationen zu deiner Buchung findest du hier:\n${offerLink}` : ""}\n\nViele Grüße\nMunich Bike Rental`
+        : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nMunich Bike Rental`
       : input.kind === "cancelled"
         ? de
           ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} wurde storniert.${input.cancellationFeeCents ? ` Die Stornogebühr beträgt ${formatEuro(input.cancellationFeeCents, "de")}.` : ""}\n\nViele Grüße\nMunich Bike Rental`

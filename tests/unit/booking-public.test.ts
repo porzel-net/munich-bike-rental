@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
-import { mailOutbox } from "../../lib/db/schema";
+import { communicationMessages, mailOutbox } from "../../lib/db/schema";
 import { getPublicBookingByToken } from "../../lib/bookings/public";
 import { createBooking } from "../../lib/bookings/service";
 
@@ -42,8 +42,11 @@ describe("public booking link", () => {
     const confirmation = connection.db.select().from(mailOutbox).where(eq(mailOutbox.kind, "inquiry_received")).get();
     const token = confirmation?.plainText.match(/\/angebot\/([A-Za-z0-9]+)/)?.[1];
 
-    expect(confirmation?.recipient).toBe("test@example.com");
+    expect(confirmation?.recipient).toBe("test@example.com, hallo@munich-bike-rental.de");
     expect(confirmation?.plainText).toContain("Status: Anfrage eingegangen");
+    expect(
+      connection.db.select().from(communicationMessages).where(eq(communicationMessages.bookingId, created.id)).all(),
+    ).toHaveLength(0);
     expect(token).toBeTruthy();
     expect(getPublicBookingByToken(connection.db, token!)).toMatchObject({
       offerId: null,

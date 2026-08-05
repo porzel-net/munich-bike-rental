@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookings/service";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { getDatabase } from "@/lib/db/client";
+import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
 import { mailOutbox } from "@/lib/db/schema";
 import { constructStripeWebhookEvent, StripeConfigurationError } from "@/lib/stripe";
 
@@ -38,7 +39,14 @@ export async function POST(request: Request) {
       offerId,
       amountCents,
       sessionId: session.id,
+      offerToken: session.metadata?.offer_token,
     });
+
+    // The booking journal records the commercial charge, while this import
+    // records the actual Stripe cash movement and its fee for EÜR purposes.
+    // Repeated webhook deliveries are safe because the Stripe balance
+    // transaction ID is unique in the financial layer.
+    await importStripeCheckoutPayment(database, { sessionId: session.id, bookingId: result.bookingId });
 
     if (!result.alreadyConfirmed) {
       const confirmationMailId = database

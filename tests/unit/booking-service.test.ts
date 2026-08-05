@@ -176,6 +176,9 @@ describe("booking commands", () => {
       }),
     ).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, booking.id)).get()?.plainText).toContain(
+      `http://localhost:3000/angebot/${offer.confirmationToken}`,
+    );
     expect(
       db
         .select({ kind: journalEntries.kind })

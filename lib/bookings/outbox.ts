@@ -1,11 +1,45 @@
-import { and, eq, lte, or } from "drizzle-orm";
+import { and, desc, eq, lte, or } from "drizzle-orm";
 
 import { getDatabase, runInImmediateTransaction, type AppDatabase } from "../db/client";
-import { bookingOffers, communicationMessages, mailOutbox } from "../db/schema";
+import { bookingOffers, bookings, communicationMessages, mailOutbox } from "../db/schema";
+import { findBookingThreadMessageId } from "../inquiries/mailbox";
+import { reviewBookingEmailThread } from "../inquiries/email-action";
+import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mail-thread";
 import { sendConfiguredMail } from "../inquiries/server";
 
 const LEASE_MS = 60_000;
 const RETRY_CAP_MS = 60 * 60 * 1_000;
+
+function usesRequestAccount(kind: string) {
+  return kind === "new_inquiry" || kind === "inquiry_received";
+}
+
+async function resolveThread(
+  db: AppDatabase,
+  bookingId: number,
+  orderNumber: string,
+  fallbackInReplyTo: string | null,
+  fallbackReferencesHeader: string | null,
+) {
+  const messages = db
+    .select()
+    .from(communicationMessages)
+    .where(eq(communicationMessages.bookingId, bookingId))
+    .orderBy(desc(communicationMessages.sentAt), desc(communicationMessages.id))
+    .all();
+  const parent = messages.find((message) => Boolean(message.rfcMessageId)) ?? null;
+  const parentMessageId = parent?.rfcMessageId ?? fallbackInReplyTo ?? (await findBookingThreadMessageId(orderNumber));
+  if (!parentMessageId) return { inReplyTo: null, referencesHeader: null, threadMessageId: null };
+
+  const references = parent
+    ? buildMailThreadReferences(parentMessageId, parent, messages)
+    : parseMailMessageIds(fallbackReferencesHeader).concat(parentMessageId);
+  return {
+    inReplyTo: parentMessageId,
+    referencesHeader: [...new Set(references)].join(" ") || null,
+    threadMessageId: parent?.threadMessageId ?? parentMessageId,
+  };
+}
 
 /** Processes one durable mail job. It is safe to call every minute from cron. */
 export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), mailId?: number) {
@@ -30,14 +64,31 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
   });
   if (!job) return null;
   try {
+    const booking = db
+      .select({ orderNumber: bookings.orderNumber })
+      .from(bookings)
+      .where(eq(bookings.id, job.bookingId))
+      .get();
+    const thread =
+      booking && !usesRequestAccount(job.kind)
+        ? await resolveThread(db, job.bookingId, booking.orderNumber, job.inReplyTo, job.referencesHeader)
+        : { inReplyTo: null, referencesHeader: null, threadMessageId: null };
+    const inReplyTo = thread.inReplyTo ?? (usesRequestAccount(job.kind) ? null : job.inReplyTo);
+    const referencesHeader = thread.referencesHeader ?? (usesRequestAccount(job.kind) ? null : job.referencesHeader);
+    db.update(mailOutbox)
+      .set({ inReplyTo, referencesHeader })
+      .where(and(eq(mailOutbox.id, job.id), eq(mailOutbox.status, "leased")))
+      .run();
     const sent = await sendConfiguredMail({
-      account: job.kind === "new_inquiry" ? "request" : "main",
+      account: usesRequestAccount(job.kind) ? "request" : "main",
       to: job.recipient,
       subject: job.subject,
       text: job.plainText,
-      inReplyTo: job.inReplyTo ?? undefined,
+      inReplyTo: inReplyTo ?? undefined,
+      references: referencesHeader ?? undefined,
     });
     if (!sent) throw new Error("Mail account is not configured");
+    let outboundMessageId: number | null = null;
     runInImmediateTransaction(db, () => {
       const sentAt = new Date();
       db.update(mailOutbox)
@@ -45,22 +96,28 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
         .where(and(eq(mailOutbox.id, job.id), eq(mailOutbox.status, "leased")))
         .run();
       if (job.offerId) db.update(bookingOffers).set({ sentAt }).where(eq(bookingOffers.id, job.offerId)).run();
-      db.insert(communicationMessages)
-        .values({
-          bookingId: job.bookingId,
-          direction: "outbound",
-          rfcMessageId: sent.messageId,
-          inReplyTo: job.inReplyTo ?? null,
-          sender: "system",
-          recipients: job.recipient,
-          subject: job.subject,
-          plainText: job.plainText,
-          sentAt,
-          archivedAt: sentAt,
-        })
-        .onConflictDoNothing()
-        .run();
+      outboundMessageId =
+        db
+          .insert(communicationMessages)
+          .values({
+            bookingId: job.bookingId,
+            direction: "outbound",
+            rfcMessageId: sent.messageId,
+            threadMessageId: thread.threadMessageId ?? sent.messageId,
+            inReplyTo,
+            referencesHeader,
+            sender: "system",
+            recipients: job.recipient,
+            subject: job.subject,
+            plainText: job.plainText,
+            sentAt,
+            archivedAt: sentAt,
+          })
+          .onConflictDoNothing()
+          .returning({ id: communicationMessages.id })
+          .get()?.id ?? null;
     });
+    if (outboundMessageId) await reviewBookingEmailThread(db, job.bookingId, outboundMessageId);
     return { id: job.id, status: "sent" as const };
   } catch (error) {
     const retryInMs = Math.min(RETRY_CAP_MS, 1_000 * 2 ** Math.min(job.attempts, 12));

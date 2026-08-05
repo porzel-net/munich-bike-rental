@@ -8,7 +8,10 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(), payment=(), usb=()" },
+  // Apple Pay in Stripe Checkout uses the Payment Request API. Do not disable
+  // the `payment` feature here; the other sensitive browser features remain
+  // disabled explicitly.
+  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(), usb=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
@@ -22,6 +25,7 @@ const aboutImageHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex,
 
 const nextConfig = {
   allowedDevOrigins,
+  serverExternalPackages: ["@whiskeysockets/baileys"],
   images: {
     formats: ["image/avif", "image/webp"],
     imageSizes: [32, 48, 64, 96, 128, 160, 192, 256, 320, 384],

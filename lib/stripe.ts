@@ -17,8 +17,34 @@ export type StripeCheckoutSession = {
   currency: string | null;
   customer_email?: string | null;
   client_reference_id?: string | null;
-  payment_intent?: string | null;
+  payment_intent?: string | StripePaymentIntent | null;
   metadata?: Record<string, string>;
+};
+
+export type StripeBalanceTransaction = {
+  id: string;
+  amount: number;
+  fee: number;
+  net: number;
+  currency: string;
+  created: number;
+  available_on?: number | null;
+};
+
+export type StripeCharge = {
+  id: string;
+  balance_transaction?: string | StripeBalanceTransaction | null;
+};
+
+export type StripePaymentIntent = {
+  id: string;
+  latest_charge?: string | StripeCharge | null;
+};
+
+type StripeListResponse<T> = {
+  object: "list";
+  data: T[];
+  has_more: boolean;
 };
 
 export type StripeWebhookEvent = {
@@ -34,7 +60,7 @@ export class StripeConfigurationError extends Error {
   }
 }
 
-function getStripeSecretKey({ testOnly = false }: { testOnly?: boolean } = {}) {
+function getStripeSecretKey() {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
 
   if (!secretKey) {
@@ -45,20 +71,11 @@ function getStripeSecretKey({ testOnly = false }: { testOnly?: boolean } = {}) {
     throw new StripeConfigurationError("STRIPE_SECRET_KEY muss mit sk_ beginnen.");
   }
 
-  if (testOnly && !secretKey.startsWith("sk_test_")) {
-    throw new StripeConfigurationError("Für diese Testseite muss STRIPE_SECRET_KEY mit sk_test_ beginnen.");
-  }
-
   return secretKey;
 }
 
-async function stripeRequest<T>(
-  path: string,
-  params: URLSearchParams,
-  method: "POST" | "GET" = "POST",
-  options?: { testOnly?: boolean },
-) {
-  const secretKey = getStripeSecretKey(options);
+async function stripeRequest<T>(path: string, params: URLSearchParams, method: "POST" | "GET" = "POST") {
+  const secretKey = getStripeSecretKey();
   const response = await fetch(`${STRIPE_API_URL}/${path}`, {
     method,
     headers: {
@@ -77,10 +94,6 @@ async function stripeRequest<T>(
   return payload as T;
 }
 
-function getAppOrigin(requestUrl: string) {
-  return process.env.APP_ORIGIN?.trim() || new URL(requestUrl).origin;
-}
-
 export async function createStripeCheckoutSession(input: {
   amountCents: number;
   customerEmail?: string;
@@ -90,7 +103,6 @@ export async function createStripeCheckoutSession(input: {
   successUrl: string;
   cancelUrl: string;
   metadata?: Record<string, string>;
-  testOnly?: boolean;
 }) {
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) {
     throw new Error("Der Stripe-Betrag muss eine positive Ganzzahl in Cent sein.");
@@ -112,29 +124,12 @@ export async function createStripeCheckoutSession(input: {
   if (input.clientReferenceId) params.set("client_reference_id", input.clientReferenceId);
   for (const [key, value] of Object.entries(input.metadata ?? {})) params.set(`metadata[${key}]`, value);
 
-  const session = await stripeRequest<StripeCheckoutSession>("checkout/sessions", params, "POST", {
-    testOnly: input.testOnly,
-  });
+  const session = await stripeRequest<StripeCheckoutSession>("checkout/sessions", params);
   if (!session.url) {
     throw new Error("Stripe hat keine Checkout-URL zurückgegeben.");
   }
 
   return session;
-}
-
-export async function createStripeTestCheckoutSession(requestUrl: string) {
-  const amountCents = Math.floor(Math.random() * 4_501) + 500;
-  const origin = getAppOrigin(requestUrl);
-  const session = await createStripeCheckoutSession({
-    amountCents,
-    productName: "Stripe-Sandbox-Testzahlung",
-    productDescription: "Nur ein technischer Test – keine echte Buchung",
-    successUrl: `${origin}/stripe-test/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancelUrl: `${origin}/stripe-test/cancel`,
-    metadata: { test_page: "stripe-test" },
-    testOnly: true,
-  });
-  return { amountCents, url: session.url };
 }
 
 export async function getStripeCheckoutSession(sessionId: string) {
@@ -143,6 +138,60 @@ export async function getStripeCheckoutSession(sessionId: string) {
     new URLSearchParams(),
     "GET",
   );
+}
+
+/**
+ * Lists completed Checkout Sessions for the Stripe reconciliation/backfill.
+ * The API is paginated, so callers must continue with the last session ID
+ * while `has_more` is true.
+ */
+export async function listStripeCheckoutSessions(
+  input: {
+    createdGte?: number;
+    createdLte?: number;
+    startingAfter?: string;
+    limit?: number;
+  } = {},
+) {
+  const params = new URLSearchParams();
+  params.set("status", "complete");
+  params.set("limit", String(Math.min(100, Math.max(1, input.limit ?? 100))));
+  params.set("expand[]", "data.payment_intent.latest_charge.balance_transaction");
+  if (input.createdGte !== undefined) params.set("created[gte]", String(input.createdGte));
+  if (input.createdLte !== undefined) params.set("created[lte]", String(input.createdLte));
+  if (input.startingAfter) params.set("starting_after", input.startingAfter);
+
+  return stripeRequest<StripeListResponse<StripeCheckoutSession>>(
+    `checkout/sessions?${params.toString()}`,
+    new URLSearchParams(),
+    "GET",
+  );
+}
+
+/**
+ * Loads the payment and its Stripe balance transaction. The balance transaction
+ * is the authoritative source for gross amount, Stripe fee, net amount and
+ * the dates needed for the accounting/reconciliation layer.
+ */
+export async function getStripeCheckoutPaymentDetails(sessionId: string) {
+  const session = await stripeRequest<StripeCheckoutSession>(
+    `checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=payment_intent.latest_charge.balance_transaction`,
+    new URLSearchParams(),
+    "GET",
+  );
+  const paymentIntent = typeof session.payment_intent === "object" ? session.payment_intent : null;
+  const charge = paymentIntent && typeof paymentIntent.latest_charge === "object" ? paymentIntent.latest_charge : null;
+  const balanceTransaction =
+    charge && typeof charge.balance_transaction === "object" ? charge.balance_transaction : null;
+  if (!balanceTransaction) {
+    throw new Error("Stripe-Zahlung hat noch keine Balance Transaction.");
+  }
+  return {
+    session,
+    paymentIntentId: paymentIntent?.id ?? (typeof session.payment_intent === "string" ? session.payment_intent : null),
+    chargeId: charge?.id ?? null,
+    balanceTransaction,
+  };
 }
 
 function getWebhookSecret() {

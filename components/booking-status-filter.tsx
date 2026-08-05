@@ -30,16 +30,21 @@ const locationItems = [
     label: rentalLocationLabels.de[location],
   })),
 ];
+const unassignedValue = "unassigned";
 
 export function BookingStatusFilter({
   location,
   value,
+  assignee,
+  assignees,
   search,
   period,
   canFilterLocations,
 }: {
   location: string;
   value: BookingStatus | null;
+  assignee: string;
+  assignees: Array<{ id: string; name: string }>;
   search: string;
   period: (typeof periods)[number][0];
   canFilterLocations: boolean;
@@ -51,6 +56,12 @@ export function BookingStatusFilter({
   const selectedLabel = value ? bookingPresentation[value].label : "Alle Status";
   const selectedPeriodLabel = periods.find(([key]) => key === period)?.[1] ?? "Alle Zeiträume";
   const selectedLocationLabel = locationItems.find((item) => item.value === location)?.label ?? "Alle Standorte";
+  const assigneeItems = [
+    { value: "all", label: "Alle Sachbearbeiter" },
+    { value: unassignedValue, label: "Nicht zugewiesen" },
+    ...assignees.map((user) => ({ value: user.id, label: user.name })),
+  ];
+  const selectedAssigneeLabel = assigneeItems.find((item) => item.value === assignee)?.label ?? "Alle Sachbearbeiter";
 
   const updateParam = useCallback((key: string, nextValue: string | null, emptyValue?: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -100,6 +111,28 @@ export function BookingStatusFilter({
             </SelectContent>
           </Select>
         ) : null}
+        <Select
+          items={assigneeItems}
+          value={assignee}
+          onValueChange={(nextValue) => updateParam("assignee", nextValue, "all")}
+        >
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 flex-1 sm:w-48 sm:flex-none"
+            aria-label="Nach Sachbearbeiter filtern"
+          >
+            <SelectValue className="text-sm font-normal">{selectedAssigneeLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {assigneeItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
         <Select
           items={periodItems}
           value={period}

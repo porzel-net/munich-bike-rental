@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authClient } from "../lib/auth-client";
 
 export function AdminDashboard({ userName }: { userName: string }) {
@@ -51,94 +56,93 @@ export function AdminDashboard({ userName }: { userName: string }) {
     <main className="container py-12">
       <div className="mb-10 flex items-start justify-between gap-6">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--brand-accent)]">
-            Geschützter Bereich
-          </p>
-          <h1 className="font-[Poppins] text-4xl font-black uppercase">Willkommen, {userName}</h1>
+          <p className="text-sm font-medium text-muted-foreground">Geschützter Bereich</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Willkommen, {userName}</h1>
         </div>
-        <button className="rounded-lg border border-black/15 px-4 py-2 font-semibold" type="button" onClick={signOut}>
+        <Button variant="outline" type="button" onClick={signOut}>
           Abmelden
-        </button>
+        </Button>
       </div>
-      <section className="max-w-xl rounded-2xl border border-black/10 bg-white p-8 shadow-xl">
-        <h2 className="mb-2 font-[Poppins] text-2xl font-black uppercase">Einladung erzeugen</h2>
-        <p className="mb-6 text-sm leading-6 text-[var(--text-muted)]">
-          Nur Admins können Einladungen erzeugen. Der Empfänger legt sein Passwort selbst fest und richtet danach die
-          verpflichtende Authenticator-App ein.
-        </p>
-        <form className="grid gap-4" onSubmit={createInvitation}>
-          <label className="grid gap-1 text-sm font-semibold">
-            Name
-            <input
-              className="rounded-lg border border-black/15 px-3 py-2"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-            />
-          </label>
-          <label className="grid gap-1 text-sm font-semibold">
-            Rolle
-            <select
-              className="rounded-lg border border-black/15 px-3 py-2"
-              value={role}
-              onChange={(event) => setRole(event.target.value as "admin" | "standortuser")}
-            >
-              <option value="standortuser">Standortuser</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-          {role === "standortuser" ? (
-            <label className="grid gap-1 text-sm font-semibold">
-              Zugeordneter Standort
-              <select
-                className="rounded-lg border border-black/15 px-3 py-2"
-                value={locationKey}
-                onChange={(event) => setLocationKey(event.target.value)}
-              >
-                <option value="munich">München</option>
-                <option value="regensburg">Regensburg</option>
-                <option value="lindau">Lindau Bodensee</option>
-                <option value="friedrichshafen">Friedrichshafen</option>
-                <option value="konstanz">Konstanz</option>
-              </select>
-            </label>
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Einladung erzeugen</CardTitle>
+          <CardDescription>
+            Nur Admins können Einladungen erzeugen. Der Empfänger legt sein Passwort selbst fest und richtet danach die
+            verpflichtende Authenticator-App ein.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4" onSubmit={createInvitation}>
+            <Field>
+              <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
+              <Input id="invitation-name" value={name} onChange={(event) => setName(event.target.value)} required />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invitation-role">Rolle</FieldLabel>
+              <Select value={role} onValueChange={(value) => value && setRole(value as typeof role)}>
+                <SelectTrigger id="invitation-role" className="w-full">
+                  <SelectValue>{role === "admin" ? "Admin" : "Standortuser"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standortuser">Standortuser</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            {role === "standortuser" ? (
+              <Field>
+                <FieldLabel htmlFor="invitation-location">Zugeordneter Standort</FieldLabel>
+                <Select value={locationKey} onValueChange={(value) => value && setLocationKey(value)}>
+                  <SelectTrigger id="invitation-location" className="w-full">
+                    <SelectValue>
+                      {
+                        {
+                          munich: "München",
+                          regensburg: "Regensburg",
+                          lindau: "Lindau Bodensee",
+                          friedrichshafen: "Friedrichshafen",
+                          konstanz: "Konstanz",
+                        }[locationKey]
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="munich">München</SelectItem>
+                    <SelectItem value="regensburg">Regensburg</SelectItem>
+                    <SelectItem value="lindau">Lindau Bodensee</SelectItem>
+                    <SelectItem value="friedrichshafen">Friedrichshafen</SelectItem>
+                    <SelectItem value="konstanz">Konstanz</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            ) : null}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Link wird erzeugt …" : "Einladungslink erzeugen"}
+            </Button>
+          </form>
+          {message ? (
+            <p className="mt-4 rounded-3xl bg-muted p-3 text-sm text-muted-foreground" role="status">
+              {message}
+            </p>
           ) : null}
-          <button
-            className="rounded-lg bg-black px-4 py-3 font-semibold text-white disabled:opacity-60"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Link wird erzeugt …" : "Einladungslink erzeugen"}
-          </button>
-        </form>
-        {message ? (
-          <p className="mt-4 rounded-lg bg-black/[0.04] p-3 text-sm" role="status">
-            {message}
-          </p>
-        ) : null}
-        {invitationLink ? (
-          <div className="mt-4 grid gap-2">
-            <label className="text-sm font-semibold" htmlFor="invitation-link">
-              Einladungslink
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="invitation-link"
-                className="min-w-0 flex-1 rounded-lg border border-black/15 px-3 py-2 text-sm"
-                value={invitationLink}
-                readOnly
-              />
-              <button
-                className="rounded-lg border border-black/15 px-3 py-2 text-sm font-semibold"
-                type="button"
-                onClick={() => void navigator.clipboard.writeText(invitationLink)}
-              >
-                Kopieren
-              </button>
+          {invitationLink ? (
+            <div className="mt-4 grid gap-2">
+              <FieldLabel htmlFor="invitation-link">Einladungslink</FieldLabel>
+              <div className="flex gap-2">
+                <Input id="invitation-link" className="min-w-0 flex-1" value={invitationLink} readOnly />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => void navigator.clipboard.writeText(invitationLink)}
+                >
+                  Kopieren
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : null}
-      </section>
+          ) : null}
+        </CardContent>
+      </Card>
     </main>
   );
 }

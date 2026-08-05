@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CheckIcon, CircleDollarSignIcon, SendIcon, XIcon } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
+import { CheckIcon, ChevronRightIcon, CircleDollarSignIcon, RefreshCwIcon, SendIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -28,9 +28,11 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
+import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
 import type { BookingStatus } from "@/lib/db/schema";
 
 type OfferAccessorySelection = {
@@ -41,35 +43,97 @@ type OfferAccessorySelection = {
   needsHelmet: boolean;
   needsClothing: boolean;
 };
-type RequestedItem = { id: number; label: string; requestedLabel: string; accessories: OfferAccessorySelection };
+type RequestedItem = {
+  id: number;
+  label: string;
+  requestedLabel: string;
+  heightCm: number;
+  accessories: OfferAccessorySelection;
+};
 type Asset = { id: number; label: string; priceCents: number };
 type Entry = { id: number; label: string };
 type Action = "offer" | "cancel" | "payment" | "refund" | "correct" | "reject";
 type ConfirmAction = "check_out" | "complete" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
+type CancellationPeriod = "more_than_7_days" | "between_7_days_and_24_hours" | "less_than_24_hours";
+
+const cancellationPeriods: Array<{
+  value: CancellationPeriod;
+  label: string;
+  feeRate: number;
+}> = [
+  { value: "more_than_7_days", label: "Mehr als 7 Tage vorher · 25 % Gebühr", feeRate: 0.25 },
+  { value: "between_7_days_and_24_hours", label: "7 Tage bis 24 Stunden vorher · 50 % Gebühr", feeRate: 0.5 },
+  { value: "less_than_24_hours", label: "Innerhalb von 24 Stunden · 100 % Gebühr", feeRate: 1 },
+];
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Aktion fehlgeschlagen";
 }
 
+function ActionItem({
+  icon,
+  title,
+  description,
+  onClick,
+  disabled,
+  destructive = false,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+  disabled: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <Item
+      className="min-h-24 cursor-pointer text-left hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-50"
+      render={<button type="button" disabled={disabled} onClick={onClick} />}
+      variant={destructive ? "outline" : "muted"}
+    >
+      <ItemMedia variant="icon">
+        <div
+          className={
+            destructive
+              ? "flex size-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive"
+              : "flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary"
+          }
+        >
+          {icon}
+        </div>
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{title}</ItemTitle>
+        <ItemDescription>{description}</ItemDescription>
+      </ItemContent>
+      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+    </Item>
+  );
+}
+
 export function BookingCommandActions({
   bookingId,
+  bookingTotalCents,
   status,
   customerName,
   senderName,
   canExecuteActions,
   requestedItems,
   availableAssets,
+  unavailableAssetIds,
   journalEntries,
 }: {
   bookingId: number;
+  bookingTotalCents: number;
   status: BookingStatus;
   customerName: string;
   senderName: string;
   canExecuteActions: boolean;
   requestedItems: RequestedItem[];
   availableAssets: Asset[];
+  unavailableAssetIds: number[];
   journalEntries: Entry[];
 }) {
   const router = useRouter();
@@ -79,6 +143,7 @@ export function BookingCommandActions({
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [cancellationPeriod, setCancellationPeriod] = useState<CancellationPeriod | "">("");
   const [entryId, setEntryId] = useState("");
   const [assetsByRequestedItem, setAssetsByRequestedItem] = useState<Record<string, string>>({});
   const [offerAccessories, setOfferAccessories] = useState<Record<string, OfferAccessorySelection>>({});
@@ -102,6 +167,7 @@ export function BookingCommandActions({
     () => new Set(Object.values(assetsByRequestedItem).filter(Boolean)),
     [assetsByRequestedItem],
   );
+  const unavailableAssetIdSet = useMemo(() => new Set(unavailableAssetIds), [unavailableAssetIds]);
   const isAlternativeOffer = requestedItems.some((item) => {
     const selectedAsset = availableAssets.find((asset) => String(asset.id) === assetsByRequestedItem[String(item.id)]);
     return Boolean(selectedAsset && selectedAsset.label !== item.requestedLabel);
@@ -159,6 +225,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setReason("");
     setAmount("");
     setDueDate("");
+    setCancellationPeriod("");
     setEntryId("");
     setPreview(null);
     setAssetsByRequestedItem({});
@@ -208,6 +275,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       if (activeAction === "offer") {
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes Asset.");
+        if (
+          Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId)))
+        )
+          throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
         if (isAlternativeOffer && !alternativeReason)
           throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
         await request({
@@ -261,6 +332,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     try {
       if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
         throw new Error("Bitte wähle zuerst für jedes Fahrrad ein Asset.");
+      if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
+        throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
       if (isAlternativeOffer && !alternativeReason)
         throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
       setBusy(true);
@@ -312,9 +385,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       : activeAction === "cancel"
         ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
         : activeAction === "payment"
-          ? "Die Zahlung wird im Finanzjournal erfasst."
+          ? "Gib den Betrag und den Buchungstext ein."
           : activeAction === "refund"
-            ? "Die Erstattung wird im Finanzjournal erfasst."
+            ? "Gib den Betrag und den Buchungstext ein."
             : activeAction === "correct"
               ? "Die Korrektur wird im Finanzjournal dokumentiert."
               : "Die Aktion wird dokumentiert.";
@@ -326,55 +399,84 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       : activeAction === "cancel"
         ? "Buchung stornieren"
         : activeAction === "payment"
-        ? "Zahlung erfassen"
-        : activeAction === "refund"
-          ? "Erstattung erfassen"
-          : activeAction === "correct"
-            ? "Journal korrigieren"
-            : "Anfrage ablehnen";
+          ? "Manuelle Zahlung erfassen"
+          : activeAction === "refund"
+            ? "Erstattung erfassen"
+            : activeAction === "correct"
+              ? "Journal korrigieren"
+              : "Anfrage ablehnen";
   const actionsLocked = !canExecuteActions;
 
   return (
     <>
       {actionsLocked ? (
-        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 sm:px-5">
           Für diese Buchung ist noch kein Sachbearbeiter eingetragen. Bitte zuerst zuweisen, dann können Angebote,
           Zahlungen und weitere Aktionen ausgeführt werden.
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
+      <ItemGroup className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {(status === "inquiry_received" || status === "offer_sent" || status === "expired") && (
-          <Button disabled={actionsLocked} onClick={openOffer}>
-            <SendIcon /> {status === "offer_sent" ? "Angebot ersetzen" : "Angebot erstellen"}
-          </Button>
+          <ActionItem
+            icon={<SendIcon />}
+            title={status === "offer_sent" ? "Angebot überarbeiten" : "Angebot erstellen"}
+            description="Fahrrad, Zubehör und Preis prüfen"
+            disabled={actionsLocked}
+            onClick={openOffer}
+          />
         )}
         {status === "inquiry_received" && (
-          <Button variant="outline" disabled={actionsLocked} onClick={openReject}>
-            <XIcon /> Ablehnen
-          </Button>
+          <ActionItem
+            icon={<XIcon />}
+            title="Anfrage ablehnen"
+            description="Absage mit Begründung senden"
+            disabled={actionsLocked}
+            onClick={openReject}
+          />
         )}
         {status === "confirmed" && (
-          <Button disabled={actionsLocked} onClick={() => setConfirmAction("check_out")}>
-            <CheckIcon /> Ausgabe erfassen
-          </Button>
+          <ActionItem
+            icon={<CheckIcon />}
+            title="Ausgabe erfassen"
+            description="Fahrradübergabe dokumentieren"
+            disabled={actionsLocked}
+            onClick={() => setConfirmAction("check_out")}
+          />
         )}
         {status === "checked_out" && (
-          <Button disabled={actionsLocked} onClick={() => setConfirmAction("complete")}>
-            <CheckIcon /> Abschließen
-          </Button>
+          <ActionItem
+            icon={<CheckIcon />}
+            title="Buchung abschließen"
+            description="Rückgabe bestätigen und Vorgang beenden"
+            disabled={actionsLocked}
+            onClick={() => setConfirmAction("complete")}
+          />
         )}
         {["inquiry_received", "offer_sent", "confirmed"].includes(status) && (
-          <Button variant="destructive" disabled={actionsLocked} onClick={() => setActiveAction("cancel")}>
-            <XIcon /> Stornieren
-          </Button>
+          <ActionItem
+            icon={<XIcon />}
+            title="Buchung stornieren"
+            description="Storno und Gebühr dokumentieren"
+            disabled={actionsLocked}
+            destructive
+            onClick={() => setActiveAction("cancel")}
+          />
         )}
-        <Button variant="outline" disabled={actionsLocked} onClick={() => setActiveAction("payment")}>
-          <CircleDollarSignIcon /> Zahlung
-        </Button>
-        <Button variant="outline" disabled={actionsLocked} onClick={() => setActiveAction("refund")}>
-          Erstattung
-        </Button>
-      </div>
+        <ActionItem
+          icon={<CircleDollarSignIcon />}
+          title="Manuelle Zahlung erfassen"
+          description="Zahlungseingang im Journal verbuchen"
+          disabled={actionsLocked}
+          onClick={() => setActiveAction("payment")}
+        />
+        <ActionItem
+          icon={<RefreshCwIcon />}
+          title="Erstattung erfassen"
+          description="Erstattungsbetrag im Journal dokumentieren"
+          disabled={actionsLocked}
+          onClick={() => setActiveAction("refund")}
+        />
+      </ItemGroup>
 
       <Dialog open={activeAction !== null} onOpenChange={(open) => !open && close()}>
         <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -388,11 +490,22 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 <div className="space-y-4">
                   {requestedItems.map((item) => {
                     const accessories = offerAccessories[String(item.id)] ?? item.accessories;
+                    const selectedAsset = availableAssets.find(
+                      (asset) => String(asset.id) === assetsByRequestedItem[String(item.id)],
+                    );
+                    const sizeWarning = getBikeSizeWarning(
+                      selectedAsset?.label ?? item.requestedLabel,
+                      item.heightCm,
+                    );
                     return (
                       <div className="rounded-xl border p-4" key={item.id}>
                         <Field>
                           <FieldLabel htmlFor={`asset-${item.id}`}>{item.label}</FieldLabel>
                           <Select
+                            items={availableAssets.map((asset) => ({
+                              value: String(asset.id),
+                              label: `${asset.label} · ${formatEuro(asset.priceCents)} / Tag`,
+                            }))}
                             value={assetsByRequestedItem[String(item.id)] ?? ""}
                             onValueChange={(value) => {
                               setAssetsByRequestedItem((current) => ({ ...current, [String(item.id)]: value ?? "" }));
@@ -400,28 +513,44 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                             }}
                           >
                             <SelectTrigger id={`asset-${item.id}`} className="w-full">
-                              <SelectValue>
+                              <SelectValue className="text-sm font-normal">
                                 {availableAssets.find(
                                   (asset) => String(asset.id) === assetsByRequestedItem[String(item.id)],
                                 )?.label ?? "Konkretes Fahrrad auswählen"}
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                              {availableAssets.map((asset) => (
-                                <SelectItem
-                                  key={asset.id}
-                                  value={String(asset.id)}
-                                  disabled={
-                                    selectedAssetIds.has(String(asset.id)) &&
-                                    assetsByRequestedItem[String(item.id)] !== String(asset.id)
-                                  }
-                                >
-                                  {asset.label} · {formatEuro(asset.priceCents)} / Tag
-                                </SelectItem>
-                              ))}
+                              <SelectGroup>
+                                {availableAssets.map((asset) => (
+                                  <SelectItem
+                                    key={asset.id}
+                                    value={String(asset.id)}
+                                    disabled={
+                                      unavailableAssetIdSet.has(asset.id) ||
+                                      selectedAssetIds.has(String(asset.id)) &&
+                                      assetsByRequestedItem[String(item.id)] !== String(asset.id)
+                                    }
+                                  >
+                                    {asset.label} · {formatEuro(asset.priceCents)} / Tag
+                                    {unavailableAssetIdSet.has(asset.id) ? " · im Zeitraum belegt" : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
                             </SelectContent>
                           </Select>
                         </Field>
+                        {sizeWarning && (
+                          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                            <p className="font-medium">Warnhinweis zur Rahmengröße</p>
+                            <p className="mt-1">
+                              {item.heightCm} cm liegen außerhalb der empfohlenen Größe {sizeWarning.selectedSize} (
+                              {sizeWarning.selectedRange.minCm}–{sizeWarning.selectedRange.maxCm} cm).
+                              {sizeWarning.recommendedRange
+                                ? ` Für diese Körpergröße wird ${sizeWarning.recommendedRange.size} (${sizeWarning.recommendedRange.minCm}–${sizeWarning.recommendedRange.maxCm} cm) empfohlen.`
+                                : " Bitte prüfe die Auswahl manuell."}
+                            </p>
+                          </div>
+                        )}
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase sm:col-span-2">
                             Im Angebot enthalten
@@ -536,6 +665,42 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             )}
             {activeAction === "cancel" && (
               <>
+                <div className="rounded-2xl border bg-muted/40 p-4">
+                  <p className="text-sm text-muted-foreground">Ursprünglicher Buchungsbetrag</p>
+                  <p className="mt-1 text-xl font-semibold">{formatEuro(bookingTotalCents)}</p>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor="cancel-period">Stornozeitraum</FieldLabel>
+                  <Select
+                    value={cancellationPeriod}
+                    onValueChange={(value) => {
+                      const period = cancellationPeriods.find((option) => option.value === value);
+                      setCancellationPeriod((value as CancellationPeriod) ?? "");
+                      if (period) {
+                        const feeCents = Math.round(bookingTotalCents * period.feeRate);
+                        setAmount((feeCents / 100).toFixed(2).replace(".", ","));
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="cancel-period" className="w-full">
+                      <SelectValue>
+                        {cancellationPeriods.find((period) => period.value === cancellationPeriod)?.label ??
+                          "Stornozeitraum auswählen"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cancellationPeriods.map((period) => (
+                        <SelectItem key={period.value} value={period.value}>
+                          {period.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    Die Auswahl setzt die Stornogebühr automatisch. Mehr als 7 Tage: 75 % Erstattung, 7 Tage bis 24
+                    Stunden: 50 %, innerhalb von 24 Stunden: keine Erstattung.
+                  </FieldDescription>
+                </Field>
                 <Field>
                   <FieldLabel htmlFor="cancel-reason">Stornogrund</FieldLabel>
                   <Textarea
