@@ -7,6 +7,8 @@ import {
   financialAccounts,
   financialCategories,
   financialTransactions,
+  fixedAssetDepreciationEntries,
+  fixedAssets,
   journalEntries,
   journalLines,
 } from "../../lib/db/schema";
@@ -16,6 +18,8 @@ import {
   postFinancialTransaction,
 } from "../../lib/financial/reconciliation";
 import { getEuerSummary } from "../../lib/financial/euer";
+import { createAndPostManualTransaction } from "../../lib/financial/manual-transactions";
+import { postFixedAssetDepreciation } from "../../lib/financial/fixed-assets";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -158,5 +162,40 @@ describe("financial reconciliation", () => {
       profitCents: -4_500,
       unresolvedCents: 0,
     });
+  });
+
+  it("posts a historical cash asset purchase and its AfA into the EÜR", () => {
+    const { db } = setup();
+    const assetCategory = db
+      .select()
+      .from(financialCategories)
+      .where(eq(financialCategories.code, "equipment_asset_purchase"))
+      .get()!;
+
+    const result = createAndPostManualTransaction(db, {
+      source: "cash",
+      bookedAt: "2026-01-15",
+      amountCents: 119_000,
+      categoryId: assetCategory.id,
+      description: "Fahrrad bar gekauft",
+      actorUserId: "admin",
+      asset: {
+        name: "Fahrrad Test M",
+        assetType: "bike",
+        acquisitionDate: "2026-01-15",
+        inServiceDate: "2026-01-15",
+        acquisitionCostCents: 100_000,
+        inputVatCents: 19_000,
+        usefulLifeMonths: 84,
+      },
+    });
+
+    const asset = db.select().from(fixedAssets).get()!;
+    expect(asset.sourceTransactionId).toBe(result.transactionId);
+    expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 0, inputVatCents: 19_000 });
+
+    postFixedAssetDepreciation(db, { assetId: asset.id, periodStart: "2026-01-01", actorUserId: "admin" });
+    expect(db.select().from(fixedAssetDepreciationEntries).all()).toHaveLength(1);
+    expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 1_190, profitCents: -1_190 });
   });
 });

@@ -1,4 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { chmodSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 import { and, count, eq, isNull } from "drizzle-orm";
 
@@ -48,14 +50,64 @@ function decryptInvitationToken(value: string) {
   }
 }
 
+function bootstrapInvitationFile() {
+  return (
+    process.env.BOOTSTRAP_ADMIN_INVITATION_FILE?.trim() ||
+    (process.env.NODE_ENV === "production"
+      ? "/data/bootstrap-admin-invitation.txt"
+      : "./data/bootstrap-admin-invitation.txt")
+  );
+}
+
+function publishBootstrapInvitation(link: string) {
+  // The build database is disposable. Never emit a usable invitation into
+  // build logs or create a misleading file outside the runtime volume.
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
+  const filePath = bootstrapInvitationFile();
+  try {
+    mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
+    writeFileSync(filePath, `${link}\n`, { encoding: "utf8", mode: 0o600 });
+    chmodSync(filePath, 0o600);
+  } catch (error) {
+    console.error("Bootstrap invitation could not be written to its protected file", {
+      filePath,
+      error: error instanceof Error ? { name: error.name, message: error.message } : error,
+    });
+    if (process.env.NODE_ENV === "production") throw error;
+  }
+
+  if (process.env.NODE_ENV !== "production" || process.env.BOOTSTRAP_ADMIN_PRINT_LINK === "true") {
+    console.info(`BOOTSTRAP_ADMIN_INVITATION=${link}`);
+  } else {
+    console.info(`BOOTSTRAP_ADMIN_INVITATION_FILE=${filePath}`);
+  }
+  console.info("Der Link ist 24 Stunden gültig und wird nach einmaliger Verwendung ungültig.");
+}
+
+/** Remove the one-time bootstrap handoff after the account was created. */
+export function clearBootstrapInvitationFile() {
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+  try {
+    unlinkSync(bootstrapInvitationFile());
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.warn("Bootstrap invitation file could not be removed", error);
+    }
+  }
+}
+
 /**
- * Creates a one-time first-admin invitation without creating a user. This is
- * deliberately printed only to the server command line for operator handoff.
+ * Creates a one-time first-admin invitation without creating a user. In
+ * production the link is handed off through a mode-0600 file instead of logs.
  */
 export function ensureBootstrapInvitation() {
   const db = getDatabase();
   const [{ userCount }] = db.select({ userCount: count() }).from(authUser).all();
-  if (userCount !== 0) return null;
+  if (userCount !== 0) {
+    clearBootstrapInvitationFile();
+    return null;
+  }
 
   const now = new Date();
   db.update(authInvitation)
@@ -84,8 +136,7 @@ export function ensureBootstrapInvitation() {
   const existingToken = existing?.tokenCiphertext ? decryptInvitationToken(existing.tokenCiphertext) : null;
   if (existingToken) {
     const link = `${invitationBaseUrl().replace(/\/$/, "")}/admin/signup/${existingToken}`;
-    console.info(`BOOTSTRAP_ADMIN_INVITATION=${link}`);
-    console.info("Der Link ist 24 Stunden gültig und wird nach einmaliger Verwendung ungültig.");
+    publishBootstrapInvitation(link);
     return link;
   }
   if (existing) db.update(authInvitation).set({ usedAt: now }).where(eq(authInvitation.id, existing.id)).run();
@@ -107,7 +158,6 @@ export function ensureBootstrapInvitation() {
     .run();
 
   const link = `${invitationBaseUrl().replace(/\/$/, "")}/admin/signup/${token}`;
-  console.info(`BOOTSTRAP_ADMIN_INVITATION=${link}`);
-  console.info("Der Link ist 24 Stunden gültig und wird nach einmaliger Verwendung ungültig.");
+  publishBootstrapInvitation(link);
   return link;
 }

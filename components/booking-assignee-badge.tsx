@@ -16,4 +16,3 @@ export function BookingAssigneeBadge({ assigneeName }: BookingAssigneeBadgeProps
     </Badge>
   );
 }
-

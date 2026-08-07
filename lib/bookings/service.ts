@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import {
@@ -26,6 +26,8 @@ import { appendJournalEntry, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents } from "./money";
 import { renderBookingNotice, renderInquiryReceivedMail, renderOfferMail } from "./messages";
 import { buildOfferQuote, type OfferAccessorySelection } from "./quotes";
+import { allocateInvoiceNumber } from "./invoice-number";
+import { isValidIsoDate, isValidTime } from "./validation";
 
 export { BookingCommandError } from "./errors";
 
@@ -58,6 +60,22 @@ function assertBookingHasAssignee(db: AppDatabase, booking: typeof bookings.$inf
     !db.select({ id: authUser.id }).from(authUser).where(eq(authUser.id, booking.assignedUserId)).get()
   )
     throw new BookingCommandError("Für diese Buchung muss zuerst ein Sachbearbeiter eingetragen werden");
+}
+
+function receivedPaymentCents(db: AppDatabase, bookingId: number) {
+  return db
+    .select({ amountCents: journalLines.amountCents })
+    .from(journalLines)
+    .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
+    .where(
+      and(
+        eq(journalEntries.bookingId, bookingId),
+        inArray(journalEntries.kind, ["payment_received", "refund_issued"]),
+        ne(journalLines.account, "accounts_receivable"),
+      ),
+    )
+    .all()
+    .reduce((sum, line) => sum + line.amountCents, 0);
 }
 
 function firstName(name: string | undefined) {
@@ -126,7 +144,10 @@ function transition(
   payload: unknown = {},
 ) {
   assertTransition(booking.status, target);
-  db.update(bookings).set({ status: target, updatedAt: now() }).where(eq(bookings.id, booking.id)).run();
+  db.update(bookings)
+    .set({ status: target, version: booking.version + 1, updatedAt: now() })
+    .where(eq(bookings.id, booking.id))
+    .run();
   event(db, booking.id, type, booking.status, target, actorUserId, reason, payload);
 }
 
@@ -234,6 +255,14 @@ export type CreateBookingCommand = {
 };
 
 function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actorUserId?: string | null) {
+  if (
+    !isValidIsoDate(input.periodFrom) ||
+    !isValidIsoDate(input.periodTo) ||
+    input.periodFrom > input.periodTo ||
+    !isValidTime(input.pickupTime) ||
+    !isValidTime(input.dropoffTime)
+  )
+    throw new BookingCommandError("Zeitraum und Uhrzeiten sind ungültig");
   const createdAt = now();
   let bookingId = 0;
   const { requestedItems, outbox, ...bookingValues } = input;
@@ -474,6 +503,7 @@ export function createOffer(
     reason?: string;
     alternative?: boolean;
     alternativeReason?: string;
+    personalMessage?: string;
     sendMail?: boolean;
   },
 ) {
@@ -545,6 +575,7 @@ export function createOffer(
       email: booking.customerEmail,
       phone: booking.customerPhone,
       customerMessage: booking.customerMessage,
+      personalMessage: input.personalMessage?.trim(),
       orderNumber: booking.orderNumber,
       requested: quote.offeredItems,
       totalCents: quote.totalCents,
@@ -611,6 +642,7 @@ export function previewOffer(
     accessoriesByRequestedItem?: Record<number, OfferAccessorySelection>;
     alternative?: boolean;
     alternativeReason?: string;
+    personalMessage?: string;
     actorUserId?: string | null;
   },
 ) {
@@ -630,6 +662,7 @@ export function previewOffer(
     locale: booking.communicationLocale,
     alternative,
     alternativeReason: input.alternativeReason?.trim(),
+    personalMessage: input.personalMessage?.trim(),
     name: booking.customerName,
     orderNumber: booking.orderNumber,
     requested: quote.offeredItems,
@@ -665,14 +698,6 @@ export type UpdateBookingCommand = {
   requestedItems: Array<BookingRequestedItemCommand & { id: number }>;
 };
 
-function isValidDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function isValidTime(value: string) {
-  return /^\d{2}:\d{2}$/.test(value);
-}
-
 /** Updates editable booking details while keeping offers, allocations and the event history consistent. */
 export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
   return runInImmediateTransaction(db, () => {
@@ -683,8 +708,8 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     if (["completed", "rejected", "cancelled", "expired"].includes(booking.status))
       throw new BookingCommandError("Eine abgeschlossene Buchung kann nicht mehr bearbeitet werden");
     if (
-      !isValidDate(input.periodFrom) ||
-      !isValidDate(input.periodTo) ||
+      !isValidIsoDate(input.periodFrom) ||
+      !isValidIsoDate(input.periodTo) ||
       input.periodFrom > input.periodTo ||
       !isValidTime(input.pickupTime) ||
       !isValidTime(input.dropoffTime)
@@ -839,6 +864,13 @@ function confirmOfferRecord(
   const booking = db.select().from(bookings).where(eq(bookings.id, offer.bookingId)).get();
   if (!booking) throw new BookingCommandError("Booking not found");
   assertTransition(booking.status, "confirmed");
+  if (!booking.invoiceNumber) {
+    const invoiceIssuedAt = now();
+    db.update(bookings)
+      .set({ invoiceNumber: allocateInvoiceNumber(db, invoiceIssuedAt), invoiceIssuedAt, updatedAt: invoiceIssuedAt })
+      .where(eq(bookings.id, booking.id))
+      .run();
+  }
   const offeredAssets = db.select().from(bookingOfferItems).where(eq(bookingOfferItems.offerId, offer.id)).all();
   if (!offeredAssets.length) throw new BookingCommandError("The offer has no allocated assets");
   for (const item of offeredAssets) {
@@ -956,6 +988,8 @@ export function cancelBooking(
     assertBookingHasAssignee(db, booking);
     if (input.cancellationFeeCents < 0 || input.cancellationFeeCents > booking.quotedTotalCents || !input.reason.trim())
       throw new BookingCommandError("Cancellation requires a reason and a fee between 0 and the order total");
+    const paidCents = receivedPaymentCents(db, booking.id);
+    const refundCents = Math.max(0, paidCents - input.cancellationFeeCents);
     transition(db, booking, "cancelled", "booking_cancelled", input.actorUserId, input.reason, {
       cancellationFeeCents: input.cancellationFeeCents,
       dueAt: input.dueAt?.toISOString() ?? null,
@@ -1003,8 +1037,9 @@ export function cancelBooking(
       name: booking.customerName,
       orderNumber: booking.orderNumber,
       cancellationFeeCents: input.cancellationFeeCents,
+      refundCents,
     });
-    queueCustomerMail(db, booking, {
+    return queueCustomerMail(db, booking, {
       kind: "booking_cancelled",
       subjectDe: notice.subject,
       subjectEn: notice.subject,
@@ -1016,18 +1051,40 @@ export function cancelBooking(
 
 export function recordPayment(
   db: AppDatabase,
-  input: { bookingId: number; amountCents: number; reason: string; actorUserId?: string | null },
+  input: {
+    bookingId: number;
+    amountCents: number;
+    reason: string;
+    actorUserId?: string | null;
+    idempotencyKey?: string | null;
+  },
 ) {
-  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
-    throw new BookingCommandError("A positive payment amount and reason are required");
+  if (!Number.isInteger(input.amountCents) || input.amountCents === 0 || !input.reason.trim())
+    throw new BookingCommandError("A non-zero payment amount and reason are required");
+  if (input.amountCents < 0)
+    return recordRefund(db, {
+      ...input,
+      amountCents: Math.abs(input.amountCents),
+    });
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
     if (!booking) throw new BookingCommandError("Booking not found");
     assertBookingHasAssignee(db, booking);
+    if (input.idempotencyKey) {
+      const existing = db
+        .select({ id: journalEntries.id })
+        .from(journalEntries)
+        .where(eq(journalEntries.idempotencyKey, input.idempotencyKey))
+        .get();
+      if (existing) return existing.id;
+    }
+    if (receivedPaymentCents(db, booking.id) + input.amountCents > booking.quotedTotalCents)
+      throw new BookingCommandError("Die Zahlung darf den Gesamtpreis der Buchung nicht überschreiten");
     return appendJournalEntry(db, {
       bookingId: input.bookingId,
       kind: "payment_received",
       actorUserId: input.actorUserId,
+      idempotencyKey: input.idempotencyKey,
       reason: input.reason,
       lines: [
         { account: "bank_or_cash", amountCents: input.amountCents },
@@ -1039,7 +1096,13 @@ export function recordPayment(
 
 export function recordRefund(
   db: AppDatabase,
-  input: { bookingId: number; amountCents: number; reason: string; actorUserId?: string | null },
+  input: {
+    bookingId: number;
+    amountCents: number;
+    reason: string;
+    actorUserId?: string | null;
+    idempotencyKey?: string | null;
+  },
 ) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
     throw new BookingCommandError("A positive refund amount and reason are required");
@@ -1047,10 +1110,21 @@ export function recordRefund(
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
     if (!booking) throw new BookingCommandError("Booking not found");
     assertBookingHasAssignee(db, booking);
+    if (input.idempotencyKey) {
+      const existing = db
+        .select({ id: journalEntries.id })
+        .from(journalEntries)
+        .where(eq(journalEntries.idempotencyKey, input.idempotencyKey))
+        .get();
+      if (existing) return existing.id;
+    }
+    if (input.amountCents > Math.max(0, receivedPaymentCents(db, booking.id)))
+      throw new BookingCommandError("Die Erstattung darf die tatsächlich erhaltenen Zahlungen nicht überschreiten");
     return appendJournalEntry(db, {
       bookingId: input.bookingId,
       kind: "refund_issued",
       actorUserId: input.actorUserId,
+      idempotencyKey: input.idempotencyKey,
       reason: input.reason,
       lines: [
         { account: "accounts_receivable", amountCents: input.amountCents },
@@ -1062,17 +1136,19 @@ export function recordRefund(
 
 export function correctJournalEntry(
   db: AppDatabase,
-  input: { entryId: number; reason: string; actorUserId?: string | null },
+  input: { bookingId: number; entryId: number; reason: string; actorUserId?: string | null },
 ) {
   if (!input.reason.trim()) throw new BookingCommandError("A correction reason is required");
   return runInImmediateTransaction(db, () => {
-    const entry = db.select().from(journalEntries).where(eq(journalEntries.id, input.entryId)).get();
+    const entry = db
+      .select()
+      .from(journalEntries)
+      .where(and(eq(journalEntries.id, input.entryId), eq(journalEntries.bookingId, input.bookingId)))
+      .get();
     if (!entry) throw new BookingCommandError("Journal entry not found");
-    if (entry.bookingId) {
-      const booking = db.select().from(bookings).where(eq(bookings.id, entry.bookingId)).get();
-      if (!booking) throw new BookingCommandError("Booking not found");
-      assertBookingHasAssignee(db, booking);
-    }
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking) throw new BookingCommandError("Booking not found");
+    assertBookingHasAssignee(db, booking);
     const lines = db.select().from(journalLines).where(eq(journalLines.entryId, entry.id)).all();
     if (!lines.length) throw new BookingCommandError("Journal entry has no lines");
     return appendJournalEntry(db, {
@@ -1116,6 +1192,7 @@ export function advanceBooking(
   target: "rejected" | "expired" | "checked_out" | "completed",
   actorUserId?: string | null,
   reason = "",
+  personalMessage?: string,
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
@@ -1123,6 +1200,17 @@ export function advanceBooking(
     assertBookingHasAssignee(db, booking);
     transition(db, booking, target, `booking_${target}`, actorUserId, reason);
     if (target === "completed") {
+      if (!booking.invoiceNumber) {
+        const invoiceIssuedAt = now();
+        db.update(bookings)
+          .set({
+            invoiceNumber: allocateInvoiceNumber(db, invoiceIssuedAt),
+            invoiceIssuedAt,
+            updatedAt: invoiceIssuedAt,
+          })
+          .where(eq(bookings.id, booking.id))
+          .run();
+      }
       const recognizedRentalCents = recognizedRentalChargeCents(db, booking.id);
       const remainingCents = Math.max(0, booking.quotedTotalCents - recognizedRentalCents);
       if (remainingCents > 0)
@@ -1149,6 +1237,7 @@ export function advanceBooking(
             ? db.select({ name: authUser.name }).from(authUser).where(eq(authUser.id, actorUserId)).get()?.name
             : undefined,
         ),
+        personalMessage: personalMessage?.trim(),
       });
       queuedMailId = queueCustomerMail(db, booking, {
         kind: "booking_rejected",

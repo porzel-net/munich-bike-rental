@@ -46,6 +46,18 @@ type TokenResponse = {
   scope?: string;
 };
 
+export type NevloStoredTokens = {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt?: Date | null;
+};
+
+/** Persistence for the latest token pair returned by Nevlo's rotating token endpoint. */
+export type NevloTokenStore = {
+  load(): NevloStoredTokens | null;
+  save(tokens: NevloStoredTokens): void;
+};
+
 type AccountsResponse = { accounts: NevloAccount[] };
 type TransactionsResponse = {
   transactions: NevloTransaction[];
@@ -60,6 +72,12 @@ export class NevloApiError extends Error {
   ) {
     super(message);
   }
+}
+
+export function isNevloConfigured(environment: Partial<NodeJS.ProcessEnv> = process.env) {
+  return ["NEVLO_CLIENT_ID", "NEVLO_ACCESS_TOKEN", "NEVLO_REFRESH_TOKEN"].every((name) =>
+    Boolean(environment[name]?.trim()),
+  );
 }
 
 function requiredEnv(name: string) {
@@ -81,27 +99,33 @@ export class NevloClient {
   private accessToken: string;
   private refreshToken: string;
   private refreshPromise: Promise<void> | null = null;
+  private readonly tokenStore?: NevloTokenStore;
 
   constructor(
     private readonly clientId = requiredEnv("NEVLO_CLIENT_ID"),
     accessToken = requiredEnv("NEVLO_ACCESS_TOKEN"),
     refreshToken = requiredEnv("NEVLO_REFRESH_TOKEN"),
+    tokenStore?: NevloTokenStore,
   ) {
-    this.accessToken = accessToken;
-    this.refreshToken = refreshToken;
+    this.tokenStore = tokenStore;
+    const storedTokens = tokenStore?.load();
+    this.accessToken = storedTokens?.accessToken || accessToken;
+    this.refreshToken = storedTokens?.refreshToken || refreshToken;
   }
 
   async getAccounts() {
     return (await this.request<AccountsResponse>("/accounts")).accounts;
   }
 
-  async getTransactions(input: {
-    accountId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    page?: number;
-    perPage?: number;
-  } = {}) {
+  async getTransactions(
+    input: {
+      accountId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      page?: number;
+      perPage?: number;
+    } = {},
+  ) {
     const params = new URLSearchParams();
     if (input.accountId) params.set("accountIds", input.accountId);
     if (input.dateFrom) params.set("dateFrom", input.dateFrom);
@@ -124,7 +148,7 @@ export class NevloClient {
     return transactions;
   }
 
-  /** The refreshed token is kept in this process; the original .env.local remains the bootstrap secret source. */
+  /** The latest token pair is kept in memory; environment values are only the bootstrap source. */
   getCurrentTokens() {
     return { accessToken: this.accessToken, refreshToken: this.refreshToken };
   }
@@ -132,22 +156,51 @@ export class NevloClient {
   private async refreshAccessToken() {
     if (this.refreshPromise) return this.refreshPromise;
     this.refreshPromise = (async () => {
+      // Another Node.js worker may have completed the rotation while this
+      // worker was waiting for the API response. Reuse that token instead of
+      // replaying the now-invalid refresh token.
+      const latestTokens = this.tokenStore?.load();
+      if (
+        latestTokens &&
+        (latestTokens.accessToken !== this.accessToken || latestTokens.refreshToken !== this.refreshToken)
+      ) {
+        this.accessToken = latestTokens.accessToken;
+        this.refreshToken = latestTokens.refreshToken;
+        return;
+      }
+
+      const refreshTokenUsed = this.refreshToken;
       const response = await fetch(NEVLO_TOKEN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "refresh_token",
-          refresh_token: this.refreshToken,
+          refresh_token: refreshTokenUsed,
           client_id: this.clientId,
         }),
         cache: "no-store",
       });
       const body = await response.text();
-      if (!response.ok) throw new NevloApiError(`Nevlo Token-Refresh fehlgeschlagen: ${parseErrorBody(body)}`, response.status);
+      if (!response.ok) {
+        // A different process can win a rotating-token race. If it persisted
+        // a newer pair, adopt it and let the original API request retry.
+        const rotatedTokens = this.tokenStore?.load();
+        if (rotatedTokens && rotatedTokens.refreshToken !== refreshTokenUsed) {
+          this.accessToken = rotatedTokens.accessToken;
+          this.refreshToken = rotatedTokens.refreshToken;
+          return;
+        }
+        throw new NevloApiError(`Nevlo Token-Refresh fehlgeschlagen: ${parseErrorBody(body)}`, response.status);
+      }
       const token = JSON.parse(body) as TokenResponse;
       if (!token.access_token) throw new NevloApiError("Nevlo hat kein Access Token geliefert.", response.status);
       this.accessToken = token.access_token;
       if (token.refresh_token) this.refreshToken = token.refresh_token;
+      this.tokenStore?.save({
+        accessToken: this.accessToken,
+        refreshToken: this.refreshToken,
+        accessTokenExpiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
+      });
     })().finally(() => {
       this.refreshPromise = null;
     });
@@ -168,4 +221,3 @@ export class NevloClient {
     return JSON.parse(body) as T;
   }
 }
-

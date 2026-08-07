@@ -18,7 +18,7 @@ function CalendarDayCell({ day, isLastColumn }: { day: CalendarDay; isLastColumn
 function CalendarWeekRow({ week }: { week: CalendarWeek }) {
   // The base day cell has enough room for three stacked event bars. Only add
   // height once a fourth lane would otherwise collide with the next row.
-  const eventAreaHeight = Math.max(0, week.eventLaneCount - 3) * 2.05;
+  const eventAreaHeight = Math.max(0, week.eventLaneCount - 3) * 1.75;
 
   return (
     <div className="calendar-week" style={{ "--calendar-event-space": `${eventAreaHeight}rem` } as CSSProperties}>

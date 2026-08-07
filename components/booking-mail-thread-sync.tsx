@@ -36,7 +36,8 @@ function formatMailText(text: string) {
   return repairMojibake(
     text.replace(
       /^Historische Mailaktion: (confirmation|rejection)$/gm,
-      (_, action: string) => `Historische Mailaktion: ${action === "confirmation" ? "Buchungsbestätigung" : "Buchungsablehnung"}`,
+      (_, action: string) =>
+        `Historische Mailaktion: ${action === "confirmation" ? "Buchungsbestätigung" : "Buchungsablehnung"}`,
     ),
   );
 }
@@ -73,7 +74,7 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,6 +86,7 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
 
       try {
         const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
+          method: "GET",
           cache: "no-store",
           signal: controller.signal,
         });
@@ -94,18 +96,8 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
           throw new Error("Mailverlauf konnte nicht geladen werden.");
         }
 
-        const sync = result.sync;
-
         setMessages(result.messages);
-        if (sync?.error) {
-          setNotice("IMAP derzeit nicht erreichbar. Archivierte Mails werden angezeigt.");
-        } else if (!sync?.configured) {
-          setNotice("IMAP ist nicht konfiguriert. Archivierte Mails werden angezeigt.");
-        } else if ((sync?.synced ?? 0) > 0) {
-          setNotice(`${sync?.synced ?? 0} Nachricht(en) synchronisiert.`);
-        } else {
-          setNotice("Mailverlauf ist aktuell.");
-        }
+        setNotice("Archivierter Mailverlauf geladen.");
       } catch (error) {
         if (controller.signal.aborted) return;
         setFailed(true);
@@ -117,7 +109,35 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
 
     void loadThread();
     return () => controller.abort();
-  }, [bookingId, refreshToken]);
+  }, [bookingId]);
+
+  async function syncThread() {
+    setSyncing(true);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        cache: "no-store",
+      });
+      const result = (await response.json().catch(() => null)) as MailThreadResponse | null;
+      if (!response.ok || !result?.messages) throw new Error("Mailverlauf konnte nicht synchronisiert werden.");
+      setMessages(result.messages);
+      const sync = result.sync;
+      setNotice(
+        sync?.error
+          ? "IMAP derzeit nicht erreichbar. Archivierte Mails werden angezeigt."
+          : !sync?.configured
+            ? "IMAP ist nicht konfiguriert. Archivierte Mails werden angezeigt."
+            : `${sync?.synced ?? 0} Nachricht(en) synchronisiert.`,
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Mailverlauf konnte nicht synchronisiert werden.");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const emptyState = useMemo(
     () => (
@@ -134,21 +154,21 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
 
   return (
     <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/20 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-full bg-background shadow-sm">
-              <MailIcon className="size-4 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">Mailverlauf automatisch synchronisiert</p>
-              <p className="text-sm text-muted-foreground">
-                Der Thread wird beim Öffnen einmal geladen und bei Bedarf direkt aktualisiert.
-              </p>
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/20 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-full bg-background shadow-sm">
+            <MailIcon className="size-4 text-muted-foreground" />
           </div>
-          <Button variant="outline" size="sm" onClick={() => setRefreshToken((current) => current + 1)}>
-            <RefreshCwIcon className="mr-2 size-4" />
-            Neu laden
+          <div>
+            <p className="text-sm font-medium">Archivierter Mailverlauf</p>
+            <p className="text-sm text-muted-foreground">
+              Synchronisation mit dem Mailserver nur bei ausdrücklicher Anforderung.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void syncThread()} disabled={syncing}>
+          <RefreshCwIcon className="mr-2 size-4" />
+          {syncing ? "Synchronisiere …" : "Mailserver synchronisieren"}
         </Button>
       </div>
 

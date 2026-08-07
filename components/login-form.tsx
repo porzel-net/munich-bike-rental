@@ -138,7 +138,7 @@ export function LoginForm() {
         </div>
         <Button className="w-full" type="button" variant="outline" onClick={onPasskeySignIn} disabled={isSubmitting}>
           <KeyRound />
-          Mit Passkey anmelden
+          Mit verifiziertem Passkey anmelden
         </Button>
       </CardFooter>
     </Card>

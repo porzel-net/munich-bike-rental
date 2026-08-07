@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
@@ -17,6 +17,7 @@ import {
   financialAccounts,
   financialCategories,
   financialDocumentLinks,
+  financialDocuments,
   financialTransactionAllocations,
   financialTransactions,
 } from "@/lib/db/schema";
@@ -87,21 +88,40 @@ export default async function BankTransactionsPage({
       eq(financialTransactionAllocations.transactionId, financialTransactions.id),
     )
     .leftJoin(financialCategories, eq(financialCategories.id, financialTransactionAllocations.categoryId))
-    .where(and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")))
+    .where(
+      or(
+        and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")),
+        eq(financialTransactions.source, "cash"),
+        eq(financialTransactions.source, "manual"),
+      ),
+    )
     .orderBy(desc(financialTransactions.bookedAt), desc(financialTransactions.id))
     .all();
   const documentCounts = db
-    .select()
+    .select({
+      transactionId: financialDocumentLinks.transactionId,
+      documentId: financialDocuments.id,
+      originalFileName: financialDocuments.originalFileName,
+    })
     .from(financialDocumentLinks)
+    .innerJoin(financialDocuments, eq(financialDocumentLinks.documentId, financialDocuments.id))
     .all()
-    .reduce((counts, link) => {
-      if (link.transactionId) counts.set(link.transactionId, (counts.get(link.transactionId) ?? 0) + 1);
-      return counts;
-    }, new Map<number, number>());
-  const reviewTransactionsForClient: FinancialReviewTransaction[] = reviewTransactions.map((row) => ({
-    ...row,
-    documentCount: documentCounts.get(row.id) ?? 0,
-  }));
+    .reduce((documents, link) => {
+      if (link.transactionId) {
+        const existing = documents.get(link.transactionId) ?? [];
+        existing.push({ id: link.documentId, originalFileName: link.originalFileName });
+        documents.set(link.transactionId, existing);
+      }
+      return documents;
+    }, new Map<number, Array<{ id: number; originalFileName: string }>>());
+  const reviewTransactionsForClient: FinancialReviewTransaction[] = reviewTransactions.map((row) => {
+    const documents = documentCounts.get(row.id) ?? [];
+    return {
+      ...row,
+      documentCount: documents.length,
+      documents,
+    };
+  });
 
   return (
     <SidebarProvider
@@ -114,10 +134,10 @@ export default async function BankTransactionsPage({
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
       <SidebarInset>
-        <SiteHeader title="Banktransaktionen" />
+        <SiteHeader title="Finanztransaktionen" />
         <main className="flex flex-1 flex-col p-8 lg:p-12">
           <FinancialReviewInbox
-            title="Banktransaktionen"
+            title="Finanztransaktionen"
             transactions={reviewTransactionsForClient}
             categories={categories as FinancialReviewCategory[]}
             accounts={activeAccounts as FinancialReviewAccount[]}

@@ -32,6 +32,7 @@ export const ledgerEntryKinds = [
   "cash_expense",
   "bank_fee",
   "tax_payment",
+  "depreciation",
   "unclassified_transaction",
   "correction",
   "legacy_import",
@@ -141,6 +142,8 @@ export const bookings = sqliteTable(
     communicationLocale: text("communication_locale", { enum: communicationLocales }).notNull().default("de"),
     source: text("source", { enum: bookingSources }).notNull(),
     status: text("status", { enum: bookingStatuses }).notNull().default("inquiry_received"),
+    invoiceNumber: text("invoice_number"),
+    invoiceIssuedAt: integer("invoice_issued_at", { mode: "timestamp_ms" }),
     quotedTotalCents: integer("quoted_total_cents").notNull().default(0),
     version: integer("version").notNull().default(1),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -148,9 +151,21 @@ export const bookings = sqliteTable(
   },
   (table) => [
     uniqueIndex("bookings_order_number_unique").on(table.orderNumber),
+    uniqueIndex("bookings_invoice_number_unique").on(table.invoiceNumber),
     index("bookings_assigned_user_idx").on(table.assignedUserId),
     index("bookings_location_status_idx").on(table.location, table.status),
     index("bookings_created_at_idx").on(table.createdAt),
+    check(
+      "bookings_location_check",
+      sql`${table.location} in ('munich', 'regensburg', 'lindau', 'friedrichshafen', 'konstanz')`,
+    ),
+    check("bookings_source_check", sql`${table.source} in ('web', 'manual', 'legacy')`),
+    check(
+      "bookings_status_check",
+      sql`${table.status} in ('inquiry_received', 'offer_sent', 'confirmed', 'checked_out', 'completed', 'rejected', 'cancelled', 'expired')`,
+    ),
+    check("bookings_locale_check", sql`${table.communicationLocale} in ('de', 'en')`),
+    check("bookings_period_order_check", sql`${table.periodFrom} <= ${table.periodTo}`),
     check("bookings_total_nonnegative", sql`${table.quotedTotalCents} >= 0`),
     check("bookings_version_positive", sql`${table.version} > 0`),
   ],
@@ -270,6 +285,7 @@ export const bookingAssetAllocations = sqliteTable(
   (table) => [
     index("booking_asset_allocations_asset_period_idx").on(table.assetId, table.periodFrom, table.periodTo),
     index("booking_asset_allocations_booking_idx").on(table.bookingId),
+    check("booking_asset_allocations_period_order_check", sql`${table.periodFrom} <= ${table.periodTo}`),
   ],
 );
 
@@ -412,6 +428,8 @@ export const journalEntries = sqliteTable(
     financialTransactionId: integer("financial_transaction_id"),
     kind: text("kind", { enum: ledgerEntryKinds }).notNull(),
     reason: text("reason").notNull().default(""),
+    /** Client-generated key for retry-safe manual payment/refund commands. */
+    idempotencyKey: text("idempotency_key"),
     reversesEntryId: integer("reverses_entry_id"),
     actorUserId: text("actor_user_id").references(() => authUser.id, { onDelete: "set null" }),
     dueAt: integer("due_at", { mode: "timestamp_ms" }),
@@ -422,6 +440,7 @@ export const journalEntries = sqliteTable(
     index("journal_entries_booking_occurred_idx").on(table.bookingId, table.occurredAt),
     index("journal_entries_financial_transaction_idx").on(table.financialTransactionId),
     index("journal_entries_reversal_idx").on(table.reversesEntryId),
+    uniqueIndex("journal_entries_idempotency_unique").on(table.idempotencyKey),
   ],
 );
 

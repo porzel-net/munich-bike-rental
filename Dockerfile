@@ -35,6 +35,11 @@ LABEL org.opencontainers.image.description="BikeRental Next.js application"
 RUN groupadd --gid 1001 nodejs \
   && useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nextjs
 
+# Invoice PDFs are rendered on demand from LaTeX.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

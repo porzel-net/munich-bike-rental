@@ -3,6 +3,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { getServerSession, isAdmin } from "../../../../lib/auth/session";
 import { getDatabase } from "../../../../lib/db/client";
 import { authInvitation, authUser } from "../../../../lib/db/schema/auth";
@@ -13,6 +14,8 @@ import {
   invitationBaseUrl,
 } from "../../../../lib/auth/invitations";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
+import { recordAdminAuditEvent } from "../../../../lib/auth/audit";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -56,12 +59,6 @@ const updateUserSchema = z
 
 const userIdSchema = z.object({ userId: z.string().min(1) });
 
-function hasTrustedOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const baseURL = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
-  return origin === new URL(baseURL).origin;
-}
-
 export async function POST(request: Request) {
   if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
 
@@ -70,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = createInvitationSchema.safeParse(await request.json().catch(() => null));
+  const parsed = createInvitationSchema.safeParse(await readBoundedJson(request));
   if (!parsed.success) return NextResponse.json({ message: "Invalid user data" }, { status: 400 });
 
   const token = createInvitationToken();
@@ -109,19 +106,44 @@ export async function PATCH(request: Request) {
   const access = await requireAdmin(request);
   if ("response" in access) return access.response;
 
-  const parsed = updateUserSchema.safeParse(await request.json().catch(() => null));
+  const parsed = updateUserSchema.safeParse(await readBoundedJson(request));
   if (!parsed.success) return NextResponse.json({ message: "Invalid user data" }, { status: 400 });
   if (parsed.data.userId === access.session.user.id) {
     return NextResponse.json({ message: "You cannot change your own role" }, { status: 400 });
   }
 
+  const db = getDatabase();
+  const target = db
+    .select({ id: authUser.id, role: authUser.role })
+    .from(authUser)
+    .where(eq(authUser.id, parsed.data.userId))
+    .get();
+  if (!target) return NextResponse.json({ message: "User not found" }, { status: 404 });
+  if (target.role === "admin" && parsed.data.role !== "admin") {
+    const adminCount = db.select({ id: authUser.id }).from(authUser).where(eq(authUser.role, "admin")).all().length;
+    if (adminCount <= 1)
+      return NextResponse.json({ message: "Der letzte Admin kann nicht herabgestuft werden." }, { status: 409 });
+  }
+
   const updatedAt = new Date();
-  const result = getDatabase()
+  const result = db
     .update(authUser)
     .set({ role: parsed.data.role, locationKey: parsed.data.locationKey, updatedAt })
     .where(eq(authUser.id, parsed.data.userId))
     .run();
   if (result.changes === 0) return NextResponse.json({ message: "User not found" }, { status: 404 });
+
+  recordAdminAuditEvent(db, {
+    actorUserId: access.session.user.id,
+    action: "user_role_changed",
+    targetType: "user",
+    targetId: target.id,
+    metadata: {
+      previousRole: target.role,
+      nextRole: parsed.data.role,
+      nextLocationKey: parsed.data.locationKey,
+    },
+  });
 
   return NextResponse.json({
     user: { id: parsed.data.userId, role: parsed.data.role, locationKey: parsed.data.locationKey },
@@ -132,14 +154,34 @@ export async function DELETE(request: Request) {
   const access = await requireAdmin(request);
   if ("response" in access) return access.response;
 
-  const parsed = userIdSchema.safeParse(await request.json().catch(() => null));
+  const parsed = userIdSchema.safeParse(await readBoundedJson(request));
   if (!parsed.success) return NextResponse.json({ message: "Invalid user data" }, { status: 400 });
   if (parsed.data.userId === access.session.user.id) {
     return NextResponse.json({ message: "You cannot delete your own account" }, { status: 400 });
   }
 
-  const result = getDatabase().delete(authUser).where(eq(authUser.id, parsed.data.userId)).run();
+  const db = getDatabase();
+  const target = db
+    .select({ id: authUser.id, role: authUser.role })
+    .from(authUser)
+    .where(eq(authUser.id, parsed.data.userId))
+    .get();
+  if (!target) return NextResponse.json({ message: "User not found" }, { status: 404 });
+  if (target.role === "admin") {
+    const adminCount = db.select({ id: authUser.id }).from(authUser).where(eq(authUser.role, "admin")).all().length;
+    if (adminCount <= 1)
+      return NextResponse.json({ message: "Der letzte Admin kann nicht gelöscht werden." }, { status: 409 });
+  }
+
+  const result = db.delete(authUser).where(eq(authUser.id, parsed.data.userId)).run();
   if (result.changes === 0) return NextResponse.json({ message: "User not found" }, { status: 404 });
+  recordAdminAuditEvent(db, {
+    actorUserId: access.session.user.id,
+    action: "user_deleted",
+    targetType: "user",
+    targetId: target.id,
+    metadata: { previousRole: target.role },
+  });
 
   return new NextResponse(null, { status: 204 });
 }

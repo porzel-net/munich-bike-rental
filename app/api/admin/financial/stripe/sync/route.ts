@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessAdmin, getServerSession, isAdmin } from "../../../../../../lib/auth/session";
 import { getDatabase } from "../../../../../../lib/db/client";
 import { syncStripeCheckoutPayments } from "../../../../../../lib/financial/stripe-sync";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -13,9 +15,8 @@ const schema = z.object({
 });
 
 function authorized(request: Request, session: Awaited<ReturnType<typeof getServerSession>>) {
-  const base = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
   return (
-    request.headers.get("origin") === new URL(base).origin &&
+    hasTrustedOrigin(request) &&
     session &&
     session.user.twoFactorEnabled &&
     canAccessAdmin(session.user) &&
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   const session = await getServerSession();
   if (!authorized(request, session)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const input = schema.safeParse(await request.json().catch(() => ({})));
+  const input = schema.safeParse((await readBoundedJson(request)) ?? {});
   if (!input.success)
     return NextResponse.json({ message: "Ungültiger Stripe-Synchronisationszeitraum." }, { status: 400 });
   if (input.data.dateFrom && input.data.dateTo && input.data.dateFrom > input.data.dateTo) {
@@ -46,9 +47,9 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Stripe-Synchronisation fehlgeschlagen." },
-      { status: 502 },
-    );
+    console.error("Stripe synchronization failed", {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+    });
+    return NextResponse.json({ message: "Stripe-Synchronisation fehlgeschlagen." }, { status: 502 });
   }
 }

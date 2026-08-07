@@ -28,11 +28,27 @@ export const authUser = sqliteTable(
     uniqueIndex("auth_user_email_unique").on(table.email),
     index("auth_user_role_idx").on(table.role),
     index("auth_user_location_key_idx").on(table.locationKey),
+    check("auth_user_role_check", sql`${table.role} in ('admin', 'standortuser')`),
     check(
       "auth_user_location_key_check",
       sql`${table.locationKey} is null or ${table.locationKey} in ('munich', 'regensburg', 'lindau', 'friedrichshafen', 'konstanz')`,
     ),
   ],
+);
+
+/** Append-only security audit trail for privileged admin actions. */
+export const adminAuditEvents = sqliteTable(
+  "admin_audit_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    actorUserId: text("actor_user_id").references(() => authUser.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    metadataJson: text("metadata_json").notNull().default("{}"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("admin_audit_events_actor_created_idx").on(table.actorUserId, table.createdAt)],
 );
 
 export const authSession = sqliteTable(

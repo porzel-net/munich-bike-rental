@@ -24,4 +24,8 @@ describe("location-scoped authorization", () => {
     expect(canAccessAdmin({ role: "standortuser", locationKey: null })).toBe(false);
     expect(canAccessAdmin({ role: "standortuser", locationKey: "unknown" })).toBe(false);
   });
+
+  it("rejects malformed multi-role values instead of granting the strongest role", () => {
+    expect(canAccessAdmin({ role: "standortuser,admin", locationKey: "munich" })).toBe(false);
+  });
 });

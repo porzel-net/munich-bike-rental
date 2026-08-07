@@ -27,17 +27,25 @@ export function CalendarBookingBar({
     <Link
       className={`calendar-event-bar ${tone} ${isSegmentStart ? "is-segment-start" : ""} ${isSegmentEnd ? "is-segment-end" : ""}`}
       href={`/admin/bookings/${event.id}`}
-      title={event.tooltip}
-      aria-label={`Buchung ${event.customerName}, ${event.orderNumber}, ${event.statusLabel}`}
+      aria-label={`Buchung ${event.displayLabel}, ${event.customerName}, ${event.pickupTime} bis ${event.dropoffTime} Uhr, ${event.statusLabel}`}
     >
       <span className="calendar-event-dot" aria-hidden="true" />
       <p className="min-w-0 flex-1 truncate text-[11px] font-medium leading-4">{event.displayLabel}</p>
+      <span className="calendar-event-time">
+        {event.pickupTime}–{event.dropoffTime}
+      </span>
       <span className="calendar-event-status">{event.statusLabel}</span>
       <span className="calendar-event-detail" aria-hidden="true">
         <strong>{event.customerName}</strong>
         <span>
-          {event.locationLabel} · {event.statusLabel}
+          {event.orderNumber} · {event.locationLabel}
         </span>
+        <span>Bike: {event.selectedItems.join(" / ") || "unbekannt"}</span>
+        <span>
+          Zeiten: {event.pickupTime} – {event.dropoffTime} Uhr
+        </span>
+        <span>Telefon: {event.customerPhone || "nicht angegeben"}</span>
+        <span>Ausrüstung: {event.requestedEquipment.join(" / ") || "keine angegeben"}</span>
       </span>
     </Link>
   );

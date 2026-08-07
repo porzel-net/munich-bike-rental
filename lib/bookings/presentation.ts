@@ -7,6 +7,11 @@ export const accountLabels: Record<string, string> = {
   rental_revenue: "Mietumsatz",
   cancellation_fee_revenue: "Stornogebühren",
   expense: "Aufwand",
+  fixed_assets_bikes: "Anlagevermögen Fahrräder",
+  accumulated_depreciation: "Kumulierte Abschreibungen",
+  tax_input: "Vorsteuer",
+  tax_output: "Umsatzsteuer",
+  cash_main: "Kasse / Bargeld",
 };
 
 export function formatAccountLabel(account: string) {

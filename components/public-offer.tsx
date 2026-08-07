@@ -22,7 +22,12 @@ import type { LucideIcon } from "lucide-react";
 
 import type { PublicOffer } from "@/lib/bookings/public";
 import { formatEuro } from "@/lib/bookings/money";
-import { rentalLocationLabels, type RentalLocation } from "@/lib/inquiries/catalog";
+import {
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
+  rentalLocationLabels,
+  type RentalLocation,
+} from "@/lib/inquiries/catalog";
 
 function formatDate(value: string, locale: "de" | "en") {
   return new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", { dateStyle: "medium" }).format(
@@ -30,13 +35,21 @@ function formatDate(value: string, locale: "de" | "en") {
   );
 }
 
+function formatUpdatedAt(value: string, locale: "de" | "en") {
+  return new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Berlin",
+  }).format(new Date(value));
+}
+
 function accessoryLabels(item: PublicOffer["items"][number], locale: "de" | "en") {
   const accessories = item.accessories;
   return [
     accessories.needsPedals &&
-      `${locale === "de" ? "Pedale" : "Pedals"}${accessories.pedalType ? `: ${accessories.pedalType}` : ""}`,
+      `${locale === "de" ? "Pedale" : "Pedals"}${accessories.pedalType ? `: ${getPedalTypeLabel(accessories.pedalType, locale)}` : ""}`,
     accessories.needsComputerMount &&
-      `${locale === "de" ? "Halterung" : "Computer mount"}${accessories.computerMountType ? `: ${accessories.computerMountType}` : ""}`,
+      `${locale === "de" ? "Halterung" : "Computer mount"}${accessories.computerMountType ? `: ${getComputerMountTypeLabel(accessories.computerMountType, locale)}` : ""}`,
     accessories.needsHelmet && (locale === "de" ? "Helm" : "Helmet"),
     accessories.needsClothing && (locale === "de" ? "Kleidung" : "Clothing"),
   ].filter((value): value is string => Boolean(value));
@@ -127,15 +140,8 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientNow, setClientNow] = useState<number | null>(null);
-  const [paymentState] = useState<"success" | "cancelled" | null>(() => {
-    if (typeof window === "undefined") return null;
-    const value = new URLSearchParams(window.location.search).get("payment");
-    return value === "success" || value === "cancelled" ? value : null;
-  });
-  const [paymentSessionId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("session_id");
-  });
+  const [paymentState, setPaymentState] = useState<"success" | "cancelled" | null>(null);
+  const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
   const de = currentOffer.booking.locale === "de";
   const bookingStatus = currentOffer.booking.status;
   const confirmed =
@@ -176,6 +182,13 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
         ? "pending"
         : "info";
   const StatusIcon = statusTone === "success" ? CheckCircle2 : statusTone === "danger" ? AlertTriangle : Clock3;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("payment");
+    setPaymentState(value === "success" || value === "cancelled" ? value : null);
+    setPaymentSessionId(params.get("session_id"));
+  }, []);
 
   useEffect(() => {
     const updateNow = () => setClientNow(Date.now());
@@ -596,7 +609,7 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
 
               <p className="public-offer-summary__updated">
                 {de ? "Zuletzt aktualisiert" : "Last updated"} ·{" "}
-                {new Date(currentOffer.booking.updatedAt).toLocaleString(de ? "de-DE" : "en-GB")}
+                {formatUpdatedAt(currentOffer.booking.updatedAt, currentOffer.booking.locale)}
               </p>
             </div>
             <div className="public-offer-trust">

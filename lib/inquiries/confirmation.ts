@@ -3,12 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, inArray, isNull, lte, ne } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
-import {
-  accountingRevenues,
-  rentalBookingConfirmationTokens,
-  rentalInquiryBikes,
-  rentalInquiries,
-} from "../db/schema";
+import { accountingRevenues, rentalBookingConfirmationTokens, rentalInquiryBikes, rentalInquiries } from "../db/schema";
 import type { RentalLocation } from "./catalog";
 
 export const BOOKING_CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1_000;

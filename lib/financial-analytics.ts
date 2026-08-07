@@ -39,7 +39,15 @@ type InquiryRow = {
   periodTo: string;
   bikeTitle: string | null;
   totalPriceCents: number;
-  status: "inquiry_received" | "offer_sent" | "confirmed" | "checked_out" | "completed" | "rejected" | "cancelled" | "expired";
+  status:
+    | "inquiry_received"
+    | "offer_sent"
+    | "confirmed"
+    | "checked_out"
+    | "completed"
+    | "rejected"
+    | "cancelled"
+    | "expired";
   submittedAt: Date;
 };
 

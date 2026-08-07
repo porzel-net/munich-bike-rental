@@ -80,10 +80,11 @@ export function PasskeyPrompt({ userId }: PasskeyPromptProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <KeyRound className="size-5" />
-          Mit Passkey schneller anmelden
+          Mit verifiziertem Passkey schneller anmelden
         </CardTitle>
         <CardDescription>
-          Füge einen Passkey hinzu und melde dich künftig sicher mit Face ID, Touch ID oder deiner Geräte-PIN an.
+          Füge einen Passkey hinzu. Für die Anmeldung muss dein Gerät zusätzlich Face ID, Touch ID oder deine Geräte-PIN
+          bestätigen.
         </CardDescription>
       </CardHeader>
       {error ? (

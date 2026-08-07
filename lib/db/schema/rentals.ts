@@ -41,7 +41,10 @@ export const rentalInquiries = sqliteTable(
     index("rental_inquiries_source_submitted_at_idx").on(table.source, table.submittedAt),
     check("rental_inquiries_locale_check", sql`${table.locale} in ('de', 'en')`),
     check("rental_inquiries_mail_status_check", sql`${table.mailStatus} in ('pending', 'sent', 'failed')`),
-    check("rental_inquiries_status_check", sql`${table.status} in ('rejected', 'pending', 'confirmed', 'executed', 'cancelled', 'unanswered')`),
+    check(
+      "rental_inquiries_status_check",
+      sql`${table.status} in ('rejected', 'pending', 'confirmed', 'executed', 'cancelled', 'unanswered')`,
+    ),
     check("rental_inquiries_source_check", sql`${table.source} in ('automatic', 'manual')`),
   ],
 );

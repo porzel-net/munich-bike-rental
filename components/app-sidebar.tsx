@@ -1,6 +1,6 @@
-"use client";
-
 import * as React from "react";
+import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/sidebar";
 import {
   BikeIcon,
-  ChartBarIcon,
-  ChartNoAxesCombinedIcon,
   BoxesIcon,
   CalendarDaysIcon,
   EuroIcon,
@@ -28,6 +26,9 @@ import {
   Settings2Icon,
   UsersIcon,
 } from "lucide-react";
+import { getDatabase } from "@/lib/db/client";
+import { bookings, financialTransactions } from "@/lib/db/schema";
+import { getAssignedLocation } from "@/lib/auth/authorization";
 
 const data = {
   navMain: [
@@ -62,18 +63,6 @@ const data = {
       ],
     },
     {
-      title: "Google Analysen",
-      url: "/admin/google-analytics",
-      icon: <ChartNoAxesCombinedIcon />,
-      adminOnly: true,
-    },
-    {
-      title: "Finanz Analysen",
-      url: "/admin/financial-analytics",
-      icon: <ChartBarIcon />,
-      adminOnly: true,
-    },
-    {
       title: "Team",
       url: "/admin/team",
       icon: <UsersIcon />,
@@ -100,7 +89,23 @@ const data = {
     },
   ],
 };
-export function AppSidebar({
+
+const NAV_OPEN_ITEMS_COOKIE = "admin_nav_open_items";
+
+function readOpenItemsCookie(value: string | undefined): Record<string, boolean> {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(value));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // Ignore an invalid or stale navigation-state cookie.
+  }
+
+  return {};
+}
+
+export async function AppSidebar({
   user,
   isAdmin,
   ...props
@@ -108,10 +113,54 @@ export function AppSidebar({
   user: {
     name: string;
     email: string;
+    locationKey?: string | null;
+    role?: string | null;
   };
   isAdmin: boolean;
 }) {
-  const navItems = data.navMain.filter((item) => !item.adminOnly || isAdmin);
+  const cookieStore = await cookies();
+  const initialOpenItems = readOpenItemsCookie(cookieStore.get(NAV_OPEN_ITEMS_COOKIE)?.value);
+  const db = getDatabase();
+  const assignedLocation = getAssignedLocation(user);
+  const openBankTransactionCount = isAdmin
+    ? (db
+        .select({ value: count() })
+        .from(financialTransactions)
+        .where(
+          and(
+            eq(financialTransactions.source, "bank"),
+            eq(financialTransactions.provider, "nevlo"),
+            ne(financialTransactions.status, "posted"),
+            ne(financialTransactions.status, "ignored"),
+          ),
+        )
+        .get()?.value ?? 0)
+    : 0;
+  const openBookingCount =
+    db
+      .select({ value: count() })
+      .from(bookings)
+      .where(
+        and(
+          inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out"]),
+          assignedLocation ? eq(bookings.location, assignedLocation) : undefined,
+        ),
+      )
+      .get()?.value ?? 0;
+  const navItems = data.navMain
+    .filter((item) => !item.adminOnly || isAdmin)
+    .map((item) =>
+      item.title === "Buchungen"
+        ? { ...item, badge: openBookingCount }
+        : item.title === "Buchhaltung"
+          ? {
+              ...item,
+              items: item.items?.map((subItem) =>
+                subItem.title === "Banktransaktionen" ? { ...subItem, badge: openBankTransactionCount } : subItem,
+              ),
+            }
+          : item,
+    );
   const secondaryNavItems = data.navSecondary.filter((item) => !item.adminOnly || isAdmin);
 
   return (
@@ -127,7 +176,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navItems} />
+        <NavMain items={navItems} initialOpenItems={initialOpenItems} />
         <NavSecondary items={secondaryNavItems} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

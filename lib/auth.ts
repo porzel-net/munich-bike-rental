@@ -8,9 +8,27 @@ import { eq } from "drizzle-orm";
 import { getDatabase } from "./db/client";
 import { ensureBootstrapInvitation } from "./auth/invitations";
 import { authSchema } from "./db/schema/auth";
+import { hasUserVerifiedPasskey } from "./auth/passkey-policy";
 
 const baseURL = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
 const secret = process.env.BETTER_AUTH_SECRET?.trim();
+const parsedBaseURL = new URL(baseURL);
+const isProductionRuntime =
+  process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build";
+
+if (isProductionRuntime) {
+  if (!secret || secret.length < 32) {
+    throw new Error("BETTER_AUTH_SECRET must contain at least 32 characters in production");
+  }
+  if (parsedBaseURL.protocol !== "https:") {
+    throw new Error("BETTER_AUTH_URL or APP_ORIGIN must use HTTPS in production");
+  }
+  const configuredAppOrigin = process.env.APP_ORIGIN?.trim();
+  if (configuredAppOrigin && new URL(configuredAppOrigin).protocol !== "https:") {
+    throw new Error("APP_ORIGIN must use HTTPS in production");
+  }
+}
+
 const accessControl = createAccessControl(defaultStatements);
 const adminRole = accessControl.newRole({
   user: ["create", "list", "set-role", "ban", "impersonate", "delete", "set-password", "set-email", "get", "update"],
@@ -21,10 +39,32 @@ const locationUserRole = accessControl.newRole({
   session: [],
 });
 
+// The application has a deliberately smaller, audited user-management API.
+// Do not expose Better Auth's generic admin API over HTTP: it includes
+// impersonation, password reset, session enumeration and role mutation.
+const disabledAdminApiPaths = [
+  "/admin/ban-user",
+  "/admin/create-user",
+  "/admin/get-user",
+  "/admin/has-permission",
+  "/admin/impersonate-user",
+  "/admin/list-user-sessions",
+  "/admin/list-users",
+  "/admin/remove-user",
+  "/admin/revoke-user-session",
+  "/admin/revoke-user-sessions",
+  "/admin/set-role",
+  "/admin/set-user-password",
+  "/admin/stop-impersonating",
+  "/admin/unban-user",
+  "/admin/update-user",
+];
+
 export const auth = betterAuth({
   appName: "Munich Bike Rental Admin",
   baseURL,
   secret,
+  disabledPaths: disabledAdminApiPaths,
   database: drizzleAdapter(getDatabase(), {
     provider: "sqlite",
     schema: authSchema,
@@ -127,9 +167,28 @@ export const auth = betterAuth({
       },
     }),
     passkey({
-      rpID: new URL(baseURL).hostname,
+      rpID: parsedBaseURL.hostname,
       rpName: "Your Bike Rental",
       origin: baseURL,
+      // Passkey login is an accepted phishing-resistant alternative to TOTP,
+      // but only if the authenticator also verified the user. This prevents a
+      // hardware key that merely requires a touch from bypassing the second
+      // factor requirement for the admin area.
+      authenticatorSelection: { userVerification: "required" },
+      registration: {
+        afterVerification: ({ verification }) => {
+          if (!hasUserVerifiedPasskey(verification.registrationInfo)) {
+            throw new Error("Passkey registration requires user verification");
+          }
+        },
+      },
+      authentication: {
+        afterVerification: ({ verification }) => {
+          if (!hasUserVerifiedPasskey(verification.authenticationInfo)) {
+            throw new Error("Passkey authentication requires user verification");
+          }
+        },
+      },
     }),
   ],
 });

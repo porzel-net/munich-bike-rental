@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeftIcon, ArrowUpRightIcon, FileTextIcon } from "lucide-react";
+import { ArrowDownLeftIcon, ArrowUpRightIcon, ExternalLinkIcon, FileTextIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,7 @@ export type FinancialReviewTransaction = {
   description: string;
   notes: string;
   documentCount: number;
+  documents: Array<{ id: number; originalFileName: string }>;
 };
 
 function formatBookedDate(value: string) {
@@ -155,6 +156,12 @@ export function FinancialReviewInbox({
   const [destinationAccountId, setDestinationAccountId] = useState("");
   const [note, setNote] = useState("");
   const [ignoreReason, setIgnoreReason] = useState("");
+  const [assetName, setAssetName] = useState("");
+  const [assetType, setAssetType] = useState<"bike" | "equipment" | "other">("bike");
+  const [assetCost, setAssetCost] = useState("");
+  const [assetInputVat, setAssetInputVat] = useState("0");
+  const [assetInServiceDate, setAssetInServiceDate] = useState("");
+  const [assetUsefulLifeMonths, setAssetUsefulLifeMonths] = useState("84");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,6 +193,12 @@ export function FinancialReviewInbox({
       );
       setNote(row.description || row.counterpartyName || "");
       setIgnoreReason("");
+      setAssetName(row.description || row.counterpartyName || "");
+      setAssetType("bike");
+      setAssetCost(row.amountCents < 0 ? (Math.abs(row.amountCents) / 100).toFixed(2) : "");
+      setAssetInputVat("0");
+      setAssetInServiceDate(row.bookedAt.slice(0, 10));
+      setAssetUsefulLifeMonths("84");
       setFile(null);
       setError(null);
     },
@@ -206,15 +219,16 @@ export function FinancialReviewInbox({
   }
 
   async function uploadDocument(transactionId: number) {
-    if (!file) return;
+    if (!file) return null;
     const formData = new FormData();
     formData.set("file", file);
     const response = await fetch(`/api/admin/financial/transactions/${transactionId}/documents`, {
       method: "POST",
       body: formData,
     });
-    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    const result = (await response.json().catch(() => null)) as { documentId?: number; message?: string } | null;
     if (!response.ok) throw new Error(result?.message ?? "Beleg konnte nicht gespeichert werden.");
+    return { id: result?.documentId ?? 0, originalFileName: file.name };
   }
 
   async function postTransaction() {
@@ -232,10 +246,35 @@ export function FinancialReviewInbox({
       setError("Für eine Umbuchung musst du das Zielkonto auswählen.");
       return;
     }
+    const isAsset = selectedCategory.euerTreatment === "asset_acquisition";
+    const assetCostCents = Math.round(Number(assetCost.replace(",", ".")) * 100);
+    const assetInputVatCents = Math.round(Number(assetInputVat.replace(",", ".")) * 100);
+    const assetLife = Number(assetUsefulLifeMonths);
+    if (
+      isAsset &&
+      (!assetName.trim() ||
+        !Number.isSafeInteger(assetCostCents) ||
+        !Number.isSafeInteger(assetInputVatCents) ||
+        !Number.isSafeInteger(assetLife))
+    ) {
+      setError("Bitte erfasse Name, Netto-Anschaffungskosten, Vorsteuer und Nutzungsdauer des Anlageguts.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await uploadDocument(selected.id);
+      const uploadedDocument = await uploadDocument(selected.id);
+      if (uploadedDocument?.id) {
+        setRows((current) =>
+          current.map((row) => {
+            if (row.id !== selected.id || row.documents.some((document) => document.id === uploadedDocument.id)) {
+              return row;
+            }
+            const documents = [...row.documents, uploadedDocument];
+            return { ...row, documents, documentCount: documents.length };
+          }),
+        );
+      }
       const response = await fetch(`/api/admin/financial/transactions/${selected.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,6 +283,17 @@ export function FinancialReviewInbox({
           categoryId: Number(categoryId),
           destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
           note: note.trim(),
+          asset: isAsset
+            ? {
+                name: assetName,
+                assetType,
+                acquisitionDate: selected.bookedAt.slice(0, 10),
+                inServiceDate: assetInServiceDate,
+                acquisitionCostCents: assetCostCents,
+                inputVatCents: assetInputVatCents,
+                usefulLifeMonths: assetLife,
+              }
+            : undefined,
         }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -294,9 +344,9 @@ export function FinancialReviewInbox({
         <div>
           <h2 className="text-lg font-semibold">{title}</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
+        <div className="flex flex-col items-end gap-2">
           <NevloSyncButton />
+          <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
         </div>
       </div>
       <div className="overflow-hidden rounded-3xl bg-card">
@@ -493,12 +543,114 @@ export function FinancialReviewInbox({
                     </Select>
                   </Field>
                 ) : null}
+                {selectedCategory?.euerTreatment === "asset_acquisition" ? (
+                  <div className="grid gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <p className="font-medium">Anlagegut erfassen</p>
+                      <p className="text-xs text-muted-foreground">
+                        Netto-Anschaffungskosten plus Vorsteuer müssen dem Bankbetrag entsprechen.
+                      </p>
+                    </div>
+                    <Field>
+                      <FieldLabel htmlFor="financial-asset-name">Bezeichnung</FieldLabel>
+                      <Input
+                        id="financial-asset-name"
+                        required
+                        value={assetName}
+                        onChange={(event) => setAssetName(event.target.value)}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="financial-asset-type">Anlageart</FieldLabel>
+                      <Select
+                        value={assetType}
+                        onValueChange={(value) => setAssetType((value || "bike") as "bike" | "equipment" | "other")}
+                      >
+                        <SelectTrigger id="financial-asset-type" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="bike">Fahrrad</SelectItem>
+                            <SelectItem value="equipment">Betriebsausstattung</SelectItem>
+                            <SelectItem value="other">Sonstiges</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="financial-asset-cost">Netto-Anschaffungskosten</FieldLabel>
+                      <Input
+                        id="financial-asset-cost"
+                        required
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={assetCost}
+                        onChange={(event) => setAssetCost(event.target.value)}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="financial-asset-vat">Vorsteuer</FieldLabel>
+                      <Input
+                        id="financial-asset-vat"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={assetInputVat}
+                        onChange={(event) => setAssetInputVat(event.target.value)}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="financial-asset-service-date">Inbetriebnahme</FieldLabel>
+                      <Input
+                        id="financial-asset-service-date"
+                        required
+                        type="date"
+                        value={assetInServiceDate}
+                        onChange={(event) => setAssetInServiceDate(event.target.value)}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="financial-asset-life">Nutzungsdauer in Monaten</FieldLabel>
+                      <Input
+                        id="financial-asset-life"
+                        required
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={assetUsefulLifeMonths}
+                        onChange={(event) => setAssetUsefulLifeMonths(event.target.value)}
+                      />
+                    </Field>
+                  </div>
+                ) : null}
                 <Field>
                   <FieldLabel htmlFor="financial-note">Buchungstext / Begründung</FieldLabel>
                   <Textarea id="financial-note" value={note} maxLength={1000} rows={3} readOnly />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="financial-document">Beleg anhängen</FieldLabel>
+                  {selected.documents.length > 0 ? (
+                    <div className="grid gap-2">
+                      {selected.documents.map((document) => (
+                        <a
+                          key={document.id}
+                          href={`/api/admin/financial/documents/${document.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-800 transition-colors hover:bg-emerald-500/10 hover:underline dark:text-emerald-300"
+                        >
+                          <FileTextIcon className="size-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">{document.originalFileName}</span>
+                          <ExternalLinkIcon className="size-4 shrink-0" />
+                        </a>
+                      ))}
+                      <p className="text-xs text-muted-foreground">
+                        Vorhandenen Beleg anklicken, um ihn sicher herunterzuladen.
+                      </p>
+                    </div>
+                  ) : null}
                   <Input
                     id="financial-document"
                     type="file"
@@ -506,7 +658,9 @@ export function FinancialReviewInbox({
                     onChange={(event) => setFile(event.target.files?.[0] || null)}
                   />
                   <FieldDescription>
-                    Bei einer Ausgabe den Eingangsbeleg anhängen. PDF, JPG, PNG oder WebP, maximal 15 MB.
+                    {selected.documents.length > 0
+                      ? "Optional einen weiteren Beleg auswählen. Der Upload erfolgt mit „Buchen & abstimmen“."
+                      : "Datei auswählen und anschließend „Buchen & abstimmen“ drücken. PDF, JPG, PNG oder WebP, maximal 15 MB."}
                   </FieldDescription>
                 </Field>
                 <Field>

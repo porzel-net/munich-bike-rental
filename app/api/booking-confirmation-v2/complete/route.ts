@@ -8,6 +8,8 @@ import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
 import { mailOutbox } from "@/lib/db/schema";
+import { readBoundedJson } from "@/lib/security/request-body";
+import { consumePublicOfferRequestRateLimit } from "@/lib/security/rate-limit";
 import { getStripeCheckoutSession, StripeConfigurationError } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -22,8 +24,14 @@ function getOffer(database: ReturnType<typeof getDatabase>, token: string) {
 }
 
 export async function POST(request: Request) {
-  const input = inputSchema.safeParse(await request.json().catch(() => null));
+  const input = inputSchema.safeParse(await readBoundedJson(request, 16 * 1024));
   if (!input.success) return NextResponse.json({ message: "Ungültige Stripe-Zahlung" }, { status: 400 });
+  if (!consumePublicOfferRequestRateLimit(request, "complete", input.data.token, { max: 10, windowMs: 60_000 })) {
+    return NextResponse.json(
+      { message: "Zu viele Zahlungsversuche. Bitte versuche es später erneut." },
+      { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "60" } },
+    );
+  }
 
   const database = getDatabase();
   const offer = getOffer(database, input.data.token);
@@ -32,6 +40,9 @@ export async function POST(request: Request) {
   }
   if (offer.status !== "sent" && offer.status !== "accepted") {
     return NextResponse.json({ message: "Dieses Angebot ist nicht mehr aktiv." }, { status: 409 });
+  }
+  if (offer.status === "sent" && new Date(offer.expiresAt).getTime() <= Date.now()) {
+    return NextResponse.json({ message: "Dieses Angebot ist abgelaufen." }, { status: 409 });
   }
 
   try {
@@ -72,12 +83,12 @@ export async function POST(request: Request) {
     }
 
     const updatedOffer = getOffer(database, input.data.token);
-    return NextResponse.json({ ok: true, offer: updatedOffer });
+    return NextResponse.json({ ok: true, offer: updatedOffer }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const status = error instanceof StripeConfigurationError ? 503 : error instanceof BookingCommandError ? 409 : 502;
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Die Stripe-Zahlung konnte nicht bestätigt werden." },
-      { status },
-    );
+    console.error("Stripe checkout completion failed", {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+    });
+    return NextResponse.json({ message: "Die Zahlung konnte derzeit nicht bestätigt werden." }, { status });
   }
 }

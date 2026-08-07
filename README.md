@@ -62,6 +62,16 @@ APP_MEMORY_LIMIT=512m
 APP_CPU_LIMIT=1.0
 SITE_URL=https://www.deine-domain.tld
 APP_ORIGIN=https://www.deine-domain.tld
+BETTER_AUTH_URL=https://www.deine-domain.tld
+# Für jedes Token separat mit `openssl rand -base64 48` erzeugen; nie in Git einchecken.
+BETTER_AUTH_SECRET=sehr-langes-zufälliges-geheimnis
+CALENDAR_FEED_TOKEN=separates-langes-zufälliges-feed-token
+MAIL_SYNC_TOKEN=separates-langes-zufälliges-mail-token
+OUTBOX_DISPATCH_TOKEN=separates-langes-zufälliges-outbox-token
+# Der erste Admin-Link wird in diese mode-0600-Datei geschrieben, nicht in die Produktionslogs.
+BOOTSTRAP_ADMIN_INVITATION_FILE=/data/bootstrap-admin-invitation.txt
+# Nur lokal für einen kontrollierten Hand-off aktivieren; produktiv false lassen.
+BOOTSTRAP_ADMIN_PRINT_LINK=false
 # Lokal: ./data/bikerental.db. Im Docker-Stack ist der feste, persistente Pfad /data/bikerental.db gesetzt.
 DATABASE_URL=./data/bikerental.db
 SMTP_HOST=smtp.example.com
@@ -88,7 +98,6 @@ IMAP_MAIN_SENT_MAILBOX=Sent
 IMAP_MAIN_REJECTED_MAILBOX=Abgelehnt
 IMAP_MAIN_PENDING_MAILBOX=Ausstehend
 # Mail poller and AI review of incoming customer questions
-MAIL_SYNC_TOKEN=replace-with-a-long-random-token
 OPENAI_API_KEY=sk-...
 # Alternativ als Docker Secret: OPENAI_API_KEY_FILE=/run/secrets/openai_api_key
 OPENAI_MODEL=gpt-5.6-luna
@@ -108,7 +117,9 @@ Für produktive Zugänge sind `SMTP_REQUEST_PASSWORD_FILE`, `SMTP_MAIN_PASSWORD_
 Wichtig:
 
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
-- `SITE_URL` und `APP_ORIGIN` müssen zur echten Domain passen
+- `SITE_URL`, `APP_ORIGIN` und `BETTER_AUTH_URL` müssen zur echten HTTPS-Domain passen; Compose verweigert den Start, wenn sie fehlen
+- `BETTER_AUTH_SECRET`, `CALENDAR_FEED_TOKEN`, `MAIL_SYNC_TOKEN` und `OUTBOX_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
+- Wenn die Datenbank noch keinen Benutzer enthält, liegt der einmalige Ersteinladungslink nach dem Start in `/data/bootstrap-admin-invitation.txt` mit Dateirechten `0600`. Lies ihn kontrolliert mit `docker compose ... exec app sh -c 'cat /data/bootstrap-admin-invitation.txt'` aus; Produktionslogs enthalten den Link absichtlich nicht.
 - `CALENDAR_FEED_TOKEN` schützt den abonnierbaren Apple-Kalender-Feed. In Apple Kalender wird die angezeigte Webcal-URL aus der Buchungsseite abonniert.
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
 - Die SQLite-Datei gehört niemals ins Image. Der Compose-Stack verwendet das Named Volume `app-data`; der Einmal-Service `database-init` setzt dessen Eigentümer auf den Non-Root-App-User und die Rechte auf `0700`.
@@ -124,6 +135,8 @@ Wichtig:
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID` aktiviert Google Analytics erst nach Einwilligung in den Zweck „Analytics“
 - `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional. Sind beide gesetzt, aktiviert die Einwilligung in den Zweck „Marketing“ die direkte Google-Ads-Conversion für das Lead-Event.
 - Der öffentliche Angebotslink startet unter `/api/booking-confirmation-v2/checkout` eine Checkout-Session mit dem unveränderlichen Gesamtbetrag des versendeten Angebots. Die verbindliche Buchung und die vollständige Zahlung werden erst durch den signaturgeprüften Webhook `/api/stripe/webhook` verarbeitet. Dafür `STRIPE_WEBHOOK_SECRET` setzen.
+- Der Nevlo-Sync läuft bei konfigurierten `NEVLO_*`-Zugangsdaten automatisch beim Serverstart und anschließend alle fünf Minuten. Wiederholte Läufe sind sicher; der Admin-Button bleibt für einen manuellen Sofortlauf verfügbar.
+- Nevlo verwendet rotierende Refresh-Tokens. Nach jedem erfolgreichen Refresh speichert die Anwendung Access- und Refresh-Token verschlüsselt in `nevlo_oauth_tokens`; dafür wird `NEVLO_TOKEN_ENCRYPTION_KEY` oder `BETTER_AUTH_SECRET` verwendet. Das SQLite-Volume muss deshalb persistent bleiben. Bei einer abgelaufenen oder widerrufenen Verbindung zuerst über Nevlo OAuth neu autorisieren, die neuen `NEVLO_ACCESS_TOKEN`/`NEVLO_REFRESH_TOKEN` setzen, den alten Datensatz aus `nevlo_oauth_tokens` entfernen und den Container neu starten.
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
 
@@ -178,7 +191,7 @@ server {
   ssl_certificate_key /etc/letsencrypt/live/deine-domain.tld/privkey.pem;
   ssl_protocols TLSv1.2 TLSv1.3;
 
-  client_max_body_size 16k;
+  client_max_body_size 16m;
   client_header_timeout 10s;
   client_body_timeout 10s;
   keepalive_timeout 15s;
@@ -188,6 +201,7 @@ server {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -201,10 +215,12 @@ server {
   add_header X-Frame-Options DENY always;
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   add_header Permissions-Policy "camera=(), geolocation=(), microphone=()" always;
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }
 ```
 
 Passe Zertifikatspfade und Domain an und nutze diese Konfiguration nur mit gültigem TLS-Zertifikat. Für die Limits der Anfrage-Endpunkte ist zusätzlich `docker/nginx-http-security.conf.example` im `http`-Block von Nginx einzubinden.
+Übernimm außerdem die route-spezifischen Body-Limits für Auth, Checkout und Stripe aus `docker/nginx-site.conf.example`; der Beleg-Upload bleibt auf 16 MB begrenzt und wird zusätzlich in der Anwendung geprüft.
 
 ## Härtung
 

@@ -3,12 +3,14 @@ import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import {
+  adminAuditEvents,
   accountingAccounts,
   financialAccounts,
   financialCategories,
   financialTransactionAllocations,
   financialTransactions,
 } from "../../lib/db/schema";
+import { updateOpeningBalance } from "../../lib/financial/accounts";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -87,5 +89,56 @@ describe("accounting schema", () => {
       .run();
 
     expect(connection.db.select().from(financialTransactionAllocations).all()).toHaveLength(1);
+  });
+
+  it("locks the opening balance after the first account movement", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const account = connection.db
+      .select()
+      .from(financialAccounts)
+      .where(eq(financialAccounts.code, "cash_main"))
+      .get()!;
+
+    expect(
+      updateOpeningBalance(connection.db, {
+        accountId: account.id,
+        openingBalanceCents: 12_500,
+        openingBalanceDate: "2026-08-01",
+        actorUserId: null,
+      }),
+    ).toEqual({ accountId: account.id });
+
+    expect(connection.db.select().from(adminAuditEvents).all()).toHaveLength(1);
+    expect(() =>
+      connection.db.update(adminAuditEvents).set({ action: "tampered" }).where(eq(adminAuditEvents.id, 1)).run(),
+    ).toThrow("append-only");
+
+    const now = new Date();
+    connection.db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: account.id,
+        source: "cash",
+        kind: "cash_expense",
+        status: "imported",
+        amountCents: -100,
+        currency: "EUR",
+        bookedAt: "2026-08-02",
+        description: "Test",
+        importedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    expect(() =>
+      updateOpeningBalance(connection.db, {
+        accountId: account.id,
+        openingBalanceCents: 99_999,
+        openingBalanceDate: "2026-08-01",
+        actorUserId: null,
+      }),
+    ).toThrow("unveränderlich");
   });
 });

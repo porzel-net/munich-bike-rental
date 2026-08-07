@@ -19,6 +19,14 @@ export const calendarWeekdayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] 
 
 export type CalendarStatusTone = "amber" | "violet" | "blue" | "emerald" | "indigo" | "rose" | "slate";
 
+const locationCodes: Record<RentalLocation, string> = {
+  munich: "MUC",
+  regensburg: "REG",
+  lindau: "LIN",
+  friedrichshafen: "FDH",
+  konstanz: "KON",
+};
+
 export type CalendarBookingSource = {
   id: number;
   orderNumber: string;
@@ -28,6 +36,11 @@ export type CalendarBookingSource = {
   periodTo: string;
   status: BookingStatus;
   requestedItems: string[];
+  selectedItems?: string[];
+  customerPhone: string;
+  pickupTime: string;
+  dropoffTime: string;
+  requestedEquipment: string[];
 };
 
 export type CalendarBookingEvent = {
@@ -36,6 +49,7 @@ export type CalendarBookingEvent = {
   customerName: string;
   location: RentalLocation;
   locationLabel: string;
+  locationCode: string;
   status: BookingStatus;
   statusLabel: string;
   tone: CalendarStatusTone;
@@ -44,6 +58,11 @@ export type CalendarBookingEvent = {
   displayLabel: string;
   tooltip: string;
   requestedItems: string[];
+  selectedItems: string[];
+  customerPhone: string;
+  pickupTime: string;
+  dropoffTime: string;
+  requestedEquipment: string[];
 };
 
 export type CalendarDay = {
@@ -127,8 +146,10 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
   const startDate = parseCalendarDate(booking.periodFrom);
   const endDate = parseCalendarDate(booking.periodTo);
   const locationLabel = rentalLocationLabels.de[booking.location] ?? booking.location;
+  const locationCode = locationCodes[booking.location];
   const statusLabel = bookingPresentation[booking.status].label;
-  const requestedItemsLabel = booking.requestedItems.length ? booking.requestedItems.join(" / ") : "Keine Fahrraddaten";
+  const selectedItems = booking.selectedItems?.length ? booking.selectedItems : booking.requestedItems;
+  const selectedItemsLabel = selectedItems.length ? selectedItems.join(" / ") : "Fahrrad unbekannt";
 
   return {
     id: booking.id,
@@ -136,17 +157,23 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
     customerName: booking.customerName,
     location: booking.location,
     locationLabel,
+    locationCode,
     status: booking.status,
     statusLabel,
     tone: getCalendarStatusTone(booking.status),
     startDate,
     endDate,
-    displayLabel: `${booking.customerName} · ${booking.orderNumber}`,
-    tooltip: `${booking.customerName} · ${booking.orderNumber} · ${locationLabel} · ${requestedItemsLabel} · ${statusLabel} · ${formatCalendarRange(
+    displayLabel: `${locationCode} · ${selectedItemsLabel}`,
+    tooltip: `${booking.customerName} · ${booking.orderNumber} · ${locationLabel} · ${selectedItemsLabel} · ${statusLabel} · ${formatCalendarRange(
       startDate,
       endDate,
     )}`,
     requestedItems: booking.requestedItems,
+    selectedItems,
+    customerPhone: booking.customerPhone,
+    pickupTime: booking.pickupTime,
+    dropoffTime: booking.dropoffTime,
+    requestedEquipment: booking.requestedEquipment,
   };
 }
 

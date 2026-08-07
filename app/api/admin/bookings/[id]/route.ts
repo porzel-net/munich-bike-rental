@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { BookingCommandError, updateBooking } from "@/lib/bookings/service";
+import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -23,10 +25,10 @@ const schema = z.object({
   customerName: z.string().trim().min(1).max(120),
   customerEmail: z.string().trim().email(),
   customerPhone: z.string().trim().min(1).max(64),
-  periodFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  periodTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  pickupTime: z.string().regex(/^\d{2}:\d{2}$/),
-  dropoffTime: z.string().regex(/^\d{2}:\d{2}$/),
+  periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
+  periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
+  pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
+  dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
   customerMessage: z.string().trim().max(5000),
   communicationLocale: z.enum(["de", "en"]),
   requestedItems: z.array(requestedItem).min(1).max(10),
@@ -34,8 +36,8 @@ const schema = z.object({
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
-  const input = schema.safeParse(await request.json().catch(() => null));
-  const command = await getBookingAdminContext(request, id);
+  const input = schema.safeParse(await readBoundedJson(request));
+  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
   if (!command || !input.success) return NextResponse.json({ message: "Ungültige Buchungsdaten" }, { status: 400 });
 
   try {

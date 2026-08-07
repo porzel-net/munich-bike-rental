@@ -1,9 +1,103 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+
 import { and, eq } from "drizzle-orm";
 
-import { NevloClient, type NevloAccount, type NevloTransaction } from "../nevlo";
+import {
+  NevloClient,
+  NevloConfigurationError,
+  type NevloAccount,
+  type NevloStoredTokens,
+  type NevloTokenStore,
+  type NevloTransaction,
+} from "../nevlo";
 import type { AppDatabase } from "../db/client";
-import { financialAccounts, financialTransactions } from "../db/schema";
+import { financialAccounts, financialTransactions, nevloOAuthTokens } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
+
+let sharedClient: NevloClient | null = null;
+
+function getNevloTokenEncryptionKey() {
+  const secret = process.env.NEVLO_TOKEN_ENCRYPTION_KEY?.trim() || process.env.BETTER_AUTH_SECRET?.trim();
+  if (!secret) {
+    throw new NevloConfigurationError(
+      "Für die persistente Nevlo-Token-Rotation muss NEVLO_TOKEN_ENCRYPTION_KEY oder BETTER_AUTH_SECRET konfiguriert sein.",
+    );
+  }
+  return createHash("sha256").update(`nevlo-oauth-token-storage:${secret}`).digest();
+}
+
+function encryptToken(value: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", getNevloTokenEncryptionKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return [
+    "v1",
+    iv.toString("base64url"),
+    cipher.getAuthTag().toString("base64url"),
+    ciphertext.toString("base64url"),
+  ].join(".");
+}
+
+function decryptToken(value: string) {
+  const [version, ivValue, tagValue, ciphertextValue] = value.split(".");
+  if (version !== "v1" || !ivValue || !tagValue || !ciphertextValue) {
+    throw new NevloConfigurationError("Die gespeicherten Nevlo-Tokens haben ein unbekanntes Format.");
+  }
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", getNevloTokenEncryptionKey(), Buffer.from(ivValue, "base64url"));
+    decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+    return Buffer.concat([decipher.update(Buffer.from(ciphertextValue, "base64url")), decipher.final()]).toString(
+      "utf8",
+    );
+  } catch {
+    throw new NevloConfigurationError("Die gespeicherten Nevlo-Tokens konnten nicht entschlüsselt werden.");
+  }
+}
+
+class DatabaseNevloTokenStore implements NevloTokenStore {
+  constructor(private readonly db: AppDatabase) {
+    // Validate the encryption key before any network request can consume a
+    // rotating refresh token that we would then be unable to persist.
+    getNevloTokenEncryptionKey();
+  }
+
+  load(): NevloStoredTokens | null {
+    const row = this.db.select().from(nevloOAuthTokens).where(eq(nevloOAuthTokens.id, 1)).get();
+    if (!row) return null;
+    return {
+      accessToken: decryptToken(row.accessTokenCiphertext),
+      refreshToken: decryptToken(row.refreshTokenCiphertext),
+      accessTokenExpiresAt: row.accessTokenExpiresAt,
+    };
+  }
+
+  save(tokens: NevloStoredTokens) {
+    const now = new Date();
+    this.db
+      .insert(nevloOAuthTokens)
+      .values({
+        id: 1,
+        accessTokenCiphertext: encryptToken(tokens.accessToken),
+        refreshTokenCiphertext: encryptToken(tokens.refreshToken),
+        accessTokenExpiresAt: tokens.accessTokenExpiresAt ?? null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: nevloOAuthTokens.id,
+        set: {
+          accessTokenCiphertext: encryptToken(tokens.accessToken),
+          refreshTokenCiphertext: encryptToken(tokens.refreshToken),
+          accessTokenExpiresAt: tokens.accessTokenExpiresAt ?? null,
+          updatedAt: now,
+        },
+      })
+      .run();
+  }
+}
+
+function getNevloClient(db: AppDatabase) {
+  return (sharedClient ??= new NevloClient(undefined, undefined, undefined, new DatabaseNevloTokenStore(db)));
+}
 
 function accountCode(account: NevloAccount) {
   const suffix = account.id
@@ -16,13 +110,15 @@ function accountCode(account: NevloAccount) {
 function amountToCents(amount: number) {
   if (!Number.isFinite(amount)) throw new Error("Nevlo lieferte einen ungültigen Transaktionsbetrag.");
   const cents = Math.round(amount * 100);
-  if (cents === 0) throw new Error("Nevlo-Transaktionen mit Betrag 0 werden nicht importiert.");
+  if (!Number.isSafeInteger(cents) || cents === 0)
+    throw new Error("Nevlo lieferte einen ungültigen Transaktionsbetrag.");
   return cents;
 }
 
 function optionalAmountToCents(amount?: number) {
   if (amount === undefined || amount === null || !Number.isFinite(amount)) return null;
-  return Math.round(amount * 100);
+  const cents = Math.round(amount * 100);
+  return Number.isSafeInteger(cents) ? cents : null;
 }
 
 function transactionKind(transaction: NevloTransaction): (typeof financialTransactions)["kind"]["enumValues"][number] {
@@ -147,7 +243,7 @@ export async function syncNevloTransactions(
   db: AppDatabase,
   input: { accountId?: string; dateFrom?: string; dateTo?: string } = {},
 ) {
-  const client = new NevloClient();
+  const client = getNevloClient(db);
   const accounts = await client.getAccounts();
   if (!accounts.length) throw new Error("Nevlo hat keine verbundenen Bankkonten geliefert.");
   const requestedId = input.accountId || configuredAccountId();

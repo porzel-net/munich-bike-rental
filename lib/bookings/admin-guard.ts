@@ -1,23 +1,28 @@
 import { eq } from "drizzle-orm";
 
-import { canAccessAdmin, canAccessLocation, getServerSession } from "@/lib/auth/session";
+import { hasTrustedOrigin } from "@/lib/auth/request";
+import { canAccessAdmin, canAccessLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { bookings } from "@/lib/db/schema";
 import type { RentalLocation } from "@/lib/inquiries/catalog";
 
-function hasTrustedOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const baseUrl = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
-  return origin === new URL(baseUrl).origin;
-}
+type BookingAdminContextOptions = {
+  /** Require the current user to be the assigned handler unless they are an admin. */
+  requireAssignee?: boolean;
+};
 
-/** Shared command guard for every state-changing or preview-only admin booking endpoint. */
-export async function getBookingAdminContext(request: Request, bookingId: number) {
+/** Shared guard for every booking endpoint that reads or changes booking-scoped data. */
+export async function getBookingAdminContext(
+  request: Request,
+  bookingId: number,
+  options: BookingAdminContextOptions = {},
+) {
   if (!Number.isInteger(bookingId) || !hasTrustedOrigin(request)) return null;
   const session = await getServerSession();
   if (!session || !session.user.twoFactorEnabled || !canAccessAdmin(session.user)) return null;
   const db = getDatabase();
   const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
   if (!booking || !canAccessLocation(session.user, booking.location as RentalLocation)) return null;
+  if (options.requireAssignee && !isAdmin(session.user) && booking.assignedUserId !== session.user.id) return null;
   return { db, booking, user: session.user };
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 
 import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
+import { isAdmin } from "@/lib/auth/session";
 import {
   advanceBooking,
   cancelBooking,
@@ -14,6 +15,7 @@ import {
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { mailOutbox } from "@/lib/db/schema";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -34,6 +36,7 @@ const commandSchema = z.discriminatedUnion("command", [
     alternative: z.boolean().optional(),
     reason: z.string().trim().max(500).optional(),
     alternativeReason: z.string().trim().max(1000).optional(),
+    personalMessage: z.string().trim().max(2000).optional(),
   }),
   z.object({
     command: z.literal("cancel"),
@@ -41,10 +44,23 @@ const commandSchema = z.discriminatedUnion("command", [
     reason,
     dueAt: z.string().datetime().optional(),
   }),
-  z.object({ command: z.literal("payment"), amountCents: z.number().int().positive(), reason }),
-  z.object({ command: z.literal("refund"), amountCents: z.number().int().positive(), reason }),
+  z.object({
+    command: z.literal("payment"),
+    amountCents: z
+      .number()
+      .int()
+      .refine((value) => value !== 0, "Betrag darf nicht 0 sein"),
+    reason,
+    idempotencyKey: z.string().uuid(),
+  }),
+  z.object({
+    command: z.literal("refund"),
+    amountCents: z.number().int().positive(),
+    reason,
+    idempotencyKey: z.string().uuid(),
+  }),
   z.object({ command: z.literal("correct_journal"), entryId: z.number().int().positive(), reason }),
-  z.object({ command: z.literal("reject"), reason }),
+  z.object({ command: z.literal("reject"), reason, personalMessage: z.string().trim().max(2000).optional() }),
   z.object({ command: z.literal("expire"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("check_out"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("complete"), reason: z.string().trim().max(500).optional() }),
@@ -52,9 +68,12 @@ const commandSchema = z.discriminatedUnion("command", [
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
-  const input = commandSchema.safeParse(await request.json().catch(() => null));
-  const command = await getBookingAdminContext(request, id);
+  const input = commandSchema.safeParse(await readBoundedJson(request));
+  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
   if (!command || !input.success) return NextResponse.json({ message: "Invalid command" }, { status: 400 });
+  if (input.data.command === "correct_journal" && !isAdmin(command.user)) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+  }
   try {
     switch (input.data.command) {
       case "send_offer": {
@@ -71,6 +90,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           alternative: input.data.alternative,
           reason: input.data.reason,
           alternativeReason: input.data.alternativeReason,
+          personalMessage: input.data.personalMessage,
           actorUserId: command.user.id,
         });
         const mailId = command.db
@@ -81,20 +101,23 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         if (mailId) await dispatchNextOutboxMail(command.db, mailId);
         return NextResponse.json(createdOffer);
       }
-      case "cancel":
-        cancelBooking(command.db, {
+      case "cancel": {
+        const mailId = cancelBooking(command.db, {
           bookingId: id,
           cancellationFeeCents: input.data.cancellationFeeCents,
           reason: input.data.reason,
           dueAt: input.data.dueAt ? new Date(input.data.dueAt) : null,
           actorUserId: command.user.id,
         });
+        if (mailId) await dispatchNextOutboxMail(command.db, mailId);
         break;
+      }
       case "payment":
         recordPayment(command.db, {
           bookingId: id,
           amountCents: input.data.amountCents,
           reason: input.data.reason,
+          idempotencyKey: input.data.idempotencyKey,
           actorUserId: command.user.id,
         });
         break;
@@ -103,11 +126,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           bookingId: id,
           amountCents: input.data.amountCents,
           reason: input.data.reason,
+          idempotencyKey: input.data.idempotencyKey,
           actorUserId: command.user.id,
         });
         break;
       case "correct_journal":
         correctJournalEntry(command.db, {
+          bookingId: id,
           entryId: input.data.entryId,
           reason: input.data.reason,
           actorUserId: command.user.id,
@@ -115,7 +140,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "reject":
         {
-          const mailId = advanceBooking(command.db, id, "rejected", command.user.id, input.data.reason);
+          const mailId = advanceBooking(
+            command.db,
+            id,
+            "rejected",
+            command.user.id,
+            input.data.reason,
+            input.data.personalMessage,
+          );
           if (mailId) await dispatchNextOutboxMail(command.db, mailId);
         }
         break;

@@ -5,6 +5,15 @@ import { authUser } from "./auth";
 import { bookingRequestedItems, bookings, journalEntries, rentalAssets } from "./booking";
 import { rentalInquiries } from "./rentals";
 
+/** The single persisted Nevlo OAuth token set. Token values are encrypted before storage. */
+export const nevloOAuthTokens = sqliteTable("nevlo_oauth_tokens", {
+  id: integer("id").primaryKey(),
+  accessTokenCiphertext: text("access_token_ciphertext").notNull(),
+  refreshTokenCiphertext: text("refresh_token_ciphertext").notNull(),
+  accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 /**
  * The accounting domain has two deliberately separate layers:
  *
@@ -80,6 +89,10 @@ export const financialReconciliationKinds = ["stripe_payout", "bank_deposit", "m
 export const financialReconciliationStatuses = ["open", "matched", "difference", "closed"] as const;
 export const financialDocumentTypes = ["receipt", "invoice", "contract", "bank_statement", "other"] as const;
 export const financialDocumentLinkTypes = ["evidence", "source", "correction", "related"] as const;
+export const fixedAssetTypes = ["bike", "equipment", "other"] as const;
+export const fixedAssetMethods = ["straight_line"] as const;
+export const fixedAssetStatuses = ["active", "disposed"] as const;
+export const fixedAssetDisposalReasons = ["sold", "scrapped", "private_withdrawal", "other"] as const;
 
 /** The chart of accounts used by journal lines. Existing journal account codes remain valid. */
 export const accountingAccounts = sqliteTable(
@@ -225,6 +238,50 @@ export const financialTransactions = sqliteTable(
   ],
 );
 
+/** A capitalized business asset with its tax-relevant acquisition data. */
+export const fixedAssets = sqliteTable(
+  "fixed_assets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    assetNumber: text("asset_number").notNull(),
+    name: text("name").notNull(),
+    assetType: text("asset_type", { enum: fixedAssetTypes }).notNull().default("other"),
+    serialNumber: text("serial_number"),
+    acquisitionDate: text("acquisition_date").notNull(),
+    inServiceDate: text("in_service_date").notNull(),
+    acquisitionCostCents: integer("acquisition_cost_cents").notNull(),
+    inputVatCents: integer("input_vat_cents").notNull().default(0),
+    usefulLifeMonths: integer("useful_life_months").notNull(),
+    method: text("method", { enum: fixedAssetMethods }).notNull().default("straight_line"),
+    residualValueCents: integer("residual_value_cents").notNull().default(0),
+    status: text("status", { enum: fixedAssetStatuses }).notNull().default("active"),
+    disposedAt: text("disposed_at"),
+    disposalReason: text("disposal_reason", { enum: fixedAssetDisposalReasons }),
+    disposalProceedsCents: integer("disposal_proceeds_cents"),
+    assetAccountCode: text("asset_account_code").notNull().default("fixed_assets_bikes"),
+    accumulatedDepreciationAccountCode: text("accumulated_depreciation_account_code")
+      .notNull()
+      .default("accumulated_depreciation"),
+    sourceTransactionId: integer("source_transaction_id").references(() => financialTransactions.id, {
+      onDelete: "restrict",
+    }),
+    notes: text("notes").notNull().default(""),
+    createdByUserId: text("created_by_user_id").references(() => authUser.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("fixed_assets_asset_number_unique").on(table.assetNumber),
+    uniqueIndex("fixed_assets_source_transaction_unique").on(table.sourceTransactionId),
+    index("fixed_assets_status_idx").on(table.status),
+    index("fixed_assets_acquisition_date_idx").on(table.acquisitionDate),
+    check("fixed_assets_acquisition_cost_positive", sql`${table.acquisitionCostCents} > 0`),
+    check("fixed_assets_input_vat_nonnegative", sql`${table.inputVatCents} >= 0`),
+    check("fixed_assets_useful_life_positive", sql`${table.usefulLifeMonths} > 0`),
+    check("fixed_assets_residual_value_nonnegative", sql`${table.residualValueCents} >= 0`),
+  ],
+);
+
 /** A transaction may be split over several bookings, categories, or destination accounts. */
 export const financialTransactionAllocations = sqliteTable(
   "financial_transaction_allocations",
@@ -238,6 +295,7 @@ export const financialTransactionAllocations = sqliteTable(
       onDelete: "restrict",
     }),
     rentalAssetId: integer("rental_asset_id").references(() => rentalAssets.id, { onDelete: "restrict" }),
+    fixedAssetId: integer("fixed_asset_id").references(() => fixedAssets.id, { onDelete: "restrict" }),
     categoryId: integer("category_id").references(() => financialCategories.id, { onDelete: "restrict" }),
     counterpartyId: integer("counterparty_id").references(() => financialCounterparties.id, { onDelete: "set null" }),
     destinationAccountId: integer("destination_account_id").references(() => financialAccounts.id, {
@@ -258,12 +316,37 @@ export const financialTransactionAllocations = sqliteTable(
     index("financial_transaction_allocations_transaction_idx").on(table.transactionId),
     index("financial_transaction_allocations_booking_idx").on(table.bookingId),
     index("financial_transaction_allocations_category_idx").on(table.categoryId),
+    index("financial_transaction_allocations_fixed_asset_idx").on(table.fixedAssetId),
     index("financial_transaction_allocations_journal_idx").on(table.journalEntryId),
     check("financial_transaction_allocations_amount_nonzero", sql`${table.amountCents} <> 0`),
     check(
       "financial_transaction_allocations_target_check",
-      sql`${table.bookingId} is not null or ${table.categoryId} is not null or ${table.destinationAccountId} is not null`,
+      sql`${table.bookingId} is not null or ${table.categoryId} is not null or ${table.destinationAccountId} is not null or ${table.fixedAssetId} is not null`,
     ),
+  ],
+);
+
+/** Immutable monthly depreciation postings generated from the fixed asset register. */
+export const fixedAssetDepreciationEntries = sqliteTable(
+  "fixed_asset_depreciation_entries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    fixedAssetId: integer("fixed_asset_id")
+      .notNull()
+      .references(() => fixedAssets.id, { onDelete: "restrict" }),
+    periodStart: text("period_start").notNull(),
+    periodEnd: text("period_end").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    journalEntryId: integer("journal_entry_id")
+      .notNull()
+      .references(() => journalEntries.id, { onDelete: "restrict" }),
+    createdByUserId: text("created_by_user_id").references(() => authUser.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("fixed_asset_depreciation_asset_period_unique").on(table.fixedAssetId, table.periodStart),
+    index("fixed_asset_depreciation_period_idx").on(table.periodStart),
+    check("fixed_asset_depreciation_amount_positive", sql`${table.amountCents} > 0`),
   ],
 );
 
@@ -356,6 +439,7 @@ export const financialDocumentLinks = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
+    uniqueIndex("financial_document_links_document_transaction_unique").on(table.documentId, table.transactionId),
     index("financial_document_links_document_idx").on(table.documentId),
     index("financial_document_links_transaction_idx").on(table.transactionId),
     index("financial_document_links_booking_idx").on(table.bookingId),

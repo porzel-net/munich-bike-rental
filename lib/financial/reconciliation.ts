@@ -5,12 +5,14 @@ import {
   accountingAccounts,
   financialAccounts,
   financialCategories,
+  fixedAssets,
   financialTransactionAllocations,
   financialTransactions,
 } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
+import { createFixedAsset } from "./fixed-assets";
 
 type JournalKind = Parameters<typeof appendJournalEntry>[1]["kind"];
 
@@ -78,6 +80,18 @@ export function postFinancialTransaction(
     destinationAccountId?: number;
     note: string;
     actorUserId: string;
+    asset?: {
+      name: string;
+      assetType: "bike" | "equipment" | "other";
+      serialNumber?: string | null;
+      acquisitionDate: string;
+      inServiceDate: string;
+      acquisitionCostCents: number;
+      inputVatCents?: number;
+      usefulLifeMonths: number;
+      residualValueCents?: number;
+      notes?: string;
+    };
   },
 ) {
   return runInImmediateTransaction(db, () => {
@@ -137,6 +151,23 @@ export function postFinancialTransaction(
       counterpartAccount = destinationAccount.code;
     }
 
+    let fixedAsset: typeof fixedAssets.$inferSelect | undefined;
+    if (category.euerTreatment === "asset_acquisition") {
+      if (!input.asset) throw new BookingCommandError("Bitte erfasse die Daten des Anlageguts.");
+      const grossAmountCents = Math.abs(transaction.amountCents);
+      const expectedGross = input.asset.acquisitionCostCents + (input.asset.inputVatCents ?? 0);
+      if (expectedGross !== grossAmountCents)
+        throw new BookingCommandError(
+          "Netto-Anschaffungskosten und Vorsteuer müssen dem Transaktionsbetrag entsprechen.",
+        );
+      fixedAsset = createFixedAsset(db, {
+        ...input.asset,
+        sourceTransactionId: transaction.id,
+        createdByUserId: input.actorUserId,
+      });
+      counterpartAccount = fixedAsset.assetAccountCode;
+    }
+
     ensureFinancialAccountInChart(db, sourceAccount);
     if (destinationAccount) ensureFinancialAccountInChart(db, destinationAccount);
 
@@ -193,16 +224,23 @@ export function postFinancialTransaction(
       financialTransactionId: transaction.id,
       actorUserId: input.actorUserId,
       reason: note,
-      lines: [
-        { account: sourceAccount.code, amountCents: transaction.amountCents },
-        { account: counterpartAccount, amountCents: -transaction.amountCents },
-      ],
+      lines: fixedAsset
+        ? [
+            { account: sourceAccount.code, amountCents: transaction.amountCents },
+            { account: fixedAsset.assetAccountCode, amountCents: input.asset?.acquisitionCostCents ?? 0 },
+            ...(input.asset?.inputVatCents ? [{ account: "tax_input", amountCents: input.asset.inputVatCents }] : []),
+          ]
+        : [
+            { account: sourceAccount.code, amountCents: transaction.amountCents },
+            { account: counterpartAccount, amountCents: -transaction.amountCents },
+          ],
     });
 
     db.insert(financialTransactionAllocations)
       .values({
         transactionId: transaction.id,
         categoryId: category.id,
+        fixedAssetId: fixedAsset?.id ?? null,
         destinationAccountId: destinationAccount?.id ?? null,
         allocationKind,
         matchMethod: "manual",
@@ -215,6 +253,30 @@ export function postFinancialTransaction(
         updatedAt: new Date(),
       })
       .run();
+
+    if (fixedAsset && input.asset?.inputVatCents) {
+      const inputVatCategory = db
+        .select()
+        .from(financialCategories)
+        .where(eq(financialCategories.code, "input_vat"))
+        .get();
+      if (!inputVatCategory) throw new BookingCommandError("Die Vorsteuerkategorie ist nicht eingerichtet.");
+      db.insert(financialTransactionAllocations)
+        .values({
+          transactionId: transaction.id,
+          categoryId: inputVatCategory.id,
+          allocationKind: "tax",
+          matchMethod: "manual",
+          amountCents: -input.asset.inputVatCents,
+          journalEntryId,
+          note: `Vorsteuer zum Anlagegut ${fixedAsset.assetNumber}`,
+          matchedByUserId: input.actorUserId,
+          matchedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run();
+    }
 
     const reconciledAt = new Date();
     db.update(financialTransactions)

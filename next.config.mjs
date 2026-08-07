@@ -18,7 +18,7 @@ const securityHeaders = [
 ];
 
 if (isProduction) {
-  securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
+  securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" });
 }
 
 const aboutImageHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" }];
@@ -34,12 +34,19 @@ const nextConfig = {
   output: "standalone",
   compress: true,
   poweredByHeader: false,
+  // Better Auth and the database are initialized while Next collects route
+  // data. One build worker prevents concurrent SQLite migration races.
+  experimental: { cpus: 1 },
   async headers() {
     if (!isProduction) {
       return [];
     }
 
     return [
+      {
+        source: "/api/:path*",
+        headers: [...securityHeaders, { key: "Cache-Control", value: "no-store" }],
+      },
       {
         source: "/:path*",
         headers: securityHeaders,

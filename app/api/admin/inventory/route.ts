@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { and, eq, max } from "drizzle-orm";
 import { z } from "zod";
 
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessLocation } from "../../../../lib/auth/authorization";
 import { getServerSession } from "../../../../lib/auth/session";
-import { getDatabase } from "../../../../lib/db/client";
+import { getDatabase, runInImmediateTransaction } from "../../../../lib/db/client";
 import { rentalLocationBikes, rentalLocationBikeSizes, rentalLocationEquipment } from "../../../../lib/db/schema";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -37,12 +39,6 @@ const deleteSchema = z.object({
   id: z.number().int().positive(),
   location: locationSchema,
 });
-
-function hasTrustedOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const baseURL = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
-  return origin === new URL(baseURL).origin;
-}
 
 async function getAuthorizedSession(request: Request) {
   if (!hasTrustedOrigin(request)) return null;
@@ -92,65 +88,67 @@ export async function POST(request: Request) {
   const session = await getAuthorizedSession(request);
   if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const input = createSchema.safeParse(await request.json().catch(() => null));
+  const input = createSchema.safeParse(await readBoundedJson(request));
   if (!input.success || !canAccessLocation(session.user, input.data.location)) {
     return NextResponse.json({ message: "Ungültige Inventardaten oder fehlende Berechtigung." }, { status: 400 });
   }
 
   const db = getDatabase();
   try {
-    if (input.data.type === "bike") {
-      const contents = defaultBikeContent(input.data.title);
+    return runInImmediateTransaction(db, () => {
+      if (input.data.type === "bike") {
+        const contents = defaultBikeContent(input.data.title);
+        const displayOrder =
+          (db
+            .select({ value: max(rentalLocationBikes.displayOrder) })
+            .from(rentalLocationBikes)
+            .where(eq(rentalLocationBikes.location, input.data.location))
+            .get()?.value ?? 0) + 1;
+        const inserted = db
+          .insert(rentalLocationBikes)
+          .values({
+            location: input.data.location,
+            bikeKey: bikeKey(input.data.title, input.data.size),
+            title: input.data.title,
+            priceCentsPerDay: input.data.priceCents,
+            ...contents,
+            displayOrder,
+            isAvailable: input.data.isAvailable,
+          })
+          .returning({ id: rentalLocationBikes.id })
+          .get();
+        db.insert(rentalLocationBikeSizes)
+          .values({ locationBikeId: inserted.id, size: input.data.size, isAvailable: true })
+          .run();
+        return NextResponse.json(
+          { item: { ...input.data, id: inserted.id, bikeKey: bikeKey(input.data.title, input.data.size) } },
+          { status: 201 },
+        );
+      }
+
+      const key = equipmentKey(input.data.category, input.data.labelDe);
       const displayOrder =
         (db
-          .select({ value: max(rentalLocationBikes.displayOrder) })
-          .from(rentalLocationBikes)
-          .where(eq(rentalLocationBikes.location, input.data.location))
+          .select({ value: max(rentalLocationEquipment.displayOrder) })
+          .from(rentalLocationEquipment)
+          .where(eq(rentalLocationEquipment.location, input.data.location))
           .get()?.value ?? 0) + 1;
       const inserted = db
-        .insert(rentalLocationBikes)
+        .insert(rentalLocationEquipment)
         .values({
           location: input.data.location,
-          bikeKey: bikeKey(input.data.title, input.data.size),
-          title: input.data.title,
-          priceCentsPerDay: input.data.priceCents,
-          ...contents,
+          equipmentKey: key,
+          category: input.data.category,
+          labelDe: input.data.labelDe,
+          labelEn: input.data.labelEn,
+          priceCents: input.data.priceCents,
           displayOrder,
           isAvailable: input.data.isAvailable,
         })
-        .returning({ id: rentalLocationBikes.id })
+        .returning({ id: rentalLocationEquipment.id })
         .get();
-      db.insert(rentalLocationBikeSizes)
-        .values({ locationBikeId: inserted.id, size: input.data.size, isAvailable: true })
-        .run();
-      return NextResponse.json(
-        { item: { ...input.data, id: inserted.id, bikeKey: bikeKey(input.data.title, input.data.size) } },
-        { status: 201 },
-      );
-    }
-
-    const key = equipmentKey(input.data.category, input.data.labelDe);
-    const displayOrder =
-      (db
-        .select({ value: max(rentalLocationEquipment.displayOrder) })
-        .from(rentalLocationEquipment)
-        .where(eq(rentalLocationEquipment.location, input.data.location))
-        .get()?.value ?? 0) + 1;
-    const inserted = db
-      .insert(rentalLocationEquipment)
-      .values({
-        location: input.data.location,
-        equipmentKey: key,
-        category: input.data.category,
-        labelDe: input.data.labelDe,
-        labelEn: input.data.labelEn,
-        priceCents: input.data.priceCents,
-        displayOrder,
-        isAvailable: input.data.isAvailable,
-      })
-      .returning({ id: rentalLocationEquipment.id })
-      .get();
-    return NextResponse.json({ item: { ...input.data, id: inserted.id, equipmentKey: key } }, { status: 201 });
+      return NextResponse.json({ item: { ...input.data, id: inserted.id, equipmentKey: key } }, { status: 201 });
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("UNIQUE")) return duplicateResponse();
     throw error;
@@ -161,7 +159,7 @@ export async function PATCH(request: Request) {
   const session = await getAuthorizedSession(request);
   if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const input = updateSchema.safeParse(await request.json().catch(() => null));
+  const input = updateSchema.safeParse(await readBoundedJson(request));
   if (!input.success || !canAccessLocation(session.user, input.data.location)) {
     return NextResponse.json({ message: "Ungültige Inventardaten oder fehlende Berechtigung." }, { status: 400 });
   }
@@ -230,22 +228,43 @@ export async function DELETE(request: Request) {
   const session = await getAuthorizedSession(request);
   if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const input = deleteSchema.safeParse(await request.json().catch(() => null));
+  const input = deleteSchema.safeParse(await readBoundedJson(request));
   if (!input.success || !canAccessLocation(session.user, input.data.location)) {
     return NextResponse.json({ message: "Ungültige Inventardaten oder fehlende Berechtigung." }, { status: 400 });
   }
 
   const db = getDatabase();
   if (input.data.type === "bike") {
-    db.delete(rentalLocationBikes)
-      .where(and(eq(rentalLocationBikes.id, input.data.id), eq(rentalLocationBikes.location, input.data.location)))
-      .run();
+    const result = runInImmediateTransaction(db, () => {
+      const updated = db
+        .update(rentalLocationBikes)
+        .set({ isAvailable: false })
+        .where(and(eq(rentalLocationBikes.id, input.data.id), eq(rentalLocationBikes.location, input.data.location)))
+        .run();
+      if (updated.changes)
+        db.update(rentalLocationBikeSizes)
+          .set({ isAvailable: false })
+          .where(eq(rentalLocationBikeSizes.locationBikeId, input.data.id))
+          .run();
+      return updated.changes;
+    });
+    if (!result) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
   } else {
-    db.delete(rentalLocationEquipment)
-      .where(
-        and(eq(rentalLocationEquipment.id, input.data.id), eq(rentalLocationEquipment.location, input.data.location)),
-      )
-      .run();
+    const result = runInImmediateTransaction(
+      db,
+      () =>
+        db
+          .update(rentalLocationEquipment)
+          .set({ isAvailable: false })
+          .where(
+            and(
+              eq(rentalLocationEquipment.id, input.data.id),
+              eq(rentalLocationEquipment.location, input.data.location),
+            ),
+          )
+          .run().changes,
+    );
+    if (!result) return NextResponse.json({ message: "Ausrüstung nicht gefunden." }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function NevloSyncButton() {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const autoSyncStarted = useRef(false);
 
-  async function sync() {
+  const sync = useCallback(async () => {
     setBusy(true);
     setMessage(null);
     try {
@@ -20,20 +21,21 @@ export function NevloSyncButton() {
       const result = (await response.json()) as { message?: string; inserted?: number; skipped?: number };
       if (!response.ok) throw new Error(result.message || "Nevlo-Synchronisation fehlgeschlagen.");
       setMessage(`${result.inserted ?? 0} neue Transaktionen importiert, ${result.skipped ?? 0} bereits vorhanden.`);
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Nevlo-Synchronisation fehlgeschlagen.");
     } finally {
       setBusy(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    if (autoSyncStarted.current) return;
+    autoSyncStarted.current = true;
+    void sync();
+  }, [sync]);
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button type="button" onClick={sync} disabled={busy}>
-        {busy ? "Nevlo wird synchronisiert …" : "Nevlo synchronisieren"}
-      </Button>
-      {message ? <span className="text-sm text-muted-foreground">{message}</span> : null}
-    </div>
+    <span className="text-right text-xs text-muted-foreground">{busy ? "Nevlo wird synchronisiert …" : message}</span>
   );
 }
-

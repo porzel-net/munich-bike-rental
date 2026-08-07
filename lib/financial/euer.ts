@@ -1,7 +1,14 @@
-import { and, asc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
-import { financialCategories, financialTransactionAllocations, financialTransactions } from "../db/schema";
+import {
+  bookings,
+  financialCategories,
+  financialTransactionAllocations,
+  financialTransactions,
+  fixedAssetDepreciationEntries,
+  fixedAssets,
+} from "../db/schema";
 
 export type EuerRow = {
   id: number;
@@ -11,8 +18,10 @@ export type EuerRow = {
   source: string;
   description: string;
   amountCents: number;
-  transactionId: number;
+  transactionId: number | null;
   bookingId: number | null;
+  invoiceNumber: string | null;
+  fixedAssetId?: number;
 };
 
 export type EuerSummary = {
@@ -31,7 +40,7 @@ export type EuerSummary = {
 export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
   const from = `${year}-01-01`;
   const to = `${year + 1}-01-01`;
-  const rows = db
+  const transactionRows = db
     .select({
       id: financialTransactionAllocations.id,
       date: financialTransactions.bookedAt,
@@ -42,10 +51,13 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       amountCents: financialTransactionAllocations.amountCents,
       transactionId: financialTransactions.id,
       bookingId: financialTransactionAllocations.bookingId,
+      allocationKind: financialTransactionAllocations.allocationKind,
+      invoiceNumber: bookings.invoiceNumber,
     })
     .from(financialTransactionAllocations)
     .innerJoin(financialTransactions, eq(financialTransactionAllocations.transactionId, financialTransactions.id))
     .innerJoin(financialCategories, eq(financialTransactionAllocations.categoryId, financialCategories.id))
+    .leftJoin(bookings, eq(financialTransactionAllocations.bookingId, bookings.id))
     .where(
       and(
         eq(financialTransactions.status, "posted"),
@@ -54,7 +66,31 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       ),
     )
     .orderBy(asc(financialTransactions.bookedAt), asc(financialTransactionAllocations.id))
+    .all()
+    .map(({ allocationKind, ...row }) => ({
+      ...row,
+      invoiceNumber: allocationKind === "fee" ? null : row.invoiceNumber,
+    })) as EuerRow[];
+  const depreciationRows = db
+    .select({
+      id: sql<number>`-${fixedAssetDepreciationEntries.id}`,
+      date: fixedAssetDepreciationEntries.periodStart,
+      category: financialCategories.name,
+      euerTreatment: financialCategories.euerTreatment,
+      source: sql<string>`'depreciation'`,
+      description: fixedAssets.name,
+      amountCents: fixedAssetDepreciationEntries.amountCents,
+      transactionId: sql<number | null>`null`,
+      bookingId: sql<number | null>`null`,
+      invoiceNumber: sql<string | null>`null`,
+      fixedAssetId: fixedAssets.id,
+    })
+    .from(fixedAssetDepreciationEntries)
+    .innerJoin(fixedAssets, eq(fixedAssetDepreciationEntries.fixedAssetId, fixedAssets.id))
+    .innerJoin(financialCategories, eq(financialCategories.code, "depreciation"))
+    .where(and(gte(fixedAssetDepreciationEntries.periodStart, from), lt(fixedAssetDepreciationEntries.periodStart, to)))
     .all() as EuerRow[];
+  const rows = [...transactionRows, ...depreciationRows].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
 
   let incomeCents = 0;
   let expenseCents = 0;

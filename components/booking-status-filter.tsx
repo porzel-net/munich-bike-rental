@@ -63,13 +63,16 @@ export function BookingStatusFilter({
   ];
   const selectedAssigneeLabel = assigneeItems.find((item) => item.value === assignee)?.label ?? "Alle Sachbearbeiter";
 
-  const updateParam = useCallback((key: string, nextValue: string | null, emptyValue?: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (!nextValue || nextValue === emptyValue) params.delete(key);
-    else params.set(key, nextValue);
-    const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
-  }, [pathname, router, searchParams]);
+  const updateParam = useCallback(
+    (key: string, nextValue: string | null, emptyValue?: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (!nextValue || nextValue === emptyValue) params.delete(key);
+      else params.set(key, nextValue);
+      const query = params.toString();
+      router.push(query ? `${pathname}?${query}` : pathname);
+    },
+    [pathname, router, searchParams],
+  );
 
   useEffect(() => {
     const nextSearch = searchValue.trim();
@@ -96,7 +99,11 @@ export function BookingStatusFilter({
       </InputGroup>
       <div className="ml-auto flex w-full justify-end gap-1.5 sm:w-auto">
         {canFilterLocations ? (
-          <Select items={locationItems} value={location} onValueChange={(nextValue) => updateParam("location", nextValue, "all")}>
+          <Select
+            items={locationItems}
+            value={location}
+            onValueChange={(nextValue) => updateParam("location", nextValue, "all")}
+          >
             <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Standort auswählen">
               <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
             </SelectTrigger>

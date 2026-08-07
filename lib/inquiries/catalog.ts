@@ -85,3 +85,15 @@ export const computerMountTypeLabels = {
   de: { garmin: "Garmin", wahoo: "Wahoo", other: "Andere" },
   en: { garmin: "Garmin", wahoo: "Wahoo", other: "Other" },
 } as const;
+
+export function getPedalTypeLabel(value: string | null | undefined, locale: Locale) {
+  return (value && pedalTypeLabels[locale][value as keyof (typeof pedalTypeLabels)[typeof locale]]) ?? value ?? "";
+}
+
+export function getComputerMountTypeLabel(value: string | null | undefined, locale: Locale) {
+  return (
+    (value && computerMountTypeLabels[locale][value as keyof (typeof computerMountTypeLabels)[typeof locale]]) ??
+    value ??
+    ""
+  );
+}

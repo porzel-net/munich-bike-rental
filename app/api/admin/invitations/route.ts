@@ -3,11 +3,13 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { getServerSession, isAdmin } from "../../../../lib/auth/session";
 import { createInvitationToken, hashInvitationToken, invitationBaseUrl } from "../../../../lib/auth/invitations";
 import { getDatabase } from "../../../../lib/db/client";
 import { authInvitation } from "../../../../lib/db/schema/auth";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -26,12 +28,6 @@ const invitationSchema = z
     }
   });
 
-function hasTrustedOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const baseURL = invitationBaseUrl();
-  return origin === new URL(baseURL).origin;
-}
-
 export async function POST(request: Request) {
   if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
 
@@ -40,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const parsed = invitationSchema.safeParse(await request.json().catch(() => null));
+  const parsed = invitationSchema.safeParse(await readBoundedJson(request));
   if (!parsed.success) return NextResponse.json({ message: "Invalid invitation data" }, { status: 400 });
 
   const token = createInvitationToken();

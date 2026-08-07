@@ -6,15 +6,11 @@ const booking = {
   id: 12,
   orderNumber: "#20260721135924",
   name: "Peter Huch",
-  email: "peter@example.com",
-  phone: "+49 123 456",
   location: "munich",
   periodFrom: "2026-07-24",
   periodTo: "2026-07-25",
   pickupTime: "08:00",
   dropoffTime: "18:00",
-  message: "Bitte Sattel einstellen.",
-  totalPriceCents: 6400,
   status: "confirmed" as const,
   source: "automatic" as const,
   submittedAt: new Date("2026-07-21T12:00:00.000Z"),
@@ -31,8 +27,8 @@ describe("booking calendar feed", () => {
     expect(unfoldedFeed).toContain("SUMMARY:Bestätigt - Endurace CF SL 8 - M: Peter Huch #20260721135924");
     expect(unfoldedFeed).toContain("DTSTART;TZID=Europe/Berlin:20260724T080000");
     expect(unfoldedFeed).toContain("DTEND;TZID=Europe/Berlin:20260725T180000");
-    expect(unfoldedFeed).toContain("E-Mail: peter@example.com");
-    expect(unfoldedFeed).toContain("Bitte Sattel einstellen.");
+    expect(unfoldedFeed).not.toContain("peter@example.com");
+    expect(unfoldedFeed).not.toContain("Bitte Sattel einstellen.");
   });
 
   it("changes the feed etag when a booking is removed", () => {

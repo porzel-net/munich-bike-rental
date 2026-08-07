@@ -9,13 +9,25 @@ const twoFactorVerificationPaths = new Set([
   "/api/auth/two-factor/verify-totp",
   "/api/auth/two-factor/verify-backup-code",
 ]);
+const MAX_AUTH_BODY_BYTES = 256 * 1024;
+
+function isDisabledAdminPath(pathname: string) {
+  return pathname === "/api/auth/admin" || pathname.startsWith("/api/auth/admin/");
+}
 
 export async function GET(request: Request) {
+  if (isDisabledAdminPath(new URL(request.url).pathname)) return new Response(null, { status: 404 });
   return handler.GET(request);
 }
 
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(contentLength) && contentLength > MAX_AUTH_BODY_BYTES) {
+    return Response.json({ message: "Request body too large." }, { status: 413 });
+  }
   const pathname = new URL(request.url).pathname;
+
+  if (isDisabledAdminPath(pathname)) return new Response(null, { status: 404 });
 
   // Account provisioning is handled by the one-time invitation endpoint.
   if (pathname === "/api/auth/admin/create-user") return new Response(null, { status: 404 });

@@ -9,7 +9,7 @@ export type AuthorizedUser = {
 };
 
 export function hasRole(user: AuthorizedUser, role: AdminRole) {
-  return user.role?.split(",").includes(role) ?? false;
+  return user.role === role;
 }
 
 export function isAdmin(user: AuthorizedUser) {

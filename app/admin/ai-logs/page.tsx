@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, or } from "drizzle-orm";
 import { BotIcon } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -33,6 +33,10 @@ export default async function AiLogsPage({
   const status = parseFilter(params.status, ["all", "needs_action", "no_action", "error"] as const, "all");
   const source = parseFilter(params.source, ["all", "openai", "inquiry_rule", "fallback"] as const, "all");
   const db = getDatabase();
+  const logConditions = [
+    status !== "all" ? eq(emailActionReviews.status, status) : null,
+    source !== "all" ? eq(emailActionReviews.source, source) : null,
+  ].filter((condition): condition is NonNullable<typeof condition> => condition !== null);
   const logs = db
     .select({
       review: emailActionReviews,
@@ -51,11 +55,10 @@ export default async function AiLogsPage({
     .from(emailActionReviews)
     .innerJoin(bookings, eq(emailActionReviews.bookingId, bookings.id))
     .innerJoin(communicationMessages, eq(emailActionReviews.triggerMessageId, communicationMessages.id))
+    .where(logConditions.length ? and(...logConditions) : undefined)
     .orderBy(desc(emailActionReviews.createdAt), desc(emailActionReviews.id))
     .all()
     .filter(({ review, booking, message }) => {
-      if (status !== "all" && review.status !== status) return false;
-      if (source !== "all" && review.source !== source) return false;
       if (!search) return true;
       return [
         booking.orderNumber,
@@ -70,8 +73,16 @@ export default async function AiLogsPage({
         .toLocaleLowerCase("de-DE")
         .includes(search);
     });
-  const allLogs = db.select({ status: emailActionReviews.status }).from(emailActionReviews).all();
-  const needsActionCount = allLogs.filter((log) => log.status === "needs_action" || log.status === "error").length;
+  const totalCount = db.select({ value: count() }).from(emailActionReviews).get()?.value ?? 0;
+  const needsActionCount =
+    db
+      .select({ value: count() })
+      .from(emailActionReviews)
+      .where(or(eq(emailActionReviews.status, "needs_action"), eq(emailActionReviews.status, "error")))
+      .get()?.value ?? 0;
+  const errorCount =
+    db.select({ value: count() }).from(emailActionReviews).where(eq(emailActionReviews.status, "error")).get()?.value ??
+    0;
 
   return (
     <SidebarProvider
@@ -94,9 +105,9 @@ export default async function AiLogsPage({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">{allLogs.length} Prüfungen</Badge>
-              <Badge variant={needsActionCount ? "destructive" : "success"}>
-                {needsActionCount} mit Handlungsbedarf
+              <Badge variant="outline">{totalCount} Prüfungen</Badge>
+              <Badge variant={needsActionCount || errorCount ? "destructive" : "success"}>
+                {needsActionCount + errorCount} mit Handlungsbedarf
               </Badge>
             </div>
           </div>

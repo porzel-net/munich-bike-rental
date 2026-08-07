@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { BookingCommandError } from "@/lib/bookings/errors";
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import { attachFinancialDocument } from "@/lib/financial/documents";
+import { attachFinancialDocument, MAX_FINANCIAL_DOCUMENT_BYTES } from "@/lib/financial/documents";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const base = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
   const session = await getServerSession();
   if (
-    request.headers.get("origin") !== new URL(base).origin ||
+    !hasTrustedOrigin(request) ||
     !session ||
     !session.user.twoFactorEnabled ||
     !canAccessAdmin(session.user) ||
@@ -22,15 +22,33 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const transactionId = Number((await context.params).id);
   if (!Number.isInteger(transactionId) || transactionId <= 0)
     return NextResponse.json({ message: "Ungültige Transaktion" }, { status: 400 });
-  const formData = await request.formData();
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  const maxRequestBytes = MAX_FINANCIAL_DOCUMENT_BYTES + 128 * 1024;
+  if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
+    return NextResponse.json({ message: "Der Upload ist zu groß." }, { status: 413 });
+  }
+
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json({ message: "Der Beleg-Upload konnte nicht gelesen werden." }, { status: 400 });
+  }
   const file = formData.get("file");
   if (!(file instanceof File)) return NextResponse.json({ message: "Bitte wähle einen Beleg aus." }, { status: 400 });
+  const description = formData.get("description");
+  if (typeof description === "string" && description.length > 1_000) {
+    return NextResponse.json(
+      { message: "Die Belegbeschreibung darf höchstens 1.000 Zeichen enthalten." },
+      { status: 400 },
+    );
+  }
   try {
     const result = await attachFinancialDocument(getDatabase(), {
       transactionId,
       file,
       userId: session.user.id,
-      description: String(formData.get("description") || ""),
+      description: typeof description === "string" ? description : "",
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {

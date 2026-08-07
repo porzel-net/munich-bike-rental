@@ -19,12 +19,15 @@ export type JournalCommand = {
     | "cash_expense"
     | "bank_fee"
     | "tax_payment"
+    | "depreciation"
     | "unclassified_transaction"
     | "correction";
   financialTransactionId?: number | null;
   actorUserId?: string | null;
+  idempotencyKey?: string | null;
   reason: string;
   lines: Array<{ account: string; amountCents: number }>;
+  occurredAt?: Date;
   reversesEntryId?: number;
   dueAt?: Date | null;
 };
@@ -33,6 +36,14 @@ export function appendJournalEntry(db: AppDatabase, input: JournalCommand) {
   const balance = input.lines.reduce((sum, line) => sum + line.amountCents, 0);
   if (balance !== 0 || input.lines.some((line) => line.amountCents === 0))
     throw new BookingCommandError("Journal entries must be balanced and non-zero");
+  if (input.idempotencyKey) {
+    const existing = db
+      .select({ id: journalEntries.id })
+      .from(journalEntries)
+      .where(eq(journalEntries.idempotencyKey, input.idempotencyKey))
+      .get();
+    if (existing) return existing.id;
+  }
   const createdAt = new Date();
   const entry = db
     .insert(journalEntries)
@@ -41,10 +52,11 @@ export function appendJournalEntry(db: AppDatabase, input: JournalCommand) {
       financialTransactionId: input.financialTransactionId ?? null,
       kind: input.kind,
       reason: input.reason,
+      idempotencyKey: input.idempotencyKey ?? null,
       reversesEntryId: input.reversesEntryId ?? null,
       actorUserId: input.actorUserId ?? null,
       dueAt: input.dueAt ?? null,
-      occurredAt: createdAt,
+      occurredAt: input.occurredAt ?? createdAt,
       createdAt,
     })
     .returning({ id: journalEntries.id })

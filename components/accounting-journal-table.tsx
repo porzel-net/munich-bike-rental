@@ -90,6 +90,7 @@ const kindLabels: Record<string, string> = {
   refund_issued: "Erstattung",
   credit_note: "Gutschrift",
   expense: "Aufwand",
+  depreciation: "Abschreibung (AfA)",
   correction: "Korrektur",
   legacy_import: "Historischer Import",
 };
@@ -300,7 +301,9 @@ export function AccountingJournalTable({ entries }: { entries: JournalEntry[] })
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Finanzjournal</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Unveränderliche Erträge und Aufwände mit nachvollziehbarer Quelle.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Unveränderliche Erträge und Aufwände mit nachvollziehbarer Quelle.
+          </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <InputGroup className="w-full sm:w-64">

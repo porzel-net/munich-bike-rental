@@ -25,9 +25,7 @@ export function getBikeSizeWarning(label: string, heightCm: number) {
   const selectedRange = enduraceSizeRanges.find((range) => range.size === parsed.size);
   if (!selectedRange || (heightCm >= selectedRange.minCm && heightCm <= selectedRange.maxCm)) return null;
 
-  const recommendedRange = enduraceSizeRanges.find(
-    (range) => heightCm >= range.minCm && heightCm <= range.maxCm,
-  );
+  const recommendedRange = enduraceSizeRanges.find((range) => heightCm >= range.minCm && heightCm <= range.maxCm);
   return {
     selectedSize: selectedRange.size,
     selectedRange,

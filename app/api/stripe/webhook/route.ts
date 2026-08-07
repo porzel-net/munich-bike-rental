@@ -6,6 +6,8 @@ import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
 import { mailOutbox } from "@/lib/db/schema";
+import { readBoundedText } from "@/lib/security/request-body";
+import { consumeRequestRateLimit } from "@/lib/security/rate-limit";
 import { constructStripeWebhookEvent, StripeConfigurationError } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -13,14 +15,30 @@ export const runtime = "nodejs";
 const PAYMENT_EVENTS = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded"]);
 
 export async function POST(request: Request) {
-  const payload = await request.text();
+  if (!consumeRequestRateLimit(request, "stripe-webhook", { max: 60, windowMs: 60_000 })) {
+    return NextResponse.json(
+      { message: "Zu viele Webhook-Anfragen." },
+      { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "60" } },
+    );
+  }
+  const payload = await readBoundedText(request, 1 * 1024 * 1024);
+  if (payload === null) {
+    return NextResponse.json(
+      { message: "Stripe-Webhook konnte nicht verarbeitet werden." },
+      { status: 413, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   try {
     const event = constructStripeWebhookEvent(payload, request.headers.get("stripe-signature"));
-    if (!PAYMENT_EVENTS.has(event.type)) return NextResponse.json({ received: true });
+    if (!PAYMENT_EVENTS.has(event.type))
+      return NextResponse.json({ received: true }, { headers: { "Cache-Control": "no-store" } });
 
     const session = event.data.object;
     if (event.type === "checkout.session.completed" && session.payment_status !== "paid") {
-      return NextResponse.json({ received: true, waitingForPayment: true });
+      return NextResponse.json(
+        { received: true, waitingForPayment: true },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const offerId = Number(session.metadata?.booking_offer_id);
@@ -30,7 +48,10 @@ export async function POST(request: Request) {
       typeof session.amount_total !== "number" ||
       !Number.isSafeInteger(session.amount_total)
     ) {
-      return NextResponse.json({ message: "Stripe-Session enthält keine gültige Angebotsreferenz." }, { status: 400 });
+      return NextResponse.json(
+        { message: "Stripe-Session enthält keine gültige Angebotsreferenz." },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
     }
     const amountCents = session.amount_total;
 
@@ -63,12 +84,15 @@ export async function POST(request: Request) {
       if (confirmationMailId) await dispatchNextOutboxMail(database, confirmationMailId);
     }
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ received: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const status = error instanceof StripeConfigurationError ? 503 : error instanceof BookingCommandError ? 409 : 400;
+    console.error("Stripe webhook processing failed", {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+    });
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Stripe-Webhook konnte nicht verarbeitet werden." },
-      { status },
+      { message: "Stripe-Webhook konnte nicht verarbeitet werden." },
+      { status, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

@@ -36,6 +36,7 @@ describe("booking mail threads", () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);
     const { db } = connection;
+    const inquirySentAt = new Date(Date.now() - 120_000);
     const created = db
       .insert(bookings)
       .values({
@@ -70,8 +71,8 @@ describe("booking mail threads", () => {
         recipients: "main@example.com",
         subject: "Neue Bike-Anfrage #20260804160000",
         plainText: "Bitte Verfügbarkeit bestätigen.",
-        sentAt: new Date("2026-08-15T10:01:00+02:00"),
-        archivedAt: new Date("2026-08-15T10:01:00+02:00"),
+        sentAt: inquirySentAt,
+        archivedAt: inquirySentAt,
       })
       .run();
     const firstMail = db

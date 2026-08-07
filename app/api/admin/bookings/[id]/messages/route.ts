@@ -1,13 +1,26 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
-import { canAccessAdmin, canAccessLocation, getServerSession } from "../../../../../../lib/auth/session";
-import { getDatabase } from "../../../../../../lib/db/client";
-import { bookings, communicationMessages } from "../../../../../../lib/db/schema";
+import { getBookingAdminContext } from "../../../../../../lib/bookings/admin-guard";
+import { communicationMessages } from "../../../../../../lib/db/schema";
 import { syncBookingMailThread } from "../../../../../../lib/inquiries/mailbox";
-import type { RentalLocation } from "../../../../../../lib/inquiries/catalog";
 
 export const runtime = "nodejs";
+
+function readMessages(
+  db: Parameters<typeof syncBookingMailThread>[0],
+  bookingId: number,
+  orderNumber: string,
+  customerMessage: string,
+) {
+  return db
+    .select()
+    .from(communicationMessages)
+    .where(eq(communicationMessages.bookingId, bookingId))
+    .orderBy(communicationMessages.sentAt)
+    .all()
+    .filter((message) => !isLegacyInquiryMessage(message, orderNumber, customerMessage));
+}
 
 function isLegacyInquiryMessage(
   message: typeof communicationMessages.$inferSelect,
@@ -30,19 +43,22 @@ function isLegacyInquiryMessage(
   return isSyntheticFormMessage || isOldInternalCopy;
 }
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession();
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
-  const db = getDatabase();
-  const booking = Number.isInteger(id) ? db.select().from(bookings).where(eq(bookings.id, id)).get() : undefined;
-  if (
-    !session ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
-    !booking ||
-    !canAccessLocation(session.user, booking.location as RentalLocation)
-  )
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
+  if (!command) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  const { db, booking } = command;
+  return NextResponse.json(
+    { messages: readMessages(db, booking.id, booking.orderNumber, booking.customerMessage) },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const id = Number((await context.params).id);
+  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
+  if (!command) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  const { db, booking } = command;
   db.delete(communicationMessages)
     .where(
       and(
@@ -58,12 +74,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     )
     .run();
   const sync = await syncBookingMailThread(db, booking.id, booking.orderNumber);
-  const messages = db
-    .select()
-    .from(communicationMessages)
-    .where(eq(communicationMessages.bookingId, booking.id))
-    .orderBy(communicationMessages.sentAt)
-    .all()
-    .filter((message) => !isLegacyInquiryMessage(message, booking.orderNumber, booking.customerMessage));
-  return NextResponse.json({ sync, messages }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(
+    { sync, messages: readMessages(db, booking.id, booking.orderNumber, booking.customerMessage) },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

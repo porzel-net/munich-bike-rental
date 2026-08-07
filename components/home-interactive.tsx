@@ -639,14 +639,7 @@ function BikeModal({
   );
 }
 
-export function HomeTopbar({
-  lang,
-  homePath,
-  showBlog = true,
-  topbar,
-  hiddenNavItems,
-  backLink,
-}: HomeTopbarProps) {
+export function HomeTopbar({ lang, homePath, showBlog = true, topbar, hiddenNavItems, backLink }: HomeTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -665,8 +658,7 @@ export function HomeTopbar({
       lang,
     });
   };
-  const isHidden = (item: "start" | "bikes" | "prices" | "faq" | "contact") =>
-    hiddenNavItems?.includes(item) ?? false;
+  const isHidden = (item: "start" | "bikes" | "prices" | "faq" | "contact") => hiddenNavItems?.includes(item) ?? false;
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -814,11 +806,7 @@ export function HomeTopbar({
         <nav className="nav nav--mobile" aria-label="Mobile primary">
           <ul className="nav__list nav__list--mobile">
             <li className="nav__item nav__item--mobile">
-              <a
-                href={sectionHref("#home")}
-                className="nav__link nav__link--mobile"
-                onClick={() => setMenuOpen(false)}
-              >
+              <a href={sectionHref("#home")} className="nav__link nav__link--mobile" onClick={() => setMenuOpen(false)}>
                 {topbar.nav.start}
               </a>
             </li>

@@ -32,14 +32,6 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
   // A pending Better Auth 2FA challenge deliberately has no full session yet.
   if (!session && pathname === "/admin/two-factor") return <div className={styles.root}>{children}</div>;
   if (!session) redirect("/admin/login");
-  if (pathname === "/admin/calendar" || pathname?.startsWith("/admin/calendar/")) {
-    return (
-      <div className={styles.root}>
-        {children}
-        <Toaster richColors />
-      </div>
-    );
-  }
   if (!canAccessAdmin(session.user)) redirect("/");
   if (session.user.mustChangePassword && pathname !== "/admin/change-password") redirect("/admin/change-password");
   if (pathname === "/admin/change-password") return <div className={styles.root}>{children}</div>;

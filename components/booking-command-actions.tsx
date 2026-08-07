@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckIcon, ChevronRightIcon, CircleDollarSignIcon, RefreshCwIcon, SendIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
 import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
+import { getComputerMountTypeLabel, getPedalTypeLabel } from "@/lib/inquiries/catalog";
 import type { BookingStatus } from "@/lib/db/schema";
 
 type OfferAccessorySelection = {
@@ -151,6 +152,11 @@ export function BookingCommandActions({
   const [customAlternativeReason, setCustomAlternativeReason] = useState("");
   const [rejectionReasonType, setRejectionReasonType] = useState<RejectionReasonType>("");
   const [customRejectionReason, setCustomRejectionReason] = useState("");
+  const [personalMessage, setPersonalMessage] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewRequestId = useRef(0);
+  const commandIdRef = useRef<string | null>(null);
   const [preview, setPreview] = useState<{
     quote: {
       totalCents: number;
@@ -206,7 +212,7 @@ export function BookingCommandActions({
           : "Grund auswählen";
   const rejectionMailPreview = `Hey ${customerName.trim().split(/\s+/)[0] || customerName},
 
-vielen Dank für deine Anfrage.
+${personalMessage.trim() ? `${personalMessage.trim()}\n\n` : ""}vielen Dank für deine Anfrage.
 
 Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!
 
@@ -234,6 +240,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomAlternativeReason("");
     setRejectionReasonType("");
     setCustomRejectionReason("");
+    setPersonalMessage("");
+    setPreviewError(null);
+    setPreviewLoading(false);
+    commandIdRef.current = null;
   };
 
   const openOffer = () => {
@@ -243,12 +253,18 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setAlternativeReasonType("");
     setCustomAlternativeReason("");
     setPreview(null);
+    setPersonalMessage("");
+    setPreviewError(null);
+    setPreviewLoading(false);
   };
 
   const openReject = () => {
     setActiveAction("reject");
     setRejectionReasonType("");
     setCustomRejectionReason("");
+    setPersonalMessage("");
+    setPreviewError(null);
+    setPreviewLoading(false);
   };
 
   const updateOfferAccessories = (itemId: number, change: Partial<OfferAccessorySelection>) => {
@@ -257,13 +273,18 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       [String(itemId)]: { ...current[String(itemId)], ...change },
     }));
     setPreview(null);
+    setPreviewError(null);
+    setPreviewLoading(false);
   };
 
   const request = async (body: object) => {
+    const command = (body as { command?: string }).command;
+    const idempotencyKey =
+      command === "payment" || command === "refund" ? (commandIdRef.current ??= crypto.randomUUID()) : undefined;
     const response = await fetch(`/api/admin/bookings/${bookingId}/commands`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(idempotencyKey ? { ...body, idempotencyKey } : body),
     });
     const result = (await response.json().catch(() => null)) as { message?: string } | null;
     if (!response.ok) throw new Error(result?.message ?? "Aktion fehlgeschlagen");
@@ -275,9 +296,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       if (activeAction === "offer") {
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes Asset.");
-        if (
-          Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId)))
-        )
+        if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
           throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
         if (isAlternativeOffer && !alternativeReason)
           throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
@@ -291,6 +310,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           ),
           alternative: isAlternativeOffer,
           alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
+          personalMessage: personalMessage.trim() || undefined,
         });
         toast.success(
           isAlternativeOffer ? "Alternativangebot wurde in die Outbox gelegt." : "Angebot wurde in die Outbox gelegt.",
@@ -307,7 +327,12 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         toast.success("Buchung wurde storniert.");
       } else if (activeAction === "payment" || activeAction === "refund") {
         const amountCents = euroToCents(amount);
-        if (amountCents === null || amountCents <= 0) throw new Error("Bitte gib einen positiven Euro-Betrag ein.");
+        if (amountCents === null || (activeAction === "payment" ? amountCents === 0 : amountCents <= 0))
+          throw new Error(
+            activeAction === "payment"
+              ? "Bitte gib einen von 0 € verschiedenen Euro-Betrag ein."
+              : "Bitte gib einen positiven Euro-Betrag ein.",
+          );
         await request({ command: activeAction, amountCents, reason });
         toast.success(activeAction === "payment" ? "Zahlung wurde erfasst." : "Erstattung wurde erfasst.");
       } else if (activeAction === "correct") {
@@ -316,7 +341,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         toast.success("Korrekturbuchung wurde angelegt.");
       } else if (activeAction === "reject") {
         if (!rejectionReason) throw new Error("Bitte wähle einen Grund für die Absage aus.");
-        await request({ command: "reject", reason: rejectionReason });
+        await request({
+          command: "reject",
+          reason: rejectionReason,
+          personalMessage: personalMessage.trim() || undefined,
+        });
         toast.success("Anfrage wurde abgelehnt.");
       }
       close();
@@ -328,38 +357,81 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     }
   };
 
-  const loadPreview = async () => {
-    try {
-      if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
-        throw new Error("Bitte wähle zuerst für jedes Fahrrad ein Asset.");
-      if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
-        throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
-      if (isAlternativeOffer && !alternativeReason)
-        throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
-      setBusy(true);
-      const response = await fetch(`/api/admin/bookings/${bookingId}/offer-preview`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          assetsByRequestedItem: Object.fromEntries(
-            Object.entries(assetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
-          ),
-          accessoriesByRequestedItem: Object.fromEntries(
-            Object.entries(offerAccessories).map(([key, value]) => [key, value]),
-          ),
-          alternative: isAlternativeOffer,
-          alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
-        }),
-      });
-      const result = (await response.json().catch(() => null)) as typeof preview & { message?: string };
-      if (!response.ok || !result) throw new Error(result?.message ?? "Vorschau konnte nicht erstellt werden.");
-      setPreview(result);
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      setBusy(false);
+  const loadPreview = useCallback(
+    async (notify = true) => {
+      const requestId = ++previewRequestId.current;
+      try {
+        if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
+          throw new Error("Bitte wähle zuerst für jedes Fahrrad ein Asset.");
+        if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
+          throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
+        if (isAlternativeOffer && !alternativeReason)
+          throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
+        setPreviewLoading(true);
+        setPreviewError(null);
+        const response = await fetch(`/api/admin/bookings/${bookingId}/offer-preview`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            assetsByRequestedItem: Object.fromEntries(
+              Object.entries(assetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
+            ),
+            accessoriesByRequestedItem: Object.fromEntries(
+              Object.entries(offerAccessories).map(([key, value]) => [key, value]),
+            ),
+            alternative: isAlternativeOffer,
+            alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
+            personalMessage: personalMessage.trim() || undefined,
+          }),
+        });
+        const result = (await response.json().catch(() => null)) as typeof preview & { message?: string };
+        if (!response.ok || !result) throw new Error(result?.message ?? "Vorschau konnte nicht erstellt werden.");
+        if (requestId === previewRequestId.current) setPreview(result);
+      } catch (error) {
+        if (requestId === previewRequestId.current) {
+          setPreviewError(errorMessage(error));
+          if (notify) toast.error(errorMessage(error));
+        }
+      } finally {
+        if (requestId === previewRequestId.current) setPreviewLoading(false);
+      }
+    },
+    [
+      alternativeReason,
+      assetsByRequestedItem,
+      bookingId,
+      isAlternativeOffer,
+      offerAccessories,
+      personalMessage,
+      requestedItems,
+      unavailableAssetIdSet,
+    ],
+  );
+
+  const previewInputsComplete =
+    requestedItems.length > 0 &&
+    requestedItems.every((item) => Boolean(assetsByRequestedItem[String(item.id)])) &&
+    (!isAlternativeOffer || Boolean(alternativeReason));
+  const previewInputsKey = JSON.stringify({
+    assetsByRequestedItem,
+    offerAccessories,
+    alternativeReason,
+    isAlternativeOffer,
+    personalMessage,
+  });
+
+  useEffect(() => {
+    if (activeAction !== "offer") {
+      previewRequestId.current += 1;
+      return;
     }
-  };
+    if (!previewInputsComplete) {
+      previewRequestId.current += 1;
+      return;
+    }
+    const timer = window.setTimeout(() => void loadPreview(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [activeAction, loadPreview, previewInputsComplete, previewInputsKey]);
 
   const confirmTransition = async () => {
     if (!confirmAction) return;
@@ -411,8 +483,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     <>
       {actionsLocked ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 sm:px-5">
-          Für diese Buchung ist noch kein Sachbearbeiter eingetragen. Bitte zuerst zuweisen, dann können Angebote,
-          Zahlungen und weitere Aktionen ausgeführt werden.
+          Für diese Buchung ist aktuell kein berechtigter Sachbearbeiter für Aktionen eingetragen. Bitte die Buchung dem
+          zuständigen Sachbearbeiter zuweisen oder als Admin öffnen.
         </div>
       ) : null}
       <ItemGroup className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -493,10 +565,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     const selectedAsset = availableAssets.find(
                       (asset) => String(asset.id) === assetsByRequestedItem[String(item.id)],
                     );
-                    const sizeWarning = getBikeSizeWarning(
-                      selectedAsset?.label ?? item.requestedLabel,
-                      item.heightCm,
-                    );
+                    const sizeWarning = getBikeSizeWarning(selectedAsset?.label ?? item.requestedLabel, item.heightCm);
                     return (
                       <div className="rounded-xl border p-4" key={item.id}>
                         <Field>
@@ -510,6 +579,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                             onValueChange={(value) => {
                               setAssetsByRequestedItem((current) => ({ ...current, [String(item.id)]: value ?? "" }));
                               setPreview(null);
+                              setPreviewLoading(false);
                             }}
                           >
                             <SelectTrigger id={`asset-${item.id}`} className="w-full">
@@ -527,8 +597,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                                     value={String(asset.id)}
                                     disabled={
                                       unavailableAssetIdSet.has(asset.id) ||
-                                      selectedAssetIds.has(String(asset.id)) &&
-                                      assetsByRequestedItem[String(item.id)] !== String(asset.id)
+                                      (selectedAssetIds.has(String(asset.id)) &&
+                                        assetsByRequestedItem[String(item.id)] !== String(asset.id))
                                     }
                                   >
                                     {asset.label} · {formatEuro(asset.priceCents)} / Tag
@@ -592,7 +662,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                               />
                               <span>
                                 {label}
-                                {type ? ` · ${type}` : ""}
+                                {type
+                                  ? ` · ${
+                                      key === "needsPedals"
+                                        ? getPedalTypeLabel(type, "de")
+                                        : getComputerMountTypeLabel(type, "de")
+                                    }`
+                                  : ""}
                               </span>
                             </label>
                           ))}
@@ -612,6 +688,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       onValueChange={(value) => {
                         setAlternativeReasonType((value as AlternativeReasonType) ?? "");
                         setPreview(null);
+                        setPreviewLoading(false);
                       }}
                     >
                       <SelectTrigger id="alternative-reason" className="w-full">
@@ -629,6 +706,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                         onChange={(event) => {
                           setCustomAlternativeReason(event.target.value);
                           setPreview(null);
+                          setPreviewLoading(false);
                         }}
                         placeholder="Warum wird ein anderes Fahrrad angeboten?"
                       />
@@ -636,16 +714,38 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     <FieldDescription>Der Grund wird in der Angebotsmail angezeigt.</FieldDescription>
                   </Field>
                 )}
+                <Field>
+                  <FieldLabel htmlFor="offer-personal-message">Persönliche Nachricht (optional)</FieldLabel>
+                  <Textarea
+                    id="offer-personal-message"
+                    value={personalMessage}
+                    onChange={(event) => {
+                      setPersonalMessage(event.target.value);
+                      setPreview(null);
+                      setPreviewLoading(false);
+                      setPreviewError(null);
+                    }}
+                    placeholder="Zum Beispiel eine persönliche Antwort auf eine Frage aus der Anfrage"
+                    maxLength={2000}
+                  />
+                  <FieldDescription>
+                    Dieser Text wird direkt oben nach der Anrede in die Angebotsmail eingefügt.
+                  </FieldDescription>
+                </Field>
                 <div className="flex items-center justify-between rounded-2xl bg-muted/60 p-4">
                   <div>
                     <p className="font-medium">Preis und Mailvorschau</p>
-                    <p className="text-sm text-muted-foreground">Vor dem Versand serverseitig berechnen.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {previewLoading
+                        ? "Vorschau wird automatisch aktualisiert…"
+                        : previewInputsComplete
+                          ? "Vorschau ist automatisch auf dem aktuellen Stand."
+                          : "Vorschau erscheint, sobald alle Fahrräder ausgewählt sind."}
+                    </p>
                   </div>
-                  <Button type="button" variant="outline" disabled={busy} onClick={loadPreview}>
-                    Vorschau laden
-                  </Button>
                 </div>
-                {preview && (
+                {previewInputsComplete && previewError && <p className="text-sm text-destructive">{previewError}</p>}
+                {previewInputsComplete && preview && (
                   <div className="grid gap-4 rounded-2xl border bg-card p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Badge variant="secondary">{formatEuro(preview.quote.totalCents)}</Badge>
@@ -807,6 +907,19 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   />
                 )}
                 <FieldDescription>Der ausgewählte Grund wird im Buchungsverlauf gespeichert.</FieldDescription>
+                <div className="mt-4 space-y-2">
+                  <FieldLabel htmlFor="reject-personal-message">Persönliche Nachricht (optional)</FieldLabel>
+                  <Textarea
+                    id="reject-personal-message"
+                    value={personalMessage}
+                    onChange={(event) => setPersonalMessage(event.target.value)}
+                    placeholder="Zum Beispiel eine persönliche Antwort auf eine Frage aus der Anfrage"
+                    maxLength={2000}
+                  />
+                  <FieldDescription>
+                    Dieser Text wird direkt oben nach der Anrede in die Absage-Mail eingefügt.
+                  </FieldDescription>
+                </div>
                 <div className="rounded-xl border bg-muted/40 p-4">
                   <p className="font-medium">Vorschau der Absage-Mail</p>
                   <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
@@ -820,7 +933,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             <Button variant="outline" type="button" onClick={close}>
               Abbrechen
             </Button>
-            <Button disabled={busy || missingRequiredReason} onClick={submit}>
+            <Button disabled={busy || previewLoading || missingRequiredReason} onClick={submit}>
               {busy
                 ? "Wird gesendet…"
                 : showOfferFields

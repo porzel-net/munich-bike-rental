@@ -12,8 +12,6 @@ export function AdminCalendarView({
   statusValue,
   weeks,
   hasBookings,
-  todayHref,
-  totalBookings,
   monthName,
   yearLabel,
 }: {
@@ -25,14 +23,12 @@ export function AdminCalendarView({
   statusValue: string;
   weeks: CalendarWeek[];
   hasBookings: boolean;
-  todayHref: string;
-  totalBookings: number;
   monthName: string;
   yearLabel: string;
 }) {
   return (
     <section className="calendar-shell">
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="w-full">
         <CalendarToolbar
           locationItems={locationItems}
           locationValue={locationValue}
@@ -41,8 +37,6 @@ export function AdminCalendarView({
           previousMonthHref={previousMonthHref}
           statusItems={statusItems}
           statusValue={statusValue}
-          todayHref={todayHref}
-          totalBookings={totalBookings}
           yearLabel={yearLabel}
         />
 

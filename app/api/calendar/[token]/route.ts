@@ -15,23 +15,36 @@ function isValidToken(value: string, expected: string) {
   return timingSafeEqual(actualHash, expectedHash);
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const expectedToken = process.env.CALENDAR_FEED_TOKEN?.trim();
   const routeToken = (await params).token;
   const token = routeToken.endsWith(".ics") ? routeToken.slice(0, -4) : routeToken;
-  if (!expectedToken || !isValidToken(token, expectedToken)) {
-    return new Response("Not found", { status: 404 });
+  if (
+    !expectedToken ||
+    expectedToken.length < 32 ||
+    expectedToken === "replace-with-a-long-random-token" ||
+    !isValidToken(token, expectedToken)
+  ) {
+    return new Response("Not found", {
+      status: 404,
+      headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
+    });
   }
 
   const db = getDatabase();
   const bookingsForCalendar = db
     .select({
-      id: bookings.id, orderNumber: bookings.orderNumber, name: bookings.customerName, email: bookings.customerEmail, phone: bookings.customerPhone,
-      location: bookings.location, periodFrom: bookings.periodFrom, periodTo: bookings.periodTo, pickupTime: bookings.pickupTime, dropoffTime: bookings.dropoffTime,
-      message: bookings.customerMessage, totalPriceCents: bookings.quotedTotalCents, status: bookings.status, source: bookings.source, submittedAt: bookings.createdAt,
+      id: bookings.id,
+      orderNumber: bookings.orderNumber,
+      name: bookings.customerName,
+      location: bookings.location,
+      periodFrom: bookings.periodFrom,
+      periodTo: bookings.periodTo,
+      pickupTime: bookings.pickupTime,
+      dropoffTime: bookings.dropoffTime,
+      status: bookings.status,
+      source: bookings.source,
+      submittedAt: bookings.createdAt,
     })
     .from(bookings)
     .where(inArray(bookings.status, calendarBookingStatuses))
@@ -41,11 +54,17 @@ export async function GET(
     ? db
         .select({ inquiryId: bookingRequestedItems.bookingId, bikeSize: bookingRequestedItems.requestedLabel })
         .from(bookingRequestedItems)
-        .where(inArray(bookingRequestedItems.bookingId, bookingsForCalendar.map((booking) => booking.id)))
+        .where(
+          inArray(
+            bookingRequestedItems.bookingId,
+            bookingsForCalendar.map((booking) => booking.id),
+          ),
+        )
         .all()
     : [];
   const bikesByInquiry = new Map<number, string[]>();
-  for (const bike of bikes) bikesByInquiry.set(bike.inquiryId, [...(bikesByInquiry.get(bike.inquiryId) ?? []), bike.bikeSize]);
+  for (const bike of bikes)
+    bikesByInquiry.set(bike.inquiryId, [...(bikesByInquiry.get(bike.inquiryId) ?? []), bike.bikeSize]);
 
   const feed = buildBookingCalendarFeed(
     bookingsForCalendar.map((inquiry) => ({
@@ -53,16 +72,26 @@ export async function GET(
       status: inquiry.status as (typeof calendarBookingStatuses)[number],
       source: inquiry.source === "manual" ? "manual" : "automatic",
       bikes: bikesByInquiry.get(inquiry.id) ?? [],
-      locationAddress: rentalLocationConfigs.find((location) => location.key === inquiry.location)?.address ?? inquiry.location,
+      locationAddress:
+        rentalLocationConfigs.find((location) => location.key === inquiry.location)?.address ?? inquiry.location,
     })),
   );
-  if (request.headers.get("if-none-match") === feed.etag) return new Response(null, { status: 304 });
+  if (request.headers.get("if-none-match") === feed.etag)
+    return new Response(null, {
+      status: 304,
+      headers: {
+        "Cache-Control": "private, no-store, must-revalidate",
+        "X-Content-Type-Options": "nosniff",
+        ETag: feed.etag,
+      },
+    });
 
   return new Response(feed.body, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": "inline; filename=munich-bike-rental.ics",
-      "Cache-Control": "private, no-cache, must-revalidate",
+      "Cache-Control": "private, no-store, must-revalidate",
+      "X-Content-Type-Options": "nosniff",
       ETag: feed.etag,
     },
   });

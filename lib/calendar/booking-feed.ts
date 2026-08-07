@@ -8,15 +8,11 @@ export type BookingCalendarRow = {
   id: number;
   orderNumber: string;
   name: string;
-  email: string;
-  phone: string;
   location: string;
   periodFrom: string;
   periodTo: string;
   pickupTime: string;
   dropoffTime: string;
-  message: string;
-  totalPriceCents: number;
   status: (typeof calendarBookingStatuses)[number];
   source: "automatic" | "manual";
   submittedAt: Date;
@@ -37,16 +33,24 @@ function formatUtcDateTime(date: Date) {
   return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
 }
 
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
-}
-
 function statusLabel(status: BookingCalendarRow["status"]) {
-  return status === "offer_sent" ? "Angebot versendet" : status === "confirmed" ? "Verbindlich gebucht" : status === "checked_out" ? "Fahrrad ausgegeben" : "Abgeschlossen";
+  return status === "offer_sent"
+    ? "Angebot versendet"
+    : status === "confirmed"
+      ? "Verbindlich gebucht"
+      : status === "checked_out"
+        ? "Fahrrad ausgegeben"
+        : "Abgeschlossen";
 }
 
 function calendarTitleStatus(status: BookingCalendarRow["status"]) {
-  return status === "offer_sent" ? "Angebot" : status === "confirmed" ? "Bestätigt" : status === "checked_out" ? "Ausgegeben" : "Abgeschlossen";
+  return status === "offer_sent"
+    ? "Angebot"
+    : status === "confirmed"
+      ? "Bestätigt"
+      : status === "checked_out"
+        ? "Ausgegeben"
+        : "Abgeschlossen";
 }
 
 function foldLine(line: string) {
@@ -63,8 +67,6 @@ export function buildBookingCalendarFeed(bookings: BookingCalendarRow[]) {
     const description = [
       `Auftragsnummer: ${booking.orderNumber}`,
       `Name: ${booking.name}`,
-      `E-Mail: ${booking.email}`,
-      `Telefon: ${booking.phone}`,
       `Status: ${statusLabel(booking.status)}`,
       `Quelle: ${booking.source === "manual" ? "Manuell" : "Automatisch"}`,
       `Fahrräder: ${booking.bikes.join(" / ") || "Keine Fahrraddaten"}`,
@@ -72,8 +74,6 @@ export function buildBookingCalendarFeed(bookings: BookingCalendarRow[]) {
       `Rückgabe: ${booking.periodTo} um ${booking.dropoffTime} Uhr`,
       `Ort: ${rentalLocationLabels.de[booking.location as RentalLocation] ?? booking.locationAddress}`,
       `Adresse: ${booking.locationAddress}`,
-      `Wert: ${formatPrice(booking.totalPriceCents)}`,
-      `Nachricht: ${booking.message || "Keine Nachricht"}`,
     ].join("\n");
     const uid = `booking-${booking.id}@munich-bike-rental.de`;
     const calendarStatus = booking.status === "offer_sent" ? "TENTATIVE" : "CONFIRMED";

@@ -1,20 +1,16 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+import { hasTrustedOrigin } from "../../../../../lib/auth/request";
 import { auth } from "../../../../../lib/auth";
-import { hashInvitationToken } from "../../../../../lib/auth/invitations";
+import { clearBootstrapInvitationFile, hashInvitationToken } from "../../../../../lib/auth/invitations";
 import { invitationRegistrationSchema, resolveInvitationName } from "../../../../../lib/auth/invitation-validation";
 import { getDatabase } from "../../../../../lib/db/client";
 import { authInvitation, authUser } from "../../../../../lib/db/schema/auth";
 import { rentalLocationLabels, rentalLocations } from "../../../../../lib/inquiries/catalog";
+import { readBoundedJson } from "../../../../../lib/security/request-body";
 
 export const runtime = "nodejs";
-
-function hasTrustedOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  const expected = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
-  return origin === new URL(expected).origin;
-}
 
 async function findInvitation(token: string) {
   return getDatabase()
@@ -55,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const invitation = await findInvitation(token);
   if (!invitation) return NextResponse.json({ message: "Invitation is invalid or expired" }, { status: 404 });
 
-  const parsed = invitationRegistrationSchema.safeParse(await request.json().catch(() => null));
+  const parsed = invitationRegistrationSchema.safeParse(await readBoundedJson(request, 16 * 1024));
   if (!parsed.success) return NextResponse.json({ message: "Invalid registration data" }, { status: 400 });
   const name = resolveInvitationName(invitation.name, parsed.data.name);
   if (!name) return NextResponse.json({ message: "Name is required" }, { status: 400 });
@@ -80,6 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     });
     if (!result.user) throw new Error("User was not created");
     getDatabase().update(authUser).set({ mustChangePassword: false }).where(eq(authUser.id, result.user.id)).run();
+    if (invitation.name === "" && invitation.createdBy === null) clearBootstrapInvitationFile();
   } catch (error) {
     console.error(
       "Invitation account creation failed",

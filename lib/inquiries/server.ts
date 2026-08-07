@@ -31,6 +31,15 @@ export function jsonError(status: number, code: ApiErrorCode, error: string) {
 
 function getExpectedOrigin(request: Request) {
   const configuredOrigin = process.env.APP_ORIGIN ?? new URL(siteConfig.url).origin;
+  if (process.env.NODE_ENV === "production") {
+    try {
+      const parsedOrigin = new URL(configuredOrigin);
+      return parsedOrigin.protocol === "https:" ? parsedOrigin.origin : null;
+    } catch {
+      return null;
+    }
+  }
+
   const localOrigins = new Set([
     "http://localhost",
     "https://localhost",
@@ -51,12 +60,9 @@ function getExpectedOrigin(request: Request) {
 
 function getClientIp(request: Request) {
   const realIp = request.headers.get("x-real-ip")?.trim();
-  if (realIp) {
-    return realIp;
-  }
-
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  return forwardedFor?.split(",").at(-1)?.trim() || "unknown";
+  // X-Forwarded-For is client-spoofable unless every proxy hop is tightly
+  // controlled. Nginx overwrites X-Real-IP in the documented deployment.
+  return realIp || "unknown";
 }
 
 export function consumeRateLimit(key: string, now = Date.now()) {

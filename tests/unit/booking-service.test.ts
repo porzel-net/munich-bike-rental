@@ -24,6 +24,7 @@ import {
   cancelBooking,
   confirmOffer,
   confirmOfferWithStripePayment,
+  correctJournalEntry,
   createBooking,
   createDirectBooking,
   createOffer,
@@ -34,6 +35,7 @@ import {
   updateBooking,
 } from "../../lib/bookings/service";
 import { renderOfferMail } from "../../lib/bookings/messages";
+import { appendJournalEntry } from "../../lib/bookings/ledger";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 afterEach(() => {
@@ -118,13 +120,92 @@ function assignAdminBooking(db: ReturnType<typeof setup>["db"], bookingId: numbe
 }
 
 describe("booking commands", () => {
+  it("rejects impossible dates and makes manual payments retry-safe", () => {
+    const { db, assetId } = setup();
+    expect(() => inquiry(db, "2026-02-30", "2026-03-01")).toThrow("Zeitraum und Uhrzeiten sind ungültig");
+
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOffer(db, offer.confirmationToken, "admin");
+
+    const firstEntry = recordPayment(db, {
+      bookingId: booking.id,
+      amountCents: 5_000,
+      reason: "Anzahlung",
+      actorUserId: "admin",
+      idempotencyKey: "manual-payment-test-1",
+    });
+    expect(
+      recordPayment(db, {
+        bookingId: booking.id,
+        amountCents: 5_000,
+        reason: "Anzahlung wiederholt",
+        actorUserId: "admin",
+        idempotencyKey: "manual-payment-test-1",
+      }),
+    ).toBe(firstEntry);
+    expect(() =>
+      recordPayment(db, {
+        bookingId: booking.id,
+        amountCents: 5_001,
+        reason: "Zu viel",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Gesamtpreis");
+
+    expect(
+      recordPayment(db, {
+        bookingId: booking.id,
+        amountCents: -1_000,
+        reason: "Stornierung der Anzahlung",
+        actorUserId: "admin",
+      }),
+    ).toBeTypeOf("number");
+    expect(db.select({ kind: journalEntries.kind }).from(journalEntries).all().at(-1)?.kind).toBe("refund_issued");
+  });
+
+  it("binds journal corrections to the booking they came from", () => {
+    const { db } = setup();
+    const first = inquiry(db, "2026-07-20", "2026-07-21");
+    const second = inquiry(db, "2026-07-22", "2026-07-23");
+    assignAdminBooking(db, first.id);
+    assignAdminBooking(db, second.id);
+    const entry = appendJournalEntry(db, {
+      bookingId: second.id,
+      kind: "expense",
+      actorUserId: "admin",
+      reason: "Testbuchung",
+      lines: [
+        { account: "expense", amountCents: 100 },
+        { account: "bank_or_cash", amountCents: -100 },
+      ],
+    });
+    expect(() => correctJournalEntry(db, { bookingId: first.id, entryId: entry, reason: "Falscher Vorgang" })).toThrow(
+      "Journal entry not found",
+    );
+  });
+
   it("renders the German offer with Stripe payment instructions and the sender's first name", () => {
     const mail = renderOfferMail({
       locale: "de",
       alternative: false,
       name: "Ada Lovelace",
       orderNumber: "#20260725100000",
-      requested: [{ requestedLabel: "Endurace CF SL 8 - M", assetName: "Endurace CF SL 8 - M" }],
+      requested: [
+        {
+          requestedLabel: "Endurace CF SL 8 - M",
+          assetName: "Endurace CF SL 8 - M",
+          accessories: {
+            needsPedals: true,
+            pedalType: "lookKeo2Max",
+            needsComputerMount: true,
+            computerMountType: "garmin",
+            needsHelmet: false,
+            needsClothing: true,
+          },
+        },
+      ],
       totalCents: 12_300,
       periodFrom: "2026-07-25",
       periodTo: "2026-07-26",
@@ -135,7 +216,7 @@ describe("booking commands", () => {
       senderFirstName: "Julius",
     });
 
-    expect(mail.text).toContain("Endurace CF SL 8 - M\n\nZeitraum:");
+    expect(mail.text).toContain("Endurace CF SL 8 - M\nZubehör:");
     expect(mail.text).not.toContain("Endurace CF SL 8 - M →");
     expect(mail.text).toContain("Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden.");
     expect(mail.text).toContain("Deine Checkliste für die Abholung:");
@@ -145,6 +226,11 @@ describe("booking commands", () => {
     expect(mail.text).toContain("100 % des Gesamtpreises über Stripe");
     expect(mail.text).not.toContain("Verwendungszweck:");
     expect(mail.text).toContain("Liebe Grüße,\nJulius");
+    expect(mail.text).toContain("- Pedale: Look Keo2 Max");
+    expect(mail.text).toContain("- Computerhalterung: Garmin");
+    expect(mail.text).toContain("- Helm: Nicht enthalten");
+    expect(mail.text).toContain("- Kleidung: Enthalten");
+    expect(mail.text).not.toContain("lookKeo2Max");
   });
 
   it("queues a localized offer and atomically reserves the chosen asset only on confirmation", () => {
@@ -175,6 +261,9 @@ describe("booking commands", () => {
         sessionId: "cs_test_booking",
       }),
     ).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
+    expect(
+      db.select({ invoiceNumber: bookings.invoiceNumber }).from(bookings).where(eq(bookings.id, booking.id)).get(),
+    ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/) });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, booking.id)).get()?.plainText).toContain(
       `http://localhost:3000/angebot/${offer.confirmationToken}`,
@@ -190,6 +279,9 @@ describe("booking commands", () => {
 
     advanceBooking(db, booking.id, "checked_out", "admin");
     advanceBooking(db, booking.id, "completed", "admin");
+    expect(
+      db.select({ invoiceNumber: bookings.invoiceNumber }).from(bookings).where(eq(bookings.id, booking.id)).get(),
+    ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/) });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(2);
   });
@@ -481,6 +573,31 @@ describe("booking commands", () => {
         .all()
         .map((entry) => entry.kind),
     ).toEqual(["rental_charge", "credit_note", "cancellation_fee"]);
+  });
+
+  it("includes the net refund in the cancellation mail", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, {
+      bookingId: booking.id,
+      assetsByRequestedItem: { [booking.itemId]: assetId },
+      actorUserId: "admin",
+    });
+    confirmOffer(db, offer.confirmationToken, "admin");
+    recordPayment(db, { bookingId: booking.id, amountCents: 10_000, reason: "Stripe", actorUserId: "admin" });
+
+    const mailId = cancelBooking(db, {
+      bookingId: booking.id,
+      cancellationFeeCents: 2_000,
+      reason: "Kund:innenwunsch",
+      actorUserId: "admin",
+    });
+
+    expect(mailId).toBeTypeOf("number");
+    expect(
+      db.select({ plainText: mailOutbox.plainText }).from(mailOutbox).where(eq(mailOutbox.id, mailId!)).get(),
+    ).toMatchObject({ plainText: expect.stringContaining("You will receive €80.00 back.") });
   });
 
   it("expires due offers without binding a JavaScript Date into SQLite SQL", () => {

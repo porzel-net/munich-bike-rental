@@ -48,9 +48,7 @@ function PaymentStatusBadge({ revenue }: { revenue: AccountingRevenue }) {
     <Badge
       variant="outline"
       className={
-        isPaid
-          ? "border-[#639754] bg-[#639754]/15 text-[#426537]"
-          : "border-[#D61F1F] bg-[#D61F1F]/10 text-[#D61F1F]"
+        isPaid ? "border-[#639754] bg-[#639754]/15 text-[#426537]" : "border-[#D61F1F] bg-[#D61F1F]/10 text-[#D61F1F]"
       }
     >
       {isPaid ? "Bezahlt" : "Unbezahlt"}
@@ -99,8 +97,8 @@ export function AccountingRevenuesTable({ revenues }: { revenues: AccountingReve
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div>
-          <CardTitle>Erträge</CardTitle>
-          <CardDescription>Erträge aus Aufträgen und deren Zahlungseingänge.</CardDescription>
+            <CardTitle>Erträge</CardTitle>
+            <CardDescription>Erträge aus Aufträgen und deren Zahlungseingänge.</CardDescription>
           </div>
           <InputGroup className="max-w-sm">
             <InputGroupAddon>

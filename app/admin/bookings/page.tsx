@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -119,6 +119,8 @@ export default async function BookingsPage({
   const bookingConditions = [
     administrator || location === "all" ? null : eq(bookings.location, location),
     status ? eq(bookings.status, status) : null,
+    datePeriod.from ? gte(bookings.periodTo, datePeriod.from) : null,
+    datePeriod.to ? lte(bookings.periodFrom, datePeriod.to) : null,
     assignee === "unassigned"
       ? isNull(bookings.assignedUserId)
       : assignee !== "all"
@@ -220,9 +222,7 @@ export default async function BookingsPage({
       .join(" ")
       .toLocaleLowerCase("de-DE");
     const matchesSearch = !search || searchableText.includes(search);
-    const matchesFrom = !datePeriod.from || row.periodTo >= datePeriod.from;
-    const matchesTo = !datePeriod.to || row.periodFrom <= datePeriod.to;
-    return matchesSearch && matchesFrom && matchesTo;
+    return matchesSearch;
   });
   return (
     <SidebarProvider

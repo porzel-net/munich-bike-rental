@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, X } from "lucide-react";
 
 import type { BookingConfirmationDetails } from "@/lib/inquiries/confirmation";
-import { rentalLocationLabels } from "@/lib/inquiries/catalog";
+import { getComputerMountTypeLabel, getPedalTypeLabel, rentalLocationLabels } from "@/lib/inquiries/catalog";
 
 type BookingConfirmationDialogProps = {
   token?: string;
@@ -22,8 +22,9 @@ function formatPrice(cents: number) {
 
 function formatEquipment(bike: BookingConfirmationDetails["bikes"][number]) {
   return [
-    bike.needsPedals && `Pedale${bike.pedalType ? `: ${bike.pedalType}` : ""}`,
-    bike.needsComputerMount && `Halterung${bike.computerMountType ? `: ${bike.computerMountType}` : ""}`,
+    bike.needsPedals && `Pedale${bike.pedalType ? `: ${getPedalTypeLabel(bike.pedalType, "de")}` : ""}`,
+    bike.needsComputerMount &&
+      `Halterung${bike.computerMountType ? `: ${getComputerMountTypeLabel(bike.computerMountType, "de")}` : ""}`,
     bike.needsHelmet && "Helm",
     bike.needsClothing && "Bekleidung",
   ]

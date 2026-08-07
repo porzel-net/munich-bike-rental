@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createDatabaseConnection } from "../../lib/db/client";
+import { eq } from "drizzle-orm";
+import { rentalLocationBikes } from "../../lib/db/schema";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 import { calculateInquiryPrice, calculateRentalPrice } from "../../lib/inventory/pricing";
 import { getLocationInventory, isRequestAvailable } from "../../lib/inventory/repository";
@@ -69,6 +71,18 @@ describe("location inventory", () => {
         isStudent: true,
       }),
     ).toMatchObject({ subtotalCents: 14700, discountPercentage: 20, discountCents: 2940, totalCents: 11760 });
+  });
+
+  it("handles malformed catalog JSON without crashing and keeps the real minimum bike price", () => {
+    const db = createTestDatabase();
+    db.update(rentalLocationBikes)
+      .set({ galleryJson: "not-json", factsJson: "{}", equipmentJson: '{"de":"broken"}' })
+      .where(eq(rentalLocationBikes.location, "munich"))
+      .run();
+
+    const inventory = getLocationInventory(db, "munich");
+    expect(inventory.portfolioItems[0]).toMatchObject({ gallery: [], facts: [], equipment: { de: [], en: [] } });
+    expect(inventory.minimumBikePriceCents).toBeGreaterThan(0);
   });
 
   it("prices each selected asset once and applies discounts to every qualifying rental day", () => {

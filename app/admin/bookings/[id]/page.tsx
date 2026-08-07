@@ -180,6 +180,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       { label: "Telefonnummer", value: booking.customerPhone },
       { label: "Anzahl Fahrräder", value: String(items.length) },
       { label: "Buchungswert", value: formatEuro(latestOffer?.totalCents ?? booking.quotedTotalCents) },
+      ...(booking.invoiceNumber ? [{ label: "Rechnungsnummer", value: <Kbd>{booking.invoiceNumber}</Kbd> }] : []),
     ],
     [
       { label: "Zeitraum", value: `${booking.periodFrom} – ${booking.periodTo}` },
@@ -246,6 +247,15 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <BookingAiAnalysisButton bookingId={booking.id} />
+              {payment.status === "settled" ? (
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  render={<a href={`/api/admin/bookings/${booking.id}/invoice`} target="_blank" rel="noreferrer" />}
+                >
+                  Rechnung als PDF
+                </Button>
+              ) : null}
               {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ? (
                 <BookingEditDialog
                   bookingId={booking.id}
@@ -448,7 +458,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   status={booking.status}
                   customerName={booking.customerName}
                   senderName={session.user.name}
-                  canExecuteActions={Boolean(assignee)}
+                  canExecuteActions={
+                    Boolean(assignee) && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
+                  }
                   requestedItems={items.map((item) => ({
                     id: item.id,
                     label: `${item.position}. ${item.requestedLabel} (${item.heightCm} cm)`,

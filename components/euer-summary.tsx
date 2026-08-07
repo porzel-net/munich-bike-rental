@@ -36,6 +36,7 @@ function rowTarget(row: EuerRow) {
 
 function displayDescription(row: EuerRow) {
   const description = row.description || "Ohne Beschreibung";
+  if (row.source === "depreciation") return `${description} · AfA`;
   if (row.source !== "stripe") return description;
   return description.replace(/\s+cs_(?:test|live)_[A-Za-z0-9]+$/i, "").trim() || "Stripe-Zahlung";
 }
@@ -122,6 +123,7 @@ export function EuerSummary({ data }: { data: EuerSummary }) {
               <TableHead>Datum</TableHead>
               <TableHead>Kategorie</TableHead>
               <TableHead>Quelle / Beschreibung</TableHead>
+              <TableHead>Rechnungsnummer</TableHead>
               <TableHead>Wirkung</TableHead>
               <TableHead className="text-right">Betrag</TableHead>
             </TableRow>
@@ -155,10 +157,13 @@ export function EuerSummary({ data }: { data: EuerSummary }) {
                     <div className="flex flex-col">
                       <span>{displayDescription(row)}</span>
                       <span className="text-xs text-muted-foreground">
-                        {row.source} · Transaktion #{row.transactionId}
+                        {row.source === "depreciation"
+                          ? "Anlageverzeichnis"
+                          : `${row.source} · Transaktion #${row.transactionId}`}
                       </span>
                     </div>
                   </TableCell>
+                  <TableCell className="font-medium">{row.invoiceNumber ?? "—"}</TableCell>
                   <TableCell>{treatmentLabel(row.euerTreatment)}</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
                     {formatAmount(Math.abs(row.amountCents))}
@@ -167,7 +172,7 @@ export function EuerSummary({ data }: { data: EuerSummary }) {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   Noch keine gebuchten EÜR-Positionen.
                 </TableCell>
               </TableRow>

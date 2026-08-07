@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { BookingCommandError } from "@/lib/bookings/errors";
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { ignoreFinancialTransaction, postFinancialTransaction } from "@/lib/financial/reconciliation";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -14,14 +16,27 @@ const schema = z.discriminatedUnion("action", [
     categoryId: z.number().int().positive(),
     destinationAccountId: z.number().int().positive().optional(),
     note: z.string().trim().min(1).max(1000),
+    asset: z
+      .object({
+        name: z.string().trim().min(1).max(200),
+        assetType: z.enum(["bike", "equipment", "other"]),
+        serialNumber: z.string().trim().max(200).optional(),
+        acquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        inServiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        acquisitionCostCents: z.number().int().positive(),
+        inputVatCents: z.number().int().nonnegative().optional(),
+        usefulLifeMonths: z.number().int().positive(),
+        residualValueCents: z.number().int().nonnegative().optional(),
+        notes: z.string().trim().max(1000).optional(),
+      })
+      .optional(),
   }),
   z.object({ action: z.literal("ignore"), reason: z.string().trim().min(1).max(1000) }),
 ]);
 
 function authorized(request: Request, session: Awaited<ReturnType<typeof getServerSession>>) {
-  const base = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
   return (
-    request.headers.get("origin") === new URL(base).origin &&
+    hasTrustedOrigin(request) &&
     session &&
     session.user.twoFactorEnabled &&
     canAccessAdmin(session.user) &&
@@ -36,7 +51,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const transactionId = Number((await context.params).id);
   if (!Number.isInteger(transactionId) || transactionId <= 0)
     return NextResponse.json({ message: "Ungültige Transaktion" }, { status: 400 });
-  const input = schema.safeParse(await request.json().catch(() => null));
+  const input = schema.safeParse(await readBoundedJson(request));
   if (!input.success) return NextResponse.json({ message: "Ungültige Zuordnung" }, { status: 400 });
 
   try {

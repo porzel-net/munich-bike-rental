@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,7 +55,7 @@ export function BookingAssigneeCard({
   }));
 
   function openDialog() {
-    setSelectedUserId(assignee?.id ?? (isAdmin ? eligibleUsers[0]?.id ?? "" : currentUserId));
+    setSelectedUserId(assignee?.id ?? (isAdmin ? (eligibleUsers[0]?.id ?? "") : currentUserId));
     setOpen(true);
   }
 
@@ -109,7 +116,9 @@ export function BookingAssigneeCard({
                   onValueChange={(value) => setSelectedUserId(value ?? "")}
                 >
                   <SelectTrigger id={`assignee-${bookingId}`} className="w-full">
-                    <SelectValue className="text-sm font-normal">{selectedUser?.name ?? "Sachbearbeiter wählen"}</SelectValue>
+                    <SelectValue className="text-sm font-normal">
+                      {selectedUser?.name ?? "Sachbearbeiter wählen"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -125,9 +134,7 @@ export function BookingAssigneeCard({
             ) : currentUserIsAssignee ? (
               <Badge variant="outline">Du bist als Sachbearbeiter eingetragen</Badge>
             ) : canSelfAssign ? (
-              <p className="text-sm text-muted-foreground">
-                Du kannst dich hier selbst als Sachbearbeiter eintragen.
-              </p>
+              <p className="text-sm text-muted-foreground">Du kannst dich hier selbst als Sachbearbeiter eintragen.</p>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Nur Admins können die Zuweisung ändern. Erst danach können Buchungsaktionen ausgeführt werden.

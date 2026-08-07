@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
 import {
@@ -32,6 +32,58 @@ export type LocationInventory = {
   }>;
 };
 
+function localizedText(value: unknown): value is { de: string; en: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { de?: unknown }).de === "string" &&
+    typeof (value as { en?: unknown }).en === "string"
+  );
+}
+
+function parseGallery(value: string) {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === "string") ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseFacts(value: string): PortfolioItem["facts"] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is PortfolioItem["facts"][number] =>
+        typeof item === "object" &&
+        item !== null &&
+        localizedText((item as { label?: unknown }).label) &&
+        localizedText((item as { value?: unknown }).value),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function parseEquipment(value: string): PortfolioItem["equipment"] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !Array.isArray((parsed as { de?: unknown }).de) ||
+      !Array.isArray((parsed as { en?: unknown }).en)
+    )
+      return { de: [], en: [] };
+    const de = (parsed as { de: unknown[] }).de.filter((item): item is string => typeof item === "string");
+    const en = (parsed as { en: unknown[] }).en.filter((item): item is string => typeof item === "string");
+    return { de, en };
+  } catch {
+    return { de: [], en: [] };
+  }
+}
+
 export function getLocationInventory(db: AppDatabase, location: string): LocationInventory {
   const bikes = db
     .select()
@@ -40,11 +92,21 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .orderBy(asc(rentalLocationBikes.displayOrder))
     .all()
     .filter((bike) => bike.isAvailable);
-  const sizes = db
-    .select()
-    .from(rentalLocationBikeSizes)
-    .all()
-    .filter((size) => size.isAvailable);
+  const sizes = bikes.length
+    ? db
+        .select()
+        .from(rentalLocationBikeSizes)
+        .where(
+          and(
+            inArray(
+              rentalLocationBikeSizes.locationBikeId,
+              bikes.map((bike) => bike.id),
+            ),
+            eq(rentalLocationBikeSizes.isAvailable, true),
+          ),
+        )
+        .all()
+    : [];
   const equipment = db
     .select()
     .from(rentalLocationEquipment)
@@ -96,9 +158,9 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       },
       description: { de: bike.descriptionDe, en: bike.descriptionEn },
       image: bike.image,
-      gallery: JSON.parse(bike.galleryJson) as string[],
-      facts: JSON.parse(bike.factsJson) as PortfolioItem["facts"],
-      equipment: JSON.parse(bike.equipmentJson) as PortfolioItem["equipment"],
+      gallery: parseGallery(bike.galleryJson),
+      facts: parseFacts(bike.factsJson),
+      equipment: parseEquipment(bike.equipmentJson),
     })),
     bikeOptions,
     bikePrices,
@@ -108,7 +170,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     helmetAvailable: equipment.some((item) => item.equipmentKey === "helmet"),
     clothingAvailable: equipment.some((item) => item.equipmentKey === "clothing"),
     accessoryFromCents: equipment.length ? Math.min(...equipment.map((item) => item.priceCents)) : 0,
-    minimumBikePriceCents: Math.min(...bikes.map((item) => item.priceCentsPerDay), 0),
+    minimumBikePriceCents: bikes.length ? Math.min(...bikes.map((item) => item.priceCentsPerDay)) : 0,
     discounts: discounts.map((discount) => ({
       key: discount.discountKey,
       label: { de: discount.labelDe, en: discount.labelEn },

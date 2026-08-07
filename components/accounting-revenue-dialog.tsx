@@ -101,9 +101,10 @@ export function AccountingRevenueDialog({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ payments: parsedPayments, notes }),
     });
-    const result = (await response.json().catch(() => null)) as
-      | { revenue?: AccountingRevenuePatch; message?: string }
-      | null;
+    const result = (await response.json().catch(() => null)) as {
+      revenue?: AccountingRevenuePatch;
+      message?: string;
+    } | null;
     if (!response.ok || !result?.revenue) {
       setError(result?.message ?? "Der Ertrag konnte nicht gespeichert werden.");
       setSaving(false);

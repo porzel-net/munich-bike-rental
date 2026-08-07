@@ -54,7 +54,6 @@ function prepareDatabaseDirectory(databasePath: string) {
 
   const databaseDirectory = dirname(databasePath);
   mkdirSync(databaseDirectory, { recursive: true, mode: 0o700 });
-  chmodSync(databaseDirectory, 0o700);
 }
 
 function configureSqlite(client: InstanceType<typeof Database>) {
@@ -184,7 +183,18 @@ export function createDatabaseConnection(databasePath: string, migrationsFolder 
   const db = createDrizzleClient(client);
   sqliteClients.set(db, client);
   recoverInterruptedBookingMigration(client, migrationsFolder);
-  migrate(db, { migrationsFolder });
+  // Drizzle runs all pending SQLite migrations in one transaction. SQLite
+  // ignores PRAGMA foreign_keys changes inside a transaction, so migration
+  // files containing table rebuilds (for example `DROP TABLE user`) cannot
+  // disable FK actions themselves. Keep FK enforcement enabled for normal
+  // application queries, but turn it off for the migration transaction and
+  // restore it after Drizzle has committed or rolled back.
+  client.pragma("foreign_keys = OFF");
+  try {
+    migrate(db, { migrationsFolder });
+  } finally {
+    client.pragma("foreign_keys = ON");
+  }
 
   if (databasePath !== ":memory:" && existsSync(databasePath)) {
     chmodSync(databasePath, 0o600);

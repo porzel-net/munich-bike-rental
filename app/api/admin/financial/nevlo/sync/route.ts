@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessAdmin, getServerSession, isAdmin } from "../../../../../../lib/auth/session";
 import { getDatabase } from "../../../../../../lib/db/client";
 import { NevloApiError, NevloConfigurationError } from "../../../../../../lib/nevlo";
 import { syncNevloTransactions } from "../../../../../../lib/financial/nevlo-sync";
+import { isValidIsoDate } from "../../../../../../lib/bookings/validation";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
+const schema = z
+  .object({
+    accountId: z.string().trim().min(1).optional(),
+    dateFrom: z.string().trim().refine(isValidIsoDate, "Ungültiges Startdatum").optional(),
+    dateTo: z.string().trim().refine(isValidIsoDate, "Ungültiges Enddatum").optional(),
+  })
+  .refine((input) => !input.dateFrom || !input.dateTo || input.dateFrom <= input.dateTo, {
+    message: "Der Start darf nicht nach dem Ende liegen.",
+    path: ["dateTo"],
+  });
+
 export async function POST(request: Request) {
-  const base = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
   const session = await getServerSession();
   if (
-    request.headers.get("origin") !== new URL(base).origin ||
+    !hasTrustedOrigin(request) ||
     !session ||
     !session.user.twoFactorEnabled ||
     !canAccessAdmin(session.user) ||
@@ -19,25 +33,20 @@ export async function POST(request: Request) {
   )
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const body = (await request.json().catch(() => ({}))) as {
-    accountId?: unknown;
-    dateFrom?: unknown;
-    dateTo?: unknown;
-  };
-  const input = {
-    accountId: typeof body.accountId === "string" ? body.accountId.trim() || undefined : undefined,
-    dateFrom: typeof body.dateFrom === "string" ? body.dateFrom.trim() || undefined : undefined,
-    dateTo: typeof body.dateTo === "string" ? body.dateTo.trim() || undefined : undefined,
-  };
+  const input = schema.safeParse((await readBoundedJson(request)) ?? {});
+  if (!input.success)
+    return NextResponse.json(
+      { message: input.error.issues[0]?.message ?? "Ungültige Synchronisationsdaten." },
+      { status: 400 },
+    );
   try {
-    const result = await syncNevloTransactions(getDatabase(), input);
+    const result = await syncNevloTransactions(getDatabase(), input.data);
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const status = error instanceof NevloConfigurationError ? 503 : error instanceof NevloApiError ? 502 : 409;
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Nevlo-Synchronisation fehlgeschlagen." },
-      { status },
-    );
+    console.error("Nevlo synchronization failed", {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+    });
+    return NextResponse.json({ message: "Nevlo-Synchronisation fehlgeschlagen." }, { status });
   }
 }
-

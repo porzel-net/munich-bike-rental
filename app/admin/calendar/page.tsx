@@ -1,4 +1,4 @@
-import { and, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, gte, inArray, lte } from "drizzle-orm";
 import type { CSSProperties } from "react";
 import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "date-fns";
 import { redirect } from "next/navigation";
@@ -18,7 +18,16 @@ import {
   toCalendarBookingEvent,
 } from "@/lib/calendar/admin-calendar";
 import { getDatabase } from "@/lib/db/client";
-import { bookingRequestedItems, bookings, bookingStatuses, type BookingStatus } from "@/lib/db/schema";
+import {
+  bookingAssetAllocations,
+  bookingOfferItems,
+  bookingOffers,
+  bookingRequestedItems,
+  bookings,
+  bookingStatuses,
+  rentalAssets,
+  type BookingStatus,
+} from "@/lib/db/schema";
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
 
@@ -28,14 +37,17 @@ function resolveLocation(value: string | undefined, administrator: boolean, assi
   return rentalLocations.includes(value as RentalLocation) ? (value as RentalLocation) : "all";
 }
 
-function resolveStatus(value: string | undefined): BookingStatus | "all" {
-  return value && (bookingStatuses as readonly string[]).includes(value) ? (value as BookingStatus) : "all";
+function resolveStatuses(value: string | undefined): BookingStatus[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .filter((status): status is BookingStatus => (bookingStatuses as readonly string[]).includes(status));
 }
 
 function calendarHref(month: Date, location: string, status: string) {
   const params = new URLSearchParams({ month: getCalendarMonthKey(month) });
   if (location !== "all") params.set("location", location);
-  if (status !== "all") params.set("status", status);
+  if (status && status !== "all") params.set("status", status);
   return `/admin/calendar?${params.toString()}`;
 }
 
@@ -56,13 +68,13 @@ export default async function CalendarPage({
   const params = await searchParams;
   const month = parseCalendarMonthKey(params.month);
   const location = resolveLocation(params.location, administrator, assignedLocation);
-  const status = resolveStatus(params.status);
+  const statuses = resolveStatuses(params.status);
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
   const db = getDatabase();
   const conditions = [
     location !== "all" ? inArray(bookings.location, [location]) : null,
-    status !== "all" ? inArray(bookings.status, [status]) : null,
+    statuses.length ? inArray(bookings.status, statuses) : null,
     gte(bookings.periodTo, formatDateForQuery(gridStart)),
     lte(bookings.periodFrom, formatDateForQuery(gridEnd)),
   ].filter((condition): condition is NonNullable<typeof condition> => condition !== null);
@@ -74,7 +86,7 @@ export default async function CalendarPage({
     .all();
   const items = rows.length
     ? db
-        .select({ bookingId: bookingRequestedItems.bookingId, requestedLabel: bookingRequestedItems.requestedLabel })
+        .select()
         .from(bookingRequestedItems)
         .where(
           inArray(
@@ -84,9 +96,66 @@ export default async function CalendarPage({
         )
         .all()
     : [];
-  const itemsByBooking = new Map<number, string[]>();
-  for (const item of items)
-    itemsByBooking.set(item.bookingId, [...(itemsByBooking.get(item.bookingId) ?? []), item.requestedLabel]);
+  const itemsByBooking = new Map<number, typeof items>();
+  for (const item of items) itemsByBooking.set(item.bookingId, [...(itemsByBooking.get(item.bookingId) ?? []), item]);
+
+  const bookingIds = rows.map((row) => row.id);
+  const offers = bookingIds.length
+    ? db
+        .select()
+        .from(bookingOffers)
+        .where(inArray(bookingOffers.bookingId, bookingIds))
+        .orderBy(desc(bookingOffers.offerNumber))
+        .all()
+    : [];
+  const latestOfferIds = new Set<number>();
+  const latestOfferByBooking = new Map<number, number>();
+  for (const offer of offers) {
+    if (!latestOfferByBooking.has(offer.bookingId)) {
+      latestOfferByBooking.set(offer.bookingId, offer.id);
+      latestOfferIds.add(offer.id);
+    }
+  }
+  const offerIds = [...latestOfferIds];
+  const offerItems = offerIds.length
+    ? db.select().from(bookingOfferItems).where(inArray(bookingOfferItems.offerId, offerIds)).all()
+    : [];
+  const allocations = bookingIds.length
+    ? db
+        .select()
+        .from(bookingAssetAllocations)
+        .where(inArray(bookingAssetAllocations.bookingId, bookingIds))
+        .orderBy(desc(bookingAssetAllocations.createdAt))
+        .all()
+    : [];
+  const assetIds = [
+    ...new Set([...offerItems.map((item) => item.assetId), ...allocations.map((allocation) => allocation.assetId)]),
+  ];
+  const assets = assetIds.length
+    ? db
+        .select({ id: rentalAssets.id, displayName: rentalAssets.displayName })
+        .from(rentalAssets)
+        .where(inArray(rentalAssets.id, assetIds))
+        .all()
+    : [];
+  const assetNames = new Map(assets.map((asset) => [asset.id, asset.displayName]));
+  const allocatedAssetsByBooking = new Map<number, string[]>();
+  for (const allocation of allocations) {
+    const name = assetNames.get(allocation.assetId);
+    if (name && !allocatedAssetsByBooking.get(allocation.bookingId)?.includes(name)) {
+      allocatedAssetsByBooking.set(allocation.bookingId, [
+        ...(allocatedAssetsByBooking.get(allocation.bookingId) ?? []),
+        name,
+      ]);
+    }
+  }
+  const offeredAssetsByBooking = new Map<number, string[]>();
+  for (const item of offerItems) {
+    const offer = offers.find((candidate) => candidate.id === item.offerId);
+    const name = assetNames.get(item.assetId);
+    if (offer && name)
+      offeredAssetsByBooking.set(offer.bookingId, [...(offeredAssetsByBooking.get(offer.bookingId) ?? []), name]);
+  }
   const events = rows.map((row) =>
     toCalendarBookingEvent({
       id: row.id,
@@ -96,7 +165,25 @@ export default async function CalendarPage({
       periodFrom: row.periodFrom,
       periodTo: row.periodTo,
       status: row.status,
-      requestedItems: itemsByBooking.get(row.id) ?? [],
+      requestedItems: (itemsByBooking.get(row.id) ?? []).map((item) => item.requestedLabel),
+      selectedItems: allocatedAssetsByBooking.get(row.id) ?? offeredAssetsByBooking.get(row.id) ?? [],
+      customerPhone: row.customerPhone,
+      pickupTime: row.pickupTime,
+      dropoffTime: row.dropoffTime,
+      requestedEquipment: [
+        ...new Set(
+          (itemsByBooking.get(row.id) ?? []).flatMap((item) =>
+            [
+              item.needsPedals ? `Pedale${item.pedalType ? ` (${item.pedalType})` : ""}` : null,
+              item.needsComputerMount
+                ? `Computerhalterung${item.computerMountType ? ` (${item.computerMountType})` : ""}`
+                : null,
+              item.needsHelmet ? "Helm" : null,
+              item.needsClothing ? "Radbekleidung" : null,
+            ].filter((value): value is string => Boolean(value)),
+          ),
+        ),
+      ],
     }),
   );
   const { weeks } = buildCalendarWeeks(events, month);
@@ -104,12 +191,12 @@ export default async function CalendarPage({
     { value: "all", label: "Alle Standorte" },
     ...(administrator ? rentalLocations.map((value) => ({ value, label: rentalLocationLabels.de[value] })) : []),
   ];
-  const statusItems: CalendarFilterOption[] = [
-    { value: "all", label: "Alle Status" },
-    ...bookingStatuses.map((value) => ({ value, label: bookingPresentation[value].label })),
-  ];
+  const statusItems: CalendarFilterOption[] = bookingStatuses.map((value) => ({
+    value,
+    label: bookingPresentation[value].label,
+  }));
   const queryLocation = location === "all" ? "all" : location;
-  const queryStatus = status === "all" ? "all" : status;
+  const queryStatus = statuses.join(",");
   return (
     <SidebarProvider
       style={
@@ -140,8 +227,6 @@ export default async function CalendarPage({
             )}
             statusItems={statusItems}
             statusValue={queryStatus}
-            todayHref={calendarHref(new Date(), queryLocation, queryStatus)}
-            totalBookings={events.length}
             yearLabel={getCalendarYearLabel(month)}
             weeks={weeks}
           />

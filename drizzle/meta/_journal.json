@@ -253,6 +253,55 @@
       "when": 1785954600000,
       "tag": "0036_normalize_financial_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1785958844386,
+      "tag": "0037_daily_cloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1786007527233,
+      "tag": "0038_lush_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1786007780936,
+      "tag": "0039_first_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1786008104423,
+      "tag": "0040_sharp_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1786009000000,
+      "tag": "0041_fill_confirmed_invoice_numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1786009200000,
+      "tag": "0042_persist_nevlo_oauth_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1786009300000,
+      "tag": "0043_fixed_assets",
+      "breakpoints": true
     }
   ]
 }

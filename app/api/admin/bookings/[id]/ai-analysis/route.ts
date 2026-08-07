@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
-  const command = await getBookingAdminContext(request, id);
+  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
   if (!command) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -38,9 +38,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       );
     return NextResponse.json({ ok: true, sync, review }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : "KI-Analyse konnte nicht gestartet werden." },
-      { status: 500 },
-    );
+    console.error("Booking AI analysis failed", {
+      bookingId: booking.id,
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+    });
+    return NextResponse.json({ message: "KI-Analyse konnte nicht gestartet werden." }, { status: 500 });
   }
 }

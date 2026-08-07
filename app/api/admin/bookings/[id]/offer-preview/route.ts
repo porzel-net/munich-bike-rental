@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { previewOffer } from "@/lib/bookings/service";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -24,12 +25,13 @@ const schema = z.object({
     .optional(),
   alternative: z.boolean().optional(),
   alternativeReason: z.string().trim().max(1000).optional(),
+  personalMessage: z.string().trim().max(2000).optional(),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
-  const input = schema.safeParse(await request.json().catch(() => null));
-  const command = await getBookingAdminContext(request, id);
+  const input = schema.safeParse(await readBoundedJson(request));
+  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
   if (!command || !input.success) return NextResponse.json({ message: "Invalid preview" }, { status: 400 });
   try {
     return NextResponse.json(
@@ -45,6 +47,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           : undefined,
         alternative: input.data.alternative,
         alternativeReason: input.data.alternativeReason,
+        personalMessage: input.data.personalMessage,
         actorUserId: command.user.id,
       }),
     );

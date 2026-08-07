@@ -106,9 +106,10 @@ export function AccountingExpenseDialog({
         sumCents,
       }),
     });
-    const result = (await response.json().catch(() => null)) as
-      | { expense?: Omit<AccountingExpense, "createdAt"> & { createdAt: string }; message?: string }
-      | null;
+    const result = (await response.json().catch(() => null)) as {
+      expense?: Omit<AccountingExpense, "createdAt"> & { createdAt: string };
+      message?: string;
+    } | null;
 
     if (!response.ok || !result?.expense) {
       setError(result?.message || "Der Aufwand konnte nicht gespeichert werden.");

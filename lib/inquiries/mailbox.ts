@@ -21,6 +21,10 @@ type MailboxConfig = {
   ownAddresses: string[];
 };
 
+const MAX_MAIL_SOURCE_BYTES = 1_000_000;
+const MAX_MAIL_PARSE_DEPTH = 10;
+const MAX_MAIL_PARTS = 100;
+
 export type MailboxOperationResult =
   | { configured: false; moved: false; reason: "not_configured" | "not_found" }
   | { configured: true; moved: boolean; reason?: "not_found" | "move_failed" };
@@ -125,12 +129,15 @@ function htmlToText(body: string) {
     .replace(/&quot;/gi, '"');
 }
 
-function extractMimeText(source: string): { plain: string; html: string } {
+function extractMimeText(source: string, depth = 0): { plain: string; html: string } {
+  if (depth > MAX_MAIL_PARSE_DEPTH) return { plain: "", html: "" };
   const { headers, body } = unfoldHeaders(source);
   const contentType = headers.get("content-type") ?? "text/plain";
   const boundary = headerParameter(contentType, "boundary");
   if (boundary) {
-    const parts = splitMultipart(body, boundary).map(extractMimeText);
+    const parts = splitMultipart(body, boundary)
+      .slice(0, MAX_MAIL_PARTS)
+      .map((part) => extractMimeText(part, depth + 1));
     return {
       plain: parts.map((part) => part.plain).find(Boolean) ?? "",
       html: parts.map((part) => part.html).find(Boolean) ?? "",
@@ -147,11 +154,15 @@ function extractMimeText(source: string): { plain: string; html: string } {
 }
 
 function plainTextFromSource(source: Buffer | string | undefined) {
-  const { plain, html } = extractMimeText(source?.toString() ?? "");
+  const boundedSource = Buffer.isBuffer(source)
+    ? source.subarray(0, MAX_MAIL_SOURCE_BYTES).toString()
+    : (source ?? "").slice(0, MAX_MAIL_SOURCE_BYTES);
+  const { plain, html } = extractMimeText(boundedSource);
   return repairMojibake(plain || htmlToText(html))
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .trim()
+    .slice(0, 100_000);
 }
 
 /** Archive matching IMAP messages as plain text; the DB remains the fallback. */
@@ -186,7 +197,7 @@ export async function syncBookingMailThread(
         if (!matches || !matches.length) continue;
         for await (const message of client.fetch(
           matches.slice(-50),
-          { envelope: true, source: true, internalDate: true },
+          { envelope: true, source: { start: 0, maxLength: MAX_MAIL_SOURCE_BYTES }, internalDate: true },
           { uid: true },
         )) {
           const messageId = message.envelope?.messageId;

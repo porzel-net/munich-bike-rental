@@ -2,22 +2,26 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 
+import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { financialAccounts } from "@/lib/db/schema";
+import { BookingCommandError } from "@/lib/bookings/errors";
+import { updateOpeningBalance } from "@/lib/financial/accounts";
+import { isValidIsoDate } from "@/lib/bookings/validation";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
 const schema = z.object({
   openingBalanceCents: z.number().int().safe(),
-  openingBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  openingBalanceDate: z.string().refine(isValidIsoDate, "Ungültiges Datum des Anfangsbestands"),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const base = process.env.BETTER_AUTH_URL?.trim() || process.env.APP_ORIGIN?.trim() || "http://localhost:3000";
   const session = await getServerSession();
   if (
-    request.headers.get("origin") !== new URL(base).origin ||
+    !hasTrustedOrigin(request) ||
     !session ||
     !session.user.twoFactorEnabled ||
     !canAccessAdmin(session.user) ||
@@ -25,7 +29,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   )
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   const id = Number((await context.params).id);
-  const input = schema.safeParse(await request.json().catch(() => null));
+  const input = schema.safeParse(await readBoundedJson(request));
   if (!Number.isInteger(id) || id <= 0 || !input.success)
     return NextResponse.json({ message: "Ungültige Kontodaten" }, { status: 400 });
   const account = getDatabase()
@@ -34,10 +38,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     .where(eq(financialAccounts.id, id))
     .get();
   if (!account) return NextResponse.json({ message: "Finanzkonto nicht gefunden" }, { status: 404 });
-  getDatabase()
-    .update(financialAccounts)
-    .set({ ...input.data, updatedAt: new Date() })
-    .where(eq(financialAccounts.id, id))
-    .run();
-  return NextResponse.json({ ok: true });
+  try {
+    return NextResponse.json(
+      updateOpeningBalance(getDatabase(), {
+        accountId: id,
+        actorUserId: session.user.id,
+        ...input.data,
+      }),
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof BookingCommandError ? error.message : "Anfangsbestand konnte nicht gespeichert werden.",
+      },
+      { status: 409 },
+    );
+  }
 }

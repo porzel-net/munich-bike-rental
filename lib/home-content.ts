@@ -494,7 +494,8 @@ export const translations = {
       submit: "Anfrage senden",
       subject: "Fahrradanfrage",
       sending: "Senden...",
-      success: "Danke, deine Anfrage wurde gesendet. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
+      success:
+        "Danke, deine Anfrage wurde gesendet. Wir haben dir außerdem eine Bestätigungsmail geschickt. Falls sie nicht ankommt, schau bitte auch in deinem Spam-Ordner nach. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
       orderNumberLabel: "Auftragsnummer",
       error: "Die Nachricht konnte nicht gesendet werden. Bitte versuche es noch einmal.",
       validation: {

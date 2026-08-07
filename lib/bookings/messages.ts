@@ -1,6 +1,8 @@
 import { formatEuro } from "./money";
 import {
   computerMountTypeLabels,
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
   pedalTypeLabels,
   rentalLocationLabels,
   type RentalLocation,
@@ -15,6 +17,7 @@ export type OfferMailInput = {
   email?: string;
   phone?: string;
   customerMessage?: string;
+  personalMessage?: string;
   orderNumber: string;
   requested: Array<{
     requestedLabel: string;
@@ -75,6 +78,7 @@ export function renderOfferMail(input: OfferMailInput) {
     ? [
         `Hallo ${greeting},`,
         "",
+        ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
         input.alternative
           ? `das ursprünglich gewünschte Fahrrad können wir für deinen Zeitraum leider nicht anbieten. Wir können dir stattdessen Folgendes anbieten.${input.alternativeReason ? `\n\nGrund für die Änderung: ${input.alternativeReason}` : ""}`
           : "wir können dir folgendes Angebot machen:",
@@ -116,6 +120,7 @@ export function renderOfferMail(input: OfferMailInput) {
     : [
         `Hello ${greeting},`,
         "",
+        ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
         input.alternative
           ? `Unfortunately, the bike you requested is not available for your dates. We can offer the following alternative.${input.alternativeReason ? `\n\nReason for the change: ${input.alternativeReason}` : ""}`
           : "We can offer you the following:",
@@ -183,14 +188,14 @@ export function renderInquiryReceivedMail(input: {
     const accessories = item.accessories;
     return de
       ? [
-          `Pedale: ${accessories.needsPedals ? (accessories.pedalType ?? "Ja") : "Nein"}`,
-          `Computerhalterung: ${accessories.needsComputerMount ? (accessories.computerMountType ?? "Ja") : "Nein"}`,
+          `Pedale: ${accessories.needsPedals ? getPedalTypeLabel(accessories.pedalType, "de") || "Enthalten" : "Nicht enthalten"}`,
+          `Computerhalterung: ${accessories.needsComputerMount ? getComputerMountTypeLabel(accessories.computerMountType, "de") || "Enthalten" : "Nicht enthalten"}`,
           `Helm: ${accessories.needsHelmet ? "Ja" : "Nein"}`,
           `Kleidung: ${accessories.needsClothing ? "Ja" : "Nein"}`,
         ]
       : [
-          `Pedals: ${accessories.needsPedals ? (accessories.pedalType ?? "Yes") : "No"}`,
-          `Computer mount: ${accessories.needsComputerMount ? (accessories.computerMountType ?? "Yes") : "No"}`,
+          `Pedals: ${accessories.needsPedals ? getPedalTypeLabel(accessories.pedalType, "en") || "Included" : "Not included"}`,
+          `Computer mount: ${accessories.needsComputerMount ? getComputerMountTypeLabel(accessories.computerMountType, "en") || "Included" : "Not included"}`,
           `Helmet: ${accessories.needsHelmet ? "Yes" : "No"}`,
           `Clothing: ${accessories.needsClothing ? "Yes" : "No"}`,
         ];
@@ -241,7 +246,9 @@ export function renderBookingNotice(input: {
   orderNumber: string;
   offerToken?: string;
   cancellationFeeCents?: number;
+  refundCents?: number;
   senderFirstName?: string;
+  personalMessage?: string;
 }) {
   const de = input.locale === "de";
   const recipientFirstName = input.name.trim().split(/\s+/)[0] || input.name;
@@ -254,11 +261,35 @@ export function renderBookingNotice(input: {
         : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nMunich Bike Rental`
       : input.kind === "cancelled"
         ? de
-          ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} wurde storniert.${input.cancellationFeeCents ? ` Die Stornogebühr beträgt ${formatEuro(input.cancellationFeeCents, "de")}.` : ""}\n\nViele Grüße\nMunich Bike Rental`
-          : `Hello ${input.name},\n\nyour booking ${input.orderNumber} has been cancelled.${input.cancellationFeeCents ? ` The cancellation fee is ${formatEuro(input.cancellationFeeCents, "en")}.` : ""}\n\nKind regards\nMunich Bike Rental`
+          ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} wurde storniert.${input.cancellationFeeCents ? ` Die Stornogebühr beträgt ${formatEuro(input.cancellationFeeCents, "de")}.` : ""}\n\n${input.refundCents !== undefined ? `Du erhältst ${formatEuro(input.refundCents, "de")} zurück.` : ""}\n\nViele Grüße\nMunich Bike Rental`
+          : `Hello ${input.name},\n\nyour booking ${input.orderNumber} has been cancelled.${input.cancellationFeeCents ? ` The cancellation fee is ${formatEuro(input.cancellationFeeCents, "en")}.` : ""}\n\n${input.refundCents !== undefined ? `You will receive ${formatEuro(input.refundCents, "en")} back.` : ""}\n\nKind regards\nMunich Bike Rental`
         : de
-          ? `Hey ${recipientFirstName},\n\nvielen Dank für deine Anfrage.\n\nLeider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!\n\nWir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.\n\nLiebe Grüße\n${senderFirstName}`
-          : `Hello ${recipientFirstName},\n\nthank you for your inquiry.\n\nUnfortunately, we cannot offer you a suitable bike for this period.\n\nWe hope you find what you are looking for and wish you a good ride.\n\nKind regards\n${senderFirstName}`;
+          ? [
+              `Hey ${recipientFirstName},`,
+              "",
+              ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
+              "vielen Dank für deine Anfrage.",
+              "",
+              "Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!",
+              "",
+              "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.",
+              "",
+              "Liebe Grüße",
+              senderFirstName,
+            ].join("\n")
+          : [
+              `Hello ${recipientFirstName},`,
+              "",
+              ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
+              "thank you for your inquiry.",
+              "",
+              "Unfortunately, we cannot offer you a suitable bike for this period.",
+              "",
+              "We hope you find what you are looking for and wish you a good ride.",
+              "",
+              "Kind regards",
+              senderFirstName,
+            ].join("\n");
   const subjects = {
     confirmed: de ? `Buchung bestätigt ${input.orderNumber}` : `Booking confirmed ${input.orderNumber}`,
     cancelled: de ? `Stornierung ${input.orderNumber}` : `Cancellation ${input.orderNumber}`,
