@@ -2,18 +2,20 @@ import {
   addDays,
   differenceInCalendarDays,
   endOfMonth,
+  endOfWeek,
   format,
   isSameDay,
   isSameMonth,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { de } from "date-fns/locale";
 
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import type { BookingStatus } from "@/lib/db/schema";
 import { rentalLocationLabels, type RentalLocation } from "@/lib/inquiries/catalog";
 
-export const calendarWeekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+export const calendarWeekdayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
 
 export type CalendarStatusTone = "amber" | "violet" | "blue" | "emerald" | "indigo" | "rose" | "slate";
 
@@ -84,11 +86,11 @@ function parseCalendarDate(value: string) {
 }
 
 function formatCalendarRange(startDate: Date, endDate: Date) {
-  if (isSameDay(startDate, endDate)) return format(startDate, "MMM d");
+  if (isSameDay(startDate, endDate)) return format(startDate, "d. MMMM", { locale: de });
   if (startDate.getFullYear() === endDate.getFullYear() && startDate.getMonth() === endDate.getMonth()) {
-    return `${format(startDate, "MMM d")} - ${format(endDate, "d")}`;
+    return `${format(startDate, "d. MMMM", { locale: de })} – ${format(endDate, "d.", { locale: de })}`;
   }
-  return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d")}`;
+  return `${format(startDate, "d. MMMM", { locale: de })} – ${format(endDate, "d. MMMM", { locale: de })}`;
 }
 
 export function getCalendarStatusTone(status: BookingStatus): CalendarStatusTone {
@@ -100,7 +102,15 @@ export function getCalendarMonthKey(date: Date) {
 }
 
 export function getCalendarMonthLabel(date: Date) {
-  return format(date, "MMMM yyyy");
+  return format(date, "MMMM yyyy", { locale: de });
+}
+
+export function getCalendarMonthName(date: Date) {
+  return format(date, "MMMM", { locale: de });
+}
+
+export function getCalendarYearLabel(date: Date) {
+  return format(date, "yyyy");
 }
 
 export function parseCalendarMonthKey(value: string | undefined, fallback = new Date()) {
@@ -131,7 +141,7 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
     tone: getCalendarStatusTone(booking.status),
     startDate,
     endDate,
-    displayLabel: `${locationLabel} · ${requestedItemsLabel}`,
+    displayLabel: `${booking.customerName} · ${booking.orderNumber}`,
     tooltip: `${booking.customerName} · ${booking.orderNumber} · ${locationLabel} · ${requestedItemsLabel} · ${statusLabel} · ${formatCalendarRange(
       startDate,
       endDate,
@@ -182,8 +192,10 @@ function packWeekPlacements(events: CalendarBookingEvent[], weekStart: Date, wee
 
 export function buildCalendarWeeks(bookings: CalendarBookingEvent[], monthDate: Date, today = new Date()) {
   const monthStart = startOfMonth(monthDate);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const allDays = Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 });
+  const dayCount = differenceInCalendarDays(gridEnd, gridStart) + 1;
+  const allDays = Array.from({ length: dayCount }, (_, index) => addDays(gridStart, index));
 
   const weeks: CalendarWeek[] = [];
   for (let index = 0; index < allDays.length; index += 7) {

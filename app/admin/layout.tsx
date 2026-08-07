@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import "./admin.css";
+import "./calendar/calendar.css";
 
 import styles from "./admin-layout.module.css";
 import { Toaster } from "../../components/ui/sonner";

@@ -4,7 +4,6 @@ import type { CalendarFilterOption } from "@/components/admin-calendar/calendar-
 import type { CalendarWeek } from "@/lib/calendar/admin-calendar";
 
 export function AdminCalendarView({
-  monthLabel,
   previousMonthHref,
   nextMonthHref,
   locationItems,
@@ -13,8 +12,11 @@ export function AdminCalendarView({
   statusValue,
   weeks,
   hasBookings,
+  todayHref,
+  totalBookings,
+  monthName,
+  yearLabel,
 }: {
-  monthLabel: string;
   previousMonthHref: string;
   nextMonthHref: string;
   locationItems: CalendarFilterOption[];
@@ -23,24 +25,29 @@ export function AdminCalendarView({
   statusValue: string;
   weeks: CalendarWeek[];
   hasBookings: boolean;
+  todayHref: string;
+  totalBookings: number;
+  monthName: string;
+  yearLabel: string;
 }) {
   return (
-    <section className="rounded-3xl bg-stone-50 px-8 py-12 sm:p-12">
+    <section className="calendar-shell">
       <div className="mx-auto w-full max-w-7xl">
         <CalendarToolbar
           locationItems={locationItems}
           locationValue={locationValue}
-          monthLabel={monthLabel}
+          monthName={monthName}
           nextMonthHref={nextMonthHref}
           previousMonthHref={previousMonthHref}
           statusItems={statusItems}
           statusValue={statusValue}
+          todayHref={todayHref}
+          totalBookings={totalBookings}
+          yearLabel={yearLabel}
         />
 
         {!hasBookings ? (
-          <div className="mb-4 rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
-            Keine Buchungen für die aktuelle Auswahl gefunden.
-          </div>
+          <div className="calendar-empty mb-4">Keine Buchungen für die aktuelle Auswahl gefunden.</div>
         ) : null}
 
         <CalendarMonthGrid weeks={weeks} />
