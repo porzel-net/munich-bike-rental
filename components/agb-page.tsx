@@ -609,7 +609,9 @@ export function AgbPageContent({ locale = "de" }: AgbPageContentProps) {
             betroffenen Personen enthält die Datenschutzerklärung des Verleihers:
           </p>
           <p>
-            <strong>[Link zur Datenschutzerklärung einfügen]</strong>
+            <strong>
+              <Link href="/datenschutzerklaerung">Datenschutzerklärung</Link>
+            </strong>
           </p>
           <p>
             16.4 Die Foto- und Videoaufnahmen dienen grundsätzlich der Dokumentation des Zustands des Fahrrads. Unnötige
@@ -1221,7 +1223,9 @@ function EnglishAgbPageContent() {
             subjects is contained in the Lessor’s privacy policy:
           </p>
           <p>
-            <strong>[Insert link to privacy policy]</strong>
+            <strong>
+              <Link href="/datenschutzerklaerung">Privacy policy</Link>
+            </strong>
           </p>
           <p>
             16.4 The photographs and video recordings generally serve to document the condition of the bicycle.
