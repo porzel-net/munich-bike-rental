@@ -6,6 +6,7 @@ import type { z } from "zod";
 
 import { siteConfig } from "../site";
 import { readBoundedText } from "../security/request-body";
+import { emailCard, emailParagraph, renderEmailLayout } from "./email-template";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
@@ -264,6 +265,16 @@ export type MailAttachment = {
   contentType?: string;
 };
 
+function fallbackMailHtml(subject: string, text: string) {
+  return renderEmailLayout({
+    locale: "de",
+    preheader: subject,
+    eyebrow: "Your Bike Rental",
+    title: subject,
+    content: emailCard(emailParagraph(text)),
+  });
+}
+
 export async function sendConfiguredMail({
   account,
   subject,
@@ -311,7 +322,9 @@ export async function sendConfiguredMail({
     references,
     subject,
     text,
-    html,
+    // Keep the HTML part present even for older/admin-created outbox rows that
+    // predate the shared templates. The plain-text part is always sent too.
+    html: html?.trim() || fallbackMailHtml(subject, text),
     attachments,
   });
 

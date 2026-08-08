@@ -21,6 +21,15 @@ type EmailLayoutInput = {
   cta?: { label: string; href: string };
 };
 
+const emailColors = {
+  accent: "#4169e1",
+  accentSoft: "#eef2ff",
+  ink: "#171a1d",
+  muted: "#697177",
+  border: "rgba(23,26,29,.10)",
+  page: "#f6f7fb",
+};
+
 /**
  * A deliberately table-based, inline-styled email shell. It mirrors the public
  * offer page without depending on external stylesheets or web fonts.
@@ -48,29 +57,29 @@ export function renderEmailLayout(input: EmailLayoutInput) {
       }
     </style>
   </head>
-  <body style="margin:0;padding:0;background:#f5f6f8;color:#171a1d;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
+  <body style="margin:0;padding:0;background:${emailColors.page};background-image:radial-gradient(circle at 14% 16%,rgba(65,105,225,.14) 0,rgba(65,105,225,.14) 18%,transparent 42%),radial-gradient(circle at 84% 18%,rgba(45,212,191,.12) 0,rgba(45,212,191,.12) 16%,transparent 38%),radial-gradient(circle at 58% 88%,rgba(255,159,115,.14) 0,rgba(255,159,115,.14) 18%,transparent 44%),linear-gradient(180deg,#f9f7f1 0%,#f6f7fb 100%);color:${emailColors.ink};font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escapeHtml(input.preheader)}</div>
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f6f8">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:${emailColors.page};background-image:radial-gradient(circle at 14% 16%,rgba(65,105,225,.14) 0,rgba(65,105,225,.14) 18%,transparent 42%),radial-gradient(circle at 84% 18%,rgba(45,212,191,.12) 0,rgba(45,212,191,.12) 16%,transparent 38%),linear-gradient(180deg,#f9f7f1 0%,#f6f7fb 100%)">
       <tr><td align="center" style="padding:28px 12px 40px">
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="640" class="email-wrap" style="width:100%;max-width:640px">
           <tr><td style="padding:0 4px 18px">
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
               <tr>
-                <td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;color:#171a1d">
-                  <span style="display:inline-block;width:30px;height:30px;margin-right:8px;border-radius:50%;background:#171a1d;color:#ffffff;font-size:14px;line-height:30px;text-align:center;vertical-align:middle">M</span>
-                  <span style="vertical-align:middle">Munich Bike Rental</span>
+                <td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;color:${emailColors.ink}">
+                  <span style="display:inline-block;width:30px;height:30px;margin-right:8px;border-radius:50%;background:${emailColors.ink};color:#ffffff;font-size:14px;line-height:30px;text-align:center;vertical-align:middle">Y</span>
+                  <span style="vertical-align:middle">Your Bike Rental</span>
                 </td>
                 <td align="right" style="color:#71777c;font-size:11px;letter-spacing:.08em;text-transform:uppercase">${escapeHtml(input.eyebrow)}</td>
               </tr>
             </table>
           </td></tr>
-          <tr><td class="email-pad" style="padding:38px 40px 34px;border:1px solid #e1e4e8;border-radius:24px;background:#ffffff;box-shadow:0 18px 50px rgba(23,26,29,.07)">
-            <h1 class="email-title" style="margin:0 0 14px;color:#171a1d;font-family:Arial,Helvetica,sans-serif;font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1.05">${escapeHtml(input.title)}</h1>
+          <tr><td class="email-pad" style="padding:38px 40px 34px;border:1px solid ${emailColors.border};border-radius:25px;background:rgba(255,255,255,.94);box-shadow:0 20px 50px rgba(23,26,29,.055)">
+            <h1 class="email-title" style="margin:0 0 14px;color:${emailColors.ink};font-family:Poppins,Arial,Helvetica,sans-serif;font-size:40px;font-weight:900;letter-spacing:-.055em;line-height:.98">${escapeHtml(input.title)}</h1>
             ${input.intro ? `<p style="margin:0 0 25px;color:#697177;font-size:16px;line-height:1.65">${htmlText(input.intro)}</p>` : ""}
             ${input.content}
             ${cta}
           </td></tr>
-          <tr><td style="padding:18px 8px 0;color:#899196;font-size:11px;line-height:1.55;text-align:center">${escapeHtml(footer)}<br />Munich Bike Rental · ${escapeHtml(input.locale === "de" ? "Viele Grüße" : "Kind regards")}</td></tr>
+          <tr><td style="padding:18px 8px 0;color:#899196;font-size:11px;line-height:1.55;text-align:center">${escapeHtml(footer)}<br />Your Bike Rental · ${escapeHtml(input.locale === "de" ? "Viele Grüße" : "Kind regards")}</td></tr>
         </table>
       </td></tr>
     </table>

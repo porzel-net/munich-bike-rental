@@ -245,6 +245,8 @@ describe("booking commands", () => {
     const outbox = db.select().from(mailOutbox).get()!;
     expect(outbox.locale).toBe("en");
     expect(outbox.plainText).toContain("reserves the bike for you for 36 hours");
+    expect(outbox.html).toContain("Your Bike Rental");
+    expect(outbox.html).toContain("Open offer &amp; pay");
     expect(confirmOffer(db, offer.confirmationToken)).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
       status: "confirmed",
@@ -315,6 +317,8 @@ describe("booking commands", () => {
     expect(mail?.plainText).toBe(
       "Hey Ada,\n\nvielen Dank für deine Anfrage.\n\nLeider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!\n\nWir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.\n\nLiebe Grüße\nAdmin",
     );
+    expect(mail?.html).toContain("Your Bike Rental");
+    expect(mail?.html).toContain("Danke für deine Anfrage");
     expect(db.select().from(bookingEvents).where(eq(bookingEvents.bookingId, booking.id)).all().at(-1)?.reason).toBe(
       "Fahrrad Verfügbarkeit",
     );
@@ -600,8 +604,15 @@ describe("booking commands", () => {
 
     expect(mailId).toBeTypeOf("number");
     expect(
-      db.select({ plainText: mailOutbox.plainText }).from(mailOutbox).where(eq(mailOutbox.id, mailId!)).get(),
+      db
+        .select({ plainText: mailOutbox.plainText, html: mailOutbox.html })
+        .from(mailOutbox)
+        .where(eq(mailOutbox.id, mailId!))
+        .get(),
     ).toMatchObject({ plainText: expect.stringContaining("You will receive €80.00 back.") });
+    expect(
+      db.select({ html: mailOutbox.html }).from(mailOutbox).where(eq(mailOutbox.id, mailId!)).get()?.html,
+    ).toContain("Booking cancelled");
   });
 
   it("expires due offers without binding a JavaScript Date into SQLite SQL", () => {

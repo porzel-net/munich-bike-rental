@@ -110,6 +110,8 @@ describe("booking mail threads", () => {
       expect.objectContaining({
         inReplyTo: "<customer-inquiry@example.com>",
         references: "<customer-inquiry@example.com>",
+        text: "Wir können dir ein Fahrrad anbieten.",
+        html: expect.stringContaining("Your Bike Rental"),
       }),
     );
     expect(
