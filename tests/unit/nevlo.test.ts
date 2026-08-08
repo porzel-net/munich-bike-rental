@@ -61,4 +61,34 @@ describe("Nevlo OAuth token rotation", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-2" });
   });
+
+  it("refreshes proactively before the access token expires", async () => {
+    const { store, read } = createStore({
+      accessToken: "access-1",
+      refreshToken: "refresh-1",
+      accessTokenExpiresAt: new Date(Date.now() + 1_000),
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: "access-2", refresh_token: "refresh-2", expires_in: 3600 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ accounts: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new NevloClient("client-1", "bootstrap-access", "bootstrap-refresh", store);
+    await expect(client.getAccounts()).resolves.toEqual([]);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://nevlo.io/oauth/token");
+    expect(read()).toMatchObject({ accessToken: "access-2", refreshToken: "refresh-2" });
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({ Authorization: "Bearer access-2" });
+  });
 });

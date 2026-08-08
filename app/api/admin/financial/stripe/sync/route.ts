@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, getServerSession, isAdmin } from "../../../../../../lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "../../../../../../lib/auth/session";
 import { getDatabase } from "../../../../../../lib/db/client";
 import { syncStripeCheckoutPayments } from "../../../../../../lib/financial/stripe-sync";
 import { readBoundedJson } from "@/lib/security/request-body";
@@ -15,13 +15,7 @@ const schema = z.object({
 });
 
 function authorized(request: Request, session: Awaited<ReturnType<typeof getServerSession>>) {
-  return (
-    hasTrustedOrigin(request) &&
-    session &&
-    session.user.twoFactorEnabled &&
-    canAccessAdmin(session.user) &&
-    isAdmin(session.user)
-  );
+  return hasTrustedOrigin(request) && session && canUseAdminApiAsAdmin(session.user);
 }
 
 function unixSeconds(value: string, endOfDay = false) {

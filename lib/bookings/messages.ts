@@ -8,7 +8,10 @@ import {
   type RentalLocation,
 } from "../inquiries/catalog";
 import { rentalLocationConfigs } from "../rental-locations";
+import { emailCard, emailLabel, emailParagraph, escapeHtml, renderEmailLayout } from "../inquiries/email-template";
 import type { OfferAccessorySelection } from "./quotes";
+
+export type RenderedMail = { subject: string; text: string; html: string };
 
 export type OfferMailInput = {
   locale: "de" | "en";
@@ -41,32 +44,57 @@ function bookingPageUrl(token: string) {
   return `${origin}/angebot/${encodeURIComponent(token)}`;
 }
 
+function cancellationPeriodLabel(period: string | undefined, locale: "de" | "en") {
+  if (!period) return undefined;
+  const labels = {
+    more_than_7_days: { de: "mehr als 7 Tage vor Mietbeginn", en: "more than 7 days before rental" },
+    between_7_days_and_24_hours: { de: "7 Tage bis 24 Stunden vor Mietbeginn", en: "7 days to 24 hours before rental" },
+    less_than_24_hours: { de: "innerhalb von 24 Stunden vor Mietbeginn", en: "within 24 hours before rental" },
+  } as const;
+  return labels[period as keyof typeof labels]?.[locale] ?? period;
+}
+
+function cancellationPolicyDescription(period: string | undefined, locale: "de" | "en") {
+  const descriptions = {
+    more_than_7_days: { de: "25 % Stornogebühr / 75 % Rückerstattung", en: "25% cancellation fee / 75% refund" },
+    between_7_days_and_24_hours: { de: "50 % Stornogebühr / 50 % Rückerstattung", en: "50% cancellation fee / 50% refund" },
+    less_than_24_hours: { de: "100 % Stornogebühr / keine Rückerstattung", en: "100% cancellation fee / no refund" },
+  } as const;
+  return descriptions[period as keyof typeof descriptions]?.[locale];
+}
+
 export function renderOfferMail(input: OfferMailInput) {
   const de = input.locale === "de";
-  const items = input.requested
-    .map((item) => {
-      const bikeName =
-        input.alternative && item.requestedLabel !== item.assetName
-          ? `${item.requestedLabel} → ${item.assetName}`
-          : item.assetName;
-      const bikeHeading = item.heightCm ? `${bikeName} (${item.heightCm} cm)` : bikeName;
-      if (!item.accessories) return bikeHeading;
-      const accessories = item.accessories;
-      const lines = de
-        ? [
-            `Pedale: ${accessories.needsPedals ? (pedalTypeLabels.de[accessories.pedalType as keyof typeof pedalTypeLabels.de] ?? accessories.pedalType ?? "Enthalten") : "Nicht enthalten"}`,
-            `Computerhalterung: ${accessories.needsComputerMount ? (computerMountTypeLabels.de[accessories.computerMountType as keyof typeof computerMountTypeLabels.de] ?? accessories.computerMountType ?? "Enthalten") : "Nicht enthalten"}`,
-            `Helm: ${accessories.needsHelmet ? "Enthalten" : "Nicht enthalten"}`,
-            `Kleidung: ${accessories.needsClothing ? "Enthalten" : "Nicht enthalten"}`,
-          ]
-        : [
-            `Pedals: ${accessories.needsPedals ? (pedalTypeLabels.en[accessories.pedalType as keyof typeof pedalTypeLabels.en] ?? accessories.pedalType ?? "Included") : "Not included"}`,
-            `Computer mount: ${accessories.needsComputerMount ? (computerMountTypeLabels.en[accessories.computerMountType as keyof typeof computerMountTypeLabels.en] ?? accessories.computerMountType ?? "Included") : "Not included"}`,
-            `Helmet: ${accessories.needsHelmet ? "Included" : "Not included"}`,
-            `Clothing: ${accessories.needsClothing ? "Included" : "Not included"}`,
-          ];
-      return [bikeHeading, de ? "Zubehör:" : "Equipment:", ...lines.map((line) => `- ${line}`)].join("\n");
-    })
+  const offerItems = input.requested.map((item) => {
+    const bikeName =
+      input.alternative && item.requestedLabel !== item.assetName
+        ? `${item.requestedLabel} → ${item.assetName}`
+        : item.assetName;
+    const bikeHeading = item.heightCm ? `${bikeName} (${item.heightCm} cm)` : bikeName;
+    if (!item.accessories) return { bikeHeading, accessories: [] as string[] };
+    const accessories = item.accessories;
+    const lines = de
+      ? [
+          `Pedale: ${accessories.needsPedals ? (pedalTypeLabels.de[accessories.pedalType as keyof typeof pedalTypeLabels.de] ?? accessories.pedalType ?? "Enthalten") : "Nicht enthalten"}`,
+          `Computerhalterung: ${accessories.needsComputerMount ? (computerMountTypeLabels.de[accessories.computerMountType as keyof typeof computerMountTypeLabels.de] ?? accessories.computerMountType ?? "Enthalten") : "Nicht enthalten"}`,
+          `Helm: ${accessories.needsHelmet ? "Enthalten" : "Nicht enthalten"}`,
+          `Kleidung: ${accessories.needsClothing ? "Enthalten" : "Nicht enthalten"}`,
+        ]
+      : [
+          `Pedals: ${accessories.needsPedals ? (pedalTypeLabels.en[accessories.pedalType as keyof typeof pedalTypeLabels.en] ?? accessories.pedalType ?? "Included") : "Not included"}`,
+          `Computer mount: ${accessories.needsComputerMount ? (computerMountTypeLabels.en[accessories.computerMountType as keyof typeof computerMountTypeLabels.en] ?? accessories.computerMountType ?? "Included") : "Not included"}`,
+          `Helmet: ${accessories.needsHelmet ? "Included" : "Not included"}`,
+          `Clothing: ${accessories.needsClothing ? "Included" : "Not included"}`,
+        ];
+    return { bikeHeading, accessories: lines };
+  });
+  const items = offerItems
+    .map(({ bikeHeading, accessories }) =>
+      [
+        bikeHeading,
+        ...(accessories.length ? [de ? "Zubehör:" : "Equipment:", ...accessories.map((line) => `- ${line}`)] : []),
+      ].join("\n"),
+    )
     .join("\n");
   const greeting = input.name.trim().split(/\s+/)[0] || input.name;
   const pickupAddress =
@@ -159,7 +187,53 @@ export function renderOfferMail(input: OfferMailInput) {
         "Kind regards,",
         input.senderFirstName,
       ].join("\n");
-  return { subject, text };
+  const alternativeIntro = de
+    ? "das ursprünglich gewünschte Fahrrad können wir für deinen Zeitraum leider nicht anbieten. Wir können dir stattdessen Folgendes anbieten."
+    : "Unfortunately, the bike you requested is not available for your dates. We can offer the following alternative.";
+  const standardIntro = de ? "wir können dir folgendes Angebot machen:" : "We can offer you the following:";
+  const bikeCards = offerItems
+    .map(({ bikeHeading, accessories }) => {
+      const accessoryHtml = accessories.length
+        ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e8eb">${emailLabel(de ? "Zubehör" : "Equipment")}<div style="color:#697177;font-size:13px;line-height:1.7">${accessories.map((line) => `✓ ${escapeHtml(line)}`).join("<br />")}</div></div>`
+        : "";
+      return emailCard(
+        `<strong style="display:block;color:#171a1d;font-size:15px;line-height:1.4">${escapeHtml(bikeHeading)}</strong>${accessoryHtml}`,
+        "#fbfcfd",
+      );
+    })
+    .join("");
+  const details = emailCard(
+    `${emailLabel(de ? "Auftrag" : "Order")}<strong style="color:#171a1d;font-size:15px">${escapeHtml(input.orderNumber)}</strong><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:15px"><tr><td style="padding:0 12px 8px 0;color:#697177;font-size:13px;line-height:1.45">${emailLabel(de ? "Name" : "Name")}${escapeHtml(input.name)}</td><td style="padding:0 0 8px;color:#697177;font-size:13px;line-height:1.45">${emailLabel(de ? "Standort" : "Location")}${escapeHtml(rentalLocationLabels[input.locale][input.location as RentalLocation] ?? input.location)}</td></tr><tr><td style="padding:0 12px 0 0;color:#697177;font-size:13px;line-height:1.45">${emailLabel(de ? "Zeitraum" : "Rental period")}${escapeHtml(`${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`)}</td><td style="padding:0;color:#697177;font-size:13px;line-height:1.45">${emailLabel(de ? "Kontakt" : "Contact")}${escapeHtml(input.email)}${input.phone ? `<br />${escapeHtml(input.phone)}` : ""}</td></tr></table>`,
+  );
+  const checklist = de
+    ? [
+        "Bestätigungslink drücken",
+        "100 % des Gesamtbetrags über Stripe bezahlen",
+        "Kaution von 100 € in bar mitbringen",
+        "Personalausweis mitbringen",
+        `Zur Abholung: ${pickupAddress}`,
+        "Plane genug Zeit ein, um pünktlich zu sein, dann hast du mehr vom Bike ;)",
+      ]
+    : [
+        "Click the confirmation link",
+        "Pay 100% of the total through Stripe",
+        "Bring the €100 deposit in cash",
+        "Bring your ID card or passport",
+        `Pickup address: ${pickupAddress}`,
+        "Plan enough time to arrive punctually so you can enjoy more of the bike ;)",
+      ];
+  const html = renderEmailLayout({
+    locale: input.locale,
+    preheader: `${subject} · ${formatEuro(input.totalCents, input.locale)}`,
+    eyebrow: de ? "Dein Angebot" : "Your offer",
+    title: de
+      ? `Dein ${input.alternative ? "Alternativ" : "Bike-"}Angebot`
+      : `Your ${input.alternative ? "alternative " : "bike "}offer`,
+    intro: input.personalMessage?.trim() || (input.alternative ? alternativeIntro : standardIntro),
+    content: `${input.personalMessage?.trim() ? `<div style="margin:0 0 22px">${emailParagraph(input.alternative ? alternativeIntro : standardIntro)}</div>` : ""}${input.alternative && input.alternativeReason ? emailCard(`${emailLabel(de ? "Grund für die Änderung" : "Reason for the change")}${emailParagraph(input.alternativeReason)}`, "#eef2ff") : ""}${details}<div style="margin:26px 0 0">${emailLabel(de ? "Für dich reserviert" : "Reserved for you")}${bikeCards}</div><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 18px"><tr><td style="color:#697177;font-size:13px">${escapeHtml(de ? "Gesamtpreis" : "Total price")}</td><td align="right" style="color:#171a1d;font-size:24px;font-weight:800;letter-spacing:-.03em">${escapeHtml(formatEuro(input.totalCents, input.locale))}</td></tr></table>${emailCard(`<strong style="display:block;margin-bottom:8px;color:#171a1d;font-size:14px">${escapeHtml(de ? "Wichtig für die verbindliche Buchung" : "Important for a binding booking")}</strong>${emailParagraph(de ? "Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden. Bezahle bitte 100 % des Gesamtpreises über Stripe. Nach erfolgreicher Zahlung wird deine Buchung automatisch verbindlich bestätigt." : "This offer reserves the bike for you for 36 hours. Please pay 100% of the total price through Stripe. After successful payment, your booking is automatically confirmed bindingly.")}`, "#eef2ff")}${input.customerMessage ? emailCard(`${emailLabel(de ? "Deine Nachricht" : "Your message")}${emailParagraph(input.customerMessage)}`) : ""}<div style="margin-top:23px">${emailLabel(de ? "Checkliste für die Abholung" : "Pickup checklist")}<ul style="margin:0;padding:0 0 0 19px;color:#4f5960;font-size:13px;line-height:1.8">${checklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`,
+    cta: { label: de ? "Angebot öffnen & bezahlen" : "Open offer & pay", href: bookingPageUrl(input.token) },
+  });
+  return { subject, text, html };
 }
 
 export function renderInquiryReceivedMail(input: {
@@ -236,7 +310,27 @@ export function renderInquiryReceivedMail(input: {
     "",
     de ? "Viele Grüße\nMunich Bike Rental" : "Kind regards\nMunich Bike Rental",
   ].join("\n");
-  return { subject, text };
+  const bikeCards = input.requested
+    .map((item, index) => {
+      const accessories = formatAccessories(item);
+      return emailCard(
+        `${emailLabel(`${de ? "Fahrrad" : "Bike"} ${index + 1}`)}<strong style="display:block;color:#171a1d;font-size:15px">${escapeHtml(item.requestedLabel)}</strong><div style="margin-top:7px;color:#697177;font-size:13px;line-height:1.7">${escapeHtml(`${de ? "Körpergröße" : "Height"}: ${item.heightCm} cm`)}<br />${accessories.map((line) => escapeHtml(line)).join("<br />")}</div>`,
+        "#fbfcfd",
+      );
+    })
+    .join("");
+  const html = renderEmailLayout({
+    locale: input.locale,
+    preheader: subject,
+    eyebrow: de ? "Anfrage erhalten" : "Inquiry received",
+    title: de ? "Danke für deine Anfrage" : "Thanks for your inquiry",
+    intro: de
+      ? "Wir haben alle Daten erhalten und prüfen jetzt die Verfügbarkeit. Sobald dein konkretes Angebot bereit ist, bekommst du eine weitere E-Mail mit allen Details."
+      : "We received all details and will now check availability. As soon as your concrete offer is ready, you will receive another email with all details.",
+    content: `${emailCard(`${emailLabel(de ? "Auftrag" : "Order")}<strong style="color:#171a1d;font-size:15px">${escapeHtml(input.orderNumber)}</strong><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:15px"><tr><td style="padding:0 12px 8px 0;color:#697177;font-size:13px;line-height:1.5">${emailLabel(de ? "Name" : "Name")}${escapeHtml(input.name)}</td><td style="padding:0 0 8px;color:#697177;font-size:13px;line-height:1.5">${emailLabel(de ? "Standort" : "Location")}${escapeHtml(rentalLocationLabels[input.locale][input.location as RentalLocation] ?? input.location)}</td></tr><tr><td style="padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel(de ? "Zeitraum" : "Rental period")}${escapeHtml(`${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`)}</td><td style="color:#697177;font-size:13px;line-height:1.5">${emailLabel(de ? "Kontakt" : "Contact")}${escapeHtml(input.email)}<br />${escapeHtml(input.phone)}</td></tr></table>`)}<div style="margin-top:24px">${emailLabel(de ? "Angefragte Fahrräder" : "Requested bikes")}${bikeCards}</div>${input.customerMessage ? emailCard(`${emailLabel(de ? "Deine Nachricht" : "Your message")}${emailParagraph(input.customerMessage)}`) : ""}${emailCard(`<strong style="display:block;margin-bottom:8px;color:#171a1d;font-size:14px">${escapeHtml(de ? "Aktueller Status" : "Current status")}</strong>${emailParagraph(de ? "Anfrage eingegangen – wir prüfen jetzt die Verfügbarkeit." : "Inquiry received – we are checking availability.")}`, "#eef2ff")}`,
+    cta: { label: de ? "Buchungsstatus öffnen" : "View booking status", href: bookingPageUrl(input.publicLinkToken) },
+  });
+  return { subject, text, html };
 }
 
 export function renderBookingNotice(input: {
@@ -244,9 +338,13 @@ export function renderBookingNotice(input: {
   locale: "de" | "en";
   name: string;
   orderNumber: string;
+  totalCents?: number;
+  paidCents?: number;
   offerToken?: string;
   cancellationFeeCents?: number;
   refundCents?: number;
+  cancellationReason?: string;
+  cancellationPeriod?: string;
   senderFirstName?: string;
   personalMessage?: string;
 }) {
@@ -261,8 +359,54 @@ export function renderBookingNotice(input: {
         : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nMunich Bike Rental`
       : input.kind === "cancelled"
         ? de
-          ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} wurde storniert.${input.cancellationFeeCents ? ` Die Stornogebühr beträgt ${formatEuro(input.cancellationFeeCents, "de")}.` : ""}\n\n${input.refundCents !== undefined ? `Du erhältst ${formatEuro(input.refundCents, "de")} zurück.` : ""}\n\nViele Grüße\nMunich Bike Rental`
-          : `Hello ${input.name},\n\nyour booking ${input.orderNumber} has been cancelled.${input.cancellationFeeCents ? ` The cancellation fee is ${formatEuro(input.cancellationFeeCents, "en")}.` : ""}\n\n${input.refundCents !== undefined ? `You will receive ${formatEuro(input.refundCents, "en")} back.` : ""}\n\nKind regards\nMunich Bike Rental`
+          ? [
+              `Hallo ${input.name},`,
+              "",
+              ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
+              `deine Buchung ${input.orderNumber} wurde storniert.`,
+              "",
+              ...(input.cancellationReason ? [`Stornogrund: ${input.cancellationReason}`, ""] : []),
+              ...(cancellationPeriodLabel(input.cancellationPeriod, "de")
+                ? [`Stornierungszeitraum: ${cancellationPeriodLabel(input.cancellationPeriod, "de")}`, ""]
+                : []),
+              ...(cancellationPolicyDescription(input.cancellationPeriod, "de")
+                ? [`Angewandte Regelung: ${cancellationPolicyDescription(input.cancellationPeriod, "de")}`, ""]
+                : []),
+              ...(input.totalCents !== undefined ? [`Buchungsbetrag: ${formatEuro(input.totalCents, "de")}`] : []),
+              ...(input.paidCents !== undefined ? [`Bereits bezahlt: ${formatEuro(input.paidCents, "de")}`] : []),
+              ...(input.cancellationFeeCents !== undefined
+                ? [`Stornogebühr: ${formatEuro(input.cancellationFeeCents, "de")}`]
+                : []),
+              ...(input.refundCents !== undefined ? [`Rückerstattung: ${formatEuro(input.refundCents, "de")}`] : []),
+              "",
+              "Viele Grüße",
+              "Munich Bike Rental",
+            ].join("\n")
+          : [
+              `Hello ${input.name},`,
+              "",
+              ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
+              `your booking ${input.orderNumber} has been cancelled.`,
+              "",
+              ...(input.cancellationReason ? [`Cancellation reason: ${input.cancellationReason}`, ""] : []),
+              ...(cancellationPeriodLabel(input.cancellationPeriod, "en")
+                ? [`Cancellation period: ${cancellationPeriodLabel(input.cancellationPeriod, "en")}`, ""]
+                : []),
+              ...(cancellationPolicyDescription(input.cancellationPeriod, "en")
+                ? [`Applied policy: ${cancellationPolicyDescription(input.cancellationPeriod, "en")}`, ""]
+                : []),
+              ...(input.totalCents !== undefined ? [`Booking amount: ${formatEuro(input.totalCents, "en")}`] : []),
+              ...(input.paidCents !== undefined ? [`Already paid: ${formatEuro(input.paidCents, "en")}`] : []),
+              ...(input.cancellationFeeCents !== undefined
+                ? [`Cancellation fee: ${formatEuro(input.cancellationFeeCents, "en")}`]
+                : []),
+              ...(input.refundCents !== undefined
+                ? [`Refund: ${formatEuro(input.refundCents, "en")}`, `You will receive ${formatEuro(input.refundCents, "en")} back.`]
+                : []),
+              "",
+              "Kind regards",
+              "Munich Bike Rental",
+            ].join("\n")
         : de
           ? [
               `Hey ${recipientFirstName},`,
@@ -295,5 +439,87 @@ export function renderBookingNotice(input: {
     cancelled: de ? `Stornierung ${input.orderNumber}` : `Cancellation ${input.orderNumber}`,
     rejected: de ? `Anfrage ${input.orderNumber}` : `Inquiry ${input.orderNumber}`,
   };
-  return { subject: subjects[input.kind], text };
+  const subject = subjects[input.kind];
+  const title =
+    input.kind === "confirmed"
+      ? de
+        ? "Buchung bestätigt"
+        : "Booking confirmed"
+      : input.kind === "cancelled"
+        ? de
+          ? "Buchung storniert"
+          : "Booking cancelled"
+        : de
+          ? "Danke für deine Anfrage"
+          : "Thanks for your inquiry";
+  const intro =
+    input.kind === "confirmed"
+      ? de
+        ? `Deine Buchung ${input.orderNumber} ist verbindlich bestätigt.`
+        : `Your booking ${input.orderNumber} is now confirmed.`
+      : input.kind === "cancelled"
+        ? de
+          ? `Deine Buchung ${input.orderNumber} wurde storniert.`
+          : `Your booking ${input.orderNumber} has been cancelled.`
+        : de
+          ? "Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!"
+          : "Unfortunately, we cannot offer you a suitable bike for this period.";
+  const noticeDetails = [
+    input.kind === "cancelled" && input.totalCents !== undefined
+      ? de
+        ? `Buchungsbetrag: ${formatEuro(input.totalCents, "de")}`
+        : `Booking amount: ${formatEuro(input.totalCents, "en")}`
+      : "",
+    input.kind === "cancelled" && input.paidCents !== undefined
+      ? de
+        ? `Bereits bezahlt: ${formatEuro(input.paidCents, "de")}`
+        : `Already paid: ${formatEuro(input.paidCents, "en")}`
+      : "",
+    input.kind === "cancelled" && input.cancellationFeeCents !== undefined
+      ? de
+        ? `Stornogebühr: ${formatEuro(input.cancellationFeeCents, "de")}`
+        : `Cancellation fee: ${formatEuro(input.cancellationFeeCents, "en")}`
+      : "",
+    input.kind === "cancelled" && input.refundCents !== undefined
+      ? de
+        ? `Rückerstattung: ${formatEuro(input.refundCents, "de")}`
+        : `Refund: ${formatEuro(input.refundCents, "en")}`
+      : "",
+    input.kind === "cancelled" && input.cancellationReason
+      ? de
+        ? `Stornogrund: ${input.cancellationReason}`
+        : `Cancellation reason: ${input.cancellationReason}`
+      : "",
+    input.kind === "cancelled" && input.cancellationPeriod
+      ? de
+        ? `Stornierungszeitraum: ${cancellationPeriodLabel(input.cancellationPeriod, "de")}`
+        : `Cancellation period: ${cancellationPeriodLabel(input.cancellationPeriod, "en")}`
+      : "",
+    input.kind === "cancelled" && cancellationPolicyDescription(input.cancellationPeriod, input.locale)
+      ? de
+        ? `Angewandte Regelung: ${cancellationPolicyDescription(input.cancellationPeriod, "de")}`
+        : `Applied policy: ${cancellationPolicyDescription(input.cancellationPeriod, "en")}`
+      : "",
+  ].filter(Boolean);
+  const html = renderEmailLayout({
+    locale: input.locale,
+    preheader: subject,
+    eyebrow:
+      input.kind === "confirmed"
+        ? de
+          ? "Verbindlich"
+          : "Confirmed"
+        : input.kind === "cancelled"
+          ? de
+            ? "Storno"
+            : "Cancellation"
+          : de
+            ? "Anfrage"
+            : "Inquiry",
+    title,
+    intro,
+    content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
+    cta: offerLink ? { label: de ? "Buchungsdetails öffnen" : "Open booking details", href: offerLink } : undefined,
+  });
+  return { subject, text, html };
 }

@@ -231,6 +231,10 @@ describe("booking commands", () => {
     expect(mail.text).toContain("- Helm: Nicht enthalten");
     expect(mail.text).toContain("- Kleidung: Enthalten");
     expect(mail.text).not.toContain("lookKeo2Max");
+    expect(mail.html).toContain("Angebot öffnen &amp; bezahlen");
+    expect(mail.html).toContain("Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden.");
+    expect(mail.html).toContain("Gabelsbergerstraße 79a, 80333 München, Maxvorstadt");
+    expect(mail.html).toContain('href="http://localhost:3000/angebot/test-token"');
   });
 
   it("queues a localized offer and atomically reserves the chosen asset only on confirmation", () => {

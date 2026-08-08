@@ -6,6 +6,7 @@ describe("new booking state machine", () => {
   it("permits only the documented lifecycle transitions", () => {
     expect(canTransition("inquiry_received", "offer_sent")).toBe(true);
     expect(canTransition("inquiry_received", "rejected")).toBe(true);
+    expect(canTransition("inquiry_received", "cancelled")).toBe(false);
     expect(canTransition("offer_sent", "confirmed")).toBe(true);
     expect(canTransition("offer_sent", "expired")).toBe(true);
     expect(canTransition("expired", "offer_sent")).toBe(true);

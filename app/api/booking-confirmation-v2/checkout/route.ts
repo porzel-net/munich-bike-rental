@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getPublicBookingByToken, getPublicOfferByToken } from "@/lib/bookings/public";
+import { getPublicBookingByToken, getPublicBookingContactEmail, getPublicOfferByToken } from "@/lib/bookings/public";
 import { getDatabase } from "@/lib/db/client";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { consumePublicOfferRequestRateLimit } from "@/lib/security/rate-limit";
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
   const database = getDatabase();
   const offer =
     getPublicOfferByToken(database, input.data.token) ?? getPublicBookingByToken(database, input.data.token);
-  if (!offer || !offer.offerId || offer.status !== "sent" || !offer.totalCents || !offer.expiresAt) {
+  const customerEmail = getPublicBookingContactEmail(database, input.data.token);
+  if (!offer || !customerEmail || !offer.offerId || offer.status !== "sent" || !offer.totalCents || !offer.expiresAt) {
     return NextResponse.json({ message: "Dieses Angebot ist nicht mehr zahlbar." }, { status: 409 });
   }
   if (new Date(offer.expiresAt).getTime() <= Date.now()) {
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     const offerPath = `/angebot/${encodeURIComponent(input.data.token)}`;
     const session = await createStripeCheckoutSession({
       amountCents: offer.totalCents,
-      customerEmail: offer.booking.email,
+      customerEmail,
       clientReferenceId: offer.booking.orderNumber,
       productName: `Bike-Verleih ${offer.booking.orderNumber}`,
       productDescription: `Verbindliche Buchung – Angebot ${offer.offerNumber ?? ""}`.trim(),

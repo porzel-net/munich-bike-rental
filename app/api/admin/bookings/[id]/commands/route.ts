@@ -42,6 +42,8 @@ const commandSchema = z.discriminatedUnion("command", [
     command: z.literal("cancel"),
     cancellationFeeCents: z.number().int().min(0),
     reason,
+    personalMessage: z.string().trim().max(2000).optional(),
+    cancellationPeriod: z.enum(["more_than_7_days", "between_7_days_and_24_hours", "less_than_24_hours"]),
     dueAt: z.string().datetime().optional(),
   }),
   z.object({
@@ -50,12 +52,16 @@ const commandSchema = z.discriminatedUnion("command", [
       .number()
       .int()
       .refine((value) => value !== 0, "Betrag darf nicht 0 sein"),
+    bookedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    financialAccountId: z.number().int().positive(),
     reason,
     idempotencyKey: z.string().uuid(),
   }),
   z.object({
     command: z.literal("refund"),
     amountCents: z.number().int().positive(),
+    bookedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    financialAccountId: z.number().int().positive(),
     reason,
     idempotencyKey: z.string().uuid(),
   }),
@@ -106,6 +112,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           bookingId: id,
           cancellationFeeCents: input.data.cancellationFeeCents,
           reason: input.data.reason,
+          personalMessage: input.data.personalMessage,
+          cancellationPeriod: input.data.cancellationPeriod,
           dueAt: input.data.dueAt ? new Date(input.data.dueAt) : null,
           actorUserId: command.user.id,
         });
@@ -116,6 +124,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         recordPayment(command.db, {
           bookingId: id,
           amountCents: input.data.amountCents,
+          bookedAt: input.data.bookedAt,
+          financialAccountId: input.data.financialAccountId,
           reason: input.data.reason,
           idempotencyKey: input.data.idempotencyKey,
           actorUserId: command.user.id,
@@ -125,6 +135,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         recordRefund(command.db, {
           bookingId: id,
           amountCents: input.data.amountCents,
+          bookedAt: input.data.bookedAt,
+          financialAccountId: input.data.financialAccountId,
           reason: input.data.reason,
           idempotencyKey: input.data.idempotencyKey,
           actorUserId: command.user.id,

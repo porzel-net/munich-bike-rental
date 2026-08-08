@@ -37,7 +37,7 @@ RUN groupadd --gid 1001 nodejs \
 
 # Invoice PDFs are rendered on demand from LaTeX.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra \
+  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-xetex \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public

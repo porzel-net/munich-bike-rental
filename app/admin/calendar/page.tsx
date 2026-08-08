@@ -30,6 +30,7 @@ import {
 } from "@/lib/db/schema";
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
+import { siteConfig } from "@/lib/site";
 
 function resolveLocation(value: string | undefined, administrator: boolean, assignedLocation: RentalLocation | null) {
   if (!administrator) return assignedLocation ?? "all";
@@ -197,6 +198,27 @@ export default async function CalendarPage({
   }));
   const queryLocation = location === "all" ? "all" : location;
   const queryStatus = statuses.join(",");
+  const calendarFeedToken = process.env.CALENDAR_FEED_TOKEN?.trim();
+  const calendarBaseUrl = process.env.NODE_ENV === "development" ? "http://localhost:3000" : siteConfig.url;
+  const subscriptionLocations = ["munich", "regensburg"] as const;
+  const feedLocations = administrator
+    ? subscriptionLocations
+    : assignedLocation && subscriptionLocations.includes(assignedLocation as (typeof subscriptionLocations)[number])
+      ? [assignedLocation as (typeof subscriptionLocations)[number]]
+      : [];
+  const calendarFeeds =
+    calendarFeedToken && calendarFeedToken.length >= 32
+      ? feedLocations.map((feedLocation) => {
+          const calendarUrl = new URL(`/api/calendar/${encodeURIComponent(calendarFeedToken)}.ics`, calendarBaseUrl);
+          calendarUrl.searchParams.set("location", feedLocation);
+          const calendarUrlString = calendarUrl.toString();
+          return {
+            location: feedLocation,
+            label: rentalLocationLabels.de[feedLocation],
+            calendarUrl: calendarUrlString,
+          };
+        })
+      : [];
   return (
     <SidebarProvider
       style={
@@ -229,6 +251,7 @@ export default async function CalendarPage({
             statusValue={queryStatus}
             yearLabel={getCalendarYearLabel(month)}
             weeks={weeks}
+            calendarFeeds={calendarFeeds}
           />
         </main>
       </SidebarInset>

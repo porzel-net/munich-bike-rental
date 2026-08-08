@@ -6,6 +6,8 @@ export type AdminRole = (typeof adminRoles)[number];
 export type AuthorizedUser = {
   locationKey?: string | null;
   role?: string | null;
+  twoFactorEnabled?: boolean | null;
+  mustChangePassword?: boolean;
 };
 
 export function hasRole(user: AuthorizedUser, role: AdminRole) {
@@ -31,4 +33,22 @@ export function canAccessAdmin(user: AuthorizedUser) {
 
 export function canAccessLocation(user: AuthorizedUser, location: RentalLocation) {
   return isAdmin(user) || getAssignedLocation(user) === location;
+}
+
+/**
+ * API access requires the same completed setup as the admin layout. Keeping
+ * this check separate from the role check prevents a freshly signed-in user
+ * who still has to change the initial password from calling mutation APIs
+ * directly while the UI is redirecting them to the setup page.
+ */
+export function hasCompletedAdminSetup(user: AuthorizedUser) {
+  return user.twoFactorEnabled === true && user.mustChangePassword !== true;
+}
+
+export function canUseAdminApi(user: AuthorizedUser) {
+  return hasCompletedAdminSetup(user) && canAccessAdmin(user);
+}
+
+export function canUseAdminApiAsAdmin(user: AuthorizedUser) {
+  return canUseAdminApi(user) && isAdmin(user);
 }

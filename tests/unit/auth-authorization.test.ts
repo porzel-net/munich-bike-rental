@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { canAccessAdmin, canAccessLocation, getAssignedLocation } from "../../lib/auth/authorization";
+import {
+  canAccessAdmin,
+  canAccessLocation,
+  canUseAdminApi,
+  canUseAdminApiAsAdmin,
+  getAssignedLocation,
+  hasCompletedAdminSetup,
+} from "../../lib/auth/authorization";
 
 describe("location-scoped authorization", () => {
   it("grants admins access to every location", () => {
@@ -27,5 +34,22 @@ describe("location-scoped authorization", () => {
 
   it("rejects malformed multi-role values instead of granting the strongest role", () => {
     expect(canAccessAdmin({ role: "standortuser,admin", locationKey: "munich" })).toBe(false);
+  });
+
+  it("requires completed setup before allowing direct admin API access", () => {
+    const admin = { role: "admin", locationKey: null, twoFactorEnabled: true, mustChangePassword: false };
+
+    expect(hasCompletedAdminSetup(admin)).toBe(true);
+    expect(canUseAdminApi(admin)).toBe(true);
+    expect(canUseAdminApiAsAdmin(admin)).toBe(true);
+    expect(canUseAdminApi({ ...admin, twoFactorEnabled: false })).toBe(false);
+    expect(canUseAdminApi({ ...admin, mustChangePassword: true })).toBe(false);
+  });
+
+  it("keeps completed Standortuser sessions location-scoped", () => {
+    const user = { role: "standortuser", locationKey: "regensburg", twoFactorEnabled: true };
+
+    expect(canUseAdminApi(user)).toBe(true);
+    expect(canUseAdminApiAsAdmin(user)).toBe(false);
   });
 });

@@ -86,10 +86,24 @@ describe("email action evaluation fixtures", () => {
     expect(result.review.needs_action).toBe(true);
     const body = JSON.parse(fetcher.mock.calls[0][1]?.body as string);
     expect(body.model).toBe("gpt-5.6-luna");
+    expect(body.store).toBe(false);
     expect(body.reasoning.effort).toBe("medium");
     expect(body.text.format.name).toBe("email_action_review");
     expect(body.input[1].content[0].text).toContain("Könnten Sie");
     expect(buildEmailActionPrompt(emailActionEvaluationCases[39].messages)).toContain("Passt, danke!");
+
+    const redactedPrompt = buildEmailActionPrompt([
+      {
+        ...emailActionEvaluationCases[0].messages[0],
+        sender: "customer@example.com",
+        recipients: "hallo@munich-bike-rental.de",
+        plainText: "Meine Telefonnummer ist +49 151 12345678 und die Zahlung 4111111111111111.",
+      },
+    ]);
+    expect(redactedPrompt).not.toContain("customer@example.com");
+    expect(redactedPrompt).not.toContain("4111111111111111");
+    expect(redactedPrompt).toContain("[E-MAIL]");
+    expect(redactedPrompt).toContain("[ZAHLUNGSNUMMER]");
   });
 
   it("persists the hard-coded incoming inquiry signal", async () => {

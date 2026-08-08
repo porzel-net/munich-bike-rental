@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessLocation } from "../../../../lib/auth/authorization";
-import { getServerSession } from "../../../../lib/auth/session";
+import { canUseAdminApi, getServerSession } from "../../../../lib/auth/session";
 import { getDatabase, runInImmediateTransaction } from "../../../../lib/db/client";
 import { rentalLocationBikes, rentalLocationBikeSizes, rentalLocationEquipment } from "../../../../lib/db/schema";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
@@ -43,7 +43,7 @@ const deleteSchema = z.object({
 async function getAuthorizedSession(request: Request) {
   if (!hasTrustedOrigin(request)) return null;
   const session = await getServerSession();
-  if (!session || !session.user.twoFactorEnabled) return null;
+  if (!session || !canUseAdminApi(session.user)) return null;
   return session;
 }
 

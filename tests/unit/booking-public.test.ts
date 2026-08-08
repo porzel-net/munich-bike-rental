@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import { communicationMessages, mailOutbox } from "../../lib/db/schema";
-import { getPublicBookingByToken } from "../../lib/bookings/public";
+import { getPublicBookingByToken, getPublicBookingContactEmail } from "../../lib/bookings/public";
 import { createBooking } from "../../lib/bookings/service";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -48,7 +48,8 @@ describe("public booking link", () => {
       connection.db.select().from(communicationMessages).where(eq(communicationMessages.bookingId, created.id)).all(),
     ).toHaveLength(0);
     expect(token).toBeTruthy();
-    expect(getPublicBookingByToken(connection.db, token!)).toMatchObject({
+    const publicBooking = getPublicBookingByToken(connection.db, token!);
+    expect(publicBooking).toMatchObject({
       offerId: null,
       totalCents: 10_620,
       booking: {
@@ -57,5 +58,9 @@ describe("public booking link", () => {
         status: "inquiry_received",
       },
     });
+    expect(publicBooking?.booking).not.toHaveProperty("email");
+    expect(publicBooking?.booking).not.toHaveProperty("phone");
+    expect(publicBooking?.booking).not.toHaveProperty("message");
+    expect(getPublicBookingContactEmail(connection.db, token!)).toBe("test@example.com");
   });
 });

@@ -23,14 +23,11 @@ export type PublicOffer = {
     id: number;
     orderNumber: string;
     name: string;
-    email: string;
-    phone: string;
     location: string;
     periodFrom: string;
     periodTo: string;
     pickupTime: string;
     dropoffTime: string;
-    message: string;
     locale: "de" | "en";
     status: string;
     updatedAt: string;
@@ -83,14 +80,11 @@ function buildPublicBookingView(
       id: booking.id,
       orderNumber: booking.orderNumber,
       name: booking.customerName,
-      email: booking.customerEmail,
-      phone: booking.customerPhone,
       location: booking.location,
       periodFrom: booking.periodFrom,
       periodTo: booking.periodTo,
       pickupTime: booking.pickupTime,
       dropoffTime: booking.dropoffTime,
-      message: booking.customerMessage,
       locale: booking.communicationLocale,
       status: booking.status,
       updatedAt: booking.updatedAt.toISOString(),
@@ -134,6 +128,28 @@ export function getPublicOfferByToken(db: AppDatabase, token: string): PublicOff
   if (!offer) return null;
   const booking = db.select().from(bookings).where(eq(bookings.id, offer.bookingId)).get();
   return booking ? buildPublicBookingView(db, booking, offer) : null;
+}
+
+/**
+ * Checkout needs the recipient address server-side, but it must not be part
+ * of the bearer-token response sent to the customer's browser.
+ */
+export function getPublicBookingContactEmail(db: AppDatabase, token: string): string | null {
+  if (!token || token.length > 200) return null;
+  const tokenHash = hashToken(token);
+  const offer = db.select().from(bookingOffers).where(eq(bookingOffers.tokenHash, tokenHash)).get();
+  if (offer)
+    return (
+      db.select({ email: bookings.customerEmail }).from(bookings).where(eq(bookings.id, offer.bookingId)).get()
+        ?.email ?? null
+    );
+
+  const link = db.select().from(bookingPublicLinks).where(eq(bookingPublicLinks.tokenHash, tokenHash)).get();
+  if (!link) return null;
+  return (
+    db.select({ email: bookings.customerEmail }).from(bookings).where(eq(bookings.id, link.bookingId)).get()?.email ??
+    null
+  );
 }
 
 /** Resolves the stable link sent with the initial inquiry confirmation. */

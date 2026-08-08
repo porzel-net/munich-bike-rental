@@ -28,6 +28,10 @@ function formatDate(value: string) {
   return date.format(new Date(`${value.slice(0, 10)}T00:00:00`));
 }
 
+function formatThroughMonth(value: string) {
+  return `${value.slice(5, 7)} ${value.slice(0, 4)}`;
+}
+
 function assetTypeLabel(value: string) {
   if (value === "bike") return "Fahrrad";
   if (value === "equipment") return "Ausstattung";
@@ -72,7 +76,7 @@ export function FixedAssetsTable({ assets }: { assets: FixedAssetRow[] }) {
           <CardDescription>{activeCount} aktive Anlagegüter · AfA wird monatsweise geführt.</CardDescription>
         </div>
         <Button type="button" variant="outline" onClick={postDepreciation} disabled={busy || !activeCount}>
-          {busy ? "Wird gebucht…" : `AfA bis ${throughMonth}`}
+          {busy ? "Wird gebucht…" : `AfA bis ${formatThroughMonth(throughMonth)}`}
         </Button>
       </div>
       <Table>

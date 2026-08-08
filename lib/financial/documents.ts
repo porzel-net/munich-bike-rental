@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
 
 import { and, eq } from "drizzle-orm";
 
@@ -13,9 +12,9 @@ export const MAX_FINANCIAL_DOCUMENT_BYTES = MAX_DOCUMENT_BYTES;
 const allowedMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
 function documentDirectory() {
-  return resolve(
+  return (
     process.env.FINANCIAL_DOCUMENTS_DIR?.trim() ||
-      (process.env.NODE_ENV === "production" ? "/data/financial-documents" : "./data/financial-documents"),
+    (process.env.NODE_ENV === "production" ? "/data/financial-documents" : "./data/financial-documents")
   );
 }
 
@@ -23,8 +22,9 @@ export function financialDocumentPath(storageKey: string) {
   if (!storageKey || storageKey.includes("/") || storageKey.includes("\\") || storageKey === "." || storageKey === "..")
     throw new BookingCommandError("Ungültiger Belegpfad.");
   const base = documentDirectory();
-  const path = resolve(base, storageKey);
-  if (path !== base && !path.startsWith(`${base}/`)) throw new BookingCommandError("Ungültiger Belegpfad.");
+  const normalizedBase = base === "/" ? "" : base.replace(/\/+$/, "");
+  const path = `${normalizedBase}/${storageKey}`;
+  if (path !== base && !path.startsWith(`${normalizedBase}/`)) throw new BookingCommandError("Ungültiger Belegpfad.");
   return path;
 }
 

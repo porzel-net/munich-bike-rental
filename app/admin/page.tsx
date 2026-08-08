@@ -346,7 +346,6 @@ export default async function AdminPage() {
   });
   const potentialRevenueByMonth = new Map(potentialRevenueData.map((point) => [point.key, point]));
   for (const booking of allBookingMetrics) {
-    if (["rejected", "cancelled", "expired"].includes(booking.status)) continue;
     const bookingMonthKey = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Europe/Berlin",
       year: "numeric",

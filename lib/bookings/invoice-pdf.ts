@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -26,6 +26,8 @@ export type InvoiceInput = {
 
 function latex(value: string | number) {
   return String(value)
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, " ")
+    .replace(/\r?\n/g, " ")
     .replaceAll("\\", "\\textbackslash{}")
     .replaceAll("&", "\\&")
     .replaceAll("%", "\\%")
@@ -47,7 +49,7 @@ function formatDate(value: Date) {
 }
 
 function row(description: string, amountCents: number) {
-  return `\\textbf{${latex(description)}} & ${latex(euro(amountCents))} \\\\[1.2ex]\\hline`;
+  return `\\textbf{${latex(description)}} & ${latex(euro(amountCents))} \\\\[1.7ex]\\hline`;
 }
 
 function renderTex(input: InvoiceInput) {
@@ -63,9 +65,16 @@ function renderTex(input: InvoiceInput) {
   const discountRow = input.quote.discountCents ? row("Rabatt", -input.quote.discountCents) : "";
 
   return String.raw`\documentclass[10pt]{letter}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
+\usepackage{fontspec}
+\setmainfont[
+  BoldFont=poppins-700.ttf,
+  ItalicFont=poppins-400.ttf,
+  BoldItalicFont=poppins-700.ttf
+]{poppins-400.ttf}
+\usepackage{setspace}
+\setstretch{1.18}
 \usepackage[left=1in,top=0.8in,right=1in,bottom=0.8in]{geometry}
+\usepackage{graphicx}
 \usepackage{tabularx}
 \usepackage{array}
 \usepackage{hhline}
@@ -75,10 +84,10 @@ function renderTex(input: InvoiceInput) {
 \begin{document}
 \thispagestyle{empty}
 \begin{tabularx}{\textwidth}{X r}
-  {\Huge\bfseries Munich Rental} & {\footnotesize\bfseries RECHNUNG}\\[-0.2ex]
-  Rennrad- und Gravelbike-Verleih & {\footnotesize ${latex(input.invoiceNumber)}}\\
-  ${latex("hallo@munich-bike-rental.de")} & {\footnotesize ${latex(formatDate(input.issuedAt))}}\\
-  ${latex("+49 89 54193577")} & \\
+  {\Huge\bfseries Munich Rental} & \raisebox{-0.2cm}{\includegraphics[height=2.2cm]{logo.png}}\\[-0.2ex]
+  Rennrad- und Gravelbike-Verleih & {\footnotesize\bfseries RECHNUNG}\\
+  ${latex("hallo@munich-bike-rental.de")} & {\footnotesize ${latex(input.invoiceNumber)}}\\
+  ${latex("+49 89 54193577")} & {\footnotesize ${latex(formatDate(input.issuedAt))}}\\
 \end{tabularx}
 
 \vspace{1cm}
@@ -102,9 +111,9 @@ ${latex(input.customerPhone)}\par
 ${bikeRows}
 ${accessoryRow}
 ${discountRow}
-\textbf{Gesamtbetrag} & \textbf{${latex(euro(input.quote.totalCents))}}\\[1.5ex]\hhline{~-}
-\textbf{Zahlung erhalten} & \textbf{${latex(euro(input.paidAmountCents))}}\\[1.5ex]\hhline{~-}
-\textbf{Offener Betrag} & \textbf{${latex(euro(Math.max(0, input.quote.totalCents - input.paidAmountCents)))}}\\[1.5ex]\hhline{==}
+\textbf{Gesamtbetrag} & \textbf{${latex(euro(input.quote.totalCents))}}\\[1.9ex]\hhline{~-}
+\textbf{Zahlung erhalten} & \textbf{${latex(euro(input.paidAmountCents))}}\\[1.9ex]\hhline{~-}
+\textbf{Offener Betrag} & \textbf{${latex(euro(Math.max(0, input.quote.totalCents - input.paidAmountCents)))}}\\[1.9ex]\hhline{==}
 \end{tabularx}
 
 \vfill
@@ -112,6 +121,7 @@ Vielen Dank für deine Buchung. Diese Rechnung ist vollständig bezahlt.
 
 \vspace{0.25cm}
 Munich Rental · ${latex("Josephine-Lang-Weg 3, 81245 München")} · ${latex("hallo@munich-bike-rental.de")}
+\par\vspace{0.15cm}\footnotesize Steuerbefreiung gemäß \S 19 UStG
 \end{document}
 `;
 }
@@ -120,13 +130,19 @@ export async function renderInvoicePdf(input: InvoiceInput) {
   const directory = await mkdtemp(join(tmpdir(), "munich-bike-invoice-"));
   const texPath = join(directory, "invoice.tex");
   try {
+    await Promise.all([
+      copyFile(join(process.cwd(), "public/assets/img/logo.png"), join(directory, "logo.png")),
+      copyFile(join(process.cwd(), "public/fonts/poppins-400.ttf"), join(directory, "poppins-400.ttf")),
+      copyFile(join(process.cwd(), "public/fonts/poppins-700.ttf"), join(directory, "poppins-700.ttf")),
+    ]);
     await writeFile(texPath, renderTex(input), "utf8");
     await execFileAsync(
-      process.env.PDFLATEX_PATH || "pdflatex",
+      process.env.LATEX_PATH || process.env.PDFLATEX_PATH || "xelatex",
       ["-interaction=nonstopmode", "-halt-on-error", "invoice.tex"],
       {
         cwd: directory,
         maxBuffer: 2 * 1024 * 1024,
+        env: { ...process.env, TEXMFVAR: join(directory, "texmf-var") },
       },
     );
     return await readFile(join(directory, "invoice.pdf"));

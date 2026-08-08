@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { getServerSession, isAdmin } from "../../../../lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "../../../../lib/auth/session";
 import { createInvitationToken, hashInvitationToken, invitationBaseUrl } from "../../../../lib/auth/invitations";
 import { getDatabase } from "../../../../lib/db/client";
 import { authInvitation } from "../../../../lib/db/schema/auth";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
 
   const session = await getServerSession();
-  if (!session || !isAdmin(session.user) || !session.user.twoFactorEnabled) {
+  if (!session || !canUseAdminApiAsAdmin(session.user)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

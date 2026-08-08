@@ -1,10 +1,14 @@
 import { and, desc, eq, lte, or } from "drizzle-orm";
 
 import { getDatabase, runInImmediateTransaction, type AppDatabase } from "../db/client";
-import { bookingOffers, bookings, communicationMessages, mailOutbox } from "../db/schema";
+import { bookingOffers, bookingRequestedItems, bookings, communicationMessages, mailOutbox } from "../db/schema";
+import { renderInvoicePdf } from "./invoice-pdf";
+import { getBookingPaymentStatus } from "./service";
+import type { OfferQuote } from "./quotes";
 import { findBookingThreadMessageId } from "../inquiries/mailbox";
 import { reviewBookingEmailThread } from "../inquiries/email-action";
 import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mail-thread";
+import { rentalLocationLabels } from "../inquiries/catalog";
 import { sendConfiguredMail } from "../inquiries/server";
 
 const LEASE_MS = 60_000;
@@ -12,6 +16,54 @@ const RETRY_CAP_MS = 60 * 60 * 1_000;
 
 function usesRequestAccount(kind: string) {
   return kind === "new_inquiry" || kind === "inquiry_received";
+}
+
+async function buildPaidBookingInvoiceAttachment(db: AppDatabase, bookingId: number) {
+  const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
+  const payment = getBookingPaymentStatus(db, bookingId);
+  if (!booking?.invoiceNumber || payment.status !== "settled") return null;
+
+  const offer = db
+    .select()
+    .from(bookingOffers)
+    .where(and(eq(bookingOffers.bookingId, bookingId), eq(bookingOffers.status, "accepted")))
+    .orderBy(desc(bookingOffers.offerNumber))
+    .get();
+  if (!offer) return null;
+
+  const requestedItems = db
+    .select()
+    .from(bookingRequestedItems)
+    .where(eq(bookingRequestedItems.bookingId, bookingId))
+    .all();
+  const quote = JSON.parse(offer.priceSnapshotJson) as OfferQuote;
+  const location =
+    rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
+  const content = await renderInvoicePdf({
+    invoiceNumber: booking.invoiceNumber,
+    issuedAt: booking.invoiceIssuedAt ?? new Date(),
+    customerName: booking.customerName,
+    customerEmail: booking.customerEmail,
+    customerPhone: booking.customerPhone,
+    orderNumber: booking.orderNumber,
+    periodFrom: booking.periodFrom,
+    periodTo: booking.periodTo,
+    pickupTime: booking.pickupTime,
+    dropoffTime: booking.dropoffTime,
+    location,
+    quote: {
+      ...quote,
+      offeredItems: quote.offeredItems.filter((item) =>
+        requestedItems.some((requested) => requested.id === item.requestedItemId),
+      ),
+    },
+    paidAmountCents: quote.totalCents - payment.openCents,
+  });
+  return {
+    filename: `${booking.invoiceNumber}.pdf`,
+    content,
+    contentType: "application/pdf",
+  };
 }
 
 async function resolveThread(
@@ -79,11 +131,15 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
       .set({ inReplyTo, referencesHeader })
       .where(and(eq(mailOutbox.id, job.id), eq(mailOutbox.status, "leased")))
       .run();
+    const attachments =
+      job.kind === "booking_confirmed" ? await buildPaidBookingInvoiceAttachment(db, job.bookingId) : null;
     const sent = await sendConfiguredMail({
       account: usesRequestAccount(job.kind) ? "request" : "main",
       to: job.recipient,
       subject: job.subject,
       text: job.plainText,
+      html: job.html ?? undefined,
+      attachments: attachments ? [attachments] : undefined,
       inReplyTo: inReplyTo ?? undefined,
       references: referencesHeader ?? undefined,
     });

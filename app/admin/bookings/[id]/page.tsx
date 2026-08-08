@@ -38,6 +38,7 @@ import {
   bookingOffers,
   bookingRequestedItems,
   bookings,
+  financialAccounts,
   authUser,
   journalEntries,
   rentalAssets,
@@ -116,6 +117,17 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .from(journalEntries)
     .where(eq(journalEntries.bookingId, id))
     .orderBy(desc(journalEntries.occurredAt))
+    .all();
+  const paymentAccounts = db
+    .select({
+      id: financialAccounts.id,
+      name: financialAccounts.name,
+      iban: financialAccounts.iban,
+      type: financialAccounts.type,
+    })
+    .from(financialAccounts)
+    .where(eq(financialAccounts.status, "active"))
+    .orderBy(financialAccounts.name)
     .all();
   const latestEmailActionReview = getLatestEmailActionReview(db, booking.id);
   const emailActionQuestions = reviewQuestions(latestEmailActionReview);
@@ -458,6 +470,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   status={booking.status}
                   customerName={booking.customerName}
                   senderName={session.user.name}
+                  paymentAccounts={paymentAccounts}
                   canExecuteActions={
                     Boolean(assignee) && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
                   }

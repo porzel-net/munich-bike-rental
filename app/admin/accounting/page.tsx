@@ -5,7 +5,6 @@ import type { CSSProperties } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { EuerSummary } from "@/components/euer-summary";
 import { FixedAssetsTable, type FixedAssetRow } from "@/components/fixed-assets-table";
-import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
 import { StripeAutoSyncStatus } from "@/components/stripe-auto-sync-status";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -76,10 +75,9 @@ export default async function AccountingPage() {
         <main className="flex flex-1 flex-col p-8 lg:p-12">
           <div className="mb-2 flex flex-col items-end gap-3">
             <StripeAutoSyncStatus />
-            <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} />
           </div>
           <div className="flex flex-col gap-6">
-            <EuerSummary data={euer} />
+            <EuerSummary data={euer} categories={categories} accounts={accounts} />
             <FixedAssetsTable assets={assets} />
           </div>
         </main>

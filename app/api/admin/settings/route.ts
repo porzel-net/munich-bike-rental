@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { canAccessAdmin, getServerSession } from "@/lib/auth/session";
+import { canUseAdminApi, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { authUser } from "@/lib/db/schema/auth";
 import { hasTrustedOrigin } from "@/lib/auth/request";
@@ -16,7 +16,7 @@ export async function PATCH(request: Request) {
   if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Ungültiger Ursprung." }, { status: 403 });
   const session = await getServerSession();
   if (!session) return NextResponse.json({ message: "Nicht angemeldet." }, { status: 401 });
-  if (!session.user.twoFactorEnabled || !canAccessAdmin(session.user)) {
+  if (!canUseAdminApi(session.user)) {
     return NextResponse.json({ message: "Keine Berechtigung." }, { status: 403 });
   }
   const parsed = settingsSchema.safeParse(await readBoundedJson(request));

@@ -153,6 +153,7 @@ function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
     db.update(financialAccounts)
       .set({
         name: account.accountName || existing.name,
+        iban: account.iban || existing.iban,
         currency: account.currency || existing.currency,
         notes: `Nevlo-Bankkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
         ...(providerBalanceCents === null ? {} : { providerBalanceCents, providerBalanceAt }),
@@ -169,6 +170,7 @@ function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
       name: account.accountName || "Nevlo-Bankkonto",
       type: "bank",
       status: "active",
+      iban: account.iban || null,
       currency: account.currency || "EUR",
       provider: "nevlo",
       providerAccountId: account.id,

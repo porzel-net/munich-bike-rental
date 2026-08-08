@@ -128,6 +128,93 @@
   box-shadow: none;
 }
 
+.calendar-subscription {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.5rem 1.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(90, 103, 216, 0.16);
+  border-radius: 0.85rem;
+  background: linear-gradient(100deg, rgba(90, 103, 216, 0.07), rgba(255, 255, 255, 0.96));
+  color: #51565d;
+}
+
+.calendar-subscription-copy,
+.calendar-subscription-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.calendar-subscription-copy > svg {
+  color: #5865c8;
+}
+
+.calendar-subscription-copy > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.calendar-subscription-copy strong {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.calendar-subscription-copy span {
+  color: rgba(81, 86, 93, 0.66);
+  font-size: 0.72rem;
+}
+
+.calendar-subscription-actions {
+  flex-shrink: 0;
+}
+
+.calendar-subscription-feeds {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 0.5rem;
+}
+
+.calendar-subscription-feed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.45rem 0.55rem 0.45rem 0.75rem;
+  border: 1px solid rgba(166, 168, 179, 0.18);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.calendar-subscription-feed > strong,
+.calendar-subscription-feed-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.calendar-subscription-feed > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #51565d;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-subscription-feed > strong svg {
+  flex-shrink: 0;
+  color: #5865c8;
+}
+
+.calendar-subscription-feed-actions {
+  flex-shrink: 0;
+}
+
 .calendar-grid-wrap {
   overflow-x: auto;
   border-top: 0;
@@ -472,5 +559,26 @@
   .calendar-toolbar-side-right {
     grid-column: 1;
     order: 2;
+  }
+
+  .calendar-subscription {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-right: 1rem;
+    margin-left: 1rem;
+  }
+
+  .calendar-subscription-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .calendar-subscription-feeds {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-subscription-feed {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, canAccessLocation, getServerSession, isAdmin } from "@/lib/auth/session";
+import { canAccessLocation, canUseAdminApi, getServerSession, isAdmin } from "@/lib/auth/session";
 import { BookingCommandError, assignBooking } from "@/lib/bookings/service";
 import { getDatabase } from "@/lib/db/client";
 import { bookings, authUser } from "@/lib/db/schema";
@@ -22,7 +22,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ message: "Ungültige Zuweisung" }, { status: 400 });
 
   const session = await getServerSession();
-  if (!session || !session.user.twoFactorEnabled || !canAccessAdmin(session.user)) {
+  if (!session || !canUseAdminApi(session.user)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

@@ -27,6 +27,7 @@ services:
       SITE_URL: ${SITE_URL:?SITE_URL must be set to the public HTTPS origin}
       APP_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must be set to the public HTTPS origin}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL must be set to the public HTTPS origin}
+      __NEXT_PRIVATE_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must be set to the public HTTPS origin}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
       DATABASE_URL: /data/bikerental.db
       CALENDAR_FEED_TOKEN: ${CALENDAR_FEED_TOKEN:-}

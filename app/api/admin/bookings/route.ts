@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, canAccessLocation, getServerSession } from "../../../../lib/auth/session";
+import { canAccessLocation, canUseAdminApi, getServerSession } from "../../../../lib/auth/session";
 import { BookingCommandError, createBooking, createDirectBooking } from "../../../../lib/bookings/service";
 import { isValidIsoDate, isValidTime } from "../../../../lib/bookings/validation";
 import { getDatabase } from "../../../../lib/db/client";
@@ -61,8 +61,7 @@ export async function POST(request: Request) {
   if (
     !hasTrustedOrigin(request) ||
     !session ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
+    !canUseAdminApi(session.user) ||
     !input.success ||
     !canAccessLocation(session.user, input.data.location as RentalLocation)
   )

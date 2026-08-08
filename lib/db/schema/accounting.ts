@@ -168,6 +168,7 @@ export const financialAccounts = sqliteTable(
     name: text("name").notNull(),
     type: text("type", { enum: financialAccountTypes }).notNull(),
     status: text("status", { enum: financialAccountStatuses }).notNull().default("active"),
+    iban: text("iban"),
     currency: text("currency").notNull().default("EUR"),
     provider: text("provider"),
     providerAccountId: text("provider_account_id"),

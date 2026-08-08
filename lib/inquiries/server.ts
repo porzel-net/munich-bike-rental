@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import type { z } from "zod";
 
 import { siteConfig } from "../site";
+import { readBoundedText } from "../security/request-body";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
@@ -118,13 +119,8 @@ export async function parseInquiryRequest<T extends { website?: unknown }>(
     return { error: jsonError(415, "unsupported_content_type", "Unsupported content type") };
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return { error: jsonError(413, "payload_too_large", "Payload too large") };
-  }
-
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+  const rawBody = await readBoundedText(request, MAX_BODY_BYTES);
+  if (rawBody === null) {
     return { error: jsonError(413, "payload_too_large", "Payload too large") };
   }
 
@@ -262,10 +258,18 @@ export function createOrderNumber(date = new Date()) {
 
 export type SentMail = { messageId: string | null };
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
 export async function sendConfiguredMail({
   account,
   subject,
   text,
+  html,
+  attachments,
   to,
   replyTo,
   inReplyTo,
@@ -274,6 +278,8 @@ export async function sendConfiguredMail({
   account: MailAccount;
   subject: string;
   text: string;
+  html?: string;
+  attachments?: MailAttachment[];
   to: string;
   replyTo?: string;
   inReplyTo?: string;
@@ -305,6 +311,8 @@ export async function sendConfiguredMail({
     references,
     subject,
     text,
+    html,
+    attachments,
   });
 
   return { messageId: typeof result.messageId === "string" ? result.messageId : null };

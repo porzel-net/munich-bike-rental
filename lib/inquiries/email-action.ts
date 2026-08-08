@@ -16,6 +16,17 @@ const openAiReviewSchema = z.object({
   open_questions: z.array(z.string().min(1).max(500)).max(10),
 });
 
+const MAX_PROMPT_CHARS = 60_000;
+
+function redactPromptText(value: string) {
+  return value
+    .replace(/https?:\/\/\S+/gi, "[URL]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[E-MAIL]")
+    .replace(/\b[A-Z]{2}\d{2}(?:[ -]?\d{4}){4,7}\b/gi, "[IBAN]")
+    .replace(/\b\d{13,19}\b/g, "[ZAHLUNGSNUMMER]")
+    .replace(/(?<!\d)\+?\d[\d ().\/-]{7,}\d(?!\d)/g, "[TELEFON]");
+}
+
 export type EmailActionReview = z.infer<typeof openAiReviewSchema>;
 
 export type EmailActionMessage = {
@@ -76,13 +87,20 @@ export function isEmailActionEligible(
 }
 
 export function buildEmailActionPrompt(messages: readonly EmailActionMessage[]) {
+  let remainingChars = MAX_PROMPT_CHARS;
   const transcript = messages
     .slice(-30)
-    .map((message, index) => {
+    .reduce<string[]>((blocks, message, index) => {
+      if (remainingChars <= 0) return blocks;
       const sentAt = new Date(message.sentAt).toISOString();
-      const body = message.plainText.trim().slice(0, 8_000);
-      return `Nachricht ${index + 1} | ${message.direction === "inbound" ? "KUNDE" : "MITARBEITER"} | ${sentAt}\nVon: ${message.sender}\nAn: ${message.recipients}\nBetreff: ${message.subject}\nText:\n${body}`;
-    })
+      const prefix = `Nachricht ${index + 1} | ${message.direction === "inbound" ? "KUNDE" : "MITARBEITER"} | ${sentAt}\nVon: ${redactPromptText(message.sender)}\nAn: ${redactPromptText(message.recipients)}\nBetreff: ${redactPromptText(message.subject)}\nText:\n`;
+      const bodyBudget = Math.min(8_000, Math.max(0, remainingChars - prefix.length));
+      const body = redactPromptText(message.plainText.trim()).slice(0, bodyBudget);
+      const block = `${prefix}${body}`;
+      remainingChars -= block.length;
+      blocks.push(block);
+      return blocks;
+    }, [])
     .join("\n\n---\n\n");
 
   return `Analysiere den folgenden E-Mail-Verlauf eines Fahrradverleihs. Entscheide ausschließlich, ob ein Mitarbeiter jetzt noch handeln muss, um eine Kundenfrage oder eine konkrete Kundenbitte zu beantworten.
@@ -139,6 +157,7 @@ export async function analyzeEmailThread(
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
+      store: false,
       reasoning: { effort: apiReasoningEffort(reasoningEffort) },
       input: [
         {

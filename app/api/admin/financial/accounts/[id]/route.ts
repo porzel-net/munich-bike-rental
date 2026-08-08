@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { financialAccounts } from "@/lib/db/schema";
 import { BookingCommandError } from "@/lib/bookings/errors";
@@ -20,13 +20,7 @@ const schema = z.object({
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (
-    !hasTrustedOrigin(request) ||
-    !session ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
-    !isAdmin(session.user)
-  )
+  if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   const id = Number((await context.params).id);
   const input = schema.safeParse(await readBoundedJson(request));

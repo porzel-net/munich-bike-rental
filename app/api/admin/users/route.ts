@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { getServerSession, isAdmin } from "../../../../lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "../../../../lib/auth/session";
 import { getDatabase } from "../../../../lib/db/client";
 import { authInvitation, authUser } from "../../../../lib/db/schema/auth";
 import {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
 
   const session = await getServerSession();
-  if (!session || !isAdmin(session.user) || !session.user.twoFactorEnabled) {
+  if (!session || !canUseAdminApiAsAdmin(session.user)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -96,7 +96,7 @@ async function requireAdmin(request: Request) {
   if (!hasTrustedOrigin(request))
     return { response: NextResponse.json({ message: "Invalid origin" }, { status: 403 }) };
   const session = await getServerSession();
-  if (!session || !isAdmin(session.user) || !session.user.twoFactorEnabled) {
+  if (!session || !canUseAdminApiAsAdmin(session.user)) {
     return { response: NextResponse.json({ message: "Unauthorized" }, { status: 401 }) };
   }
   return { session };

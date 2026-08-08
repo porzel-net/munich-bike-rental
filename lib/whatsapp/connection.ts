@@ -1,5 +1,4 @@
 import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
 
 import makeWASocket, {
   Browsers,
@@ -18,10 +17,9 @@ export type WhatsAppConnectionSnapshot = {
   error: string | null;
 };
 
-const authDirectory = resolve(
+const authDirectory =
   process.env.WHATSAPP_AUTH_DIR?.trim() ||
-    (process.env.NODE_ENV === "production" ? "/data/whatsapp-auth" : "./data/whatsapp-auth"),
-);
+  (process.env.NODE_ENV === "production" ? "/data/whatsapp-auth" : "./data/whatsapp-auth");
 
 type DisconnectError = {
   message?: string;

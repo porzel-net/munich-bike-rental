@@ -402,6 +402,7 @@ export const mailOutbox = sqliteTable(
     recipient: text("recipient").notNull(),
     subject: text("subject").notNull(),
     plainText: text("plain_text").notNull(),
+    html: text("html"),
     inReplyTo: text("in_reply_to"),
     referencesHeader: text("references_header"),
     status: text("status", { enum: outboxStatuses }).notNull().default("queued"),

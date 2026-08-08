@@ -53,6 +53,7 @@ type RequestedItem = {
 };
 type Asset = { id: number; label: string; priceCents: number };
 type Entry = { id: number; label: string };
+type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
 type Action = "offer" | "cancel" | "payment" | "refund" | "correct" | "reject";
 type ConfirmAction = "check_out" | "complete" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
@@ -125,6 +126,7 @@ export function BookingCommandActions({
   availableAssets,
   unavailableAssetIds,
   journalEntries,
+  paymentAccounts,
 }: {
   bookingId: number;
   bookingTotalCents: number;
@@ -136,6 +138,7 @@ export function BookingCommandActions({
   availableAssets: Asset[];
   unavailableAssetIds: number[];
   journalEntries: Entry[];
+  paymentAccounts: PaymentAccount[];
 }) {
   const router = useRouter();
   const [activeAction, setActiveAction] = useState<Action | null>(null);
@@ -143,6 +146,8 @@ export function BookingCommandActions({
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
+  const [bookedAt, setBookedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [financialAccountId, setFinancialAccountId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [cancellationPeriod, setCancellationPeriod] = useState<CancellationPeriod | "">("");
   const [entryId, setEntryId] = useState("");
@@ -166,7 +171,7 @@ export function BookingCommandActions({
       rentalDays: number;
       offeredItems: Array<{ requestedLabel: string; assetName: string }>;
     };
-    mail: { subject: string; text: string };
+    mail: { subject: string; text: string; html: string };
   } | null>(null);
 
   const selectedAssetIds = useMemo(
@@ -230,6 +235,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setActiveAction(null);
     setReason("");
     setAmount("");
+    setBookedAt(new Date().toISOString().slice(0, 10));
+    setFinancialAccountId("");
     setDueDate("");
     setCancellationPeriod("");
     setEntryId("");
@@ -316,11 +323,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           isAlternativeOffer ? "Alternativangebot wurde in die Outbox gelegt." : "Angebot wurde in die Outbox gelegt.",
         );
       } else if (activeAction === "cancel") {
+        if (!cancellationPeriod) throw new Error("Bitte wähle den Stornozeitraum aus.");
         const cancellationFeeCents = euroToCents(amount || "0");
         if (cancellationFeeCents === null) throw new Error("Bitte gib die Stornogebühr als gültigen Euro-Betrag ein.");
         await request({
           command: "cancel",
           reason,
+          personalMessage: personalMessage.trim() || undefined,
+          cancellationPeriod,
           cancellationFeeCents,
           dueAt: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
         });
@@ -333,7 +343,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               ? "Bitte gib einen von 0 € verschiedenen Euro-Betrag ein."
               : "Bitte gib einen positiven Euro-Betrag ein.",
           );
-        await request({ command: activeAction, amountCents, reason });
+        if (!financialAccountId) throw new Error("Bitte wähle das Zahlungskonto bzw. die IBAN aus.");
+        await request({
+          command: activeAction,
+          amountCents,
+          bookedAt,
+          financialAccountId: Number(financialAccountId),
+          reason,
+        });
         toast.success(activeAction === "payment" ? "Zahlung wurde erfasst." : "Erstattung wurde erfasst.");
       } else if (activeAction === "correct") {
         if (!entryId) throw new Error("Bitte wähle eine Journalbuchung aus.");
@@ -524,7 +541,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             onClick={() => setConfirmAction("complete")}
           />
         )}
-        {["inquiry_received", "offer_sent", "confirmed"].includes(status) && (
+        {["offer_sent", "confirmed"].includes(status) && (
           <ActionItem
             icon={<XIcon />}
             title="Buchung stornieren"
@@ -753,12 +770,26 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                         {preview.quote.rentalDays} Miettage · Rabatt {formatEuro(preview.quote.discountCents)}
                       </span>
                     </div>
-                    <div className="rounded-xl bg-muted/50 p-3">
-                      <p className="text-sm font-medium">{preview.mail.subject}</p>
-                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
+                    <div className="overflow-hidden rounded-xl border bg-[#f5f6f8]">
+                      <div className="border-b bg-card px-3 py-2">
+                        <p className="text-sm font-medium">{preview.mail.subject}</p>
+                        <p className="text-xs text-muted-foreground">
+                          HTML-Vorschau · responsive Mail mit Plaintext-Fallback
+                        </p>
+                      </div>
+                      <iframe
+                        title="HTML-Vorschau der Angebotsmail"
+                        srcDoc={preview.mail.html}
+                        sandbox=""
+                        className="h-[620px] w-full bg-[#f5f6f8]"
+                      />
+                    </div>
+                    <details className="rounded-xl border bg-muted/50 p-3">
+                      <summary className="cursor-pointer text-sm font-medium">Plaintext-Fallback anzeigen</summary>
+                      <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6 text-muted-foreground">
                         {preview.mail.text}
                       </pre>
-                    </div>
+                    </details>
                   </div>
                 )}
               </>
@@ -811,6 +842,17 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   />
                 </Field>
                 <Field>
+                  <FieldLabel htmlFor="cancel-personal-message">Persönliche Nachricht (optional)</FieldLabel>
+                  <Textarea
+                    id="cancel-personal-message"
+                    value={personalMessage}
+                    onChange={(event) => setPersonalMessage(event.target.value)}
+                    placeholder="Zum Beispiel eine persönliche Antwort oder weitere Hinweise zur Rückerstattung"
+                    maxLength={2000}
+                  />
+                  <FieldDescription>Dieser Text wird zusätzlich in die Stornomail eingefügt.</FieldDescription>
+                </Field>
+                <Field>
                   <FieldLabel htmlFor="cancel-fee">Stornogebühr in Euro</FieldLabel>
                   <Input
                     id="cancel-fee"
@@ -834,15 +876,53 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             )}
             {(activeAction === "payment" || activeAction === "refund") && (
               <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="amount">Betrag in Euro</FieldLabel>
+                    <Input
+                      id="amount"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                    />
+                    {activeAction === "payment" && (
+                      <FieldDescription>
+                        Ein negativer Betrag wird als Erstattung/Stornierung dieser Rechnung erfasst.
+                      </FieldDescription>
+                    )}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="booked-at">Erfasst am</FieldLabel>
+                    <Input
+                      id="booked-at"
+                      type="date"
+                      required
+                      value={bookedAt}
+                      onChange={(event) => setBookedAt(event.target.value)}
+                    />
+                  </Field>
+                </div>
                 <Field>
-                  <FieldLabel htmlFor="amount">Betrag in Euro</FieldLabel>
-                  <Input
-                    id="amount"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                  />
+                  <FieldLabel htmlFor="payment-account">Zahlungskonto / IBAN</FieldLabel>
+                  <Select value={financialAccountId} onValueChange={(value) => setFinancialAccountId(value ?? "")}>
+                    <SelectTrigger id="payment-account" className="w-full">
+                      <SelectValue>
+                        {paymentAccounts.find((account) => String(account.id) === financialAccountId)?.name ??
+                          "Konto auswählen"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {paymentAccounts.map((account) => (
+                          <SelectItem key={account.id} value={String(account.id)}>
+                            {account.name} ·{" "}
+                            {account.iban || (account.type === "cash" ? "Kasse" : "keine IBAN hinterlegt")}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="reason">Buchungstext</FieldLabel>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { attachFinancialDocument, MAX_FINANCIAL_DOCUMENT_BYTES } from "@/lib/financial/documents";
 
@@ -10,13 +10,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (
-    !hasTrustedOrigin(request) ||
-    !session ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
-    !isAdmin(session.user)
-  )
+  if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const transactionId = Number((await context.params).id);

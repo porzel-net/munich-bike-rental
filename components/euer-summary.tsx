@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
+import type { FinancialReviewCategory } from "@/components/financial-review-inbox";
 import type { EuerRow, EuerSummary } from "@/lib/financial/euer";
 
 function formatAmount(amountCents: number) {
@@ -41,7 +42,15 @@ function displayDescription(row: EuerRow) {
   return description.replace(/\s+cs_(?:test|live)_[A-Za-z0-9]+$/i, "").trim() || "Stripe-Zahlung";
 }
 
-export function EuerSummary({ data }: { data: EuerSummary }) {
+export function EuerSummary({
+  data,
+  categories,
+  accounts,
+}: {
+  data: EuerSummary;
+  categories: FinancialReviewCategory[];
+  accounts: { id: number; name: string; type: string }[];
+}) {
   const router = useRouter();
   const euerRows = data.rows.filter((row) =>
     ["income", "expense", "tax_payment", "input_vat", "output_vat", "needs_review"].includes(row.euerTreatment),
@@ -55,9 +64,7 @@ export function EuerSummary({ data }: { data: EuerSummary }) {
             Einnahmen und Ausgaben nach steuerlicher Kategorie. Interne Umbuchungen bleiben ausgeschlossen.
           </p>
         </div>
-        <Badge variant={data.unresolvedCents ? "destructive" : "outline"}>
-          {data.unresolvedCents ? "Zuordnung offen" : "Zuordnung vollständig"}
-        </Badge>
+        <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} />
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Card className="min-h-36 rounded-2xl border border-border/60 bg-card p-0 shadow-sm">
@@ -159,7 +166,7 @@ export function EuerSummary({ data }: { data: EuerSummary }) {
                       <span className="text-xs text-muted-foreground">
                         {row.source === "depreciation"
                           ? "Anlageverzeichnis"
-                          : `${row.source} · Transaktion #${row.transactionId}`}
+                          : `${row.source} · Transaktion #${row.transactionId}${row.accountName ? ` · ${row.accountName}${row.iban ? ` · ${row.iban}` : ""}` : ""}`}
                       </span>
                     </div>
                   </TableCell>

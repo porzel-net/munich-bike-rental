@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, getServerSession, isAdmin } from "../../../../../../lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "../../../../../../lib/auth/session";
 import { getDatabase } from "../../../../../../lib/db/client";
 import { NevloApiError, NevloConfigurationError } from "../../../../../../lib/nevlo";
 import { syncNevloTransactions } from "../../../../../../lib/financial/nevlo-sync";
@@ -24,13 +24,7 @@ const schema = z
 
 export async function POST(request: Request) {
   const session = await getServerSession();
-  if (
-    !hasTrustedOrigin(request) ||
-    !session ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
-    !isAdmin(session.user)
-  )
+  if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const input = schema.safeParse((await readBoundedJson(request)) ?? {});

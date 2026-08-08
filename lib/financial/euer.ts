@@ -4,6 +4,7 @@ import type { AppDatabase } from "../db/client";
 import {
   bookings,
   financialCategories,
+  financialAccounts,
   financialTransactionAllocations,
   financialTransactions,
   fixedAssetDepreciationEntries,
@@ -21,6 +22,8 @@ export type EuerRow = {
   transactionId: number | null;
   bookingId: number | null;
   invoiceNumber: string | null;
+  accountName?: string | null;
+  iban?: string | null;
   fixedAssetId?: number;
 };
 
@@ -47,6 +50,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       category: financialCategories.name,
       euerTreatment: financialCategories.euerTreatment,
       source: financialTransactions.source,
+      accountName: financialAccounts.name,
+      iban: financialAccounts.iban,
       description: financialTransactions.description,
       amountCents: financialTransactionAllocations.amountCents,
       transactionId: financialTransactions.id,
@@ -56,6 +61,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     })
     .from(financialTransactionAllocations)
     .innerJoin(financialTransactions, eq(financialTransactionAllocations.transactionId, financialTransactions.id))
+    .innerJoin(financialAccounts, eq(financialTransactions.financialAccountId, financialAccounts.id))
     .innerJoin(financialCategories, eq(financialTransactionAllocations.categoryId, financialCategories.id))
     .leftJoin(bookings, eq(financialTransactionAllocations.bookingId, bookings.id))
     .where(
@@ -83,6 +89,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       transactionId: sql<number | null>`null`,
       bookingId: sql<number | null>`null`,
       invoiceNumber: sql<string | null>`null`,
+      accountName: sql<string | null>`null`,
+      iban: sql<string | null>`null`,
       fixedAssetId: fixedAssets.id,
     })
     .from(fixedAssetDepreciationEntries)
@@ -101,8 +109,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
   let excludedInternalCents = 0;
   for (const row of rows) {
     const amount = Math.abs(row.amountCents);
-    if (row.euerTreatment === "income") incomeCents += amount;
-    else if (row.euerTreatment === "expense") expenseCents += amount;
+    if (row.euerTreatment === "income") incomeCents += row.amountCents;
+    else if (row.euerTreatment === "expense") expenseCents += row.source === "depreciation" ? amount : -row.amountCents;
     else if (row.euerTreatment === "tax_payment") {
       vatPaymentCents += amount;
       expenseCents += amount;

@@ -32,6 +32,11 @@ const nextConfig = {
     qualities: [72, 75],
   },
   output: "standalone",
+  // Never copy local data, secrets, tests, or VCS metadata into standalone
+  // output, even when a dynamic filesystem call broadens NFT tracing.
+  outputFileTracingExcludes: {
+    "/*": ["./data/**/*", "./tests/**/*", "./.env*", "./.git/**/*", "./coverage/**/*"],
+  },
   compress: true,
   poweredByHeader: false,
   // Better Auth and the database are initialized while Next collects route
@@ -50,6 +55,15 @@ const nextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/angebot/:path*",
+        headers: [
+          ...securityHeaders,
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet" },
+        ],
       },
       {
         source: "/assets/img/about/:path*",

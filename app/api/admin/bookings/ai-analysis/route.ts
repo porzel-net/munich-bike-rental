@@ -2,7 +2,7 @@ import { gte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { getServerSession, isAdmin } from "@/lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { bookings } from "@/lib/db/schema";
 import { EMAIL_ACTION_START_AT, reviewLatestUnprocessedEmailThread } from "@/lib/inquiries/email-action";
@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 /** Syncs and checks every not-yet-reviewed mailbox thread from the configured start date onward. */
 export async function POST(request: Request) {
   const session = await getServerSession();
-  if (!hasTrustedOrigin(request) || !session || !session.user.twoFactorEnabled || !isAdmin(session.user)) {
+  if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

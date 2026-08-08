@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2Icon, MailIcon, RefreshCwIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,14 @@ function formatMailText(text: string) {
   );
 }
 
+function formatSyncNotice(sync: MailThreadResponse["sync"], automatic = false) {
+  if (sync?.error) return "IMAP derzeit nicht erreichbar. Archivierte Mails werden angezeigt.";
+  if (!sync?.configured) return "IMAP ist nicht konfiguriert. Archivierte Mails werden angezeigt.";
+  return automatic
+    ? `${sync.synced} Nachricht(en) beim Öffnen synchronisiert.`
+    : `${sync.synced} Nachricht(en) synchronisiert.`;
+}
+
 function MailThreadSkeleton() {
   return (
     <div className="space-y-4" aria-hidden="true">
@@ -76,6 +84,31 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
   const [failed, setFailed] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
+  const syncThread = useCallback(
+    async (automatic = false) => {
+      setSyncing(true);
+      setNotice(null);
+      try {
+        const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+          cache: "no-store",
+        });
+        const result = (await response.json().catch(() => null)) as MailThreadResponse | null;
+        if (!response.ok || !result?.messages) throw new Error("Mailverlauf konnte nicht synchronisiert werden.");
+        setMessages(result.messages);
+        const sync = result.sync;
+        setNotice(formatSyncNotice(sync, automatic));
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Mailverlauf konnte nicht synchronisiert werden.");
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [bookingId],
+  );
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -97,7 +130,9 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
         }
 
         setMessages(result.messages);
-        setNotice("Archivierter Mailverlauf geladen.");
+        setNotice("Archivierter Mailverlauf geladen. Synchronisiere mit dem Mailserver …");
+        setLoading(false);
+        void syncThread(true);
       } catch (error) {
         if (controller.signal.aborted) return;
         setFailed(true);
@@ -109,35 +144,7 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
 
     void loadThread();
     return () => controller.abort();
-  }, [bookingId]);
-
-  async function syncThread() {
-    setSyncing(true);
-    setNotice(null);
-    try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-        cache: "no-store",
-      });
-      const result = (await response.json().catch(() => null)) as MailThreadResponse | null;
-      if (!response.ok || !result?.messages) throw new Error("Mailverlauf konnte nicht synchronisiert werden.");
-      setMessages(result.messages);
-      const sync = result.sync;
-      setNotice(
-        sync?.error
-          ? "IMAP derzeit nicht erreichbar. Archivierte Mails werden angezeigt."
-          : !sync?.configured
-            ? "IMAP ist nicht konfiguriert. Archivierte Mails werden angezeigt."
-            : `${sync?.synced ?? 0} Nachricht(en) synchronisiert.`,
-      );
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Mailverlauf konnte nicht synchronisiert werden.");
-    } finally {
-      setSyncing(false);
-    }
-  }
+  }, [bookingId, syncThread]);
 
   const emptyState = useMemo(
     () => (
@@ -162,7 +169,7 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
           <div>
             <p className="text-sm font-medium">Archivierter Mailverlauf</p>
             <p className="text-sm text-muted-foreground">
-              Synchronisation mit dem Mailserver nur bei ausdrücklicher Anforderung.
+              Beim Öffnen der Buchung automatisch mit dem Mailserver synchronisiert.
             </p>
           </div>
         </div>

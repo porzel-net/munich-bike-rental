@@ -98,6 +98,7 @@ function parseErrorBody(value: string) {
 export class NevloClient {
   private accessToken: string;
   private refreshToken: string;
+  private accessTokenExpiresAt: Date | null = null;
   private refreshPromise: Promise<void> | null = null;
   private readonly tokenStore?: NevloTokenStore;
 
@@ -111,6 +112,7 @@ export class NevloClient {
     const storedTokens = tokenStore?.load();
     this.accessToken = storedTokens?.accessToken || accessToken;
     this.refreshToken = storedTokens?.refreshToken || refreshToken;
+    this.accessTokenExpiresAt = storedTokens?.accessTokenExpiresAt ?? null;
   }
 
   async getAccounts() {
@@ -166,6 +168,7 @@ export class NevloClient {
       ) {
         this.accessToken = latestTokens.accessToken;
         this.refreshToken = latestTokens.refreshToken;
+        this.accessTokenExpiresAt = latestTokens.accessTokenExpiresAt ?? null;
         return;
       }
 
@@ -188,6 +191,7 @@ export class NevloClient {
         if (rotatedTokens && rotatedTokens.refreshToken !== refreshTokenUsed) {
           this.accessToken = rotatedTokens.accessToken;
           this.refreshToken = rotatedTokens.refreshToken;
+          this.accessTokenExpiresAt = rotatedTokens.accessTokenExpiresAt ?? null;
           return;
         }
         throw new NevloApiError(`Nevlo Token-Refresh fehlgeschlagen: ${parseErrorBody(body)}`, response.status);
@@ -196,10 +200,12 @@ export class NevloClient {
       if (!token.access_token) throw new NevloApiError("Nevlo hat kein Access Token geliefert.", response.status);
       this.accessToken = token.access_token;
       if (token.refresh_token) this.refreshToken = token.refresh_token;
+      this.accessTokenExpiresAt =
+        token.expires_in === undefined ? null : new Date(Date.now() + token.expires_in * 1000);
       this.tokenStore?.save({
         accessToken: this.accessToken,
         refreshToken: this.refreshToken,
-        accessTokenExpiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
+        accessTokenExpiresAt: this.accessTokenExpiresAt,
       });
     })().finally(() => {
       this.refreshPromise = null;
@@ -207,7 +213,12 @@ export class NevloClient {
     return this.refreshPromise;
   }
 
+  private shouldRefreshAccessToken() {
+    return this.accessTokenExpiresAt !== null && this.accessTokenExpiresAt.getTime() <= Date.now() + 60_000;
+  }
+
   private async request<T>(path: string, retried = false): Promise<T> {
+    if (!retried && this.shouldRefreshAccessToken()) await this.refreshAccessToken();
     const response = await fetch(`${NEVLO_API_BASE_URL}${path}`, {
       headers: { Accept: "application/json", Authorization: `Bearer ${this.accessToken}` },
       cache: "no-store",

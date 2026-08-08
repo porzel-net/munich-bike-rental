@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { createAndPostManualTransaction } from "@/lib/financial/manual-transactions";
@@ -38,12 +38,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  if (
-    !hasTrustedOrigin(request) ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
-    !isAdmin(session.user)
-  )
+  if (!hasTrustedOrigin(request) || !canUseAdminApiAsAdmin(session.user))
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   const input = schema.safeParse(await readBoundedJson(request));
   if (!input.success) return NextResponse.json({ message: "Ungültige manuelle Transaktion" }, { status: 400 });

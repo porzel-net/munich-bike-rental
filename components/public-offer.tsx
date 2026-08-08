@@ -11,10 +11,7 @@ import {
   Clock3,
   CreditCard,
   Info,
-  Mail,
   MapPin,
-  MessageSquare,
-  Phone,
   Ruler,
   ShieldCheck,
 } from "lucide-react";
@@ -184,10 +181,14 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
   const StatusIcon = statusTone === "success" ? CheckCircle2 : statusTone === "danger" ? AlertTriangle : Clock3;
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const value = params.get("payment");
-    setPaymentState(value === "success" || value === "cancelled" ? value : null);
-    setPaymentSessionId(params.get("session_id"));
+    const updatePaymentState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const value = params.get("payment");
+      setPaymentState(value === "success" || value === "cancelled" ? value : null);
+      setPaymentSessionId(params.get("session_id"));
+    };
+    const timeout = window.setTimeout(updatePaymentState, 0);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
@@ -376,12 +377,6 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                   {formatDate(currentOffer.booking.periodTo, currentOffer.booking.locale)} ·{" "}
                   {currentOffer.booking.dropoffTime}
                 </DetailItem>
-                <DetailItem icon={Mail} label="E-Mail">
-                  {currentOffer.booking.email}
-                </DetailItem>
-                <DetailItem icon={Phone} label={de ? "Telefon" : "Phone"}>
-                  {currentOffer.booking.phone}
-                </DetailItem>
               </dl>
             </section>
 
@@ -437,18 +432,6 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                 })}
               </div>
             </section>
-
-            {currentOffer.booking.message ? (
-              <section className="public-offer-message" aria-labelledby="message-title">
-                <span className="public-offer-message__icon" aria-hidden="true">
-                  <MessageSquare size={18} strokeWidth={1.8} />
-                </span>
-                <div>
-                  <h2 id="message-title">{de ? "Deine Nachricht" : "Your message"}</h2>
-                  <p>{currentOffer.booking.message}</p>
-                </div>
-              </section>
-            ) : null}
           </div>
 
           <aside className="public-offer-summary" aria-labelledby="offer-summary-title">
