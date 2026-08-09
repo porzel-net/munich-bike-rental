@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import { hasAssetConflict } from "@/lib/bookings/availability";
@@ -234,118 +235,127 @@ export default async function BookingsPage({
       }
     >
       <AppSidebar user={session.user} isAdmin={administrator} variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Buchungen" />
-        <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold">Buchungsübersicht</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Bearbeite Status, Fahrräder, Preise und Nachrichten direkt in der jeweiligen Buchung.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {administrator && <BookingAiBatchAnalysisButton />}
-              {administrator && preflight && <BookingPreflightDialog result={preflight} />}
-              <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
-                Manuelle Buchung
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4">
-            <BookingStatusFilter
-              canFilterLocations={administrator}
-              location={location}
-              value={status}
-              assignee={assignee}
-              assignees={availableAssignees}
-              search={params.q ?? ""}
-              period={datePeriod.selected}
-            />
-            {rows.length ? (
-              <ItemGroup className="gap-2">
-                {rows.map((row) => {
-                  const view = bookingPresentation[row.status];
-                  const location =
-                    rentalLocationLabels.de[row.location as keyof typeof rentalLocationLabels.de] ?? row.location;
-                  const requestedBikes = itemsByBooking.get(row.id) ?? [];
-                  const requestedItems = requestedItemsByBooking.get(row.id) ?? [];
-                  const requestedQuantities = new Map<string, number>();
-                  for (const item of requestedItems)
-                    requestedQuantities.set(
-                      item.requestedLabel,
-                      (requestedQuantities.get(item.requestedLabel) ?? 0) + 1,
-                    );
-                  const likelyUnavailable =
-                    row.status === "inquiry_received" &&
-                    [...requestedQuantities].some(([requestedLabel, quantity]) => {
-                      const assets = activeAssetsByLocationAndLabel.get(`${row.location}\u0000${requestedLabel}`) ?? [];
-                      const availableQuantity = assets.filter((asset) => !hasAssetConflict(db, row, asset.id)).length;
-                      return availableQuantity < quantity;
-                    });
-                  const latestActionReview = latestActionReviewByBooking.get(row.id);
-                  const hasPendingEmailAction =
-                    latestActionReview?.status === "needs_action" ||
-                    latestActionReview?.status === "error" ||
-                    (!latestActionReview &&
-                      row.status === "inquiry_received" &&
-                      row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime());
-                  return (
-                    <Item
-                      className="cursor-pointer hover:bg-muted/80"
-                      key={row.id}
-                      render={<Link href={`/admin/bookings/${row.id}`} />}
-                      variant="muted"
-                    >
-                      <ItemMedia>
-                        <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
-                          {hasPendingEmailAction ? (
-                            <span
-                              aria-label="Offene Kundenfrage"
-                              className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
+        <div className="relative isolate min-h-0 min-w-0 flex-1 overflow-hidden bg-muted dark:bg-background">
+          <ScrollArea className="h-full min-h-0 w-full">
+            <main className="relative z-10 flex flex-1 flex-col gap-6 p-8 lg:p-12">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-semibold">Buchungsübersicht</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Bearbeite Status, Fahrräder, Preise und Nachrichten direkt in der jeweiligen Buchung.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {administrator && <BookingAiBatchAnalysisButton />}
+                  {administrator && preflight && <BookingPreflightDialog result={preflight} />}
+                  <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
+                    Manuelle Buchung
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                <BookingStatusFilter
+                  canFilterLocations={administrator}
+                  location={location}
+                  value={status}
+                  assignee={assignee}
+                  assignees={availableAssignees}
+                  search={params.q ?? ""}
+                  period={datePeriod.selected}
+                />
+                {rows.length ? (
+                  <ItemGroup className="gap-2">
+                    {rows.map((row) => {
+                      const view = bookingPresentation[row.status];
+                      const location =
+                        rentalLocationLabels.de[row.location as keyof typeof rentalLocationLabels.de] ?? row.location;
+                      const requestedBikes = itemsByBooking.get(row.id) ?? [];
+                      const requestedItems = requestedItemsByBooking.get(row.id) ?? [];
+                      const requestedQuantities = new Map<string, number>();
+                      for (const item of requestedItems)
+                        requestedQuantities.set(
+                          item.requestedLabel,
+                          (requestedQuantities.get(item.requestedLabel) ?? 0) + 1,
+                        );
+                      const likelyUnavailable =
+                        row.status === "inquiry_received" &&
+                        [...requestedQuantities].some(([requestedLabel, quantity]) => {
+                          const assets =
+                            activeAssetsByLocationAndLabel.get(`${row.location}\u0000${requestedLabel}`) ?? [];
+                          const availableQuantity = assets.filter(
+                            (asset) => !hasAssetConflict(db, row, asset.id),
+                          ).length;
+                          return availableQuantity < quantity;
+                        });
+                      const latestActionReview = latestActionReviewByBooking.get(row.id);
+                      const hasPendingEmailAction =
+                        latestActionReview?.status === "needs_action" ||
+                        latestActionReview?.status === "error" ||
+                        (!latestActionReview &&
+                          row.status === "inquiry_received" &&
+                          row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime());
+                      return (
+                        <Item
+                          className="transform-gpu bg-card cursor-pointer transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"
+                          key={row.id}
+                          render={<Link href={`/admin/bookings/${row.id}`} />}
+                          variant="default"
+                        >
+                          <ItemMedia>
+                            <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
+                              {hasPendingEmailAction ? (
+                                <span
+                                  aria-label="Offene Kundenfrage"
+                                  className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
+                                />
+                              ) : null}
+                              {bookingShortId(row.orderNumber)}
+                            </div>
+                          </ItemMedia>
+                          <ItemContent>
+                            <ItemTitle>
+                              {row.customerName}
+                              <span className="font-normal text-muted-foreground">{row.orderNumber}</span>
+                            </ItemTitle>
+                            <ItemDescription className="text-xs tracking-wider uppercase">
+                              {location} · {requestedBikes.join(", ") || "Keine Fahrräder"} · {row.periodFrom} –{" "}
+                              {row.periodTo}
+                            </ItemDescription>
+                          </ItemContent>
+                          <div className="flex shrink-0 items-center gap-4">
+                            <Badge variant={view.badge}>{view.label}</Badge>
+                            {likelyUnavailable && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                              >
+                                Wahrscheinlich nicht annehmbar
+                              </Badge>
+                            )}
+                            <PaymentBadge openCents={openByBooking.get(row.id)} />
+                            <BookingAssigneeBadge
+                              assigneeName={row.assignedUserId ? (assigneeNames.get(row.assignedUserId) ?? null) : null}
                             />
-                          ) : null}
-                          {bookingShortId(row.orderNumber)}
-                        </div>
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle>
-                          {row.customerName}
-                          <span className="font-normal text-muted-foreground">{row.orderNumber}</span>
-                        </ItemTitle>
-                        <ItemDescription className="text-xs tracking-wider uppercase">
-                          {location} · {requestedBikes.join(", ") || "Keine Fahrräder"} · {row.periodFrom} –{" "}
-                          {row.periodTo}
-                        </ItemDescription>
-                      </ItemContent>
-                      <div className="flex shrink-0 items-center gap-4">
-                        <Badge variant={view.badge}>{view.label}</Badge>
-                        {likelyUnavailable && (
-                          <Badge
-                            variant="outline"
-                            className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
-                          >
-                            Wahrscheinlich nicht annehmbar
-                          </Badge>
-                        )}
-                        <PaymentBadge openCents={openByBooking.get(row.id)} />
-                        <BookingAssigneeBadge
-                          assigneeName={row.assignedUserId ? (assigneeNames.get(row.assignedUserId) ?? null) : null}
-                        />
-                        <div className="flex min-w-20 flex-col items-end gap-0.5">
-                          <span className="text-xs tracking-wider text-muted-foreground uppercase">Wert</span>
-                          <span className="font-medium tabular-nums">{formatEuro(row.quotedTotalCents)}</span>
-                        </div>
-                      </div>
-                    </Item>
-                  );
-                })}
-              </ItemGroup>
-            ) : (
-              <p className="py-10 text-sm text-muted-foreground">Keine Buchungen vorhanden.</p>
-            )}
-          </div>
-        </main>
+                            <div className="flex min-w-20 flex-col items-end gap-0.5">
+                              <span className="text-xs tracking-wider text-muted-foreground uppercase">Wert</span>
+                              <span className="font-medium tabular-nums">{formatEuro(row.quotedTotalCents)}</span>
+                            </div>
+                          </div>
+                        </Item>
+                      );
+                    })}
+                  </ItemGroup>
+                ) : (
+                  <p className="py-10 text-sm text-muted-foreground">Keine Buchungen vorhanden.</p>
+                )}
+              </div>
+            </main>
+          </ScrollArea>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-1 h-48 bg-linear-to-b from-background via-muted to-transparent dark:hidden" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-48 bg-linear-to-t from-background via-muted/80 to-transparent dark:via-background/80" />
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

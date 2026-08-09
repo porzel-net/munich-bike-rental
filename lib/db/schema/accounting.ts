@@ -93,6 +93,7 @@ export const fixedAssetTypes = ["bike", "equipment", "other"] as const;
 export const fixedAssetMethods = ["straight_line"] as const;
 export const fixedAssetStatuses = ["active", "disposed"] as const;
 export const fixedAssetDisposalReasons = ["sold", "scrapped", "private_withdrawal", "other"] as const;
+export const fixedAssetAcquisitionSources = ["transaction", "private_contribution"] as const;
 
 /** The chart of accounts used by journal lines. Existing journal account codes remain valid. */
 export const accountingAccounts = sqliteTable(
@@ -247,6 +248,9 @@ export const fixedAssets = sqliteTable(
     assetNumber: text("asset_number").notNull(),
     name: text("name").notNull(),
     assetType: text("asset_type", { enum: fixedAssetTypes }).notNull().default("other"),
+    acquisitionSource: text("acquisition_source", { enum: fixedAssetAcquisitionSources })
+      .notNull()
+      .default("transaction"),
     serialNumber: text("serial_number"),
     acquisitionDate: text("acquisition_date").notNull(),
     inServiceDate: text("in_service_date").notNull(),
@@ -259,6 +263,7 @@ export const fixedAssets = sqliteTable(
     disposedAt: text("disposed_at"),
     disposalReason: text("disposal_reason", { enum: fixedAssetDisposalReasons }),
     disposalProceedsCents: integer("disposal_proceeds_cents"),
+    disposalProceedsVatCents: integer("disposal_proceeds_vat_cents").notNull().default(0),
     assetAccountCode: text("asset_account_code").notNull().default("fixed_assets_bikes"),
     accumulatedDepreciationAccountCode: text("accumulated_depreciation_account_code")
       .notNull()

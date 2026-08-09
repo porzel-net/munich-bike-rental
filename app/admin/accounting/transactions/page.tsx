@@ -133,17 +133,19 @@ export default async function BankTransactionsPage({
       }
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Finanztransaktionen" />
-        <main className="flex flex-1 flex-col p-8 lg:p-12">
-          <FinancialReviewInbox
-            title="Finanztransaktionen"
-            transactions={reviewTransactionsForClient}
-            categories={categories as FinancialReviewCategory[]}
-            accounts={activeAccounts as FinancialReviewAccount[]}
-            initialTransactionId={initialTransactionId}
-          />
-        </main>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col p-8 lg:p-12">
+            <FinancialReviewInbox
+              title="Finanztransaktionen"
+              transactions={reviewTransactionsForClient}
+              categories={categories as FinancialReviewCategory[]}
+              accounts={activeAccounts as FinancialReviewAccount[]}
+              initialTransactionId={initialTransactionId}
+            />
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

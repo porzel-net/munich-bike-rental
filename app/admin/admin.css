@@ -127,3 +127,60 @@
     @apply bg-background text-foreground;
   }
 }
+
+.admin-page-surface {
+  position: relative;
+  isolation: isolate;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+  background: var(--muted);
+}
+
+.admin-page-surface > main {
+  position: relative;
+  z-index: 10;
+}
+
+.admin-page-surface::before,
+.admin-page-surface::after {
+  position: absolute;
+  inset-inline: 0;
+  z-index: 1;
+  height: 12rem;
+  pointer-events: none;
+  content: "";
+}
+
+.admin-page-surface::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--background), var(--muted), transparent);
+}
+
+.admin-page-surface::after {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    var(--background),
+    color-mix(in srgb, var(--muted) 80%, transparent),
+    transparent
+  );
+}
+
+.dark .admin-page-surface {
+  background: var(--background);
+}
+
+.dark .admin-page-surface::before {
+  display: none;
+}
+
+.dark .admin-page-surface::after {
+  background: linear-gradient(
+    to top,
+    var(--background),
+    color-mix(in srgb, var(--background) 80%, transparent),
+    transparent
+  );
+}

@@ -574,18 +574,18 @@ function CardOverview({
 }) {
   const balanceFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency });
   const formattedBalance = balanceFormatter.format(balanceCents / 100);
-  const annualRevenue = activityData.reduce((total, point) => total + point.amount, 0);
-  const formattedAnnualRevenue = balanceFormatter.format(annualRevenue);
   const totalPotential = potentialRevenueData.reduce((total, point) => total + point.amount, 0);
   const formattedTotalPotential = balanceFormatter.format(totalPotential);
+  const annualRevenue = activityData.reduce((total, point) => total + point.amount, 0);
+  const formattedAnnualRevenue = balanceFormatter.format(annualRevenue);
 
   return (
     <div className="grid grid-cols-2 gap-3">
       <Card>
         <CardContent>
-          <CardDescription>Card Balance</CardDescription>
+          <CardDescription>Kartenguthaben</CardDescription>
           <CardTitle className="text-2xl tabular-nums">{formattedBalance}</CardTitle>
-          <CardDescription className="tabular-nums">{formattedBalance} Available</CardDescription>
+          <CardDescription className="tabular-nums">{formattedBalance} verfügbar</CardDescription>
         </CardContent>
       </Card>
       <Card className="flex flex-col justify-between">

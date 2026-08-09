@@ -5,7 +5,7 @@ import { bookingOffers, bookingRequestedItems, bookings, communicationMessages, 
 import { renderInvoicePdf } from "./invoice-pdf";
 import { getBookingPaymentStatus } from "./service";
 import type { OfferQuote } from "./quotes";
-import { findBookingThreadMessageId } from "../inquiries/mailbox";
+import { findLatestBookingThreadMessage } from "../inquiries/mailbox";
 import { reviewBookingEmailThread } from "../inquiries/email-action";
 import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mail-thread";
 import { rentalLocationLabels } from "../inquiries/catalog";
@@ -79,17 +79,27 @@ async function resolveThread(
     .where(eq(communicationMessages.bookingId, bookingId))
     .orderBy(desc(communicationMessages.sentAt), desc(communicationMessages.id))
     .all();
-  const parent = messages.find((message) => Boolean(message.rfcMessageId)) ?? null;
-  const parentMessageId = parent?.rfcMessageId ?? fallbackInReplyTo ?? (await findBookingThreadMessageId(orderNumber));
+  const localParent = messages.find((message) => Boolean(message.rfcMessageId)) ?? null;
+  const latestRemote = await findLatestBookingThreadMessage(orderNumber);
+  const localTimestamp = localParent?.sentAt.getTime() ?? Number.NEGATIVE_INFINITY;
+  const useRemoteParent = Boolean(latestRemote && latestRemote.timestamp >= localTimestamp);
+  const parentMessageId = useRemoteParent
+    ? latestRemote?.messageId
+    : (localParent?.rfcMessageId ?? fallbackInReplyTo ?? latestRemote?.messageId);
   if (!parentMessageId) return { inReplyTo: null, referencesHeader: null, threadMessageId: null };
 
+  const parent =
+    messages.find((message) => message.rfcMessageId === parentMessageId) ?? (useRemoteParent ? null : localParent);
+  const remoteReferences = latestRemote?.messageId === parentMessageId ? latestRemote.referencesHeader : null;
   const references = parent
     ? buildMailThreadReferences(parentMessageId, parent, messages)
-    : parseMailMessageIds(fallbackReferencesHeader).concat(parentMessageId);
+    : parseMailMessageIds(remoteReferences ?? fallbackReferencesHeader).concat(parentMessageId);
+  const threadMessageId =
+    parent?.threadMessageId ?? parseMailMessageIds(remoteReferences ?? fallbackReferencesHeader)[0] ?? parentMessageId;
   return {
     inReplyTo: parentMessageId,
     referencesHeader: [...new Set(references)].join(" ") || null,
-    threadMessageId: parent?.threadMessageId ?? parentMessageId,
+    threadMessageId,
   };
 }
 

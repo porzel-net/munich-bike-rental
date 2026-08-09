@@ -94,81 +94,83 @@ export default async function AiLogsPage({
       }
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="AI Logs" />
-        <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold">AI-Logs</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Zentrale Übersicht über die Ausführungen der verschiedenen KI-Agenten.
-              </p>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-semibold">AI-Logs</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Zentrale Übersicht über die Ausführungen der verschiedenen KI-Agenten.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{totalCount} Prüfungen</Badge>
+                <Badge variant={needsActionCount || errorCount ? "destructive" : "success"}>
+                  {needsActionCount + errorCount} mit Handlungsbedarf
+                </Badge>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">{totalCount} Prüfungen</Badge>
-              <Badge variant={needsActionCount || errorCount ? "destructive" : "success"}>
-                {needsActionCount + errorCount} mit Handlungsbedarf
-              </Badge>
-            </div>
-          </div>
 
-          <AiLogsFilter search={params.q ?? ""} status={status} source={source} />
+            <AiLogsFilter search={params.q ?? ""} status={status} source={source} />
 
-          {logs.length ? (
-            <ItemGroup className="gap-2">
-              {logs.map(({ review, booking }) => {
-                const view = aiLogStatusView(review.status);
-                return (
-                  <Item
-                    className="cursor-pointer hover:bg-muted/80"
-                    key={review.id}
-                    render={<Link href={`/admin/ai-logs/${review.id}`} />}
-                    variant="muted"
-                  >
-                    <ItemMedia>
-                      <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
-                        <BotIcon className="size-5 text-muted-foreground" />
-                        {review.status === "needs_action" || review.status === "error" ? (
-                          <span
-                            aria-label="Handlungsbedarf"
-                            className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
-                          />
+            {logs.length ? (
+              <ItemGroup className="gap-2">
+                {logs.map(({ review, booking }) => {
+                  const view = aiLogStatusView(review.status);
+                  return (
+                    <Item
+                      className="transform-gpu bg-card cursor-pointer transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"
+                      key={review.id}
+                      render={<Link href={`/admin/ai-logs/${review.id}`} />}
+                      variant="default"
+                    >
+                      <ItemMedia>
+                        <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
+                          <BotIcon className="size-5 text-muted-foreground" />
+                          {review.status === "needs_action" || review.status === "error" ? (
+                            <span
+                              aria-label="Handlungsbedarf"
+                              className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
+                            />
+                          ) : null}
+                        </div>
+                      </ItemMedia>
+                      <ItemContent className="min-w-0">
+                        <ItemTitle>
+                          {aiLogAgentLabel(review.source)}
+                          <span className="font-normal text-muted-foreground">Lauf #{review.id}</span>
+                        </ItemTitle>
+                        <ItemDescription className="text-xs tracking-wider uppercase">
+                          Buchung {booking.orderNumber}
+                          {review.model ? ` · ${review.model}` : ""}
+                        </ItemDescription>
+                      </ItemContent>
+                      <div className="flex shrink-0 items-center gap-4">
+                        <Badge variant={view.variant}>{view.label}</Badge>
+                        <Badge variant="outline">{aiLogSourceLabel(review.source)}</Badge>
+                        {review.reasoningEffort ? (
+                          <Badge variant="outline">Reasoning {review.reasoningEffort}</Badge>
                         ) : null}
+                        <div className="flex min-w-28 flex-col items-end gap-0.5">
+                          <span className="text-xs tracking-wider text-muted-foreground uppercase">Gestartet</span>
+                          <span className="font-medium tabular-nums">
+                            {new Date(review.createdAt).toLocaleString("de-DE")}
+                          </span>
+                        </div>
                       </div>
-                    </ItemMedia>
-                    <ItemContent className="min-w-0">
-                      <ItemTitle>
-                        {aiLogAgentLabel(review.source)}
-                        <span className="font-normal text-muted-foreground">Lauf #{review.id}</span>
-                      </ItemTitle>
-                      <ItemDescription className="text-xs tracking-wider uppercase">
-                        Buchung {booking.orderNumber}
-                        {review.model ? ` · ${review.model}` : ""}
-                      </ItemDescription>
-                    </ItemContent>
-                    <div className="flex shrink-0 items-center gap-4">
-                      <Badge variant={view.variant}>{view.label}</Badge>
-                      <Badge variant="outline">{aiLogSourceLabel(review.source)}</Badge>
-                      {review.reasoningEffort ? (
-                        <Badge variant="outline">Reasoning {review.reasoningEffort}</Badge>
-                      ) : null}
-                      <div className="flex min-w-28 flex-col items-end gap-0.5">
-                        <span className="text-xs tracking-wider text-muted-foreground uppercase">Gestartet</span>
-                        <span className="font-medium tabular-nums">
-                          {new Date(review.createdAt).toLocaleString("de-DE")}
-                        </span>
-                      </div>
-                    </div>
-                  </Item>
-                );
-              })}
-            </ItemGroup>
-          ) : (
-            <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
-              Keine AI-Logs für die aktuellen Filter vorhanden.
-            </div>
-          )}
-        </main>
+                    </Item>
+                  );
+                })}
+              </ItemGroup>
+            ) : (
+              <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground">
+                Keine AI-Logs für die aktuellen Filter vorhanden.
+              </div>
+            )}
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -1,17 +1,16 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { EuerSummary } from "@/components/euer-summary";
-import { FixedAssetsTable, type FixedAssetRow } from "@/components/fixed-assets-table";
 import { StripeAutoSyncStatus } from "@/components/stripe-auto-sync-status";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { getEuerSummary } from "@/lib/financial/euer";
-import { financialAccounts, financialCategories, fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
+import { financialAccounts, financialCategories } from "@/lib/db/schema";
 
 export default async function AccountingPage() {
   const session = await getServerSession();
@@ -35,31 +34,16 @@ export default async function AccountingPage() {
     .all()
     .filter((category) => category.code !== "unclassified");
   const accounts = db
-    .select({ id: financialAccounts.id, name: financialAccounts.name, type: financialAccounts.type })
+    .select({
+      id: financialAccounts.id,
+      code: financialAccounts.code,
+      name: financialAccounts.name,
+      currency: financialAccounts.currency,
+    })
     .from(financialAccounts)
     .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
     .all();
-  const depreciationRows = db.select().from(fixedAssetDepreciationEntries).all();
-  const assets: FixedAssetRow[] = db
-    .select()
-    .from(fixedAssets)
-    .orderBy(desc(fixedAssets.acquisitionDate), desc(fixedAssets.id))
-    .all()
-    .map((asset) => ({
-      id: asset.id,
-      assetNumber: asset.assetNumber,
-      name: asset.name,
-      assetType: asset.assetType,
-      acquisitionDate: asset.acquisitionDate,
-      inServiceDate: asset.inServiceDate,
-      acquisitionCostCents: asset.acquisitionCostCents,
-      usefulLifeMonths: asset.usefulLifeMonths,
-      status: asset.status,
-      postedDepreciationCents: depreciationRows
-        .filter((entry) => entry.fixedAssetId === asset.id)
-        .reduce((sum, entry) => sum + entry.amountCents, 0),
-    }));
   return (
     <SidebarProvider
       style={
@@ -70,17 +54,18 @@ export default async function AccountingPage() {
       }
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title={`EÜR ${euer.year}`} />
-        <main className="flex flex-1 flex-col p-8 lg:p-12">
-          <div className="mb-2 flex flex-col items-end gap-3">
-            <StripeAutoSyncStatus />
-          </div>
-          <div className="flex flex-col gap-6">
-            <EuerSummary data={euer} categories={categories} accounts={accounts} />
-            <FixedAssetsTable assets={assets} />
-          </div>
-        </main>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col p-8 lg:p-12">
+            <div className="mb-2 flex flex-col items-end gap-3">
+              <StripeAutoSyncStatus />
+            </div>
+            <div className="flex flex-col gap-6">
+              <EuerSummary data={euer} categories={categories} accounts={accounts} />
+            </div>
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

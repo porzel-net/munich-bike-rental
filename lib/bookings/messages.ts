@@ -8,6 +8,7 @@ import {
   type RentalLocation,
 } from "../inquiries/catalog";
 import { rentalLocationConfigs } from "../rental-locations";
+import { siteConfig } from "../site";
 import { emailCard, emailLabel, emailParagraph, escapeHtml, renderEmailLayout } from "../inquiries/email-template";
 import type { OfferAccessorySelection } from "./quotes";
 
@@ -26,9 +27,11 @@ export type OfferMailInput = {
     requestedLabel: string;
     heightCm?: number;
     assetName: string;
+    frameNumber?: string | null;
     accessories?: OfferAccessorySelection;
   }>;
   totalCents: number;
+  calculatedTotalCents?: number;
   periodFrom: string;
   periodTo: string;
   pickupTime: string;
@@ -40,7 +43,7 @@ export type OfferMailInput = {
 };
 
 function bookingPageUrl(token: string) {
-  const origin = (process.env.APP_ORIGIN ?? process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const origin = siteConfig.url.replace(/\/$/, "");
   return `${origin}/angebot/${encodeURIComponent(token)}`;
 }
 
@@ -57,7 +60,10 @@ function cancellationPeriodLabel(period: string | undefined, locale: "de" | "en"
 function cancellationPolicyDescription(period: string | undefined, locale: "de" | "en") {
   const descriptions = {
     more_than_7_days: { de: "25 % Stornogebühr / 75 % Rückerstattung", en: "25% cancellation fee / 75% refund" },
-    between_7_days_and_24_hours: { de: "50 % Stornogebühr / 50 % Rückerstattung", en: "50% cancellation fee / 50% refund" },
+    between_7_days_and_24_hours: {
+      de: "50 % Stornogebühr / 50 % Rückerstattung",
+      en: "50% cancellation fee / 50% refund",
+    },
     less_than_24_hours: { de: "100 % Stornogebühr / keine Rückerstattung", en: "100% cancellation fee / no refund" },
   } as const;
   return descriptions[period as keyof typeof descriptions]?.[locale];
@@ -71,7 +77,10 @@ export function renderOfferMail(input: OfferMailInput) {
         ? `${item.requestedLabel} → ${item.assetName}`
         : item.assetName;
     const bikeHeading = item.heightCm ? `${bikeName} (${item.heightCm} cm)` : bikeName;
-    if (!item.accessories) return { bikeHeading, accessories: [] as string[] };
+    const frameLine = item.frameNumber?.trim()
+      ? [de ? `Rahmennummer: ${item.frameNumber.trim()}` : `Frame number: ${item.frameNumber.trim()}`]
+      : [];
+    if (!item.accessories) return { bikeHeading, frameLine, accessories: [] as string[] };
     const accessories = item.accessories;
     const lines = de
       ? [
@@ -86,12 +95,13 @@ export function renderOfferMail(input: OfferMailInput) {
           `Helmet: ${accessories.needsHelmet ? "Included" : "Not included"}`,
           `Clothing: ${accessories.needsClothing ? "Included" : "Not included"}`,
         ];
-    return { bikeHeading, accessories: lines };
+    return { bikeHeading, frameLine, accessories: lines };
   });
   const items = offerItems
-    .map(({ bikeHeading, accessories }) =>
+    .map(({ bikeHeading, frameLine, accessories }) =>
       [
         bikeHeading,
+        ...frameLine,
         ...(accessories.length ? [de ? "Zubehör:" : "Equipment:", ...accessories.map((line) => `- ${line}`)] : []),
       ].join("\n"),
     )
@@ -99,6 +109,9 @@ export function renderOfferMail(input: OfferMailInput) {
   const greeting = input.name.trim().split(/\s+/)[0] || input.name;
   const pickupAddress =
     rentalLocationConfigs.find((location) => location.key === input.location)?.address ?? input.location;
+  const pickupLocation = rentalLocationConfigs.find((location) => location.key === input.location);
+  const pickupNote =
+    pickupLocation && "pickupNote" in pickupLocation ? pickupLocation.pickupNote?.[input.locale] : undefined;
   const subject = de
     ? `${input.alternative ? "Alternativangebot" : "Angebot"} ${input.orderNumber}`
     : `${input.alternative ? "Alternative offer" : "Offer"} ${input.orderNumber}`;
@@ -120,26 +133,23 @@ export function renderOfferMail(input: OfferMailInput) {
         "",
         `Zeitraum: ${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`,
         `Gesamtpreis: ${formatEuro(input.totalCents, "de")}`,
+        ...(input.calculatedTotalCents !== undefined
+          ? ["Hinweis: Der Gesamtpreis wurde individuell vereinbart und weicht von der Standardberechnung ab."]
+          : []),
         "",
-        "Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden.",
+        "Dieses Angebot bleibt 36 Stunden für dich reserviert. Danach verfällt die Reservierung automatisch.",
         "",
-        "Bitte bestätige mit einem Klick auf den Link hier:",
+        "Wenn du das Angebot verbindlich buchen möchtest, öffne den Buchungslink und bezahle den Gesamtpreis über Stripe. Nach erfolgreicher Zahlung wird deine Buchung automatisch bestätigt:",
         bookingPageUrl(input.token),
         "",
-        "WICHTIG:",
-        "Damit wir das Fahrrad verbindlich für dich reservieren können, bezahle bitte 100 % des Gesamtpreises über Stripe.",
-        "",
-        "Klicke dazu auf den Buchungslink und anschließend auf „100 % bezahlen & verbindlich buchen“. Stripe öffnet danach die sichere Zahlungsseite.",
-        "",
-        "Nach erfolgreicher Zahlung wird deine Buchung automatisch verbindlich bestätigt.",
         ...(input.customerMessage ? ["", `Deine Nachricht: ${input.customerMessage}`] : []),
         "",
         "Deine Checkliste für die Abholung:",
-        "- Bestätigungslink drücken",
-        "- 100 % des Gesamtbetrags über Stripe bezahlen",
+        "- Buchungsbestätigung öffnen",
         "- Kaution von 100 € in bar mitbringen",
         "- Personalausweis mitbringen",
         `- Zur Abholung: ${pickupAddress}`,
+        ...(pickupNote ? [`- ${pickupNote}`] : []),
         "- Plane genug Zeit ein, um pünktlich zu sein, dann hast du mehr vom Bike ;)",
         "",
         "Liebe Grüße,",
@@ -162,26 +172,23 @@ export function renderOfferMail(input: OfferMailInput) {
         "",
         `Rental period: ${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`,
         `Total price: ${formatEuro(input.totalCents, "en")}`,
+        ...(input.calculatedTotalCents !== undefined
+          ? ["Note: The total price was agreed individually and differs from the standard calculation."]
+          : []),
         "",
-        "This offer reserves the bike for you for 36 hours.",
+        "This offer remains reserved for you for 36 hours. After that, the reservation expires automatically.",
         "",
-        "Please confirm by clicking the link here:",
+        "If you would like to book this offer, open the booking link and pay the total through Stripe. After successful payment, your booking is confirmed automatically:",
         bookingPageUrl(input.token),
         "",
-        "IMPORTANT:",
-        "To reserve the bike bindingly, please pay 100% of the total price through Stripe.",
-        "",
-        "Click the booking link and then choose ‘Pay 100% & book bindingly’. Stripe will open its secure payment page.",
-        "",
-        "After successful payment, your booking is automatically confirmed bindingly.",
         ...(input.customerMessage ? ["", `Your message: ${input.customerMessage}`] : []),
         "",
         "Your pickup checklist:",
-        "- Click the confirmation link",
-        "- Pay 100% of the total through Stripe",
+        "- Open the booking confirmation",
         "- Bring the €100 deposit in cash",
         "- Bring your ID card or passport",
         `- Pickup address: ${pickupAddress}`,
+        ...(pickupNote ? [`- ${pickupNote}`] : []),
         "- Plan enough time to arrive punctually so you can enjoy more of the bike ;)",
         "",
         "Kind regards,",
@@ -192,12 +199,15 @@ export function renderOfferMail(input: OfferMailInput) {
     : "Unfortunately, the bike you requested is not available for your dates. We can offer the following alternative.";
   const standardIntro = de ? "wir können dir folgendes Angebot machen:" : "We can offer you the following:";
   const bikeCards = offerItems
-    .map(({ bikeHeading, accessories }) => {
+    .map(({ bikeHeading, frameLine, accessories }) => {
+      const frameHtml = frameLine.length
+        ? `<div style="margin-top:6px;color:#697177;font-size:13px">${escapeHtml(frameLine[0])}</div>`
+        : "";
       const accessoryHtml = accessories.length
         ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e8eb">${emailLabel(de ? "Zubehör" : "Equipment")}<div style="color:#697177;font-size:13px;line-height:1.7">${accessories.map((line) => `✓ ${escapeHtml(line)}`).join("<br />")}</div></div>`
         : "";
       return emailCard(
-        `<strong style="display:block;color:#171a1d;font-size:15px;line-height:1.4">${escapeHtml(bikeHeading)}</strong>${accessoryHtml}`,
+        `<strong style="display:block;color:#171a1d;font-size:15px;line-height:1.4">${escapeHtml(bikeHeading)}</strong>${frameHtml}${accessoryHtml}`,
         "#fbfcfd",
       );
     })
@@ -207,31 +217,42 @@ export function renderOfferMail(input: OfferMailInput) {
   );
   const checklist = de
     ? [
-        "Bestätigungslink drücken",
-        "100 % des Gesamtbetrags über Stripe bezahlen",
+        "Buchungsbestätigung öffnen",
         "Kaution von 100 € in bar mitbringen",
         "Personalausweis mitbringen",
         `Zur Abholung: ${pickupAddress}`,
+        ...(pickupNote ? [pickupNote] : []),
         "Plane genug Zeit ein, um pünktlich zu sein, dann hast du mehr vom Bike ;)",
       ]
     : [
-        "Click the confirmation link",
-        "Pay 100% of the total through Stripe",
+        "Open the booking confirmation",
         "Bring the €100 deposit in cash",
         "Bring your ID card or passport",
         `Pickup address: ${pickupAddress}`,
+        ...(pickupNote ? [pickupNote] : []),
         "Plan enough time to arrive punctually so you can enjoy more of the bike ;)",
       ];
+  const customPriceNote =
+    input.calculatedTotalCents !== undefined
+      ? emailCard(
+          `${emailLabel(de ? "Individuelle Preisvereinbarung" : "Individually agreed price")}${emailParagraph(
+            de
+              ? "Der Gesamtpreis wurde individuell mit dir vereinbart und weicht von der Standardberechnung ab."
+              : "The total price was agreed individually and differs from the standard calculation.",
+          )}`,
+          "#fff7ed",
+        )
+      : "";
   const html = renderEmailLayout({
     locale: input.locale,
     preheader: `${subject} · ${formatEuro(input.totalCents, input.locale)}`,
     eyebrow: de ? "Dein Angebot" : "Your offer",
     title: de
-      ? `Dein ${input.alternative ? "Alternativ" : "Bike-"}Angebot`
+      ? `Dein ${input.alternative ? "Alternativ " : "Bike-"}Angebot`
       : `Your ${input.alternative ? "alternative " : "bike "}offer`,
     intro: input.personalMessage?.trim() || (input.alternative ? alternativeIntro : standardIntro),
-    content: `${input.personalMessage?.trim() ? `<div style="margin:0 0 22px">${emailParagraph(input.alternative ? alternativeIntro : standardIntro)}</div>` : ""}${input.alternative && input.alternativeReason ? emailCard(`${emailLabel(de ? "Grund für die Änderung" : "Reason for the change")}${emailParagraph(input.alternativeReason)}`, "#eef2ff") : ""}${details}<div style="margin:26px 0 0">${emailLabel(de ? "Für dich reserviert" : "Reserved for you")}${bikeCards}</div><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 18px"><tr><td style="color:#697177;font-size:13px">${escapeHtml(de ? "Gesamtpreis" : "Total price")}</td><td align="right" style="color:#171a1d;font-size:24px;font-weight:800;letter-spacing:-.03em">${escapeHtml(formatEuro(input.totalCents, input.locale))}</td></tr></table>${emailCard(`<strong style="display:block;margin-bottom:8px;color:#171a1d;font-size:14px">${escapeHtml(de ? "Wichtig für die verbindliche Buchung" : "Important for a binding booking")}</strong>${emailParagraph(de ? "Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden. Bezahle bitte 100 % des Gesamtpreises über Stripe. Nach erfolgreicher Zahlung wird deine Buchung automatisch verbindlich bestätigt." : "This offer reserves the bike for you for 36 hours. Please pay 100% of the total price through Stripe. After successful payment, your booking is automatically confirmed bindingly.")}`, "#eef2ff")}${input.customerMessage ? emailCard(`${emailLabel(de ? "Deine Nachricht" : "Your message")}${emailParagraph(input.customerMessage)}`) : ""}<div style="margin-top:23px">${emailLabel(de ? "Checkliste für die Abholung" : "Pickup checklist")}<ul style="margin:0;padding:0 0 0 19px;color:#4f5960;font-size:13px;line-height:1.8">${checklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`,
-    cta: { label: de ? "Angebot öffnen & bezahlen" : "Open offer & pay", href: bookingPageUrl(input.token) },
+    content: `${input.personalMessage?.trim() ? `<div style="margin:0 0 22px">${emailParagraph(input.alternative ? alternativeIntro : standardIntro)}</div>` : ""}${input.alternative && input.alternativeReason ? emailCard(`${emailLabel(de ? "Grund für die Änderung" : "Reason for the change")}${emailParagraph(input.alternativeReason)}`, "#eef2ff") : ""}${details}<div style="margin:26px 0 0">${emailLabel(de ? "Für dich reserviert" : "Reserved for you")}${bikeCards}</div><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 18px"><tr><td style="color:#697177;font-size:13px">${escapeHtml(de ? "Gesamtpreis" : "Total price")}</td><td align="right" style="color:#171a1d;font-size:24px;font-weight:800;letter-spacing:-.03em">${escapeHtml(formatEuro(input.totalCents, input.locale))}</td></tr></table>${customPriceNote}${emailCard(`<strong style="display:block;margin-bottom:8px;color:#171a1d;font-size:14px">${escapeHtml(de ? "Nächster Schritt" : "Next step")}</strong>${emailParagraph(de ? "Dieses Angebot bleibt 36 Stunden für dich reserviert. Wenn du es verbindlich buchen möchtest, öffne den Buchungslink und bezahle den Gesamtpreis über Stripe. Nach erfolgreicher Zahlung wird deine Buchung automatisch bestätigt." : "This offer remains reserved for you for 36 hours. If you would like to book it, open the booking link and pay the total through Stripe. After successful payment, your booking is confirmed automatically.")}`, "#eef2ff")}${input.customerMessage ? emailCard(`${emailLabel(de ? "Deine Nachricht" : "Your message")}${emailParagraph(input.customerMessage)}`) : ""}<div style="margin-top:23px">${emailLabel(de ? "Checkliste für die Abholung" : "Pickup checklist")}<ul style="margin:0;padding:0 0 0 19px;color:#4f5960;font-size:13px;line-height:1.8">${checklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`,
+    cta: { label: de ? "Angebot öffnen" : "Open offer", href: bookingPageUrl(input.token) },
   });
   return { subject, text, html };
 }
@@ -308,7 +329,7 @@ export function renderInquiryReceivedMail(input: {
       : "Status: Inquiry received – we are checking availability.",
     bookingPageUrl(input.publicLinkToken),
     "",
-    de ? "Viele Grüße\nMunich Bike Rental" : "Kind regards\nMunich Bike Rental",
+    de ? "Viele Grüße\nYour Bike Rental" : "Kind regards\nYour Bike Rental",
   ].join("\n");
   const bikeCards = input.requested
     .map((item, index) => {
@@ -347,16 +368,22 @@ export function renderBookingNotice(input: {
   cancellationPeriod?: string;
   senderFirstName?: string;
   personalMessage?: string;
+  bikes?: Array<{ name: string; frameNumber?: string | null }>;
 }) {
   const de = input.locale === "de";
   const recipientFirstName = input.name.trim().split(/\s+/)[0] || input.name;
-  const senderFirstName = input.senderFirstName ?? "Munich Bike Rental";
+  const senderFirstName = input.senderFirstName ?? "Your Bike Rental";
   const offerLink = input.offerToken ? bookingPageUrl(input.offerToken) : null;
+  const bikeLines =
+    input.bikes?.flatMap((bike, index) => [
+      `${de ? "Fahrrad" : "Bike"} ${index + 1}: ${bike.name}`,
+      ...(bike.frameNumber?.trim() ? [`${de ? "Rahmennummer" : "Frame number"}: ${bike.frameNumber.trim()}`] : []),
+    ]) ?? [];
   const text =
     input.kind === "confirmed"
       ? de
-        ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} ist verbindlich bestätigt.${offerLink ? `\n\nAlle Informationen zu deiner Buchung findest du hier:\n${offerLink}` : ""}\n\nViele Grüße\nMunich Bike Rental`
-        : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nMunich Bike Rental`
+        ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} ist verbindlich bestätigt.${bikeLines.length ? `\n\n${bikeLines.join("\n")}` : ""}${offerLink ? `\n\nAlle Informationen zu deiner Buchung findest du hier:\n${offerLink}` : ""}\n\nViele Grüße\nYour Bike Rental`
+        : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${bikeLines.length ? `\n\n${bikeLines.join("\n")}` : ""}${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nYour Bike Rental`
       : input.kind === "cancelled"
         ? de
           ? [
@@ -380,7 +407,7 @@ export function renderBookingNotice(input: {
               ...(input.refundCents !== undefined ? [`Rückerstattung: ${formatEuro(input.refundCents, "de")}`] : []),
               "",
               "Viele Grüße",
-              "Munich Bike Rental",
+              "Your Bike Rental",
             ].join("\n")
           : [
               `Hello ${input.name},`,
@@ -401,11 +428,14 @@ export function renderBookingNotice(input: {
                 ? [`Cancellation fee: ${formatEuro(input.cancellationFeeCents, "en")}`]
                 : []),
               ...(input.refundCents !== undefined
-                ? [`Refund: ${formatEuro(input.refundCents, "en")}`, `You will receive ${formatEuro(input.refundCents, "en")} back.`]
+                ? [
+                    `Refund: ${formatEuro(input.refundCents, "en")}`,
+                    `You will receive ${formatEuro(input.refundCents, "en")} back.`,
+                  ]
                 : []),
               "",
               "Kind regards",
-              "Munich Bike Rental",
+              "Your Bike Rental",
             ].join("\n")
         : de
           ? [
@@ -518,7 +548,7 @@ export function renderBookingNotice(input: {
             : "Inquiry",
     title,
     intro,
-    content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
+    content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
     cta: offerLink ? { label: de ? "Buchungsdetails öffnen" : "Open booking details", href: offerLink } : undefined,
   });
   return { subject, text, html };

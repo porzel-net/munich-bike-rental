@@ -46,6 +46,7 @@ export type FormValidationText = {
 
 export type PortfolioItem = {
   title: string;
+  frameNumber?: string | null;
   subtitle: LocalizedText;
   price: LocalizedText;
   description: LocalizedText;

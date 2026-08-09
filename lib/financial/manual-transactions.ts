@@ -33,9 +33,14 @@ export function createAndPostManualTransaction(
     bookedAt: string;
     amountCents: number;
     categoryId: number;
+    destinationAccountId?: number;
     counterpartyName?: string;
     description: string;
     note?: string;
+    businessMeal?: {
+      privateShareCents: number;
+      inputVatCents?: number;
+    };
     actorUserId: string;
     asset?: {
       name: string;
@@ -60,8 +65,6 @@ export function createAndPostManualTransaction(
   if (!category || !category.isActive) throw new BookingCommandError("Die gewählte Kategorie ist nicht verfügbar.");
   if (category.euerTreatment === "needs_review")
     throw new BookingCommandError("Die Kategorie ist noch nicht EÜR-geklärt.");
-  if (category.categoryType === "transfer")
-    throw new BookingCommandError("Interne Umbuchungen bitte über die Banktransaktionsprüfung erfassen.");
   const account = input.accountId
     ? db.select().from(financialAccounts).where(eq(financialAccounts.id, input.accountId)).get()
     : getOrCreateCashAccount(db);
@@ -97,8 +100,10 @@ export function createAndPostManualTransaction(
   return postFinancialTransaction(db, {
     transactionId: transaction.id,
     categoryId: input.categoryId,
+    destinationAccountId: input.destinationAccountId,
     note: input.note?.trim() || input.description.trim(),
     actorUserId: input.actorUserId,
     asset: input.asset,
+    businessMeal: input.businessMeal,
   });
 }

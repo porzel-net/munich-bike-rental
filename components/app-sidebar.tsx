@@ -60,6 +60,7 @@ const data = {
       items: [
         { title: "EÜR 2026", url: "/admin/accounting" },
         { title: "Banktransaktionen", url: "/admin/accounting/transactions" },
+        { title: "Anlageverzeichnis", url: "/admin/accounting/assets" },
       ],
     },
     {

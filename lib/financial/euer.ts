@@ -98,7 +98,84 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     .innerJoin(financialCategories, eq(financialCategories.code, "depreciation"))
     .where(and(gte(fixedAssetDepreciationEntries.periodStart, from), lt(fixedAssetDepreciationEntries.periodStart, to)))
     .all() as EuerRow[];
-  const rows = [...transactionRows, ...depreciationRows].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  const disposalRows = db
+    .select()
+    .from(fixedAssets)
+    .where(eq(fixedAssets.status, "disposed"))
+    .all()
+    .filter(
+      (asset) =>
+        asset.disposedAt &&
+        asset.disposedAt >= from &&
+        asset.disposedAt < to &&
+        (asset.disposalProceedsCents ?? 0) >= 0,
+    )
+    .flatMap((asset) => {
+      const date = asset.disposedAt!;
+      const proceedsCents = asset.disposalProceedsCents ?? 0;
+      const depreciationCents = db
+        .select({ amountCents: fixedAssetDepreciationEntries.amountCents })
+        .from(fixedAssetDepreciationEntries)
+        .where(eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id))
+        .all()
+        .reduce((sum, entry) => sum + entry.amountCents, 0);
+      const bookValueCents = Math.max(0, asset.acquisitionCostCents - depreciationCents);
+      const rows: EuerRow[] = [
+        {
+          id: -1_000_000 - asset.id,
+          date,
+          category: "Veräußerung Anlagevermögen",
+          euerTreatment: "income",
+          source: "asset_sale",
+          description: `${asset.name} · ${asset.assetNumber}`,
+          amountCents: proceedsCents,
+          transactionId: null,
+          bookingId: null,
+          invoiceNumber: null,
+          accountName: null,
+          iban: null,
+          fixedAssetId: asset.id,
+        },
+      ];
+      if (bookValueCents > 0) {
+        rows.push({
+          id: -2_000_000 - asset.id,
+          date,
+          category: "Restbuchwert Anlagenabgang",
+          euerTreatment: "expense",
+          source: "asset_disposal",
+          description: `${asset.name} · ${asset.assetNumber}`,
+          amountCents: -bookValueCents,
+          transactionId: null,
+          bookingId: null,
+          invoiceNumber: null,
+          accountName: null,
+          iban: null,
+          fixedAssetId: asset.id,
+        });
+      }
+      if (asset.disposalProceedsVatCents > 0) {
+        rows.push({
+          id: -3_000_000 - asset.id,
+          date,
+          category: "Umsatzsteuer Verkauf Anlagevermögen",
+          euerTreatment: "output_vat",
+          source: "asset_sale",
+          description: `${asset.name} · ${asset.assetNumber}`,
+          amountCents: asset.disposalProceedsVatCents,
+          transactionId: null,
+          bookingId: null,
+          invoiceNumber: null,
+          accountName: null,
+          iban: null,
+          fixedAssetId: asset.id,
+        });
+      }
+      return rows;
+    });
+  const rows = [...transactionRows, ...depreciationRows, ...disposalRows].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.id - b.id,
+  );
 
   let incomeCents = 0;
   let expenseCents = 0;

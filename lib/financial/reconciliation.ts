@@ -92,6 +92,10 @@ export function postFinancialTransaction(
       residualValueCents?: number;
       notes?: string;
     };
+    businessMeal?: {
+      privateShareCents: number;
+      inputVatCents?: number;
+    };
   },
 ) {
   return runInImmediateTransaction(db, () => {
@@ -134,6 +138,33 @@ export function postFinancialTransaction(
     if (!category) throw new BookingCommandError("Bitte wähle eine Kategorie.");
     if (!category.isActive) throw new BookingCommandError("Die gewählte Kategorie ist nicht mehr aktiv.");
     assertCategoryDirection(transaction.amountCents, category);
+
+    const isBusinessMeal = category.code === "business_meal";
+    const grossCents = Math.abs(transaction.amountCents);
+    let mealSplit:
+      | { deductibleCents: number; nonDeductibleCents: number; privateCents: number; inputVatCents: number }
+      | undefined;
+    if (isBusinessMeal) {
+      const privateCents = input.businessMeal?.privateShareCents ?? 0;
+      const inputVatCents = input.businessMeal?.inputVatCents ?? 0;
+      if (!Number.isSafeInteger(privateCents) || privateCents < 0 || privateCents > grossCents)
+        throw new BookingCommandError("Der Privatanteil muss zwischen 0 € und dem Gesamtbetrag liegen.");
+      const businessGrossCents = grossCents - privateCents;
+      if (businessGrossCents <= 0)
+        throw new BookingCommandError("Mindestens ein Teil des Geschäftsessens muss geschäftlich veranlasst sein.");
+      if (!Number.isSafeInteger(inputVatCents) || inputVatCents < 0 || inputVatCents > businessGrossCents)
+        throw new BookingCommandError("Die Vorsteuer darf den geschäftlichen Anteil nicht übersteigen.");
+      const businessNetCents = businessGrossCents - inputVatCents;
+      const deductibleCents = Math.round((businessNetCents * 70) / 100);
+      mealSplit = {
+        deductibleCents,
+        nonDeductibleCents: businessNetCents - deductibleCents,
+        privateCents,
+        inputVatCents,
+      };
+    } else if (input.businessMeal) {
+      throw new BookingCommandError("Der Privatanteil kann nur bei der Kategorie Geschäftsessen erfasst werden.");
+    }
 
     let counterpartAccount = category.accountCode;
     let destinationAccount: typeof financialAccounts.$inferSelect | undefined;
@@ -219,6 +250,48 @@ export function postFinancialTransaction(
       return { journalEntryId: existingAllocation.journalEntryId, transactionId: transaction.id };
     }
 
+    const allocationParts = mealSplit
+      ? [
+          { category, amountCents: -mealSplit.deductibleCents, allocationKind: "expense" as const },
+          ...(mealSplit.nonDeductibleCents > 0
+            ? [
+                {
+                  category: db
+                    .select()
+                    .from(financialCategories)
+                    .where(eq(financialCategories.code, "business_meal_non_deductible"))
+                    .get(),
+                  amountCents: -mealSplit.nonDeductibleCents,
+                  allocationKind: "expense" as const,
+                },
+              ]
+            : []),
+          ...(mealSplit.privateCents > 0
+            ? [
+                {
+                  category: db
+                    .select()
+                    .from(financialCategories)
+                    .where(eq(financialCategories.code, "private_meal_share"))
+                    .get(),
+                  amountCents: -mealSplit.privateCents,
+                  allocationKind: "expense" as const,
+                },
+              ]
+            : []),
+          ...(mealSplit.inputVatCents > 0
+            ? [
+                {
+                  category: db.select().from(financialCategories).where(eq(financialCategories.code, "input_vat")).get(),
+                  amountCents: -mealSplit.inputVatCents,
+                  allocationKind: "tax" as const,
+                },
+              ]
+            : []),
+        ]
+      : [{ category, amountCents: transaction.amountCents, allocationKind }];
+    if (allocationParts.some((part) => !part.category))
+      throw new BookingCommandError("Die Kategorien für die Geschäftsessen-Aufteilung sind nicht eingerichtet.");
     const journalEntryId = appendJournalEntry(db, {
       kind: journalKindForTransaction(transaction, category),
       financialTransactionId: transaction.id,
@@ -232,26 +305,29 @@ export function postFinancialTransaction(
           ]
         : [
             { account: sourceAccount.code, amountCents: transaction.amountCents },
-            { account: counterpartAccount, amountCents: -transaction.amountCents },
+            ...allocationParts.map((part) => ({ account: part.category!.accountCode, amountCents: -part.amountCents })),
           ],
     });
 
+    const now = new Date();
     db.insert(financialTransactionAllocations)
-      .values({
-        transactionId: transaction.id,
-        categoryId: category.id,
-        fixedAssetId: fixedAsset?.id ?? null,
-        destinationAccountId: destinationAccount?.id ?? null,
-        allocationKind,
-        matchMethod: "manual",
-        amountCents: transaction.amountCents,
-        journalEntryId,
-        note,
-        matchedByUserId: input.actorUserId,
-        matchedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
+      .values(
+        allocationParts.map((part) => ({
+          transactionId: transaction.id,
+          categoryId: part.category!.id,
+          fixedAssetId: fixedAsset?.id ?? null,
+          destinationAccountId: destinationAccount?.id ?? null,
+          allocationKind: part.allocationKind as "expense" | "tax",
+          matchMethod: "manual" as const,
+          amountCents: part.amountCents,
+          journalEntryId,
+          note,
+          matchedByUserId: input.actorUserId,
+          matchedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      )
       .run();
 
     if (fixedAsset && input.asset?.inputVatCents) {

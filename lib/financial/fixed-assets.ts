@@ -67,6 +67,7 @@ export function createFixedAsset(
   input: {
     name: string;
     assetType: "bike" | "equipment" | "other";
+    acquisitionSource?: "transaction" | "private_contribution";
     serialNumber?: string | null;
     acquisitionDate: string;
     inServiceDate: string;
@@ -106,6 +107,7 @@ export function createFixedAsset(
       assetNumber: `ANL-${new Date(`${input.acquisitionDate}T00:00:00Z`).getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`,
       name,
       assetType: input.assetType,
+      acquisitionSource: input.acquisitionSource ?? "transaction",
       serialNumber: input.serialNumber?.trim() || null,
       acquisitionDate: input.acquisitionDate,
       inServiceDate: input.inServiceDate,
@@ -129,78 +131,197 @@ export function postFixedAssetDepreciation(
   input: { assetId: number; periodStart: string; actorUserId: string },
 ) {
   return runInImmediateTransaction(db, () => {
-    const asset = db.select().from(fixedAssets).where(eq(fixedAssets.id, input.assetId)).get();
-    if (!asset) throw new BookingCommandError("Anlagegut nicht gefunden.");
-    if (asset.status !== "active")
-      throw new BookingCommandError("Für ein ausgeschiedenes Anlagegut kann keine AfA gebucht werden.");
-    if (!/^\d{4}-\d{2}-01$/.test(input.periodStart)) throw new BookingCommandError("Ungültiger AfA-Monat.");
-    const existing = db
-      .select()
-      .from(fixedAssetDepreciationEntries)
-      .where(
-        and(
-          eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id),
-          eq(fixedAssetDepreciationEntries.periodStart, input.periodStart),
-        ),
-      )
-      .get();
-    if (existing) return existing;
-    const amountCents = monthlyDepreciationCents(asset, input.periodStart);
-    if (amountCents <= 0) throw new BookingCommandError("Für diesen Monat ist keine AfA vorgesehen.");
-    const periodEnd = monthDate(monthIndex(input.periodStart) + 1);
-    const journalEntryId = appendJournalEntry(db, {
-      kind: "depreciation",
-      actorUserId: input.actorUserId,
-      reason: `AfA: ${asset.assetNumber} · ${asset.name} · ${input.periodStart.slice(0, 7)}`,
-      idempotencyKey: `fixed-asset-depreciation:${asset.id}:${input.periodStart}`,
-      occurredAt: new Date(`${periodEnd}T00:00:00Z`),
-      lines: [
-        { account: "expense", amountCents },
-        { account: asset.accumulatedDepreciationAccountCode, amountCents: -amountCents },
-      ],
-    });
-    return db
-      .insert(fixedAssetDepreciationEntries)
-      .values({
-        fixedAssetId: asset.id,
-        periodStart: input.periodStart,
-        periodEnd,
-        amountCents,
-        journalEntryId,
-        createdByUserId: input.actorUserId,
-        createdAt: new Date(),
-      })
-      .returning()
-      .get();
+    return postFixedAssetDepreciationInTransaction(db, input);
   });
 }
 
-export function postDueFixedAssetDepreciation(db: AppDatabase, input: { throughMonth: string; actorUserId: string }) {
+function postFixedAssetDepreciationInTransaction(
+  db: AppDatabase,
+  input: { assetId: number; periodStart: string; actorUserId: string | null },
+) {
+  const asset = db.select().from(fixedAssets).where(eq(fixedAssets.id, input.assetId)).get();
+  if (!asset) throw new BookingCommandError("Anlagegut nicht gefunden.");
+  if (asset.status !== "active")
+    throw new BookingCommandError("Für ein ausgeschiedenes Anlagegut kann keine AfA gebucht werden.");
+  if (!/^\d{4}-\d{2}-01$/.test(input.periodStart)) throw new BookingCommandError("Ungültiger AfA-Monat.");
+  const existing = db
+    .select()
+    .from(fixedAssetDepreciationEntries)
+    .where(
+      and(
+        eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id),
+        eq(fixedAssetDepreciationEntries.periodStart, input.periodStart),
+      ),
+    )
+    .get();
+  if (existing) return existing;
+  const amountCents = monthlyDepreciationCents(asset, input.periodStart);
+  if (amountCents <= 0) throw new BookingCommandError("Für diesen Monat ist keine AfA vorgesehen.");
+  const periodEnd = monthDate(monthIndex(input.periodStart) + 1);
+  const journalEntryId = appendJournalEntry(db, {
+    kind: "depreciation",
+    actorUserId: input.actorUserId,
+    reason: `AfA: ${asset.assetNumber} · ${asset.name} · ${input.periodStart.slice(0, 7)}`,
+    idempotencyKey: `fixed-asset-depreciation:${asset.id}:${input.periodStart}`,
+    occurredAt: new Date(`${periodEnd}T00:00:00Z`),
+    lines: [
+      { account: "expense", amountCents },
+      { account: asset.accumulatedDepreciationAccountCode, amountCents: -amountCents },
+    ],
+  });
+  return db
+    .insert(fixedAssetDepreciationEntries)
+    .values({
+      fixedAssetId: asset.id,
+      periodStart: input.periodStart,
+      periodEnd,
+      amountCents,
+      journalEntryId,
+      createdByUserId: input.actorUserId,
+      createdAt: new Date(),
+    })
+    .returning()
+    .get();
+}
+
+export function createPrivateAssetContribution(
+  db: AppDatabase,
+  input: {
+    name: string;
+    assetType: "bike" | "equipment" | "other";
+    acquisitionDate: string;
+    inServiceDate: string;
+    acquisitionCostCents: number;
+    usefulLifeMonths: number;
+    serialNumber?: string | null;
+    notes?: string;
+    actorUserId: string;
+  },
+) {
+  return runInImmediateTransaction(db, () => {
+    const asset = createFixedAsset(db, {
+      ...input,
+      acquisitionSource: "private_contribution",
+      createdByUserId: input.actorUserId,
+      inputVatCents: 0,
+    });
+    const journalEntryId = appendJournalEntry(db, {
+      kind: "capital_contribution",
+      actorUserId: input.actorUserId,
+      reason: `Privateinlage: ${asset.assetNumber} · ${asset.name}`,
+      lines: [
+        { account: asset.assetAccountCode, amountCents: asset.acquisitionCostCents },
+        { account: "equity", amountCents: -asset.acquisitionCostCents },
+      ],
+    });
+    return { assetId: asset.id, journalEntryId };
+  });
+}
+
+export function postDueFixedAssetDepreciation(
+  db: AppDatabase,
+  input: { throughMonth: string; actorUserId: string | null },
+) {
   const through = `${input.throughMonth.trim().slice(0, 7)}-01`;
   if (!/^\d{4}-\d{2}-01$/.test(through)) throw new BookingCommandError("Ungültiger Abrechnungsmonat.");
-  const assets = db.select().from(fixedAssets).where(eq(fixedAssets.status, "active")).all();
-  let posted = 0;
-  for (const asset of assets) {
+  return runInImmediateTransaction(db, () => {
+    const assets = db.select().from(fixedAssets).where(eq(fixedAssets.status, "active")).all();
+    let posted = 0;
+    for (const asset of assets) {
+      for (const period of fixedAssetDepreciationSchedule(asset)) {
+        if (period.periodStart > through) continue;
+        const before = db
+          .select({ id: fixedAssetDepreciationEntries.id })
+          .from(fixedAssetDepreciationEntries)
+          .where(
+            and(
+              eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id),
+              eq(fixedAssetDepreciationEntries.periodStart, period.periodStart),
+            ),
+          )
+          .get();
+        if (before) continue;
+        postFixedAssetDepreciationInTransaction(db, {
+          assetId: asset.id,
+          periodStart: period.periodStart,
+          actorUserId: input.actorUserId,
+        });
+        posted += 1;
+      }
+    }
+    return { posted };
+  });
+}
+
+export function disposeFixedAsset(
+  db: AppDatabase,
+  input: {
+    assetId: number;
+    disposedAt: string;
+    disposalProceedsCents: number;
+    disposalProceedsVatCents?: number;
+    actorUserId: string | null;
+  },
+) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.disposedAt))
+    throw new BookingCommandError("Bitte gib ein gültiges Verkaufsdatum an.");
+  if (!Number.isSafeInteger(input.disposalProceedsCents) || input.disposalProceedsCents < 0)
+    throw new BookingCommandError("Der Verkaufserlös darf nicht negativ sein.");
+  const vatCents = input.disposalProceedsVatCents ?? 0;
+  if (!Number.isSafeInteger(vatCents) || vatCents < 0 || vatCents > input.disposalProceedsCents)
+    throw new BookingCommandError("Die Umsatzsteuer muss zwischen 0 und dem Nettoerlös liegen.");
+
+  return runInImmediateTransaction(db, () => {
+    const asset = db.select().from(fixedAssets).where(eq(fixedAssets.id, input.assetId)).get();
+    if (!asset) throw new BookingCommandError("Anlagegut nicht gefunden.");
+    if (asset.status !== "active") throw new BookingCommandError("Dieses Anlagegut ist bereits ausgeschieden.");
+    if (input.disposedAt < asset.acquisitionDate)
+      throw new BookingCommandError("Das Verkaufsdatum darf nicht vor der Anschaffung liegen.");
+
+    const through = `${input.disposedAt.slice(0, 7)}-01`;
     for (const period of fixedAssetDepreciationSchedule(asset)) {
       if (period.periodStart > through) continue;
-      const before = db
-        .select({ id: fixedAssetDepreciationEntries.id })
-        .from(fixedAssetDepreciationEntries)
-        .where(
-          and(
-            eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id),
-            eq(fixedAssetDepreciationEntries.periodStart, period.periodStart),
-          ),
-        )
-        .get();
-      if (before) continue;
-      postFixedAssetDepreciation(db, {
+      postFixedAssetDepreciationInTransaction(db, {
         assetId: asset.id,
         periodStart: period.periodStart,
         actorUserId: input.actorUserId,
       });
-      posted += 1;
     }
-  }
-  return { posted };
+
+    const depreciationCents = db
+      .select({ amountCents: fixedAssetDepreciationEntries.amountCents })
+      .from(fixedAssetDepreciationEntries)
+      .where(eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id))
+      .all()
+      .reduce((sum, entry) => sum + entry.amountCents, 0);
+    const bookValueCents = Math.max(0, asset.acquisitionCostCents - depreciationCents);
+    const disposalLines = [
+      depreciationCents > 0
+        ? { account: asset.accumulatedDepreciationAccountCode, amountCents: depreciationCents }
+        : null,
+      { account: asset.assetAccountCode, amountCents: -asset.acquisitionCostCents },
+      { account: "expense", amountCents: bookValueCents },
+    ].filter((line): line is { account: string; amountCents: number } => line !== null);
+    const journalEntryId = appendJournalEntry(db, {
+      kind: "asset_disposal",
+      actorUserId: input.actorUserId,
+      reason: `Abgang: ${asset.assetNumber} · ${asset.name} · Verkauf`,
+      idempotencyKey: `fixed-asset-disposal:${asset.id}`,
+      occurredAt: new Date(`${input.disposedAt}T00:00:00Z`),
+      lines: disposalLines,
+    });
+    const now = new Date();
+    db.update(fixedAssets)
+      .set({
+        status: "disposed",
+        disposedAt: input.disposedAt,
+        disposalReason: "sold",
+        disposalProceedsCents: input.disposalProceedsCents,
+        disposalProceedsVatCents: vatCents,
+        updatedAt: now,
+      })
+      .where(eq(fixedAssets.id, asset.id))
+      .run();
+    return { assetId: asset.id, bookValueCents, journalEntryId };
+  });
 }

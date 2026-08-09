@@ -283,7 +283,14 @@ async function getSearchMailboxes(client: ImapFlow, config: MailboxConfig) {
   return uniqueMailboxes(["INBOX", config.sentMailbox, ...listed.map((mailbox) => mailbox.path)]);
 }
 
-export async function findBookingThreadMessageId(orderNumber: string): Promise<string | null> {
+export type LatestBookingThreadMessage = {
+  messageId: string;
+  inReplyTo: string | null;
+  referencesHeader: string | null;
+  timestamp: number;
+};
+
+export async function findLatestBookingThreadMessage(orderNumber: string): Promise<LatestBookingThreadMessage | null> {
   const config = await getMailboxConfig();
   if (!config) return null;
 
@@ -297,7 +304,7 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
   });
-  let latest: { messageId: string; timestamp: number } | null = null;
+  let latest: LatestBookingThreadMessage | null = null;
 
   try {
     await client.connect();
@@ -309,11 +316,14 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
         if (matches && matches.length) {
           for await (const message of client.fetch(
             matches.slice(-50),
-            { envelope: true, internalDate: true },
+            { envelope: true, internalDate: true, source: { start: 0, maxLength: MAX_MAIL_SOURCE_BYTES } },
             { uid: true },
           )) {
             const messageId = message.envelope?.messageId;
             if (!messageId) continue;
+            const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
+            const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
+            const referencesHeader = headers.get("references")?.trim() || null;
             const internalDate =
               message.internalDate instanceof Date
                 ? message.internalDate
@@ -321,7 +331,8 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
                   ? new Date(message.internalDate)
                   : message.envelope?.date;
             const timestamp = internalDate?.getTime() ?? 0;
-            if (!latest || timestamp >= latest.timestamp) latest = { messageId, timestamp };
+            if (!latest || timestamp >= latest.timestamp)
+              latest = { messageId, inReplyTo, referencesHeader, timestamp };
           }
         }
       } catch {
@@ -336,7 +347,11 @@ export async function findBookingThreadMessageId(orderNumber: string): Promise<s
     await client.logout().catch(() => client.close());
   }
 
-  return latest?.messageId ?? null;
+  return latest;
+}
+
+export async function findBookingThreadMessageId(orderNumber: string): Promise<string | null> {
+  return (await findLatestBookingThreadMessage(orderNumber))?.messageId ?? null;
 }
 
 export async function moveMailToMailbox(

@@ -303,6 +303,14 @@ Der Outbox-Dispatcher wird minütlich vom Host ausgelöst. Setze `OUTBOX_DISPATC
 
 Der Dispatcher verwendet Leasing und Backoff. Bei IMAP-Ausfall bleibt der archivierte Plain-Text-Verlauf in der Buchungsansicht sichtbar.
 
+Die AfA wird beim Aufruf des Anlageverzeichnisses automatisch bis zum aktuellen Monat nachgebucht. Für einen vollständig unabhängigen Hintergrundlauf setze `FIXED_ASSET_DEPRECIATION_TOKEN` und rufe den Endpoint täglich auf:
+
+```bash
+5 0 * * * curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $FIXED_ASSET_DEPRECIATION_TOKEN" \
+  https://deine-domain.tld/api/internal/fixed-assets/depreciation >/dev/null
+```
+
 ## Hinweise
 
 - Die App nutzt SSR und Node-Runtime für den Kontakt-Endpoint.

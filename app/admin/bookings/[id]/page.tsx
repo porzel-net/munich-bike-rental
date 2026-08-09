@@ -181,6 +181,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     getLocationInventory(db, booking.location).bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]),
   );
   const latestOffer = offers[0];
+  const acceptedOffer = offers.find((offer) => offer.status === "accepted");
+  const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
   const nextAction =
     nextActionCopy[booking.status] ??
     ({ title: "Buchung prüfen", description: "Wähle die passende Aktion für diese Buchung." } as const);
@@ -259,7 +261,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <BookingAiAnalysisButton bookingId={booking.id} />
-              {payment.status === "settled" ? (
+              {canGenerateInvoice ? (
                 <Button
                   nativeButton={false}
                   variant="outline"

@@ -229,31 +229,35 @@ export default async function CalendarPage({
       }
     >
       <AppSidebar user={session.user} isAdmin={administrator} variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Kalender" />
-        <main className="flex flex-1 flex-col gap-6 p-4 lg:p-8">
-          <AdminCalendarView
-            hasBookings={events.length > 0}
-            locationItems={locationItems}
-            locationValue={queryLocation}
-            monthName={getCalendarMonthName(month)}
-            nextMonthHref={calendarHref(
-              new Date(month.getFullYear(), month.getMonth() + 1, 1),
-              queryLocation,
-              queryStatus,
-            )}
-            previousMonthHref={calendarHref(
-              new Date(month.getFullYear(), month.getMonth() - 1, 1),
-              queryLocation,
-              queryStatus,
-            )}
-            statusItems={statusItems}
-            statusValue={queryStatus}
-            yearLabel={getCalendarYearLabel(month)}
-            weeks={weeks}
-            calendarFeeds={calendarFeeds}
-          />
-        </main>
+        <div className="relative isolate min-h-0 min-w-0 flex-1 overflow-auto bg-muted dark:bg-background">
+          <main className="relative z-10 flex flex-1 flex-col gap-6 p-4 lg:p-8">
+            <AdminCalendarView
+              hasBookings={events.length > 0}
+              locationItems={locationItems}
+              locationValue={queryLocation}
+              monthName={getCalendarMonthName(month)}
+              nextMonthHref={calendarHref(
+                new Date(month.getFullYear(), month.getMonth() + 1, 1),
+                queryLocation,
+                queryStatus,
+              )}
+              previousMonthHref={calendarHref(
+                new Date(month.getFullYear(), month.getMonth() - 1, 1),
+                queryLocation,
+                queryStatus,
+              )}
+              statusItems={statusItems}
+              statusValue={queryStatus}
+              yearLabel={getCalendarYearLabel(month)}
+              weeks={weeks}
+              calendarFeeds={calendarFeeds}
+            />
+          </main>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-1 h-48 bg-linear-to-b from-background via-muted to-transparent dark:hidden" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-48 bg-linear-to-t from-background via-muted/80 to-transparent dark:via-background/80" />
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

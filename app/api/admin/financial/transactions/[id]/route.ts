@@ -16,6 +16,12 @@ const schema = z.discriminatedUnion("action", [
     categoryId: z.number().int().positive(),
     destinationAccountId: z.number().int().positive().optional(),
     note: z.string().trim().min(1).max(1000),
+    businessMeal: z
+      .object({
+        privateShareCents: z.number().int().nonnegative(),
+        inputVatCents: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
     asset: z
       .object({
         name: z.string().trim().min(1).max(200),

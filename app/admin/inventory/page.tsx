@@ -16,6 +16,7 @@ export type AdminInventoryBike = {
   location: RentalLocation;
   bikeKey: string;
   title: string;
+  frameNumber: string | null;
   priceCents: number;
   size: string;
   isAvailable: boolean;
@@ -68,6 +69,7 @@ export default async function InventoryPage() {
     location: bike.location as RentalLocation,
     bikeKey: bike.bikeKey,
     title: bike.title,
+    frameNumber: bike.frameNumber,
     priceCents: bike.priceCentsPerDay,
     size: sizeRows.find((size) => size.locationBikeId === bike.id)?.size ?? "",
     isAvailable: bike.isAvailable,
@@ -94,16 +96,18 @@ export default async function InventoryPage() {
       }
     >
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Inventar" />
-        <main className="flex flex-1 flex-col p-8 lg:p-12">
-          <InventoryTable
-            initialBikes={bikes}
-            initialEquipment={equipment}
-            locations={locationOptions}
-            canManageAllLocations={isAdmin(session.user)}
-          />
-        </main>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col p-8 lg:p-12">
+            <InventoryTable
+              initialBikes={bikes}
+              initialEquipment={equipment}
+              locations={locationOptions}
+              canManageAllLocations={isAdmin(session.user)}
+            />
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

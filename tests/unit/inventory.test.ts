@@ -27,10 +27,10 @@ describe("location inventory", () => {
     const regensburg = getLocationInventory(db, "regensburg");
 
     expect(munich.portfolioItems).toHaveLength(4);
-    expect(munich.bikeOptions).toHaveLength(11);
-    expect(munich.bikeOptions).toContain("Aeroad CF SL 8 - M");
+    expect(munich.bikeOptions).toHaveLength(4);
+    expect(munich.bikeOptions).toContain("Aeroad CF SL 8");
     expect(regensburg.portfolioItems.map((bike) => bike.title)).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
-    expect(regensburg.bikeOptions).toHaveLength(7);
+    expect(regensburg.bikeOptions).toHaveLength(2);
     expect(munich.pedalTypes.map((item) => item.value)).toEqual(["platform", "spdSl", "lookKeo2Max", "other"]);
     expect(munich.computerMountTypes.map((item) => item.value)).toEqual(["garmin", "wahoo", "other"]);
     expect(munich.helmetAvailable).toBe(true);
@@ -45,7 +45,7 @@ describe("location inventory", () => {
   it("accepts only bikes and equipment available at the selected location", () => {
     const db = createTestDatabase();
     const bike = {
-      bikeSize: "Endurace CF SL 8 - M",
+      bikeSize: "Endurace CF SL 8",
       needsPedals: true,
       pedalType: "spdSl",
       needsComputerMount: true,

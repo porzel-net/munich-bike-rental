@@ -108,6 +108,7 @@ describe("booking mail threads", () => {
 
     expect(sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        envelope: { from: "main@example.com", to: "ada@example.com" },
         inReplyTo: "<customer-inquiry@example.com>",
         references: "<customer-inquiry@example.com>",
         text: "Wir können dir ein Fahrrad anbieten.",
@@ -120,6 +121,24 @@ describe("booking mail threads", () => {
     expect(db.select().from(emailActionReviews).where(eq(emailActionReviews.bookingId, created.id)).all()).toHaveLength(
       1,
     );
+
+    const customerFollowUpAt = new Date(Date.now() + 1_000);
+    db.insert(communicationMessages)
+      .values({
+        bookingId: created.id,
+        direction: "inbound",
+        rfcMessageId: "<customer-follow-up@example.com>",
+        threadMessageId: "<customer-inquiry@example.com>",
+        inReplyTo: "<admin-offer@example.com>",
+        referencesHeader: "<customer-inquiry@example.com> <admin-offer@example.com>",
+        sender: "ada@example.com",
+        recipients: "main@example.com",
+        subject: "Re: Angebot #20260804160000",
+        plainText: "Danke, ich habe noch eine Frage.",
+        sentAt: customerFollowUpAt,
+        archivedAt: customerFollowUpAt,
+      })
+      .run();
 
     sendMail.mockResolvedValueOnce({ messageId: "<admin-rejection@example.com>" });
     const secondMail = db
@@ -144,8 +163,8 @@ describe("booking mail threads", () => {
 
     expect(sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        inReplyTo: "<admin-offer@example.com>",
-        references: "<customer-inquiry@example.com> <admin-offer@example.com>",
+        inReplyTo: "<customer-follow-up@example.com>",
+        references: "<customer-inquiry@example.com> <admin-offer@example.com> <customer-follow-up@example.com>",
       }),
     );
     const messages = db
@@ -153,11 +172,11 @@ describe("booking mail threads", () => {
       .from(communicationMessages)
       .where(eq(communicationMessages.bookingId, created.id))
       .all();
-    expect(messages.at(-1)).toMatchObject({
+    expect(messages.find((message) => message.rfcMessageId === "<admin-rejection@example.com>")).toMatchObject({
       rfcMessageId: "<admin-rejection@example.com>",
       threadMessageId: "<customer-inquiry@example.com>",
-      inReplyTo: "<admin-offer@example.com>",
-      referencesHeader: "<customer-inquiry@example.com> <admin-offer@example.com>",
+      inReplyTo: "<customer-follow-up@example.com>",
+      referencesHeader: "<customer-inquiry@example.com> <admin-offer@example.com> <customer-follow-up@example.com>",
     });
     expect(db.select().from(emailActionReviews).where(eq(emailActionReviews.bookingId, created.id)).all()).toHaveLength(
       2,
@@ -269,13 +288,13 @@ describe("booking mail threads", () => {
     );
     expect(sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        attachments: [
+        attachments: expect.arrayContaining([
           expect.objectContaining({
             filename: "YBR-2026-0001.pdf",
             content: Buffer.from("%PDF-test"),
             contentType: "application/pdf",
           }),
-        ],
+        ]),
       }),
     );
   });

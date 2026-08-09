@@ -1,3 +1,7 @@
+import { siteConfig } from "../site";
+
+export const EMAIL_LOGO_CID = "your-bike-rental-logo@munich-bike-rental.de";
+
 export function escapeHtml(value: unknown) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -39,9 +43,14 @@ export function renderEmailLayout(input: EmailLayoutInput) {
     input.locale === "de"
       ? "Persönlicher Rennrad- und Gravel-Verleih in München, Regensburg und am Bodensee."
       : "Personal road and gravel bike rental in Munich, Regensburg and around Lake Constance.";
+  const footerDetails =
+    input.locale === "de"
+      ? `Julius Porzel · Your Bike Rental<br />Josephine-Lang-Weg 3 · 81245 München · Deutschland<br /><a href="${escapeHtml(siteConfig.url)}" style="color:#697177;text-decoration:underline">${escapeHtml(siteConfig.url.replace(/^https?:\/\//, ""))}</a> · ${escapeHtml(siteConfig.phone)} · ${escapeHtml(siteConfig.email)}`
+      : `Julius Porzel · Your Bike Rental<br />Josephine-Lang-Weg 3 · 81245 Munich · Germany<br /><a href="${escapeHtml(siteConfig.url)}" style="color:#697177;text-decoration:underline">${escapeHtml(siteConfig.url.replace(/^https?:\/\//, ""))}</a> · ${escapeHtml(siteConfig.phone)} · ${escapeHtml(siteConfig.email)}`;
   const cta = input.cta
     ? `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:26px 0 4px"><tr><td align="center" style="border-radius:13px;background:#4169e1"><a href="${escapeHtml(input.cta.href)}" style="display:inline-block;padding:15px 22px;border-radius:13px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;line-height:1;text-decoration:none">${escapeHtml(input.cta.label)} &nbsp;→</a></td></tr></table>`
     : "";
+  const logoUrl = `cid:${EMAIL_LOGO_CID}`;
 
   return `<!doctype html>
 <html lang="${input.locale}">
@@ -66,10 +75,16 @@ export function renderEmailLayout(input: EmailLayoutInput) {
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
               <tr>
                 <td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;color:${emailColors.ink}">
-                  <span style="display:inline-block;width:30px;height:30px;margin-right:8px;border-radius:50%;background:${emailColors.ink};color:#ffffff;font-size:14px;line-height:30px;text-align:center;vertical-align:middle">Y</span>
-                  <span style="vertical-align:middle">Your Bike Rental</span>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+                    <tr>
+                      <td valign="middle" style="width:38px;height:30px;line-height:30px">
+                        <img src="${escapeHtml(logoUrl)}" alt="Your Bike Rental" width="30" height="30" style="display:block;width:30px;height:30px;border-radius:50%;object-fit:cover;object-position:50% 34%" />
+                      </td>
+                      <td valign="middle" style="height:30px;color:${emailColors.ink};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:30px;white-space:nowrap">Your Bike Rental</td>
+                    </tr>
+                  </table>
                 </td>
-                <td align="right" style="color:#71777c;font-size:11px;letter-spacing:.08em;text-transform:uppercase">${escapeHtml(input.eyebrow)}</td>
+                <td align="right" style="color:#71777c;font-size:11px;letter-spacing:.04em">${escapeHtml(input.eyebrow)}</td>
               </tr>
             </table>
           </td></tr>
@@ -79,7 +94,7 @@ export function renderEmailLayout(input: EmailLayoutInput) {
             ${input.content}
             ${cta}
           </td></tr>
-          <tr><td style="padding:18px 8px 0;color:#899196;font-size:11px;line-height:1.55;text-align:center">${escapeHtml(footer)}<br />Your Bike Rental · ${escapeHtml(input.locale === "de" ? "Viele Grüße" : "Kind regards")}</td></tr>
+          <tr><td style="padding:18px 8px 0;color:#899196;font-size:11px;line-height:1.55;text-align:center">${escapeHtml(footer)}<br />${footerDetails}<br />${escapeHtml(input.locale === "de" ? "Viele Grüße" : "Kind regards")}</td></tr>
         </table>
       </td></tr>
     </table>
@@ -92,7 +107,7 @@ export function emailCard(content: string, background = "#f7f8fa") {
 }
 
 export function emailLabel(label: string) {
-  return `<span style="display:block;margin-bottom:5px;color:#7a8288;font-size:10px;font-weight:700;letter-spacing:.08em;line-height:1.3;text-transform:uppercase">${escapeHtml(label)}</span>`;
+  return `<span style="display:block;margin-bottom:5px;color:#7a8288;font-size:10px;font-weight:700;letter-spacing:.04em;line-height:1.3">${escapeHtml(label)}</span>`;
 }
 
 export function emailParagraph(text: string, color = "#4f5960") {

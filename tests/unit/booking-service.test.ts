@@ -218,12 +218,12 @@ describe("booking commands", () => {
 
     expect(mail.text).toContain("Endurace CF SL 8 - M\nZubehör:");
     expect(mail.text).not.toContain("Endurace CF SL 8 - M →");
-    expect(mail.text).toContain("Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden.");
+    expect(mail.text).toContain("Dieses Angebot bleibt 36 Stunden für dich reserviert.");
     expect(mail.text).toContain("Deine Checkliste für die Abholung:");
     expect(mail.text).toContain("Gabelsbergerstraße 79a, 80333 München, Maxvorstadt");
-    expect(mail.text).toContain("WICHTIG:");
+    expect(mail.text).not.toContain("WICHTIG:");
     expect(mail.text).not.toContain("**");
-    expect(mail.text).toContain("100 % des Gesamtpreises über Stripe");
+    expect(mail.text).toContain("bezahle den Gesamtpreis über Stripe");
     expect(mail.text).not.toContain("Verwendungszweck:");
     expect(mail.text).toContain("Liebe Grüße,\nJulius");
     expect(mail.text).toContain("- Pedale: Look Keo2 Max");
@@ -231,10 +231,10 @@ describe("booking commands", () => {
     expect(mail.text).toContain("- Helm: Nicht enthalten");
     expect(mail.text).toContain("- Kleidung: Enthalten");
     expect(mail.text).not.toContain("lookKeo2Max");
-    expect(mail.html).toContain("Angebot öffnen &amp; bezahlen");
-    expect(mail.html).toContain("Dieses Angebot reserviert das Fahrrad für dich für 36 Stunden.");
+    expect(mail.html).toContain("Angebot öffnen");
+    expect(mail.html).toContain("Dieses Angebot bleibt 36 Stunden für dich reserviert.");
     expect(mail.html).toContain("Gabelsbergerstraße 79a, 80333 München, Maxvorstadt");
-    expect(mail.html).toContain('href="http://localhost:3000/angebot/test-token"');
+    expect(mail.html).toContain('href="https://www.munich-bike-rental.de/angebot/test-token"');
   });
 
   it("queues a localized offer and atomically reserves the chosen asset only on confirmation", () => {
@@ -244,9 +244,9 @@ describe("booking commands", () => {
     const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
     const outbox = db.select().from(mailOutbox).get()!;
     expect(outbox.locale).toBe("en");
-    expect(outbox.plainText).toContain("reserves the bike for you for 36 hours");
+    expect(outbox.plainText).toContain("remains reserved for you for 36 hours");
     expect(outbox.html).toContain("Your Bike Rental");
-    expect(outbox.html).toContain("Open offer &amp; pay");
+    expect(outbox.html).toContain("Open offer");
     expect(confirmOffer(db, offer.confirmationToken)).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
       status: "confirmed",
@@ -272,7 +272,7 @@ describe("booking commands", () => {
     ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/) });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, booking.id)).get()?.plainText).toContain(
-      `http://localhost:3000/angebot/${offer.confirmationToken}`,
+      `https://www.munich-bike-rental.de/angebot/${offer.confirmationToken}`,
     );
     expect(
       db
@@ -474,6 +474,26 @@ describe("booking commands", () => {
     });
     expect(preview.quote.totalCents).toBe(10_000);
     expect(preview.mail.subject).toContain("Alternative offer");
+    expect(preview.mail.html).toContain("Your alternative offer");
+    const germanMail = renderOfferMail({
+      locale: "de",
+      alternative: true,
+      alternativeReason: "Die andere Größe passt besser.",
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      phone: "+49",
+      orderNumber: "#2026",
+      requested: [{ requestedLabel: "Wunschrad", assetName: "Alternativrad", heightCm: 170 }],
+      totalCents: 10_000,
+      periodFrom: "2026-07-20",
+      periodTo: "2026-07-21",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      location: "munich",
+      token: "VORSCHAU",
+      senderFirstName: "Julius",
+    });
+    expect(germanMail.html).toContain("Dein Alternativ Angebot");
     expect(db.select().from(bookingOffers).where(eq(bookingOffers.bookingId, booking.id)).all()).toHaveLength(0);
   });
 

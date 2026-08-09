@@ -48,7 +48,7 @@ export function AiLogsFilter({ search, status, source }: { search: string; statu
 
   return (
     <div className="flex w-full flex-wrap items-center gap-1.5 sm:flex-nowrap">
-      <InputGroup className="w-full sm:w-80">
+      <InputGroup className="w-full bg-card sm:w-80">
         <InputGroupAddon>
           <SearchIcon />
         </InputGroupAddon>
@@ -62,7 +62,11 @@ export function AiLogsFilter({ search, status, source }: { search: string; statu
       </InputGroup>
       <div className="ml-auto flex w-full justify-end gap-1.5 sm:w-auto">
         <Select items={statusItems} value={status} onValueChange={(value) => updateParam("status", value)}>
-          <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-48 sm:flex-none" aria-label="Nach Status filtern">
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 flex-1 bg-card sm:w-48 sm:flex-none"
+            aria-label="Nach Status filtern"
+          >
             <SelectValue className="text-sm font-normal">
               {statusItems.find((item) => item.value === status)?.label ?? "Alle Status"}
             </SelectValue>
@@ -78,7 +82,11 @@ export function AiLogsFilter({ search, status, source }: { search: string; statu
           </SelectContent>
         </Select>
         <Select items={sourceItems} value={source} onValueChange={(value) => updateParam("source", value)}>
-          <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Nach Quelle filtern">
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
+            aria-label="Nach Quelle filtern"
+          >
             <SelectValue className="text-sm font-normal">
               {sourceItems.find((item) => item.value === source)?.label ?? "Alle Quellen"}
             </SelectValue>
@@ -94,7 +102,7 @@ export function AiLogsFilter({ search, status, source }: { search: string; statu
           </SelectContent>
         </Select>
         {search || status !== "all" || source !== "all" ? (
-          <Button type="button" variant="ghost" onClick={() => router.push(pathname)}>
+          <Button type="button" variant="ghost" className="bg-card hover:bg-card" onClick={() => router.push(pathname)}>
             Zurücksetzen
           </Button>
         ) : null}

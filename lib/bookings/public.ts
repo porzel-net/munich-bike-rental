@@ -12,6 +12,7 @@ import {
   rentalAssets,
 } from "../db/schema";
 import { getRentalDays } from "../inventory/pricing";
+import { getLocationInventory } from "../inventory/repository";
 import type { OfferAccessorySelection, OfferQuote } from "./quotes";
 
 export type PublicOffer = {
@@ -33,11 +34,20 @@ export type PublicOffer = {
     updatedAt: string;
   };
   totalCents: number;
-  quote: Pick<OfferQuote, "bikeSubtotalCents" | "equipmentSubtotalCents" | "discountCents" | "rentalDays">;
+  quote: Pick<
+    OfferQuote,
+    | "bikeSubtotalCents"
+    | "equipmentSubtotalCents"
+    | "discountCents"
+    | "rentalDays"
+    | "calculatedTotalCents"
+    | "customPriceCents"
+  >;
   items: Array<{
     position: number;
     requestedLabel: string;
     offeredLabel: string;
+    frameNumber: string | null;
     heightCm: number;
     dailyPriceCents: number;
     accessories: OfferAccessorySelection;
@@ -70,6 +80,13 @@ function buildPublicBookingView(
   const snapshot = offer ? (JSON.parse(offer.priceSnapshotJson) as Partial<OfferQuote>) : {};
   const offeredByRequestedId = new Map(offered.map(({ item, asset }) => [item.requestedItemId, { item, asset }]));
   const snapshotByRequestedId = new Map((snapshot.offeredItems ?? []).map((item) => [item.requestedItemId, item]));
+  const inventoryPriceByOption = new Map(
+    getLocationInventory(db, booking.location).bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]),
+  );
+  const priceForRequestedBike = (requestedBike: string) =>
+    inventoryPriceByOption.get(requestedBike) ??
+    inventoryPriceByOption.get(requestedBike.split(" - ")[0]) ??
+    0;
 
   return {
     offerId: offer?.id ?? null,
@@ -95,6 +112,8 @@ function buildPublicBookingView(
       equipmentSubtotalCents: snapshot.equipmentSubtotalCents ?? 0,
       discountCents: snapshot.discountCents ?? 0,
       rentalDays: snapshot.rentalDays ?? getRentalDays(booking.periodFrom, booking.periodTo),
+      calculatedTotalCents: snapshot.calculatedTotalCents,
+      customPriceCents: snapshot.customPriceCents,
     },
     items: requested.map((item) => {
       const selected = offeredByRequestedId.get(item.id);
@@ -103,8 +122,13 @@ function buildPublicBookingView(
         position: item.position,
         requestedLabel: item.requestedLabel,
         offeredLabel: selected?.asset.displayName ?? snapshotItem?.assetName ?? item.requestedLabel,
+        frameNumber: selected?.asset.frameNumber ?? snapshotItem?.frameNumber ?? null,
         heightCm: item.heightCm,
-        dailyPriceCents: selected?.item.itemPriceCents ?? snapshotItem?.dailyPriceCents ?? 0,
+        dailyPriceCents:
+          (selected?.item.itemPriceCents && selected.item.itemPriceCents > 0 ? selected.item.itemPriceCents : null) ??
+          selected?.asset.dailyPriceCents ??
+          (snapshotItem?.dailyPriceCents && snapshotItem.dailyPriceCents > 0 ? snapshotItem.dailyPriceCents : null) ??
+          priceForRequestedBike(item.requestedLabel),
         accessories: snapshotItem?.accessories ?? {
           needsPedals: item.needsPedals,
           pedalType: item.pedalType,

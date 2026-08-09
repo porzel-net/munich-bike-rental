@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
@@ -6,7 +7,7 @@ import type { z } from "zod";
 
 import { siteConfig } from "../site";
 import { readBoundedText } from "../security/request-body";
-import { emailCard, emailParagraph, renderEmailLayout } from "./email-template";
+import { EMAIL_LOGO_CID, emailCard, emailParagraph, renderEmailLayout } from "./email-template";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
@@ -155,6 +156,10 @@ function parseTimeoutMs(value: string | undefined) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1_000) : undefined;
 }
 
+function firstNonBlank(...values: Array<string | undefined>) {
+  return values.find((value) => value?.trim())?.trim();
+}
+
 export async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string) {
   const directValue = environment[name];
   if (directValue) {
@@ -213,10 +218,12 @@ export async function getMailConfig(
   account: MailAccount = "request",
 ): Promise<MailConfig | null> {
   const names = accountEnv[account];
-  const host = (environment[names.host] ?? environment.SMTP_HOST)?.trim();
-  const user = environment[names.user]?.trim();
-  const password = await readSecret(environment, names.password);
-  const port = Number(environment[names.port] ?? environment.SMTP_PORT ?? "587");
+  // Docker Compose passes unset optional variables as empty strings. Treat
+  // those as absent so the documented shared SMTP settings still work.
+  const host = firstNonBlank(environment[names.host], environment.SMTP_HOST);
+  const user = firstNonBlank(environment[names.user], environment.SMTP_USER);
+  const password = (await readSecret(environment, names.password)) || (await readSecret(environment, "SMTP_PASSWORD"));
+  const port = Number(firstNonBlank(environment[names.port], environment.SMTP_PORT, "587"));
 
   if (!host || !user || !password || !Number.isInteger(port) || port < 1 || port > 65_535) {
     return null;
@@ -235,8 +242,12 @@ export async function getMailConfig(
     timeout: parseTimeoutMs(environment.MAIL_TIMEOUT_SECONDS),
     user,
     password,
-    fromAddress: environment[names.from]?.trim() ?? (account === "main" ? user : "anfrage@munich-bike-rental.de"),
-    toAddress: environment[names.to]?.trim() ?? (account === "main" ? "" : "hallo@munich-bike-rental.de"),
+    fromAddress:
+      firstNonBlank(environment[names.from], environment.MAIL_FROM_ADDRESS) ??
+      (account === "main" ? user : "anfrage@munich-bike-rental.de"),
+    toAddress:
+      firstNonBlank(environment[names.to], environment.MAIL_TO_ADDRESS) ??
+      (account === "main" ? "" : "hallo@munich-bike-rental.de"),
   };
 }
 
@@ -263,7 +274,15 @@ export type MailAttachment = {
   filename: string;
   content: Buffer;
   contentType?: string;
+  cid?: string;
 };
+
+let emailLogoPromise: Promise<Buffer | null> | null = null;
+
+function readEmailLogo() {
+  emailLogoPromise ??= readFile(join(process.cwd(), "public", "favicon-96.png")).catch(() => null);
+  return emailLogoPromise;
+}
 
 function fallbackMailHtml(subject: string, text: string) {
   return renderEmailLayout({
@@ -273,6 +292,11 @@ function fallbackMailHtml(subject: string, text: string) {
     title: subject,
     content: emailCard(emailParagraph(text)),
   });
+}
+
+function inlineLogoReference(html: string, reference: string) {
+  const publicLogoUrl = `${siteConfig.url.replace(/\/$/, "")}/favicon.png`;
+  return html.replaceAll(`cid:${EMAIL_LOGO_CID}`, reference).replaceAll(publicLogoUrl, reference);
 }
 
 export async function sendConfiguredMail({
@@ -301,6 +325,21 @@ export async function sendConfiguredMail({
     return null;
   }
 
+  const logo = await readEmailLogo();
+  const logoReference = logo ? `cid:${EMAIL_LOGO_CID}` : `${siteConfig.url.replace(/\/$/, "")}/favicon.png`;
+  const mailHtml = inlineLogoReference(html?.trim() || fallbackMailHtml(subject, text), logoReference);
+  const mailAttachments = logo
+    ? [
+        ...(attachments ?? []),
+        {
+          filename: "favicon-96.png",
+          content: logo,
+          contentType: "image/png",
+          cid: EMAIL_LOGO_CID,
+        },
+      ]
+    : attachments;
+
   const transporter = nodemailer.createTransport({
     host: config.host,
     port: config.port,
@@ -315,7 +354,10 @@ export async function sendConfiguredMail({
   });
 
   const result = await transporter.sendMail({
-    from: `Munich Rental <${config.fromAddress}>`,
+    from: `Your Bike Rental <${config.fromAddress}>`,
+    // Keep the SMTP envelope sender on the same domain as the visible From:
+    // header so SPF can align with DMARC for direct customer mail.
+    envelope: { from: config.fromAddress, to },
     to,
     replyTo,
     inReplyTo,
@@ -324,8 +366,8 @@ export async function sendConfiguredMail({
     text,
     // Keep the HTML part present even for older/admin-created outbox rows that
     // predate the shared templates. The plain-text part is always sent too.
-    html: html?.trim() || fallbackMailHtml(subject, text),
-    attachments,
+    html: mailHtml,
+    attachments: mailAttachments,
   });
 
   return { messageId: typeof result.messageId === "string" ? result.messageId : null };

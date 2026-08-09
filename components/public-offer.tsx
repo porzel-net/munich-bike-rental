@@ -406,6 +406,11 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                               {de ? "Angefragt" : "Requested"}: {item.requestedLabel}
                             </p>
                           ) : null}
+                          {item.frameNumber ? (
+                            <p>
+                              {de ? "Rahmennummer" : "Frame number"}: {item.frameNumber}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="public-offer-bike__price">
                           <strong>
@@ -490,6 +495,17 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                   </div>
                 </div>
               )}
+
+              {currentOffer.quote.calculatedTotalCents !== undefined ? (
+                <div className="public-offer-alert public-offer-alert--info">
+                  <Info size={17} strokeWidth={2} aria-hidden="true" />
+                  <span>
+                    {de
+                      ? "Der Gesamtpreis wurde individuell vereinbart und weicht von der Standardberechnung ab."
+                      : "The total price was agreed individually and differs from the standard calculation."}
+                  </span>
+                </div>
+              ) : null}
 
               <OfferCountdown
                 expiresAt={currentOffer.expiresAt}

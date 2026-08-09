@@ -20,6 +20,7 @@ import {
   journalEntries,
   journalLines,
   mailOutbox,
+  rentalAssets,
   type BookingStatus,
 } from "../db/schema";
 import { createOrderNumber } from "../inquiries/server";
@@ -29,7 +30,7 @@ import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
 import { appendJournalEntry, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents } from "./money";
 import { renderBookingNotice, renderInquiryReceivedMail, renderOfferMail } from "./messages";
-import { buildOfferQuote, type OfferAccessorySelection } from "./quotes";
+import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
 import { allocateInvoiceNumber } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
 
@@ -83,7 +84,7 @@ function receivedPaymentCents(db: AppDatabase, bookingId: number) {
 }
 
 function firstName(name: string | undefined) {
-  return name?.trim().split(/\s+/).filter(Boolean)[0] ?? "Munich Bike Rental";
+  return name?.trim().split(/\s+/).filter(Boolean)[0] ?? "Your Bike Rental";
 }
 
 function queueCustomerMail(
@@ -479,6 +480,7 @@ export function createDirectBooking(
       locale: booking.communicationLocale,
       name: booking.customerName,
       orderNumber: booking.orderNumber,
+      bikes: quote.offeredItems.map((item) => ({ name: item.assetName, frameNumber: item.frameNumber })),
     });
     db.insert(mailOutbox)
       .values({
@@ -511,6 +513,7 @@ export function createOffer(
     alternative?: boolean;
     alternativeReason?: string;
     personalMessage?: string;
+    customTotalCents?: number;
     sendMail?: boolean;
   },
 ) {
@@ -520,7 +523,10 @@ export function createOffer(
     assertBookingHasAssignee(db, booking);
     if (booking.status !== "inquiry_received" && booking.status !== "offer_sent" && booking.status !== "expired")
       throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
-    const quote = buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem);
+    const quote = applyCustomOfferPrice(
+      buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem),
+      input.customTotalCents,
+    );
     const alternative =
       Boolean(input.alternative) || quote.offeredItems.some((item) => item.requestedLabel !== item.assetName);
     if (alternative && !input.alternativeReason?.trim())
@@ -586,6 +592,7 @@ export function createOffer(
       orderNumber: booking.orderNumber,
       requested: quote.offeredItems,
       totalCents: quote.totalCents,
+      calculatedTotalCents: quote.calculatedTotalCents,
       periodFrom: booking.periodFrom,
       periodTo: booking.periodTo,
       pickupTime: booking.pickupTime,
@@ -651,6 +658,7 @@ export function previewOffer(
     alternative?: boolean;
     alternativeReason?: string;
     personalMessage?: string;
+    customTotalCents?: number;
     actorUserId?: string | null;
   },
 ) {
@@ -661,7 +669,10 @@ export function previewOffer(
   )
     throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
   assertBookingHasAssignee(db, booking);
-  const quote = buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem);
+  const quote = applyCustomOfferPrice(
+    buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem),
+    input.customTotalCents,
+  );
   const alternative =
     Boolean(input.alternative) || quote.offeredItems.some((item) => item.requestedLabel !== item.assetName);
   if (alternative && !input.alternativeReason?.trim())
@@ -672,9 +683,13 @@ export function previewOffer(
     alternativeReason: input.alternativeReason?.trim(),
     personalMessage: input.personalMessage?.trim(),
     name: booking.customerName,
+    email: booking.customerEmail,
+    phone: booking.customerPhone,
+    customerMessage: booking.customerMessage,
     orderNumber: booking.orderNumber,
     requested: quote.offeredItems,
     totalCents: quote.totalCents,
+    calculatedTotalCents: quote.calculatedTotalCents,
     periodFrom: booking.periodFrom,
     periodTo: booking.periodTo,
     pickupTime: booking.pickupTime,
@@ -943,6 +958,10 @@ function confirmOfferRecord(
     name: booking.customerName,
     orderNumber: booking.orderNumber,
     offerToken,
+    bikes: offeredAssets.map((item) => {
+      const asset = db.select().from(rentalAssets).where(eq(rentalAssets.id, item.assetId)).get();
+      return { name: asset?.displayName ?? "Bike", frameNumber: asset?.frameNumber };
+    }),
   });
   queueCustomerMail(db, booking, {
     kind: "booking_confirmed",

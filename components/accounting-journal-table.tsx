@@ -91,6 +91,7 @@ const kindLabels: Record<string, string> = {
   credit_note: "Gutschrift",
   expense: "Aufwand",
   depreciation: "Abschreibung (AfA)",
+  capital_contribution: "Privateinlage",
   correction: "Korrektur",
   legacy_import: "Historischer Import",
 };

@@ -158,6 +158,7 @@ export function BookingCommandActions({
   const [rejectionReasonType, setRejectionReasonType] = useState<RejectionReasonType>("");
   const [customRejectionReason, setCustomRejectionReason] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
+  const [customOfferPrice, setCustomOfferPrice] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewRequestId = useRef(0);
@@ -170,6 +171,8 @@ export function BookingCommandActions({
       discountCents: number;
       rentalDays: number;
       offeredItems: Array<{ requestedLabel: string; assetName: string }>;
+      calculatedTotalCents?: number;
+      customPriceCents?: number;
     };
     mail: { subject: string; text: string; html: string };
   } | null>(null);
@@ -248,6 +251,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setRejectionReasonType("");
     setCustomRejectionReason("");
     setPersonalMessage("");
+    setCustomOfferPrice("");
     setPreviewError(null);
     setPreviewLoading(false);
     commandIdRef.current = null;
@@ -261,6 +265,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomAlternativeReason("");
     setPreview(null);
     setPersonalMessage("");
+    setCustomOfferPrice("");
     setPreviewError(null);
     setPreviewLoading(false);
   };
@@ -293,21 +298,25 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       headers: { "content-type": "application/json" },
       body: JSON.stringify(idempotencyKey ? { ...body, idempotencyKey } : body),
     });
-    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    const result = (await response.json().catch(() => null)) as { message?: string; mailStatus?: string } | null;
     if (!response.ok) throw new Error(result?.message ?? "Aktion fehlgeschlagen");
+    return result;
   };
 
   const submit = async () => {
     try {
       setBusy(true);
       if (activeAction === "offer") {
+        const customTotalCents = customOfferPrice.trim() ? euroToCents(customOfferPrice) : undefined;
+        if (customOfferPrice.trim() && customTotalCents === null)
+          throw new Error("Bitte gib den individuellen Gesamtpreis als gültigen Euro-Betrag ein.");
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes Asset.");
         if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
           throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
         if (isAlternativeOffer && !alternativeReason)
           throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
-        await request({
+        const result = await request({
           command: "send_offer",
           assetsByRequestedItem: Object.fromEntries(
             Object.entries(assetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
@@ -318,9 +327,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           alternative: isAlternativeOffer,
           alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
           personalMessage: personalMessage.trim() || undefined,
+          customTotalCents,
         });
         toast.success(
-          isAlternativeOffer ? "Alternativangebot wurde in die Outbox gelegt." : "Angebot wurde in die Outbox gelegt.",
+          result?.mailStatus === "sent"
+            ? isAlternativeOffer
+              ? "Alternativangebot wurde versendet."
+              : "Angebot wurde versendet."
+            : "Angebot wurde in die Outbox gelegt und wird später versendet.",
         );
       } else if (activeAction === "cancel") {
         if (!cancellationPeriod) throw new Error("Bitte wähle den Stornozeitraum aus.");
@@ -384,6 +398,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
         if (isAlternativeOffer && !alternativeReason)
           throw new Error("Bitte gib an, warum ein anderes Fahrrad angeboten wird.");
+        const customTotalCents = customOfferPrice.trim() ? euroToCents(customOfferPrice) : undefined;
+        if (customOfferPrice.trim() && customTotalCents === null)
+          throw new Error("Bitte gib den individuellen Gesamtpreis als gültigen Euro-Betrag ein.");
         setPreviewLoading(true);
         setPreviewError(null);
         const response = await fetch(`/api/admin/bookings/${bookingId}/offer-preview`, {
@@ -399,6 +416,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             alternative: isAlternativeOffer,
             alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
             personalMessage: personalMessage.trim() || undefined,
+            customTotalCents,
           }),
         });
         const result = (await response.json().catch(() => null)) as typeof preview & { message?: string };
@@ -420,6 +438,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       isAlternativeOffer,
       offerAccessories,
       personalMessage,
+      customOfferPrice,
       requestedItems,
       unavailableAssetIdSet,
     ],
@@ -435,6 +454,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     alternativeReason,
     isAlternativeOffer,
     personalMessage,
+    customOfferPrice,
   });
 
   useEffect(() => {
@@ -749,6 +769,21 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     Dieser Text wird direkt oben nach der Anrede in die Angebotsmail eingefügt.
                   </FieldDescription>
                 </Field>
+                <Field>
+                  <FieldLabel htmlFor="offer-custom-price">Individueller Gesamtpreis (optional)</FieldLabel>
+                  <Input
+                    id="offer-custom-price"
+                    inputMode="decimal"
+                    value={customOfferPrice}
+                    onChange={(event) => {
+                      setCustomOfferPrice(event.target.value);
+                      setPreview(null);
+                      setPreviewLoading(false);
+                      setPreviewError(null);
+                    }}
+                    placeholder="Automatisch berechneten Preis verwenden"
+                  />
+                </Field>
                 <div className="flex items-center justify-between rounded-2xl bg-muted/60 p-4">
                   <div>
                     <p className="font-medium">Preis und Mailvorschau</p>
@@ -765,9 +800,16 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 {previewInputsComplete && preview && (
                   <div className="grid gap-4 rounded-2xl border bg-card p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge variant="secondary">{formatEuro(preview.quote.totalCents)}</Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">{formatEuro(preview.quote.totalCents)}</Badge>
+                        {preview.quote.calculatedTotalCents !== undefined ? (
+                          <Badge variant="outline">Individuell vereinbart</Badge>
+                        ) : null}
+                      </div>
                       <span className="text-sm text-muted-foreground">
-                        {preview.quote.rentalDays} Miettage · Rabatt {formatEuro(preview.quote.discountCents)}
+                        {preview.quote.calculatedTotalCents !== undefined
+                          ? `Standardberechnung: ${formatEuro(preview.quote.calculatedTotalCents)}`
+                          : `${preview.quote.rentalDays} Miettage · Rabatt ${formatEuro(preview.quote.discountCents)}`}
                       </span>
                     </div>
                     <div className="overflow-hidden rounded-xl border bg-[#f5f6f8]">

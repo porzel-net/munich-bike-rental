@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
-import type { FinancialReviewCategory } from "@/components/financial-review-inbox";
+import type { FinancialReviewAccount, FinancialReviewCategory } from "@/components/financial-review-inbox";
 import type { EuerRow, EuerSummary } from "@/lib/financial/euer";
 
 function formatAmount(amountCents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amountCents / 100);
+}
+
+function formatPercentage(value: number) {
+  return new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value) + " %";
 }
 
 function formatDate(value: string) {
@@ -42,6 +46,14 @@ function displayDescription(row: EuerRow) {
   return description.replace(/\s+cs_(?:test|live)_[A-Za-z0-9]+$/i, "").trim() || "Stripe-Zahlung";
 }
 
+function displaySource(row: EuerRow) {
+  if (row.source === "depreciation") return "AfA · Anlageverzeichnis";
+  if (row.source === "asset_sale") return "Verkauf · Anlageverzeichnis";
+  if (row.source === "asset_disposal") return "Restbuchwert · Anlageverzeichnis";
+  if (row.source === "stripe") return "Stripe · Stripe-Verrechnungskonto";
+  return `Bank · ${row.accountName || "Unbekanntes Konto"}`;
+}
+
 export function EuerSummary({
   data,
   categories,
@@ -49,12 +61,13 @@ export function EuerSummary({
 }: {
   data: EuerSummary;
   categories: FinancialReviewCategory[];
-  accounts: { id: number; name: string; type: string }[];
+  accounts: FinancialReviewAccount[];
 }) {
   const router = useRouter();
   const euerRows = data.rows.filter((row) =>
     ["income", "expense", "tax_payment", "input_vat", "output_vat", "needs_review"].includes(row.euerTreatment),
   );
+  const profitMargin = data.incomeCents > 0 ? (data.profitCents / data.incomeCents) * 100 : 0;
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -66,65 +79,52 @@ export function EuerSummary({
         </div>
         <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} />
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Card className="min-h-36 rounded-2xl border border-border/60 bg-card p-0 shadow-sm">
-          <CardContent className="flex min-h-36 flex-col gap-1 p-4">
-            <CardDescription className="min-h-8 text-xs font-medium uppercase tracking-[0.08em]">
-              Einnahmen
-            </CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums text-emerald-600 sm:text-3xl">
-              {formatAmount(data.incomeCents)}
-            </CardTitle>
-            <CardDescription className="text-xs tabular-nums">Im laufenden Jahr</CardDescription>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Einnahmen</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.incomeCents)}</CardTitle>
+            <CardDescription className="tabular-nums">Laufendes Jahr</CardDescription>
           </CardContent>
         </Card>
-        <Card className="min-h-36 rounded-2xl border border-border/60 bg-card p-0 shadow-sm">
-          <CardContent className="flex min-h-36 flex-col gap-1 p-4">
-            <CardDescription className="min-h-8 text-xs font-medium uppercase tracking-[0.08em]">
-              Ausgaben
-            </CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums text-destructive sm:text-3xl">
-              {formatAmount(data.expenseCents)}
-            </CardTitle>
-            <CardDescription className="text-xs tabular-nums">Im laufenden Jahr</CardDescription>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Ausgaben</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.expenseCents)}</CardTitle>
+            <CardDescription className="tabular-nums">Laufendes Jahr</CardDescription>
           </CardContent>
         </Card>
-        <Card className="min-h-36 rounded-2xl border border-border/60 bg-card p-0 shadow-sm">
-          <CardContent className="flex min-h-36 flex-col gap-1 p-4">
-            <CardDescription className="min-h-8 text-xs font-medium uppercase tracking-[0.08em]">
-              Gewinn vor Steuerkorrekturen
-            </CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums sm:text-3xl">
-              {formatAmount(data.profitCents)}
-            </CardTitle>
-            <CardDescription className="text-xs tabular-nums">Einnahmen minus Ausgaben</CardDescription>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Gewinn vor Steuer</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.profitCents)}</CardTitle>
+            <CardDescription className="tabular-nums">Einnahmen − Ausgaben</CardDescription>
           </CardContent>
         </Card>
-        <Card className="min-h-36 rounded-2xl border border-border/60 bg-card p-0 shadow-sm">
-          <CardContent className="flex min-h-36 flex-col gap-1 p-4">
-            <CardDescription className="min-h-8 text-xs font-medium uppercase tracking-[0.08em]">
-              USt-Zahlungen
-            </CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums sm:text-3xl">
-              {formatAmount(data.vatPaymentCents)}
-            </CardTitle>
-            <CardDescription className="text-xs tabular-nums">Erfasste Zahlungen</CardDescription>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Umbuchungen</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.excludedInternalCents)}</CardTitle>
+            <CardDescription className="tabular-nums">Nicht EÜR-relevant</CardDescription>
           </CardContent>
         </Card>
-        <Card className="min-h-36 rounded-2xl border border-border/60 bg-card p-0 shadow-sm">
-          <CardContent className="flex min-h-36 flex-col gap-1 p-4">
-            <CardDescription className="min-h-8 text-xs font-medium uppercase tracking-[0.08em]">
-              Interne Umbuchungen
-            </CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums text-muted-foreground sm:text-3xl">
-              {formatAmount(data.excludedInternalCents)}
-            </CardTitle>
-            <CardDescription className="text-xs tabular-nums">Nicht EÜR-relevant</CardDescription>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Gewinnmarge</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatPercentage(profitMargin)}</CardTitle>
+            <CardDescription className="tabular-nums">Gewinn / Einnahmen</CardDescription>
+          </CardContent>
+        </Card>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Prüfung offen</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.unresolvedCents)}</CardTitle>
+            <CardDescription className="tabular-nums">EÜR-Zuordnung offen</CardDescription>
           </CardContent>
         </Card>
       </div>
-      <div className="overflow-hidden rounded-3xl bg-card">
-        <Table className="text-sm">
+      <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
+        <Table className="text-sm [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
           <TableHeader className="[&_th]:h-9 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground">
             <TableRow className="hover:bg-transparent">
               <TableHead>Datum</TableHead>
@@ -163,11 +163,7 @@ export function EuerSummary({
                   <TableCell>
                     <div className="flex flex-col">
                       <span>{displayDescription(row)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {row.source === "depreciation"
-                          ? "Anlageverzeichnis"
-                          : `${row.source} · Transaktion #${row.transactionId}${row.accountName ? ` · ${row.accountName}${row.iban ? ` · ${row.iban}` : ""}` : ""}`}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{displaySource(row)}</span>
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{row.invoiceNumber ?? "—"}</TableCell>
@@ -186,7 +182,7 @@ export function EuerSummary({
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
     </section>
   );
 }

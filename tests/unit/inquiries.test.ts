@@ -30,6 +30,7 @@ import {
   createOrderNumber,
   getMailConfig,
   resetRateLimitsForTests,
+  sendConfiguredMail,
 } from "../../lib/inquiries/server";
 
 const validContact = {
@@ -157,6 +158,63 @@ describe("inquiry server helpers", () => {
         })
       )?.password,
     ).toBe("test-password-from-file");
+  });
+
+  it("falls back from blank Compose account overrides to shared SMTP settings", async () => {
+    await expect(
+      getMailConfig({
+        SMTP_HOST: "smtp.example.com",
+        SMTP_PORT: "465",
+        SMTP_SECURE: "true",
+        SMTP_USER: "legacy-user",
+        SMTP_PASSWORD: "legacy-password",
+        SMTP_REQUEST_HOST: "",
+        SMTP_REQUEST_PORT: "",
+        SMTP_REQUEST_USER: "",
+        SMTP_REQUEST_PASSWORD: "",
+      }),
+    ).resolves.toMatchObject({
+      host: "smtp.example.com",
+      port: 465,
+      secure: true,
+      user: "legacy-user",
+      password: "legacy-password",
+    });
+  });
+
+  it("keeps recipients in the SMTP envelope when an aligned sender is configured", async () => {
+    process.env = {
+      ...process.env,
+      SMTP_HOST: "smtp.example.com",
+      SMTP_MAIN_USER: "main@example.com",
+      SMTP_MAIN_PASSWORD: "secret",
+      SMTP_MAIN_PORT: "465",
+      SMTP_MAIN_SECURE: "true",
+      MAIL_MAIN_FROM_ADDRESS: "main@example.com",
+    };
+    sendMail.mockResolvedValue({ messageId: "<test@example.com>" });
+
+    await sendConfiguredMail({
+      account: "main",
+      to: "customer@example.com",
+      subject: "Test",
+      text: "Test",
+    });
+
+    expect(sendMail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        to: "customer@example.com",
+        envelope: { from: "main@example.com", to: "customer@example.com" },
+        html: expect.stringContaining('src="cid:your-bike-rental-logo@munich-bike-rental.de"'),
+        attachments: [
+          expect.objectContaining({
+            filename: "favicon-96.png",
+            contentType: "image/png",
+            cid: "your-bike-rental-logo@munich-bike-rental.de",
+          }),
+        ],
+      }),
+    );
   });
 });
 

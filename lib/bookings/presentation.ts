@@ -12,6 +12,7 @@ export const accountLabels: Record<string, string> = {
   tax_input: "Vorsteuer",
   tax_output: "Umsatzsteuer",
   cash_main: "Kasse / Bargeld",
+  equity: "Privateinlage / Eigenkapital",
 };
 
 export function formatAccountLabel(account: string) {

@@ -10,6 +10,9 @@ import { BookingCommandError } from "./errors";
 
 export type OfferQuote = {
   totalCents: number;
+  /** Set only when the sent offer uses an individually agreed total price. */
+  calculatedTotalCents?: number;
+  customPriceCents?: number;
   bikeSubtotalCents: number;
   equipmentSubtotalCents: number;
   discountCents: number;
@@ -21,10 +24,23 @@ export type OfferQuote = {
     heightCm: number;
     assetId: number;
     assetName: string;
+    frameNumber: string | null;
     dailyPriceCents: number;
     accessories: OfferAccessorySelection;
   }>;
 };
+
+export function applyCustomOfferPrice(quote: OfferQuote, customTotalCents?: number) {
+  if (customTotalCents === undefined) return quote;
+  if (!Number.isSafeInteger(customTotalCents) || customTotalCents < 0)
+    throw new BookingCommandError("Der individuelle Gesamtpreis muss ein gültiger Euro-Betrag sein.");
+  return {
+    ...quote,
+    totalCents: customTotalCents,
+    calculatedTotalCents: quote.totalCents,
+    customPriceCents: customTotalCents,
+  };
+}
 
 export type OfferAccessorySelection = {
   needsPedals: boolean;
@@ -106,6 +122,7 @@ export function buildOfferQuote(
       heightCm: item.heightCm,
       assetId,
       assetName: asset.displayName,
+      frameNumber: asset.frameNumber,
       dailyPriceCents: asset.dailyPriceCents,
       accessories: selectedAccessories(item, accessoriesByRequestedItem[item.id]),
     };

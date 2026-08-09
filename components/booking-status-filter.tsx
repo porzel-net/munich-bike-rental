@@ -85,7 +85,7 @@ export function BookingStatusFilter({
 
   return (
     <div className="flex w-full flex-wrap items-center gap-1.5 sm:flex-nowrap">
-      <InputGroup className="w-full sm:w-80">
+      <InputGroup className="w-full bg-card sm:w-80">
         <InputGroupAddon>
           <SearchIcon />
         </InputGroupAddon>
@@ -104,7 +104,11 @@ export function BookingStatusFilter({
             value={location}
             onValueChange={(nextValue) => updateParam("location", nextValue, "all")}
           >
-            <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Standort auswählen">
+            <SelectTrigger
+              size="sm"
+              className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
+              aria-label="Standort auswählen"
+            >
               <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -125,7 +129,7 @@ export function BookingStatusFilter({
         >
           <SelectTrigger
             size="sm"
-            className="min-w-0 flex-1 sm:w-48 sm:flex-none"
+            className="min-w-0 flex-1 bg-card sm:w-48 sm:flex-none"
             aria-label="Nach Sachbearbeiter filtern"
           >
             <SelectValue className="text-sm font-normal">{selectedAssigneeLabel}</SelectValue>
@@ -145,7 +149,11 @@ export function BookingStatusFilter({
           value={period}
           onValueChange={(nextValue) => updateParam("period", nextValue, "all")}
         >
-          <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Zeitraum auswählen">
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
+            aria-label="Zeitraum auswählen"
+          >
             <SelectValue className="text-sm font-normal">{selectedPeriodLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -163,7 +171,11 @@ export function BookingStatusFilter({
           value={value ?? "all"}
           onValueChange={(nextValue) => updateParam("status", nextValue, "all")}
         >
-          <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Nach Status filtern">
+          <SelectTrigger
+            size="sm"
+            className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
+            aria-label="Nach Status filtern"
+          >
             <SelectValue className="text-sm font-normal">{selectedLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>

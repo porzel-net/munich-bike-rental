@@ -121,14 +121,13 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .orderBy(asc(rentalLocationDiscounts.displayOrder))
     .all()
     .filter((item) => item.isAvailable);
-  const bikeOptions = bikes.flatMap((bike) =>
+  const bikeVariantOptions = bikes.flatMap((bike) =>
     sizes.filter((size) => size.locationBikeId === bike.id).map((size) => `${bike.title} - ${size.size}`),
   );
-  const bikePrices = bikes.flatMap((bike) =>
-    sizes
-      .filter((size) => size.locationBikeId === bike.id)
-      .map((size) => ({ option: `${bike.title} - ${size.size}`, dailyPriceCents: bike.priceCentsPerDay })),
-  );
+  // Customers choose the bike model only. Frame size is selected internally
+  // later based on the customer's height and the available assets.
+  const bikeOptions = [...new Set(bikes.map((bike) => bike.title))];
+  const bikePrices = bikes.map((bike) => ({ option: bike.title, dailyPriceCents: bike.priceCentsPerDay }));
   const portfolioBikes = [...new Map(bikes.map((bike) => [bike.title, bike])).values()];
   const optionList = (category: string, prefix: string) =>
     equipment
@@ -142,12 +141,13 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   return {
     portfolioItems: portfolioBikes.map((bike) => ({
       title: bike.title,
+      frameNumber: bike.frameNumber,
       subtitle: {
-        de: bikeOptions
+        de: bikeVariantOptions
           .filter((option) => option.startsWith(bike.title + " - "))
           .map((option) => option.slice(bike.title.length + 3))
           .join(" / "),
-        en: bikeOptions
+        en: bikeVariantOptions
           .filter((option) => option.startsWith(bike.title + " - "))
           .map((option) => option.slice(bike.title.length + 3))
           .join(" / "),
@@ -202,7 +202,8 @@ export function isRequestAvailable(
   const mounts = new Set(inventory.computerMountTypes.map((item) => item.value));
   return bikes.every(
     (bike) =>
-      inventory.bikeOptions.includes(bike.bikeSize) &&
+      (inventory.bikeOptions.includes(bike.bikeSize) ||
+        inventory.bikeOptions.some((option) => bike.bikeSize.startsWith(option + " - "))) &&
       (!bike.needsPedals || pedals.has(bike.pedalType)) &&
       (!bike.needsComputerMount || mounts.has(bike.computerMountType)) &&
       (!bike.needsHelmet || inventory.helmetAvailable) &&

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 
 import type { AdminInventoryBike, AdminInventoryEquipment } from "@/app/admin/inventory/page";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogClose,
@@ -98,6 +99,7 @@ export function InventoryTable({
             id: item.id,
             location: item.location,
             title: item.title,
+            frameNumber: item.frameNumber,
             size: item.size,
             priceCents: item.priceCents,
             isAvailable: !item.isAvailable,
@@ -140,6 +142,7 @@ export function InventoryTable({
     if (!response.ok) return;
     if (item.kind === "bike") setBikes((current) => current.filter((bike) => bike.id !== item.id));
     else setEquipment((current) => current.filter((entry) => entry.id !== item.id));
+    setDialogOpen(false);
   }
 
   function handleSaved(item: AdminInventoryBike | AdminInventoryEquipment, itemKind: InventoryKind, isNew: boolean) {
@@ -184,7 +187,11 @@ export function InventoryTable({
             value={locationFilter}
             onValueChange={(value) => value && setLocationFilter(value as LocationFilter)}
           >
-            <SelectTrigger size="sm" className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label="Standort filtern">
+            <SelectTrigger
+              size="sm"
+              className="min-w-0 flex-1 bg-white sm:w-40 sm:flex-none"
+              aria-label="Standort filtern"
+            >
               <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -208,93 +215,105 @@ export function InventoryTable({
           <PlusIcon />
         </Button>
       </div>
-      {kind === "bike" ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Bike / Typ</TableHead>
-              <TableHead>Größe</TableHead>
-              <TableHead>Standort</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Preis / Tag</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleBikes.length === 0 ? (
-              <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
-            ) : (
-              visibleBikes.map((bike) => (
-                <TableRow key={bike.id}>
-                  <TableCell className="font-medium">{bike.title}</TableCell>
-                  <TableCell>{bike.size}</TableCell>
-                  <TableCell>
-                    {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
-                  </TableCell>
-                  <TableCell>
-                    <StatusButton
-                      active={bike.isAvailable}
-                      onClick={() => toggleAvailability({ ...bike, kind: "bike" })}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {euroFormatter.format(bike.priceCents / 100)}
-                  </TableCell>
-                  <TableCell>
-                    <RowActions
-                      onEdit={() => openEdit({ ...bike, kind: "bike" })}
-                      onDelete={() => deleteItem({ ...bike, kind: "bike" })}
-                    />
-                  </TableCell>
+      <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
+        <CardContent className="p-0">
+          {kind === "bike" ? (
+            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Bike / Typ</TableHead>
+                  <TableHead>Größe</TableHead>
+                  <TableHead>Standort</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Preis / Tag</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Ausrüstung</TableHead>
-              <TableHead>Art</TableHead>
-              <TableHead>Standort</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Preis</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleEquipment.length === 0 ? (
-              <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
-            ) : (
-              visibleEquipment.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{categoryLabels[item.category]}</TableCell>
-                  <TableCell>{item.labelDe}</TableCell>
-                  <TableCell>
-                    {locations.find((location) => location.key === item.location)?.label ?? item.location}
-                  </TableCell>
-                  <TableCell>
-                    <StatusButton
-                      active={item.isAvailable}
-                      onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {euroFormatter.format(item.priceCents / 100)}
-                  </TableCell>
-                  <TableCell>
-                    <RowActions
-                      onEdit={() => openEdit({ ...item, kind: "equipment" })}
-                      onDelete={() => deleteItem({ ...item, kind: "equipment" })}
-                    />
-                  </TableCell>
+              </TableHeader>
+              <TableBody>
+                {visibleBikes.length === 0 ? (
+                  <EmptyRow colSpan={5} label="Noch keine Bikes für diesen Standort erfasst." />
+                ) : (
+                  visibleBikes.map((bike) => (
+                    <TableRow
+                      key={bike.id}
+                      className="cursor-pointer"
+                      tabIndex={0}
+                      onClick={() => openEdit({ ...bike, kind: "bike" })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openEdit({ ...bike, kind: "bike" });
+                        }
+                      }}
+                    >
+                      <TableCell className="font-medium">{bike.title}</TableCell>
+                      <TableCell>{bike.size}</TableCell>
+                      <TableCell>
+                        {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
+                      </TableCell>
+                      <TableCell>
+                        <StatusButton
+                          active={bike.isAvailable}
+                          onClick={() => toggleAvailability({ ...bike, kind: "bike" })}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {euroFormatter.format(bike.priceCents / 100)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          ) : (
+            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ausrüstung</TableHead>
+                  <TableHead>Art</TableHead>
+                  <TableHead>Standort</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Preis</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      )}
+              </TableHeader>
+              <TableBody>
+                {visibleEquipment.length === 0 ? (
+                  <EmptyRow colSpan={5} label="Noch keine Ausrüstung für diesen Standort erfasst." />
+                ) : (
+                  visibleEquipment.map((item) => (
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer"
+                      tabIndex={0}
+                      onClick={() => openEdit({ ...item, kind: "equipment" })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openEdit({ ...item, kind: "equipment" });
+                        }
+                      }}
+                    >
+                      <TableCell className="font-medium">{categoryLabels[item.category]}</TableCell>
+                      <TableCell>{item.labelDe}</TableCell>
+                      <TableCell>
+                        {locations.find((location) => location.key === item.location)?.label ?? item.location}
+                      </TableCell>
+                      <TableCell>
+                        <StatusButton
+                          active={item.isAvailable}
+                          onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {euroFormatter.format(item.priceCents / 100)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
       <InventoryDialog
         key={`${kind}-${editingItem?.kind ?? "new"}-${editingItem?.id ?? "new"}-${dialogOpen}`}
         open={dialogOpen}
@@ -304,6 +323,7 @@ export function InventoryTable({
         locations={locations}
         defaultLocation={locationFilter === "all" ? locations[0]?.key : (locationFilter as LocationOption["key"])}
         onSaved={handleSaved}
+        onDelete={editingItem ? () => deleteItem(editingItem) : undefined}
       />
     </div>
   );
@@ -328,23 +348,13 @@ function StatusButton({ active, onClick }: { active: boolean; onClick: () => voi
           ? "text-sm text-emerald-700 hover:underline dark:text-emerald-400"
           : "text-sm text-muted-foreground hover:underline"
       }
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
     >
       {active ? "Aktiv" : "Pausiert"}
     </button>
-  );
-}
-
-function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
-  return (
-    <div className="flex justify-end gap-1">
-      <Button type="button" variant="ghost" size="icon-sm" aria-label="Bearbeiten" title="Bearbeiten" onClick={onEdit}>
-        <PencilIcon />
-      </Button>
-      <Button type="button" variant="ghost" size="icon-sm" aria-label="Löschen" title="Löschen" onClick={onDelete}>
-        <Trash2Icon />
-      </Button>
-    </div>
   );
 }
 
@@ -356,6 +366,7 @@ function InventoryDialog({
   locations,
   defaultLocation,
   onSaved,
+  onDelete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -364,12 +375,14 @@ function InventoryDialog({
   locations: LocationOption[];
   defaultLocation: LocationOption["key"] | undefined;
   onSaved: (item: AdminInventoryBike | AdminInventoryEquipment, kind: InventoryKind, isNew: boolean) => void;
+  onDelete?: () => Promise<void>;
 }) {
   const [location, setLocation] = useState<LocationOption["key"]>(
     item?.location ?? defaultLocation ?? locations[0]?.key,
   );
   const [title, setTitle] = useState(item?.kind === "bike" ? item.title : "");
   const [size, setSize] = useState(item?.kind === "bike" ? item.size : "");
+  const [frameNumber, setFrameNumber] = useState(item?.kind === "bike" ? (item.frameNumber ?? "") : "");
   const [category, setCategory] = useState<EquipmentCategory>(item?.kind === "equipment" ? item.category : "pedal");
   const [labelDe, setLabelDe] = useState(item?.kind === "equipment" ? item.labelDe : "");
   const [labelEn, setLabelEn] = useState(item?.kind === "equipment" ? item.labelEn : "");
@@ -397,6 +410,7 @@ function InventoryDialog({
             location,
             title: title.trim(),
             size: size.trim(),
+            frameNumber: frameNumber.trim() || null,
             priceCents,
             isAvailable,
           }
@@ -441,6 +455,7 @@ function InventoryDialog({
           location,
           bikeKey: item?.kind === "bike" ? item.bikeKey : (result.item.bikeKey ?? title),
           title: title.trim(),
+          frameNumber: frameNumber.trim() || null,
           priceCents,
           size: size.trim(),
           isAvailable,
@@ -518,6 +533,15 @@ function InventoryDialog({
                   />
                   <p className="text-xs text-muted-foreground">Pro Inventareintrag ist genau eine Größe erlaubt.</p>
                 </Field>
+                <Field>
+                  <FieldLabel htmlFor="inventory-frame-number">Rahmennummer (optional)</FieldLabel>
+                  <Input
+                    id="inventory-frame-number"
+                    value={frameNumber}
+                    onChange={(event) => setFrameNumber(event.target.value)}
+                    placeholder="z. B. WTU123456789"
+                  />
+                </Field>
               </>
             ) : (
               <>
@@ -589,6 +613,19 @@ function InventoryDialog({
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </FieldGroup>
           <DialogFooter>
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="mr-auto"
+                disabled={saving}
+                onClick={async () => {
+                  await onDelete();
+                }}
+              >
+                Löschen
+              </Button>
+            ) : null}
             <DialogClose render={<Button type="button" variant="outline" />}>Abbrechen</DialogClose>
             <Button type="submit" disabled={saving}>
               {saving ? "Speichern..." : "Speichern"}

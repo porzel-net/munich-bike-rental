@@ -1,6 +1,7 @@
-import { findBookingThreadMessageId, moveMailToRejectedMailbox, type MailboxOperationResult } from "./mailbox";
+import { findLatestBookingThreadMessage, moveMailToRejectedMailbox, type MailboxOperationResult } from "./mailbox";
 import { sendConfiguredMail } from "./server";
 import { emailCard, emailLabel, emailParagraph, escapeHtml, renderEmailLayout } from "./email-template";
+import { parseMailMessageIds } from "./mail-thread";
 
 export type BookingMailAction = "confirmation" | "rejection";
 
@@ -68,20 +69,18 @@ function getText(action: BookingMailAction, booking: BookingMailActionInput) {
       "",
       "Wenn du da bist und noch keiner unten steht, bitte bei +49 89 54193577 anrufen!",
       "",
-      "Bitte bestätige nochmal deine Buchung mit folgendem Link:",
+      "Wenn du das Angebot annehmen möchtest, bestätige deine Buchung über diesen Link:",
       booking.confirmationLink ?? "",
       "",
-      "Damit wir das Fahrrad verbindlich für dich reservieren können, überweise bitte 50 % des Gesamtpreises auf folgendes Konto:",
+      "Bitte überweise anschließend 50 % des Gesamtpreises. Die restlichen 50 % sind spätestens bei der Rückgabe fällig:",
       "",
       "Kontoinhaber: Julius Porzel",
       "IBAN: DE50100123450750947701",
       `Verwendungszweck: ${booking.orderNumber}`,
       "",
-      "Schick uns danach einfach kurz die Überweisungsbestätigung per Mail. Dafür hast du 24 Stunden Zeit, in denen niemand anderes das Rad reservieren kann. Sobald wir die Überweisungsbestätigung (Bild per Mail) von dir erhalten haben, ist das Fahrrad fest für dich reserviert.",
+      "Das Angebot bleibt 24 Stunden für dich reserviert. Schick uns danach bitte die Überweisungsbestätigung per Mail.",
       "",
-      "Der restliche Betrag muss spätestens bis zur Rückgabe des Fahrrads überwiesen werden.",
-      "",
-      "Bitte bringe noch zur Abholung 100€ Kaution in Bar mit!",
+      "Bitte bringe zur Abholung außerdem 100 € Kaution in bar mit.",
       "",
       "Wir freuen uns, dich bald auf dem Rad zu sehen!",
       "",
@@ -119,7 +118,7 @@ function getHtml(action: BookingMailAction, booking: BookingMailActionInput) {
   const intro = confirmation
     ? "vielen Dank für deine Anfrage! Gute Nachrichten: Das gewünschte Fahrrad ist für dich verfügbar."
     : "vielen Dank für deine Anfrage.";
-  const content = `${booking.personalMessage?.trim() ? emailCard(emailParagraph(booking.personalMessage), "#eef2ff") : ""}${details}${confirmation ? emailCard(`${emailLabel("Nächster Schritt")}${emailParagraph("Bitte bestätige deine Buchung über den Link. Anschließend überweise 50 % des Gesamtpreises und sende uns die Bestätigung per Mail.")}`, "#eef2ff") : emailParagraph("Wir hoffen, dass du noch fündig wirst und wünschen dir eine gute Fahrt.")}`;
+  const content = `${booking.personalMessage?.trim() ? emailCard(emailParagraph(booking.personalMessage), "#eef2ff") : ""}${details}${confirmation ? emailCard(`${emailLabel("Nächster Schritt")}${emailParagraph("Bestätige deine Buchung über den Link und überweise anschließend 50 % des Gesamtpreises. Die restlichen 50 % sind bei der Rückgabe fällig; das Angebot bleibt 24 Stunden reserviert.")}`, "#eef2ff") : emailParagraph("Wir hoffen, dass du noch fündig wirst und wünschen dir eine gute Fahrt.")}`;
   return renderEmailLayout({
     locale: "de",
     preheader: getSubject(action, booking.orderNumber),
@@ -140,12 +139,24 @@ export async function sendBookingMailAction(
   forceWithoutThread = false,
 ): Promise<BookingMailActionResult> {
   let threadMessageId = booking.threadMessageId;
+  let referencesHeader: string | null = null;
   if (booking.source === "automatic" && !threadMessageId) {
-    threadMessageId = await findBookingThreadMessageId(booking.orderNumber);
+    const latest = await findLatestBookingThreadMessage(booking.orderNumber);
+    threadMessageId = latest?.messageId ?? null;
+    referencesHeader = latest?.referencesHeader ?? null;
     if (!threadMessageId && !forceWithoutThread) {
       return { ok: false, reason: "thread_missing", threadRequired: true };
     }
+  } else if (booking.source === "automatic") {
+    const latest = await findLatestBookingThreadMessage(booking.orderNumber);
+    if (latest) {
+      threadMessageId = latest.messageId;
+      referencesHeader = latest.referencesHeader;
+    }
   }
+
+  const references = parseMailMessageIds(referencesHeader);
+  if (threadMessageId) references.push(threadMessageId);
 
   const sent = await sendConfiguredMail({
     account: "main",
@@ -154,7 +165,7 @@ export async function sendBookingMailAction(
     html: getHtml(action, booking),
     to: booking.email,
     inReplyTo: threadMessageId ?? undefined,
-    references: threadMessageId ?? undefined,
+    references: [...new Set(references)].join(" ") || undefined,
   });
   if (!sent) return { ok: false, reason: "mail_config" };
 

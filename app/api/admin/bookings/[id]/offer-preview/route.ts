@@ -26,6 +26,7 @@ const schema = z.object({
   alternative: z.boolean().optional(),
   alternativeReason: z.string().trim().max(1000).optional(),
   personalMessage: z.string().trim().max(2000).optional(),
+  customTotalCents: z.number().int().min(0).optional(),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -48,6 +49,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         alternative: input.data.alternative,
         alternativeReason: input.data.alternativeReason,
         personalMessage: input.data.personalMessage,
+        customTotalCents: input.data.customTotalCents,
         actorUserId: command.user.id,
       }),
     );

@@ -37,6 +37,7 @@ const commandSchema = z.discriminatedUnion("command", [
     reason: z.string().trim().max(500).optional(),
     alternativeReason: z.string().trim().max(1000).optional(),
     personalMessage: z.string().trim().max(2000).optional(),
+    customTotalCents: z.number().int().min(0).optional(),
   }),
   z.object({
     command: z.literal("cancel"),
@@ -97,6 +98,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           reason: input.data.reason,
           alternativeReason: input.data.alternativeReason,
           personalMessage: input.data.personalMessage,
+          customTotalCents: input.data.customTotalCents,
           actorUserId: command.user.id,
         });
         const mailId = command.db
@@ -104,8 +106,24 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           .from(mailOutbox)
           .where(and(eq(mailOutbox.bookingId, id), eq(mailOutbox.offerId, createdOffer.offerId)))
           .get()?.id;
-        if (mailId) await dispatchNextOutboxMail(command.db, mailId);
-        return NextResponse.json(createdOffer);
+        const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
+        if (mailResult?.status === "failed") {
+          const mailError = mailId
+            ? command.db
+                .select({ lastError: mailOutbox.lastError })
+                .from(mailOutbox)
+                .where(eq(mailOutbox.id, mailId))
+                .get()?.lastError
+            : null;
+          return NextResponse.json(
+            {
+              message: `Das Angebot wurde angelegt, aber die Angebotsmail konnte nicht versendet werden.${mailError ? ` SMTP-Fehler: ${mailError}` : ""}`,
+              mailStatus: mailResult.status,
+            },
+            { status: 502 },
+          );
+        }
+        return NextResponse.json({ ...createdOffer, mailStatus: mailResult?.status ?? "queued" });
       }
       case "cancel": {
         const mailId = cancelBooking(command.db, {

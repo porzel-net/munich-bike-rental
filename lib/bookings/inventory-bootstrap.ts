@@ -62,6 +62,7 @@ export function importLegacyInventoryIntoBookingInventory(db: AppDatabase) {
           variantId: variant.id,
           location: bike.location,
           assetCode: `legacy-${bike.id}`,
+          frameNumber: bike.frameNumber,
           displayName: `${bike.title} - ${size}`,
           dailyPriceCents: bike.priceCentsPerDay,
           state: bike.isAvailable ? "active" : "maintenance",

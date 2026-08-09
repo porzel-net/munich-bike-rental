@@ -38,11 +38,13 @@ export default async function TeamPage() {
       }
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Team" />
-        <main className="flex flex-1 flex-col p-8 lg:p-12">
-          <AdminTeamTable users={users} currentUserId={session.user.id} locationLabels={rentalLocationLabels.de} />
-        </main>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col p-8 lg:p-12">
+            <AdminTeamTable users={users} currentUserId={session.user.id} locationLabels={rentalLocationLabels.de} />
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

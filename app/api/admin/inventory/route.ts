@@ -6,7 +6,12 @@ import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessLocation } from "../../../../lib/auth/authorization";
 import { canUseAdminApi, getServerSession } from "../../../../lib/auth/session";
 import { getDatabase, runInImmediateTransaction } from "../../../../lib/db/client";
-import { rentalLocationBikes, rentalLocationBikeSizes, rentalLocationEquipment } from "../../../../lib/db/schema";
+import {
+  rentalAssets,
+  rentalLocationBikes,
+  rentalLocationBikeSizes,
+  rentalLocationEquipment,
+} from "../../../../lib/db/schema";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
 import { readBoundedJson } from "@/lib/security/request-body";
 
@@ -22,6 +27,7 @@ const bikeSchema = baseSchema.extend({
   type: z.literal("bike"),
   title: z.string().trim().min(1).max(160),
   size: z.string().trim().min(1).max(32),
+  frameNumber: z.string().trim().max(120).optional().nullable(),
 });
 const equipmentSchema = baseSchema.extend({
   type: z.literal("equipment"),
@@ -110,6 +116,7 @@ export async function POST(request: Request) {
             location: input.data.location,
             bikeKey: bikeKey(input.data.title, input.data.size),
             title: input.data.title,
+            frameNumber: input.data.frameNumber?.trim() || null,
             priceCentsPerDay: input.data.priceCents,
             ...contents,
             displayOrder,
@@ -181,6 +188,7 @@ export async function PATCH(request: Request) {
           .set({
             bikeKey: bikeKey(bikeInput.title, bikeInput.size),
             title: bikeInput.title,
+            frameNumber: bikeInput.frameNumber?.trim() || null,
             priceCentsPerDay: bikeInput.priceCents,
             isAvailable: bikeInput.isAvailable,
           })
@@ -195,6 +203,17 @@ export async function PATCH(request: Request) {
           .values({ locationBikeId: bikeInput.id, size: bikeInput.size, isAvailable: true })
           .run();
       });
+      const linkedAsset = db
+        .select({ id: rentalAssets.id })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.legacyLocationBikeId, bikeInput.id))
+        .get();
+      if (linkedAsset) {
+        db.update(rentalAssets)
+          .set({ frameNumber: bikeInput.frameNumber?.trim() || null, updatedAt: new Date() })
+          .where(eq(rentalAssets.id, linkedAsset.id))
+          .run();
+      }
       return NextResponse.json({ item: bikeInput });
     }
 

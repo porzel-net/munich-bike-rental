@@ -6,6 +6,7 @@ import {
   authUser,
   financialAccounts,
   financialCategories,
+  financialTransactionAllocations,
   financialTransactions,
   fixedAssetDepreciationEntries,
   fixedAssets,
@@ -162,6 +163,31 @@ describe("financial reconciliation", () => {
       profitCents: -4_500,
       unresolvedCents: 0,
     });
+  });
+
+  it("splits a business meal into deductible, non-deductible, private, and input VAT parts", () => {
+    const { db, bank } = setup();
+    const meal = db.select().from(financialCategories).where(eq(financialCategories.code, "business_meal")).get()!;
+    const tx = transaction(db, bank.id, -10_000);
+
+    const result = postFinancialTransaction(db, {
+      transactionId: tx.id,
+      categoryId: meal.id,
+      businessMeal: { privateShareCents: 2_000, inputVatCents: 1_277 },
+      note: "Geschäftsessen mit Kunde",
+      actorUserId: "admin",
+    });
+
+    const lines = db.select().from(journalLines).where(eq(journalLines.entryId, result.journalEntryId)).all();
+    expect(lines.reduce((sum, line) => sum + line.amountCents, 0)).toBe(0);
+    expect(getEuerSummary(db, 2026)).toMatchObject({
+      expenseCents: 4_706,
+      inputVatCents: 1_277,
+      profitCents: -4_706,
+    });
+    expect(
+      db.select().from(financialTransactionAllocations).where(eq(financialTransactionAllocations.transactionId, tx.id)).all(),
+    ).toHaveLength(4);
   });
 
   it("posts a historical cash asset purchase and its AfA into the EÜR", () => {

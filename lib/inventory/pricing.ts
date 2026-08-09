@@ -96,7 +96,14 @@ export function calculateInquiryPrice(inventory: LocationInventory, payload: Con
   const rentalDays = getRentalDays(payload.periodFrom, payload.periodTo);
   const bikePrices = new Map(inventory.bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]));
   const equipmentPrices = new Map(inventory.equipmentPrices.map((item) => [item.key, item.priceCents]));
-  const dailyBikePriceCents = payload.bikes.reduce((total, bike) => total + (bikePrices.get(bike.bikeSize) ?? 0), 0);
+  const priceForRequestedBike = (requestedBike: string) => {
+    const exactPrice = bikePrices.get(requestedBike);
+    if (exactPrice !== undefined) return exactPrice;
+
+    // Keep historical inquiries such as "Endurace CF SL 8 - M" priceable.
+    return bikePrices.get(requestedBike.split(" - ")[0]) ?? 0;
+  };
+  const dailyBikePriceCents = payload.bikes.reduce((total, bike) => total + priceForRequestedBike(bike.bikeSize), 0);
   const equipmentSubtotalCents = payload.bikes.reduce((total, bike) => {
     const pedals = bike.needsPedals ? (equipmentPrices.get(`pedal-${bike.pedalType}`) ?? 0) : 0;
     const mount = bike.needsComputerMount ? (equipmentPrices.get(`mount-${bike.computerMountType}`) ?? 0) : 0;

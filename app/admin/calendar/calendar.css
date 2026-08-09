@@ -17,7 +17,7 @@
   gap: 1rem;
   padding: 1rem 1.5rem;
   box-sizing: border-box;
-  background: linear-gradient(to bottom, rgb(250, 251, 253) 0%, rgba(255, 255, 255, 0) 100%);
+  background: transparent;
   border-bottom: 1px solid rgba(166, 168, 179, 0.12);
 }
 
@@ -95,7 +95,7 @@
   padding: 0.25rem;
   border: 0;
   border-radius: 0.75rem;
-  background: #fff;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -103,12 +103,13 @@
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 0.5rem;
+  background: transparent;
   color: rgba(81, 86, 93, 0.7);
 }
 
 .calendar-month-nav button:hover,
 .calendar-month-nav button:focus-visible {
-  background: rgba(166, 168, 179, 0.12);
+  background: #fff;
   color: #51565d;
 }
 
@@ -126,6 +127,10 @@
   background: #fff;
   color: #51565d;
   box-shadow: none;
+}
+
+.calendar-toolbar-side-right [data-slot="combobox-chips"] {
+  background: #fff;
 }
 
 .calendar-subscription {
@@ -219,7 +224,7 @@
   overflow-x: auto;
   border-top: 0;
   border-radius: 0;
-  background: #fff;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -236,7 +241,7 @@
 
 .calendar-weekdays {
   border-bottom: 1px solid #e6e8ec;
-  background: #fff;
+  background: transparent;
 }
 
 .calendar-weekday {
@@ -265,7 +270,7 @@
   position: relative;
   min-height: calc(8.6rem + var(--calendar-event-space, 0rem));
   border-bottom: 1px solid rgba(166, 168, 179, 0.12);
-  background: #fff;
+  background: transparent;
 }
 
 .calendar-week:has(.calendar-event-bar:hover),
@@ -282,18 +287,18 @@
   padding: 0.75rem 1rem;
   border-right: 1px solid rgba(166, 168, 179, 0.12);
   border-bottom: 1px solid rgba(166, 168, 179, 0.12);
-  background: #fff;
+  background: transparent;
   text-align: right;
   transition: background 160ms ease;
 }
 
 .calendar-day:hover {
-  background: #fafbfc;
+  background: transparent;
 }
 
 .calendar-day.is-outside-month {
-  background-color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23f9f9fa' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+  background-color: transparent;
+  background-image: none;
 }
 
 .calendar-day-number {

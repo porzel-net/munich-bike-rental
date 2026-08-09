@@ -13,6 +13,7 @@ export type RentalLocationConfig = {
   postalCode: string;
   mapImage: string;
   mapsUrl: string;
+  pickupNote?: Record<Locale, string>;
 };
 
 export const rentalLocationConfigs = [
@@ -28,6 +29,7 @@ export const rentalLocationConfigs = [
     postalCode: "80333",
     mapImage: "/assets/img/location/munich-maps.png",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Gabelsbergerstra%C3%9Fe+79a%2C+80333+M%C3%BCnchen",
+    pickupNote: { de: "Danach bei +49 152 51330962 anrufen.", en: "Then call +49 152 51330962." },
   },
   {
     key: "regensburg",
@@ -41,6 +43,10 @@ export const rentalLocationConfigs = [
     postalCode: "93047",
     mapImage: "/assets/img/location/regensburg-maps.png",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Rote+Hahnen+Gasse+12%2C+93047+Regensburg",
+    pickupNote: {
+      de: "Danach bei Baiersdorfer/Reitinger klingeln und unten warten.",
+      en: "Then ring Baiersdorfer/Reitinger and wait downstairs.",
+    },
   },
   {
     key: "lindau",

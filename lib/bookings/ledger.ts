@@ -20,6 +20,8 @@ export type JournalCommand = {
     | "bank_fee"
     | "tax_payment"
     | "depreciation"
+    | "capital_contribution"
+    | "asset_disposal"
     | "unclassified_transaction"
     | "correction";
   financialTransactionId?: number | null;

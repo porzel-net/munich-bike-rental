@@ -20,11 +20,13 @@ export default async function WhatsAppSettingsPage() {
       }
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="WhatsApp" />
-        <main className="flex flex-1 items-center justify-center p-6 lg:p-12">
-          <WhatsAppSettingsPanel />
-        </main>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 items-center justify-center p-6 lg:p-12">
+            <WhatsAppSettingsPanel />
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
