@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Asset = {
   id: number;
   name: string;
   bookValueCents: number;
 };
+type FinancialAccount = { id: number; code: string; name: string };
 
 const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
@@ -27,30 +29,44 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function FixedAssetDisposalLauncher({ asset }: { asset: Asset }) {
+export function FixedAssetDisposalLauncher({
+  asset,
+  financialAccounts,
+}: {
+  asset: Asset;
+  financialAccounts: FinancialAccount[];
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
         Verkauf erfassen
       </Button>
-      <FixedAssetDisposalDialog asset={asset} open={open} onOpenChange={setOpen} />
+      <FixedAssetDisposalDialog
+        asset={asset}
+        financialAccounts={financialAccounts}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
 
 function FixedAssetDisposalDialog({
   asset,
+  financialAccounts,
   open,
   onOpenChange,
 }: {
   asset: Asset;
+  financialAccounts: FinancialAccount[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [disposedAt, setDisposedAt] = useState(today());
   const [proceeds, setProceeds] = useState("");
   const [vat, setVat] = useState("");
+  const [financialAccountId, setFinancialAccountId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +76,11 @@ function FixedAssetDisposalDialog({
     setError(null);
     const disposalProceedsCents = Math.round(Number(proceeds.replace(",", ".")) * 100);
     const disposalProceedsVatCents = Math.round(Number(vat.replace(",", ".")) * 100 || 0);
+    if (!financialAccountId) {
+      setError("Bitte wähle das Konto, auf dem der Verkaufserlös eingegangen ist.");
+      setBusy(false);
+      return;
+    }
     if (!Number.isSafeInteger(disposalProceedsCents) || disposalProceedsCents < 0) {
       setError("Bitte gib einen gültigen Nettoverkaufspreis ein.");
       setBusy(false);
@@ -69,7 +90,13 @@ function FixedAssetDisposalDialog({
       const response = await fetch("/api/admin/financial/assets/disposal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assetId: asset.id, disposedAt, disposalProceedsCents, disposalProceedsVatCents }),
+        body: JSON.stringify({
+          assetId: asset.id,
+          financialAccountId: Number(financialAccountId),
+          disposedAt,
+          disposalProceedsCents,
+          disposalProceedsVatCents,
+        }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) throw new Error(result?.message ?? "Verkauf konnte nicht erfasst werden.");
@@ -130,6 +157,21 @@ function FixedAssetDisposalDialog({
                 />
               </Field>
             </div>
+            <Field>
+              <FieldLabel htmlFor="asset-disposal-account">Eingangskonto</FieldLabel>
+              <Select value={financialAccountId} onValueChange={(value) => setFinancialAccountId(value ?? "")}>
+                <SelectTrigger id="asset-disposal-account" className="w-full">
+                  <SelectValue placeholder="Konto auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {financialAccounts.map((account) => (
+                    <SelectItem key={account.id} value={String(account.id)}>
+                      {account.name} · {account.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </FieldGroup>
           <DialogFooter className="mt-6">

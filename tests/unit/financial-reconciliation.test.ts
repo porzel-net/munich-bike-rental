@@ -132,6 +132,7 @@ describe("financial reconciliation", () => {
 
     const reconciliation = getFinancialAccountReconciliation(db, bank.id);
     expect(reconciliation.expectedBalanceCents).toBe(-12_500);
+    expect(getFinancialAccountReconciliation(db, cash.id).expectedBalanceCents).toBe(10_000);
     expect(getEuerSummary(db, 2026)).toMatchObject({
       incomeCents: 0,
       expenseCents: 0,
@@ -186,7 +187,11 @@ describe("financial reconciliation", () => {
       profitCents: -4_706,
     });
     expect(
-      db.select().from(financialTransactionAllocations).where(eq(financialTransactionAllocations.transactionId, tx.id)).all(),
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, tx.id))
+        .all(),
     ).toHaveLength(4);
   });
 
@@ -218,6 +223,18 @@ describe("financial reconciliation", () => {
 
     const asset = db.select().from(fixedAssets).get()!;
     expect(asset.sourceTransactionId).toBe(result.transactionId);
+    const assetAllocations = db
+      .select()
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.transactionId, result.transactionId))
+      .all();
+    expect(assetAllocations.reduce((sum, allocation) => sum + allocation.amountCents, 0)).toBe(-119_000);
+    expect(assetAllocations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ amountCents: -100_000, allocationKind: "asset_acquisition", fixedAssetId: asset.id }),
+        expect.objectContaining({ amountCents: -19_000, allocationKind: "tax", fixedAssetId: null }),
+      ]),
+    );
     expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 0, inputVatCents: 19_000 });
 
     postFixedAssetDepreciation(db, { assetId: asset.id, periodStart: "2026-01-01", actorUserId: "admin" });

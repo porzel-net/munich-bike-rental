@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 
-import type { AppDatabase } from "../db/client";
+import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import { financialAccounts, financialCategories, financialTransactions } from "../db/schema";
-import { postFinancialTransaction } from "./reconciliation";
+import { postFinancialTransactionInTransaction } from "./reconciliation";
 import { BookingCommandError } from "../bookings/errors";
+import { isValidIsoDate } from "../bookings/validation";
 
 export function getOrCreateCashAccount(db: AppDatabase) {
   const existing = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get();
@@ -56,8 +57,7 @@ export function createAndPostManualTransaction(
     };
   },
 ) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.bookedAt))
-    throw new BookingCommandError("Bitte gib ein gültiges Buchungsdatum an.");
+  if (!isValidIsoDate(input.bookedAt)) throw new BookingCommandError("Bitte gib ein gültiges Buchungsdatum an.");
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0)
     throw new BookingCommandError("Der Betrag muss größer als 0 sein.");
   if (!input.description.trim()) throw new BookingCommandError("Bitte gib eine Beschreibung an.");
@@ -65,45 +65,49 @@ export function createAndPostManualTransaction(
   if (!category || !category.isActive) throw new BookingCommandError("Die gewählte Kategorie ist nicht verfügbar.");
   if (category.euerTreatment === "needs_review")
     throw new BookingCommandError("Die Kategorie ist noch nicht EÜR-geklärt.");
-  const account = input.accountId
-    ? db.select().from(financialAccounts).where(eq(financialAccounts.id, input.accountId)).get()
-    : getOrCreateCashAccount(db);
-  if (!account) throw new BookingCommandError("Finanzkonto nicht gefunden.");
-  if (account.status !== "active") throw new BookingCommandError("Das Finanzkonto ist nicht aktiv.");
-  if (account.currency !== "EUR")
-    throw new BookingCommandError("Manuelle Transaktionen werden aktuell nur in EUR unterstützt.");
-  const signedAmountCents = category.categoryType === "income" ? input.amountCents : -input.amountCents;
-  const now = new Date();
-  const transaction = db
-    .insert(financialTransactions)
-    .values({
-      financialAccountId: account.id,
-      source: input.source,
-      provider: "manual",
-      kind: category.categoryType === "income" ? "income" : "expense",
-      status: "imported",
-      amountCents: signedAmountCents,
-      grossAmountCents: signedAmountCents,
-      netAmountCents: signedAmountCents,
-      currency: "EUR",
-      bookedAt: input.bookedAt,
-      counterpartyNameSnapshot: input.counterpartyName?.trim() || null,
-      reference: "",
-      description: input.description.trim(),
-      metadataJson: JSON.stringify({ manual: true, note: input.note?.trim() || "" }),
-      importedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning({ id: financialTransactions.id })
-    .get();
-  return postFinancialTransaction(db, {
-    transactionId: transaction.id,
-    categoryId: input.categoryId,
-    destinationAccountId: input.destinationAccountId,
-    note: input.note?.trim() || input.description.trim(),
-    actorUserId: input.actorUserId,
-    asset: input.asset,
-    businessMeal: input.businessMeal,
+  return runInImmediateTransaction(db, () => {
+    const account = input.accountId
+      ? db.select().from(financialAccounts).where(eq(financialAccounts.id, input.accountId)).get()
+      : getOrCreateCashAccount(db);
+    if (!account) throw new BookingCommandError("Finanzkonto nicht gefunden.");
+    if (account.status !== "active") throw new BookingCommandError("Das Finanzkonto ist nicht aktiv.");
+    if (account.currency !== "EUR")
+      throw new BookingCommandError("Manuelle Transaktionen werden aktuell nur in EUR unterstützt.");
+    const signedAmountCents = ["income", "output_vat"].includes(category.euerTreatment)
+      ? input.amountCents
+      : -input.amountCents;
+    const now = new Date();
+    const transaction = db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: account.id,
+        source: input.source,
+        provider: "manual",
+        kind: category.categoryType === "income" ? "income" : "expense",
+        status: "imported",
+        amountCents: signedAmountCents,
+        grossAmountCents: signedAmountCents,
+        netAmountCents: signedAmountCents,
+        currency: "EUR",
+        bookedAt: input.bookedAt,
+        counterpartyNameSnapshot: input.counterpartyName?.trim() || null,
+        reference: "",
+        description: input.description.trim(),
+        metadataJson: JSON.stringify({ manual: true, note: input.note?.trim() || "" }),
+        importedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning({ id: financialTransactions.id })
+      .get();
+    return postFinancialTransactionInTransaction(db, {
+      transactionId: transaction.id,
+      categoryId: input.categoryId,
+      destinationAccountId: input.destinationAccountId,
+      note: input.note?.trim() || input.description.trim(),
+      actorUserId: input.actorUserId,
+      asset: input.asset,
+      businessMeal: input.businessMeal,
+    });
   });
 }

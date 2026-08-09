@@ -1,0 +1,192 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const bookingApiMocks = vi.hoisted(() => ({
+  context: { db: { marker: "booking-db" }, user: { id: "admin", role: "admin" } },
+  getBookingAdminContext: vi.fn(),
+  isAdmin: vi.fn(),
+  advanceBooking: vi.fn(),
+  cancelBooking: vi.fn(),
+  correctJournalEntry: vi.fn(),
+  createOffer: vi.fn(),
+  recordPayment: vi.fn(),
+  recordRefund: vi.fn(),
+  dispatchNextOutboxMail: vi.fn(),
+}));
+
+vi.mock("@/lib/bookings/admin-guard", () => ({
+  getBookingAdminContext: bookingApiMocks.getBookingAdminContext,
+}));
+vi.mock("@/lib/auth/session", () => ({ isAdmin: bookingApiMocks.isAdmin }));
+vi.mock("@/lib/bookings/service", () => ({
+  advanceBooking: bookingApiMocks.advanceBooking,
+  cancelBooking: bookingApiMocks.cancelBooking,
+  correctJournalEntry: bookingApiMocks.correctJournalEntry,
+  createOffer: bookingApiMocks.createOffer,
+  recordPayment: bookingApiMocks.recordPayment,
+  recordRefund: bookingApiMocks.recordRefund,
+}));
+vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: bookingApiMocks.dispatchNextOutboxMail }));
+
+import { POST as bookingCommandPost } from "../../app/api/admin/bookings/[id]/commands/route";
+import { BookingCommandError } from "../../lib/bookings/errors";
+
+function request(body: unknown) {
+  return new Request("http://localhost:3000/api/admin/bookings/42/commands", {
+    method: "POST",
+    headers: { origin: "http://localhost:3000", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function context() {
+  return { params: Promise.resolve({ id: "42" }) };
+}
+
+describe("admin booking command API", () => {
+  beforeEach(() => {
+    bookingApiMocks.getBookingAdminContext.mockReset();
+    bookingApiMocks.getBookingAdminContext.mockResolvedValue(bookingApiMocks.context);
+    bookingApiMocks.isAdmin.mockReset();
+    bookingApiMocks.isAdmin.mockReturnValue(true);
+    bookingApiMocks.advanceBooking.mockReset();
+    bookingApiMocks.cancelBooking.mockReset();
+    bookingApiMocks.correctJournalEntry.mockReset();
+    bookingApiMocks.createOffer.mockReset();
+    bookingApiMocks.recordPayment.mockReset();
+    bookingApiMocks.recordRefund.mockReset();
+    bookingApiMocks.dispatchNextOutboxMail.mockReset();
+    bookingApiMocks.dispatchNextOutboxMail.mockResolvedValue({ status: "sent" });
+  });
+
+  it("forwards payment and refund commands with their financial metadata", async () => {
+    const payment = await bookingCommandPost(
+      request({
+        command: "payment",
+        amountCents: 5_000,
+        bookedAt: "2026-08-10",
+        financialAccountId: 7,
+        reason: "Anzahlung",
+        idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      }),
+      context(),
+    );
+    expect(payment.status).toBe(200);
+    expect(bookingApiMocks.recordPayment).toHaveBeenCalledWith(bookingApiMocks.context.db, {
+      bookingId: 42,
+      amountCents: 5_000,
+      bookedAt: "2026-08-10",
+      financialAccountId: 7,
+      reason: "Anzahlung",
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      actorUserId: "admin",
+    });
+
+    const refund = await bookingCommandPost(
+      request({
+        command: "refund",
+        amountCents: 1_500,
+        bookedAt: "2026-08-11",
+        financialAccountId: 7,
+        reason: "Storno",
+        idempotencyKey: "22222222-2222-4222-8222-222222222222",
+      }),
+      context(),
+    );
+    expect(refund.status).toBe(200);
+    expect(bookingApiMocks.recordRefund).toHaveBeenCalledWith(
+      bookingApiMocks.context.db,
+      expect.objectContaining({ bookingId: 42, amountCents: 1_500, financialAccountId: 7 }),
+    );
+  });
+
+  it("rejects invalid dates, identifiers and inaccessible bookings before dispatching a command", async () => {
+    const invalidDate = await bookingCommandPost(
+      request({
+        command: "payment",
+        amountCents: 5_000,
+        bookedAt: "2026-02-30",
+        financialAccountId: 7,
+        reason: "Anzahlung",
+        idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      }),
+      context(),
+    );
+    expect(invalidDate.status).toBe(400);
+    expect(bookingApiMocks.recordPayment).not.toHaveBeenCalled();
+
+    const accessible = await bookingCommandPost(request({ command: "expire", reason: "Abgelaufen" }), {
+      params: Promise.resolve({ id: "42" }),
+    });
+    bookingApiMocks.getBookingAdminContext.mockResolvedValueOnce(null);
+    expect(accessible.status).toBe(200);
+    const denied = await bookingCommandPost(request({ command: "expire", reason: "Abgelaufen" }), {
+      params: Promise.resolve({ id: "42" }),
+    });
+    expect(denied.status).toBe(400);
+    expect(bookingApiMocks.advanceBooking).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["expire", "expired"],
+    ["check_out", "checked_out"],
+    ["complete", "completed"],
+  ] as const)("maps %s to the correct booking transition", async (command, target) => {
+    const response = await bookingCommandPost(request({ command, reason: "Admin-Test" }), context());
+    expect(response.status).toBe(200);
+    expect(bookingApiMocks.advanceBooking).toHaveBeenCalledWith(
+      bookingApiMocks.context.db,
+      42,
+      target,
+      "admin",
+      "Admin-Test",
+    );
+  });
+
+  it("protects journal correction for admins and returns service errors as conflicts", async () => {
+    bookingApiMocks.isAdmin.mockReturnValue(false);
+    const forbidden = await bookingCommandPost(
+      request({ command: "correct_journal", entryId: 9, reason: "Korrektur" }),
+      context(),
+    );
+    expect(forbidden.status).toBe(403);
+    expect(bookingApiMocks.correctJournalEntry).not.toHaveBeenCalled();
+
+    bookingApiMocks.isAdmin.mockReturnValue(true);
+    bookingApiMocks.recordPayment.mockImplementation(() => {
+      throw new BookingCommandError("Buchung ist bereits abgeschlossen");
+    });
+    const failed = await bookingCommandPost(
+      request({
+        command: "payment",
+        amountCents: 5_000,
+        bookedAt: "2026-08-10",
+        financialAccountId: 7,
+        reason: "Anzahlung",
+        idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      }),
+      context(),
+    );
+    expect(failed.status).toBe(409);
+    expect(await failed.json()).toEqual({ message: "Buchung ist bereits abgeschlossen" });
+  });
+
+  it("dispatches cancellation and rejection mails only after the service creates them", async () => {
+    bookingApiMocks.cancelBooking.mockReturnValue(11);
+    const cancelled = await bookingCommandPost(
+      request({
+        command: "cancel",
+        cancellationFeeCents: 1_000,
+        reason: "Kunde storniert",
+        cancellationPeriod: "more_than_7_days",
+      }),
+      context(),
+    );
+    expect(cancelled.status).toBe(200);
+    expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(bookingApiMocks.context.db, 11);
+
+    bookingApiMocks.advanceBooking.mockReturnValue(12);
+    const rejected = await bookingCommandPost(request({ command: "reject", reason: "Nicht verfügbar" }), context());
+    expect(rejected.status).toBe(200);
+    expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(bookingApiMocks.context.db, 12);
+  });
+});

@@ -4,6 +4,7 @@ import { BookingCommandError } from "../bookings/errors";
 import { recordAdminAuditEvent } from "../auth/audit";
 import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import { financialAccounts, financialTransactions } from "../db/schema";
+import { isValidIsoDate } from "../bookings/validation";
 
 /**
  * Opening balances are only editable before the first imported movement.
@@ -19,6 +20,10 @@ export function updateOpeningBalance(
     actorUserId: string | null;
   },
 ) {
+  if (!Number.isSafeInteger(input.openingBalanceCents))
+    throw new BookingCommandError("Der Anfangsbestand muss ein gültiger Centbetrag sein.");
+  if (!isValidIsoDate(input.openingBalanceDate))
+    throw new BookingCommandError("Bitte gib ein gültiges Datum des Anfangsbestands an.");
   return runInImmediateTransaction(db, () => {
     const account = db.select().from(financialAccounts).where(eq(financialAccounts.id, input.accountId)).get();
     if (!account) throw new BookingCommandError("Finanzkonto nicht gefunden.");

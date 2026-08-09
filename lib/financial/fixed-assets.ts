@@ -6,7 +6,37 @@ import type { AppDatabase } from "../db/client";
 import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
-import { fixedAssetDepreciationEntries, fixedAssets } from "../db/schema";
+import { isValidIsoDate, isValidIsoMonth } from "../bookings/validation";
+import {
+  accountingAccounts,
+  financialAccounts,
+  financialCategories,
+  financialTransactionAllocations,
+  financialTransactions,
+  fixedAssetDepreciationEntries,
+  fixedAssets,
+} from "../db/schema";
+
+function ensureFinancialAccountInChart(db: AppDatabase, account: typeof financialAccounts.$inferSelect) {
+  const exists = db
+    .select({ id: accountingAccounts.id })
+    .from(accountingAccounts)
+    .where(eq(accountingAccounts.code, account.code))
+    .get();
+  if (exists) return;
+  db.insert(accountingAccounts)
+    .values({
+      code: account.code,
+      name: account.name,
+      accountType: account.type === "stripe_clearing" ? "clearing" : "asset",
+      isSystem: true,
+      isActive: true,
+      notes: `Finanzkonto ${account.code}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .run();
+}
 
 function parseMonth(value: string) {
   const match = /^([0-9]{4})-([0-9]{2})/.exec(value.trim());
@@ -35,6 +65,8 @@ export function monthlyDepreciationCents(
   >,
   periodStart: string,
 ) {
+  if (!Number.isSafeInteger(asset.usefulLifeMonths) || asset.usefulLifeMonths < 1)
+    throw new BookingCommandError("Die Nutzungsdauer muss mindestens einen Monat betragen.");
   const depreciableCents = asset.acquisitionCostCents - asset.residualValueCents;
   if (depreciableCents <= 0) return 0;
   const startMonth = monthIndex(asset.inServiceDate);
@@ -82,11 +114,12 @@ export function createFixedAsset(
 ) {
   const name = input.name.trim();
   if (!name) throw new BookingCommandError("Bitte benenne das Anlagegut.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.acquisitionDate) || !/^\d{4}-\d{2}-\d{2}$/.test(input.inServiceDate))
+  if (!isValidIsoDate(input.acquisitionDate) || !isValidIsoDate(input.inServiceDate))
     throw new BookingCommandError("Bitte verwende gültige Anschaffungs- und Inbetriebnahmedaten.");
   if (input.acquisitionCostCents <= 0 || !Number.isSafeInteger(input.acquisitionCostCents))
     throw new BookingCommandError("Die Anschaffungskosten müssen größer als 0 sein.");
-  if (input.inputVatCents && (!Number.isSafeInteger(input.inputVatCents) || input.inputVatCents < 0))
+  const inputVatCents = input.inputVatCents ?? 0;
+  if (!Number.isSafeInteger(inputVatCents) || inputVatCents < 0)
     throw new BookingCommandError("Die Vorsteuer muss 0 oder größer sein.");
   if (!Number.isSafeInteger(input.usefulLifeMonths) || input.usefulLifeMonths < 1)
     throw new BookingCommandError("Die Nutzungsdauer muss mindestens einen Monat betragen.");
@@ -112,7 +145,7 @@ export function createFixedAsset(
       acquisitionDate: input.acquisitionDate,
       inServiceDate: input.inServiceDate,
       acquisitionCostCents: input.acquisitionCostCents,
-      inputVatCents: input.inputVatCents ?? 0,
+      inputVatCents,
       usefulLifeMonths: input.usefulLifeMonths,
       residualValueCents,
       sourceTransactionId: input.sourceTransactionId ?? null,
@@ -143,7 +176,8 @@ function postFixedAssetDepreciationInTransaction(
   if (!asset) throw new BookingCommandError("Anlagegut nicht gefunden.");
   if (asset.status !== "active")
     throw new BookingCommandError("Für ein ausgeschiedenes Anlagegut kann keine AfA gebucht werden.");
-  if (!/^\d{4}-\d{2}-01$/.test(input.periodStart)) throw new BookingCommandError("Ungültiger AfA-Monat.");
+  if (!isValidIsoMonth(input.periodStart.slice(0, 7)) || !input.periodStart.endsWith("-01"))
+    throw new BookingCommandError("Ungültiger AfA-Monat.");
   const existing = db
     .select()
     .from(fixedAssetDepreciationEntries)
@@ -223,7 +257,7 @@ export function postDueFixedAssetDepreciation(
   input: { throughMonth: string; actorUserId: string | null },
 ) {
   const through = `${input.throughMonth.trim().slice(0, 7)}-01`;
-  if (!/^\d{4}-\d{2}-01$/.test(through)) throw new BookingCommandError("Ungültiger Abrechnungsmonat.");
+  if (!isValidIsoMonth(input.throughMonth.trim())) throw new BookingCommandError("Ungültiger Abrechnungsmonat.");
   return runInImmediateTransaction(db, () => {
     const assets = db.select().from(fixedAssets).where(eq(fixedAssets.status, "active")).all();
     let posted = 0;
@@ -257,19 +291,19 @@ export function disposeFixedAsset(
   db: AppDatabase,
   input: {
     assetId: number;
+    financialAccountId: number;
     disposedAt: string;
     disposalProceedsCents: number;
     disposalProceedsVatCents?: number;
     actorUserId: string | null;
   },
 ) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.disposedAt))
-    throw new BookingCommandError("Bitte gib ein gültiges Verkaufsdatum an.");
+  if (!isValidIsoDate(input.disposedAt)) throw new BookingCommandError("Bitte gib ein gültiges Verkaufsdatum an.");
   if (!Number.isSafeInteger(input.disposalProceedsCents) || input.disposalProceedsCents < 0)
-    throw new BookingCommandError("Der Verkaufserlös darf nicht negativ sein.");
+    throw new BookingCommandError("Der Nettoverkaufspreis darf nicht negativ sein.");
   const vatCents = input.disposalProceedsVatCents ?? 0;
   if (!Number.isSafeInteger(vatCents) || vatCents < 0 || vatCents > input.disposalProceedsCents)
-    throw new BookingCommandError("Die Umsatzsteuer muss zwischen 0 und dem Nettoerlös liegen.");
+    throw new BookingCommandError("Die Umsatzsteuer muss zwischen 0 und dem Nettoverkaufspreis liegen.");
 
   return runInImmediateTransaction(db, () => {
     const asset = db.select().from(fixedAssets).where(eq(fixedAssets.id, input.assetId)).get();
@@ -277,6 +311,11 @@ export function disposeFixedAsset(
     if (asset.status !== "active") throw new BookingCommandError("Dieses Anlagegut ist bereits ausgeschieden.");
     if (input.disposedAt < asset.acquisitionDate)
       throw new BookingCommandError("Das Verkaufsdatum darf nicht vor der Anschaffung liegen.");
+
+    const account = db.select().from(financialAccounts).where(eq(financialAccounts.id, input.financialAccountId)).get();
+    if (!account || account.status !== "active") throw new BookingCommandError("Das Zahlungskonto ist nicht aktiv.");
+    if (account.currency !== "EUR") throw new BookingCommandError("Verkäufe werden aktuell nur in EUR unterstützt.");
+    ensureFinancialAccountInChart(db, account);
 
     const through = `${input.disposedAt.slice(0, 7)}-01`;
     for (const period of fixedAssetDepreciationSchedule(asset)) {
@@ -295,21 +334,126 @@ export function disposeFixedAsset(
       .all()
       .reduce((sum, entry) => sum + entry.amountCents, 0);
     const bookValueCents = Math.max(0, asset.acquisitionCostCents - depreciationCents);
-    const disposalLines = [
-      depreciationCents > 0
-        ? { account: asset.accumulatedDepreciationAccountCode, amountCents: depreciationCents }
-        : null,
-      { account: asset.assetAccountCode, amountCents: -asset.acquisitionCostCents },
-      { account: "expense", amountCents: bookValueCents },
-    ].filter((line): line is { account: string; amountCents: number } => line !== null);
-    const journalEntryId = appendJournalEntry(db, {
+    const removalEntryId = appendJournalEntry(db, {
       kind: "asset_disposal",
       actorUserId: input.actorUserId,
-      reason: `Abgang: ${asset.assetNumber} · ${asset.name} · Verkauf`,
+      reason: `Abgang: ${asset.assetNumber} · ${asset.name}`,
       idempotencyKey: `fixed-asset-disposal:${asset.id}`,
       occurredAt: new Date(`${input.disposedAt}T00:00:00Z`),
-      lines: disposalLines,
+      lines: [
+        depreciationCents > 0
+          ? { account: asset.accumulatedDepreciationAccountCode, amountCents: depreciationCents }
+          : null,
+        { account: asset.assetAccountCode, amountCents: -asset.acquisitionCostCents },
+        { account: "expense", amountCents: bookValueCents },
+      ].filter((line): line is { account: string; amountCents: number } => line !== null),
     });
+
+    let disposalTransactionId: number | null = null;
+    let saleEntryId: number | null = null;
+    if (input.disposalProceedsCents > 0 || vatCents > 0) {
+      const revenueCategory = db
+        .select()
+        .from(financialCategories)
+        .where(eq(financialCategories.code, "other_operating_income"))
+        .get();
+      const outputVatCategory = db
+        .select()
+        .from(financialCategories)
+        .where(eq(financialCategories.code, "output_vat"))
+        .get();
+      if (!revenueCategory || !revenueCategory.isActive || revenueCategory.euerTreatment !== "income")
+        throw new BookingCommandError("Die EÜR-Kategorie für Anlagenverkäufe ist nicht eingerichtet.");
+      if (
+        vatCents > 0 &&
+        (!outputVatCategory || !outputVatCategory.isActive || outputVatCategory.euerTreatment !== "output_vat")
+      )
+        throw new BookingCommandError("Die Umsatzsteuerkategorie für Anlagenverkäufe ist nicht eingerichtet.");
+
+      const grossProceedsCents = input.disposalProceedsCents + vatCents;
+      if (!Number.isSafeInteger(grossProceedsCents) || grossProceedsCents <= 0)
+        throw new BookingCommandError("Der Bruttoverkaufserlös ist ungültig.");
+      const now = new Date();
+      const transaction = db
+        .insert(financialTransactions)
+        .values({
+          financialAccountId: account.id,
+          source: account.type === "cash" ? "cash" : "manual",
+          provider: "manual_asset_disposal",
+          kind: "income",
+          status: "imported",
+          amountCents: grossProceedsCents,
+          grossAmountCents: grossProceedsCents,
+          netAmountCents: grossProceedsCents,
+          currency: account.currency,
+          bookedAt: input.disposedAt,
+          description: `Verkauf Anlagegut ${asset.assetNumber} · ${asset.name}`,
+          metadataJson: JSON.stringify({
+            fixedAssetId: asset.id,
+            proceedsNetCents: input.disposalProceedsCents,
+            vatCents,
+          }),
+          importedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning({ id: financialTransactions.id })
+        .get();
+      disposalTransactionId = transaction.id;
+      saleEntryId = appendJournalEntry(db, {
+        kind: "payment_received",
+        financialTransactionId: transaction.id,
+        actorUserId: input.actorUserId,
+        reason: `Verkaufserlös: ${asset.assetNumber} · ${asset.name}`,
+        idempotencyKey: `fixed-asset-sale:${asset.id}`,
+        occurredAt: new Date(`${input.disposedAt}T00:00:00Z`),
+        lines: [
+          { account: account.code, amountCents: grossProceedsCents },
+          { account: revenueCategory.accountCode, amountCents: -input.disposalProceedsCents },
+          ...(vatCents > 0 ? [{ account: outputVatCategory!.accountCode, amountCents: -vatCents }] : []),
+        ],
+      });
+      const allocations = [
+        {
+          transactionId: transaction.id,
+          categoryId: revenueCategory.id,
+          allocationKind: "revenue" as const,
+          amountCents: input.disposalProceedsCents,
+        },
+        ...(vatCents > 0
+          ? [
+              {
+                transactionId: transaction.id,
+                categoryId: outputVatCategory!.id,
+                allocationKind: "tax" as const,
+                amountCents: vatCents,
+              },
+            ]
+          : []),
+      ];
+      if (allocations.reduce((sum, allocation) => sum + allocation.amountCents, 0) !== grossProceedsCents)
+        throw new BookingCommandError("Der Verkaufserlös konnte nicht korrekt aufgeteilt werden.");
+      db.insert(financialTransactionAllocations)
+        .values(
+          allocations.map((allocation) => ({
+            ...allocation,
+            fixedAssetId: asset.id,
+            matchMethod: "manual" as const,
+            journalEntryId: saleEntryId,
+            note: `Verkaufserlös für ${asset.assetNumber}`,
+            matchedByUserId: input.actorUserId,
+            matchedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          })),
+        )
+        .run();
+      db.update(financialTransactions)
+        .set({ status: "posted", reconciledAt: now, reconciledByUserId: input.actorUserId, updatedAt: now })
+        .where(eq(financialTransactions.id, transaction.id))
+        .run();
+    }
+
     const now = new Date();
     db.update(fixedAssets)
       .set({
@@ -318,10 +462,11 @@ export function disposeFixedAsset(
         disposalReason: "sold",
         disposalProceedsCents: input.disposalProceedsCents,
         disposalProceedsVatCents: vatCents,
+        disposalTransactionId,
         updatedAt: now,
       })
       .where(eq(fixedAssets.id, asset.id))
       .run();
-    return { assetId: asset.id, bookValueCents, journalEntryId };
+    return { assetId: asset.id, bookValueCents, journalEntryId: removalEntryId, disposalTransactionId, saleEntryId };
   });
 }

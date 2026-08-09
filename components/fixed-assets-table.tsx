@@ -21,6 +21,8 @@ export type FixedAssetRow = {
   bookValueCents: number;
 };
 
+type FinancialAccountOption = { id: number; code: string; name: string };
+
 const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const date = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" });
 
@@ -34,7 +36,13 @@ function assetTypeLabel(value: string) {
   return "Sonstiges";
 }
 
-export function FixedAssetsTable({ assets }: { assets: FixedAssetRow[] }) {
+export function FixedAssetsTable({
+  assets,
+  financialAccounts,
+}: {
+  assets: FixedAssetRow[];
+  financialAccounts: FinancialAccountOption[];
+}) {
   const rows = assets;
   const activeCount = useMemo(() => rows.filter((asset) => asset.status === "active").length, [rows]);
 
@@ -84,7 +92,11 @@ export function FixedAssetsTable({ assets }: { assets: FixedAssetRow[] }) {
                     {euro.format(asset.acquisitionCostCents / 100)}
                   </TableCell>
                   <TableCell>
-                    {asset.status === "active" ? <FixedAssetDisposalLauncher asset={asset} /> : "—"}
+                    {asset.status === "active" ? (
+                      <FixedAssetDisposalLauncher asset={asset} financialAccounts={financialAccounts} />
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                 </TableRow>
               ))

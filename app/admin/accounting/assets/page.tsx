@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 
@@ -8,7 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import { fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
+import { financialAccounts, fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
 import { postDueFixedAssetDepreciation } from "@/lib/financial/fixed-assets";
 
 export default async function FixedAssetsPage() {
@@ -22,6 +22,12 @@ export default async function FixedAssetsPage() {
     actorUserId: session.user.id,
   });
   const depreciationRows = db.select().from(fixedAssetDepreciationEntries).all();
+  const financialAccountOptions = db
+    .select({ id: financialAccounts.id, code: financialAccounts.code, name: financialAccounts.name })
+    .from(financialAccounts)
+    .where(eq(financialAccounts.status, "active"))
+    .orderBy(financialAccounts.name)
+    .all();
   const assets: FixedAssetRow[] = db
     .select()
     .from(fixedAssets)
@@ -61,7 +67,7 @@ export default async function FixedAssetsPage() {
         <SiteHeader title="Anlageverzeichnis" />
         <div className="admin-page-surface">
           <main className="flex flex-1 flex-col p-8 lg:p-12">
-            <FixedAssetsTable assets={assets} />
+            <FixedAssetsTable assets={assets} financialAccounts={financialAccountOptions} />
           </main>
         </div>
       </SidebarInset>

@@ -49,6 +49,7 @@ export const financialAllocationKinds = [
   "booking_refund",
   "revenue",
   "expense",
+  "asset_acquisition",
   "fee",
   "transfer",
   "tax",
@@ -271,6 +272,9 @@ export const fixedAssets = sqliteTable(
     sourceTransactionId: integer("source_transaction_id").references(() => financialTransactions.id, {
       onDelete: "restrict",
     }),
+    disposalTransactionId: integer("disposal_transaction_id").references(() => financialTransactions.id, {
+      onDelete: "restrict",
+    }),
     notes: text("notes").notNull().default(""),
     createdByUserId: text("created_by_user_id").references(() => authUser.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -279,6 +283,7 @@ export const fixedAssets = sqliteTable(
   (table) => [
     uniqueIndex("fixed_assets_asset_number_unique").on(table.assetNumber),
     uniqueIndex("fixed_assets_source_transaction_unique").on(table.sourceTransactionId),
+    uniqueIndex("fixed_assets_disposal_transaction_unique").on(table.disposalTransactionId),
     index("fixed_assets_status_idx").on(table.status),
     index("fixed_assets_acquisition_date_idx").on(table.acquisitionDate),
     check("fixed_assets_acquisition_cost_positive", sql`${table.acquisitionCostCents} > 0`),

@@ -7,13 +7,14 @@ import { getDatabase } from "@/lib/db/client";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { createAndPostManualTransaction } from "@/lib/financial/manual-transactions";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { isValidIsoDate } from "@/lib/bookings/validation";
 
 export const runtime = "nodejs";
 
 const schema = z.object({
   accountId: z.number().int().positive().optional(),
   source: z.enum(["cash", "manual"]),
-  bookedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Buchungsdatum"),
   amountCents: z.number().int().positive(),
   categoryId: z.number().int().positive(),
   destinationAccountId: z.number().int().positive().optional(),
@@ -31,8 +32,8 @@ const schema = z.object({
       name: z.string().trim().min(1).max(200),
       assetType: z.enum(["bike", "equipment", "other"]),
       serialNumber: z.string().trim().max(200).optional(),
-      acquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      inServiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      acquisitionDate: z.string().refine(isValidIsoDate, "Ungültiges Anschaffungsdatum"),
+      inServiceDate: z.string().refine(isValidIsoDate, "Ungültiges Inbetriebnahmedatum"),
       acquisitionCostCents: z.number().int().positive(),
       inputVatCents: z.number().int().nonnegative().optional(),
       usefulLifeMonths: z.number().int().positive(),

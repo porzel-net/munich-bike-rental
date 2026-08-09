@@ -7,12 +7,14 @@ import { getDatabase } from "@/lib/db/client";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { disposeFixedAsset } from "@/lib/financial/fixed-assets";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { isValidIsoDate } from "@/lib/bookings/validation";
 
 export const runtime = "nodejs";
 
 const schema = z.object({
   assetId: z.number().int().positive(),
-  disposedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  financialAccountId: z.number().int().positive(),
+  disposedAt: z.string().refine(isValidIsoDate, "Ungültiges Verkaufsdatum"),
   disposalProceedsCents: z.number().int().nonnegative(),
   disposalProceedsVatCents: z.number().int().nonnegative().optional(),
 });

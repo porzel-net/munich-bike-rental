@@ -56,6 +56,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       amountCents: financialTransactionAllocations.amountCents,
       transactionId: financialTransactions.id,
       bookingId: financialTransactionAllocations.bookingId,
+      fixedAssetId: financialTransactionAllocations.fixedAssetId,
       allocationKind: financialTransactionAllocations.allocationKind,
       invoiceNumber: bookings.invoiceNumber,
     })
@@ -120,8 +121,12 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
         .all()
         .reduce((sum, entry) => sum + entry.amountCents, 0);
       const bookValueCents = Math.max(0, asset.acquisitionCostCents - depreciationCents);
-      const rows: EuerRow[] = [
-        {
+      const rows: EuerRow[] = [];
+      // Older disposal rows predate the financial transaction model. Keep
+      // their tax report readable, while new disposals are sourced from the
+      // posted sale transaction above and must not be counted twice.
+      if (!asset.disposalTransactionId && proceedsCents > 0) {
+        rows.push({
           id: -1_000_000 - asset.id,
           date,
           category: "Veräußerung Anlagevermögen",
@@ -135,8 +140,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           accountName: null,
           iban: null,
           fixedAssetId: asset.id,
-        },
-      ];
+        });
+      }
       if (bookValueCents > 0) {
         rows.push({
           id: -2_000_000 - asset.id,
@@ -154,7 +159,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           fixedAssetId: asset.id,
         });
       }
-      if (asset.disposalProceedsVatCents > 0) {
+      if (!asset.disposalTransactionId && asset.disposalProceedsVatCents > 0) {
         rows.push({
           id: -3_000_000 - asset.id,
           date,

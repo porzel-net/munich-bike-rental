@@ -115,7 +115,7 @@ describe("accounting schema", () => {
     ).toThrow("append-only");
 
     const now = new Date();
-    connection.db
+    const movement = connection.db
       .insert(financialTransactions)
       .values({
         financialAccountId: account.id,
@@ -130,7 +130,23 @@ describe("accounting schema", () => {
         createdAt: now,
         updatedAt: now,
       })
-      .run();
+      .returning({ id: financialTransactions.id })
+      .get();
+
+    expect(() =>
+      connection.db
+        .update(financialTransactions)
+        .set({ amountCents: -101 })
+        .where(eq(financialTransactions.id, movement.id))
+        .run(),
+    ).toThrow("immutable");
+    expect(() =>
+      connection.db
+        .update(financialTransactions)
+        .set({ status: "posted" })
+        .where(eq(financialTransactions.id, movement.id))
+        .run(),
+    ).toThrow("fully allocated");
 
     expect(() =>
       updateOpeningBalance(connection.db, {

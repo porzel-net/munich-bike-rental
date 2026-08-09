@@ -7,10 +7,11 @@ import { getDatabase } from "@/lib/db/client";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { postDueFixedAssetDepreciation } from "@/lib/financial/fixed-assets";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { isValidIsoMonth } from "@/lib/bookings/validation";
 
 export const runtime = "nodejs";
 
-const schema = z.object({ throughMonth: z.string().regex(/^\d{4}-\d{2}$/) });
+const schema = z.object({ throughMonth: z.string().refine(isValidIsoMonth, "Ungültiger AfA-Zeitraum") });
 
 export async function POST(request: Request) {
   const session = await getServerSession();

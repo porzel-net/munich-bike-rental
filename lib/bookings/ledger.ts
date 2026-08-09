@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
-import { journalEntries, journalLines } from "../db/schema";
+import { accountingAccounts, financialAccounts, journalEntries, journalLines } from "../db/schema";
 
 import { BookingCommandError } from "./errors";
 
@@ -35,16 +35,76 @@ export type JournalCommand = {
 };
 
 export function appendJournalEntry(db: AppDatabase, input: JournalCommand) {
+  if (input.lines.length < 2) throw new BookingCommandError("Ein Journalposten braucht mindestens zwei Kontenzeilen.");
+  if (
+    input.lines.some(
+      (line) => !line.account.trim() || !Number.isSafeInteger(line.amountCents) || line.amountCents === 0,
+    )
+  )
+    throw new BookingCommandError("Jede Journalzeile braucht ein Konto und einen gültigen Nicht-Null-Betrag.");
   const balance = input.lines.reduce((sum, line) => sum + line.amountCents, 0);
-  if (balance !== 0 || input.lines.some((line) => line.amountCents === 0))
-    throw new BookingCommandError("Journal entries must be balanced and non-zero");
+  if (balance !== 0) throw new BookingCommandError("Journalposten müssen ausgeglichen sein.");
+
+  const accountCodes = [...new Set(input.lines.map((line) => line.account.trim()))];
+  for (const code of accountCodes) {
+    const exists = db
+      .select({ id: accountingAccounts.id })
+      .from(accountingAccounts)
+      .where(eq(accountingAccounts.code, code))
+      .get();
+    if (exists) continue;
+    const financialAccount = db.select().from(financialAccounts).where(eq(financialAccounts.code, code)).get();
+    if (!financialAccount) continue;
+    db.insert(accountingAccounts)
+      .values({
+        code: financialAccount.code,
+        name: financialAccount.name,
+        accountType: financialAccount.type === "stripe_clearing" ? "clearing" : "asset",
+        isSystem: true,
+        isActive: true,
+        notes: `Finanzkonto ${financialAccount.code}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
+  }
+  const knownAccounts = db
+    .select({ code: accountingAccounts.code, isActive: accountingAccounts.isActive })
+    .from(accountingAccounts)
+    .where(inArray(accountingAccounts.code, accountCodes))
+    .all();
+  const accountsByCode = new Map(knownAccounts.map((account) => [account.code, account]));
+  for (const code of accountCodes) {
+    const account = accountsByCode.get(code);
+    if (!account) throw new BookingCommandError(`Das Buchungskonto ${code} ist nicht eingerichtet.`);
+    if (!account.isActive) throw new BookingCommandError(`Das Buchungskonto ${code} ist nicht aktiv.`);
+  }
+
   if (input.idempotencyKey) {
     const existing = db
-      .select({ id: journalEntries.id })
+      .select()
       .from(journalEntries)
       .where(eq(journalEntries.idempotencyKey, input.idempotencyKey))
       .get();
-    if (existing) return existing.id;
+    if (existing) {
+      const existingLines = db
+        .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+        .from(journalLines)
+        .where(eq(journalLines.entryId, existing.id))
+        .all()
+        .sort((a, b) => a.account.localeCompare(b.account) || a.amountCents - b.amountCents);
+      const requestedLines = input.lines
+        .map((line) => ({ account: line.account.trim(), amountCents: line.amountCents }))
+        .sort((a, b) => a.account.localeCompare(b.account) || a.amountCents - b.amountCents);
+      if (
+        existing.kind !== input.kind ||
+        (existing.bookingId ?? null) !== (input.bookingId ?? null) ||
+        (existing.financialTransactionId ?? null) !== (input.financialTransactionId ?? null) ||
+        JSON.stringify(existingLines) !== JSON.stringify(requestedLines)
+      )
+        throw new BookingCommandError("Der Idempotenzschlüssel gehört bereits zu einem anderen Journalposten.");
+      return existing.id;
+    }
   }
   const createdAt = new Date();
   const entry = db
@@ -64,7 +124,9 @@ export function appendJournalEntry(db: AppDatabase, input: JournalCommand) {
     .returning({ id: journalEntries.id })
     .get();
   db.insert(journalLines)
-    .values(input.lines.map((line) => ({ entryId: entry.id, account: line.account, amountCents: line.amountCents })))
+    .values(
+      input.lines.map((line) => ({ entryId: entry.id, account: line.account.trim(), amountCents: line.amountCents })),
+    )
     .run();
   return entry.id;
 }

@@ -8,6 +8,10 @@ export function isValidIsoDate(value: string) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
+export function isValidIsoMonth(value: string) {
+  return /^\d{4}-\d{2}$/.test(value) && isValidIsoDate(`${value}-01`);
+}
+
 export function isValidTime(value: string) {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   if (!match) return false;

@@ -344,6 +344,13 @@
       "when": 1786283402908,
       "tag": "0049_tricky_sunset_bain",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1786284518453,
+      "tag": "0050_special_vector",
+      "breakpoints": true
     }
   ]
 }

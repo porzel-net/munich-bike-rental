@@ -92,7 +92,7 @@ export async function importStripeCheckoutPayment(db: AppDatabase, input: { sess
         externalId: balance.id,
         externalParentId: details.chargeId,
         kind: "payment",
-        status: "posted",
+        status: "imported",
         amountCents: netAmountCents,
         grossAmountCents,
         feeAmountCents,
@@ -162,6 +162,10 @@ export async function importStripeCheckoutPayment(db: AppDatabase, input: { sess
             ]
           : []),
       ])
+      .run();
+    db.update(financialTransactions)
+      .set({ status: "posted", reconciledAt: new Date(), updatedAt: new Date() })
+      .where(eq(financialTransactions.id, transaction.id))
       .run();
 
     return { transactionId: transaction.id, alreadyImported: false };

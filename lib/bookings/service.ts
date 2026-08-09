@@ -1141,7 +1141,7 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
         source: "manual",
         provider: "manual_booking",
         kind: isRefund ? "refund" : "payment",
-        status: "posted",
+        status: "imported",
         amountCents,
         grossAmountCents: amountCents,
         netAmountCents: amountCents,
@@ -1186,6 +1186,10 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
         createdAt: stamp,
         updatedAt: stamp,
       })
+      .run();
+    db.update(financialTransactions)
+      .set({ status: "posted", reconciledAt: stamp, reconciledByUserId: input.actorUserId ?? null, updatedAt: stamp })
+      .where(eq(financialTransactions.id, transaction.id))
       .run();
     return journalEntryId;
   });

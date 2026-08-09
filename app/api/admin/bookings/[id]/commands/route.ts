@@ -16,6 +16,7 @@ import { BookingCommandError } from "@/lib/bookings/errors";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { mailOutbox } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { isValidIsoDate } from "@/lib/bookings/validation";
 
 export const runtime = "nodejs";
 
@@ -53,7 +54,7 @@ const commandSchema = z.discriminatedUnion("command", [
       .number()
       .int()
       .refine((value) => value !== 0, "Betrag darf nicht 0 sein"),
-    bookedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Buchungsdatum"),
     financialAccountId: z.number().int().positive(),
     reason,
     idempotencyKey: z.string().uuid(),
@@ -61,7 +62,7 @@ const commandSchema = z.discriminatedUnion("command", [
   z.object({
     command: z.literal("refund"),
     amountCents: z.number().int().positive(),
-    bookedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Erstattungsdatum"),
     financialAccountId: z.number().int().positive(),
     reason,
     idempotencyKey: z.string().uuid(),
