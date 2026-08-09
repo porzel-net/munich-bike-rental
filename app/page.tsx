@@ -87,6 +87,8 @@ export async function generateRentalMetadata({ searchParams, location, locale }:
           `Rennradverleih ${city} ${district}`,
           `Gravelbike Verleih ${city}`,
           `Gravelbike Verleih ${city} ${district}`,
+          `Fahrradverleih ${city}`,
+          `Fahrradverleih ${city} ${district}`,
           `Rennrad mieten ${city}`,
           `Rennrad leihen ${city}`,
           `Gravelbike mieten ${city}`,

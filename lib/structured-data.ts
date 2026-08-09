@@ -62,7 +62,13 @@ export function getRentalStructuredDataJson(location: RentalLocationConfig, loca
         description: copy.heroIntro,
         inLanguage: isGerman ? "de-DE" : "en-US",
         keywords: isGerman
-          ? [`Rennradverleih ${city}`, `Gravelbike Verleih ${city}`, `Rennradverleih ${city} ${district}`]
+          ? [
+              `Rennradverleih ${city}`,
+              `Gravelbike Verleih ${city}`,
+              `Rennradverleih ${city} ${district}`,
+              `Fahrradverleih ${city}`,
+              `Fahrradverleih ${city} ${district}`,
+            ]
           : [`road bike rental ${city}`, `gravel bike rental ${city}`, `road bike rental ${city} ${district}`],
       },
       {
@@ -79,7 +85,7 @@ export function getRentalStructuredDataJson(location: RentalLocationConfig, loca
         serviceType: isGerman ? "Rennrad- und Gravel-Verleih" : "Road and gravel bike rental",
         hasMap: location.mapsUrl,
         keywords: isGerman
-          ? [`Rennradverleih ${city}`, `Gravelbike Verleih ${city}`]
+          ? [`Rennradverleih ${city}`, `Gravelbike Verleih ${city}`, `Fahrradverleih ${city}`]
           : [`road bike rental ${city}`, `gravel bike rental ${city}`],
         address: {
           "@type": "PostalAddress",
