@@ -38,6 +38,7 @@ function CalendarWeekRow({ week }: { week: CalendarWeek }) {
                   event={event}
                   isSegmentStart={event.startDate >= week.days[0].date}
                   isSegmentEnd={event.endDate <= week.days[6].date}
+                  isRightEdge={startIndex + span >= week.days.length}
                 />
               </div>
             ))}

@@ -443,6 +443,17 @@
   border-bottom-color: #fff;
 }
 
+.calendar-event-bar.is-right-edge .calendar-event-detail {
+  right: 0;
+  left: auto;
+}
+
+.calendar-event-bar.is-right-edge .calendar-event-detail::before,
+.calendar-event-bar.is-right-edge .calendar-event-detail::after {
+  right: 1.5rem;
+  left: auto;
+}
+
 .calendar-event-detail strong,
 .calendar-event-detail > span {
   display: block;

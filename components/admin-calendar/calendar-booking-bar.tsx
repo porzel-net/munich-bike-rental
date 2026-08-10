@@ -16,16 +16,18 @@ export function CalendarBookingBar({
   event,
   isSegmentStart,
   isSegmentEnd,
+  isRightEdge,
 }: {
   event: CalendarBookingEvent;
   isSegmentStart: boolean;
   isSegmentEnd: boolean;
+  isRightEdge: boolean;
 }) {
   const tone = toneClasses[event.tone];
 
   return (
     <Link
-      className={`calendar-event-bar ${tone} ${isSegmentStart ? "is-segment-start" : ""} ${isSegmentEnd ? "is-segment-end" : ""}`}
+      className={`calendar-event-bar ${tone} ${isSegmentStart ? "is-segment-start" : ""} ${isSegmentEnd ? "is-segment-end" : ""} ${isRightEdge ? "is-right-edge" : ""}`}
       href={`/admin/bookings/${event.id}`}
       aria-label={`Buchung ${event.displayLabel}, ${event.customerName}, ${event.pickupTime} bis ${event.dropoffTime} Uhr, ${event.statusLabel}`}
     >
