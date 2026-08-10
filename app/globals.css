@@ -55,7 +55,8 @@
 }
 
 :root {
-  --accent: #4169e1;
+  --brand-accent: #4169e1;
+  --font-app-sans: "Mulish", Arial, Helvetica, sans-serif;
   --bg-light: #f9f9f9;
   --bg-dark: #111111;
   --bg-cool: rgba(65, 105, 225, 0.14);
@@ -64,7 +65,6 @@
   --text: #111111;
   --text-muted: #777777;
   --surface: #ffffff;
-  --border: rgba(17, 17, 17, 0.08);
   --shadow: 0 24px 80px rgba(17, 17, 17, 0.12);
 }
 
@@ -160,7 +160,7 @@ button {
 }
 
 .section-heading__eyebrow {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 500;
@@ -266,7 +266,7 @@ button {
   padding: 0 16px;
   border-radius: 999px;
   background: rgba(65, 105, 225, 0.09);
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -336,7 +336,7 @@ button {
   bottom: -6px;
   width: 100%;
   height: 2px;
-  background: var(--accent);
+  background: var(--brand-accent);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.2s ease;
@@ -496,7 +496,7 @@ button {
   align-items: center;
   gap: 8px;
   margin-bottom: 18px;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 16px;
   font-weight: 500;
@@ -548,7 +548,7 @@ button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-style: italic;
@@ -570,7 +570,7 @@ button {
 .hero__focus {
   max-width: 620px;
   margin: -10px 0 24px;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.7;
@@ -603,7 +603,7 @@ button {
 .hero-profile__label {
   display: block;
   margin-bottom: 8px;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 13px;
   font-weight: 500;
@@ -706,309 +706,6 @@ button {
   height: 18px;
 }
 
-.section--maintenance-promo {
-  padding: 32px 0 68px;
-}
-
-.maintenance-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px 32px;
-  padding: clamp(20px, 3vw, 30px);
-  border-radius: 22px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 44px rgba(17, 17, 17, 0.08);
-  backdrop-filter: blur(10px);
-}
-
-.maintenance-card__content {
-  display: grid;
-  gap: 10px;
-  max-width: 720px;
-}
-
-.maintenance-card__eyebrow {
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.maintenance-card__title {
-  margin: 0;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.maintenance-card__text {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 17px;
-  line-height: 1.8;
-}
-
-.maintenance-card__link {
-  margin-top: 0;
-}
-
-.service-hero__link {
-  display: inline-flex;
-  align-items: center;
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.service-hero__link:hover,
-.service-hero__link:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
-}
-
-.service-hero__actions .button--arrow {
-  margin-top: 0;
-}
-
-.service-price-card {
-  width: min(100%, 440px);
-  padding: clamp(24px, 3vw, 34px);
-  border-radius: 28px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
-    radial-gradient(circle at top right, rgba(65, 105, 225, 0.08), transparent 42%);
-  box-shadow: 0 22px 60px rgba(17, 17, 17, 0.08);
-  backdrop-filter: blur(12px);
-  display: grid;
-  gap: 12px;
-}
-
-.service-price-card__badge {
-  display: inline-flex;
-  width: fit-content;
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.service-price-card__title {
-  margin: 0;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(1.5rem, 2.8vw, 2.2rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.08;
-  text-transform: uppercase;
-}
-
-.service-price-card__price {
-  color: var(--text);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(2.4rem, 5vw, 3.7rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-
-.service-price-card__text {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1.8;
-}
-
-.service-offers {
-  padding: 0 0 100px;
-}
-
-.service-offers__inner {
-  display: grid;
-  gap: 18px;
-}
-
-.service-offers__intro {
-  max-width: 780px;
-}
-
-.service-offers__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.service-offers__card {
-  padding: 24px;
-  border-radius: 24px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 16px 38px rgba(17, 17, 17, 0.06);
-}
-
-.service-offers__card h3 {
-  margin: 0 0 12px;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-}
-
-.service-offers__card p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 17px;
-  line-height: 1.8;
-}
-
-.service-highlight {
-  padding: 0 0 102px;
-}
-
-.service-highlight__card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px 32px;
-  padding: clamp(24px, 3vw, 34px);
-  border-radius: 26px;
-  border: 1px solid rgba(65, 105, 225, 0.14);
-  background: radial-gradient(circle at top left, rgba(65, 105, 225, 0.14), transparent 38%), rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 50px rgba(17, 17, 17, 0.08);
-}
-
-.service-highlight__copy {
-  display: grid;
-  gap: 10px;
-  max-width: 780px;
-}
-
-.service-highlight__eyebrow {
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.service-highlight__title {
-  margin: 0;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(1.6rem, 3vw, 2.3rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.08;
-  text-transform: uppercase;
-}
-
-.service-highlight__text {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 17px;
-  line-height: 1.8;
-}
-
-.service-highlight__price {
-  display: grid;
-  gap: 8px;
-  min-width: 170px;
-}
-
-.service-highlight__price strong {
-  color: var(--text);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(2.2rem, 4vw, 3.1rem);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-
-.service-highlight__price span {
-  color: var(--text-muted);
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.service-form-section {
-  padding: 0 0 120px;
-}
-
-.service-form-section__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: clamp(24px, 4vw, 48px);
-  align-items: start;
-}
-
-.service-form-section__copy {
-  display: grid;
-  gap: 18px;
-}
-
-.service-form-section__title-mobile {
-  display: none;
-}
-
-.service-form-section__title-mobile span {
-  display: block;
-}
-
-.service-form-points {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding-left: 20px;
-  list-style: disc;
-}
-
-.service-form-points li {
-  padding: 0 0 0 4px;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1.8;
-}
-
-.maintenance-form {
-  padding-left: 0;
-  padding-top: 0;
-}
-
-.maintenance-form__intro {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1.8;
-}
-
-.maintenance-form__hint {
-  margin: 0;
-}
-
-.maintenance-form__split {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.maintenance-form__pickup {
-  display: grid;
-  gap: 8px;
-}
-
 .contact-form__field--wide {
   grid-column: 1 / -1;
 }
@@ -1023,129 +720,6 @@ button {
 
 .section--about {
   padding: 0 0 120px;
-}
-
-.service-shell {
-  padding-top: 108px;
-}
-
-.service-hero {
-  padding: 42px 0 92px;
-}
-
-.service-hero__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-  gap: clamp(24px, 4vw, 56px);
-  align-items: start;
-}
-
-.service-hero__copy {
-  display: grid;
-  gap: 18px;
-}
-
-.service-hero__eyebrow {
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.service-hero__title {
-  margin: 0;
-  max-width: 11ch;
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(2.6rem, 6vw, 4.8rem);
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  line-height: 0.96;
-  text-transform: uppercase;
-}
-
-.service-hero__lead {
-  max-width: 680px;
-}
-
-.service-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.service-hero__panel {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.service-card {
-  width: min(100%, 420px);
-  padding: 26px;
-  border-radius: 24px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 20px 50px rgba(17, 17, 17, 0.08);
-  backdrop-filter: blur(10px);
-}
-
-.service-card__eyebrow {
-  display: inline-flex;
-  margin-bottom: 18px;
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.service-card__list {
-  margin: 0;
-  padding-left: 20px;
-  color: var(--text);
-  font-size: 17px;
-  line-height: 1.8;
-}
-
-.service-note {
-  padding: 0 0 96px;
-}
-
-.service-note__card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px 24px;
-  padding: 24px 28px;
-  border-radius: 22px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 16px 38px rgba(17, 17, 17, 0.06);
-}
-
-.service-note__text {
-  margin: 0;
-  max-width: 760px;
-  color: var(--text-muted);
-  font-size: 17px;
-  line-height: 1.8;
-}
-
-.service-note__link {
-  color: var(--accent);
-  font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.service-note__link:hover,
-.service-note__link:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
 }
 
 .about-grid {
@@ -1310,7 +884,7 @@ button {
 }
 
 .promise-card__eyebrow {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -1351,7 +925,7 @@ button {
   padding: 7px 12px;
   border-radius: 999px;
   background: rgba(65, 105, 225, 0.1);
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 11px;
   font-weight: 600;
@@ -1421,7 +995,7 @@ button {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--brand-accent);
   box-shadow: 0 0 0 12px rgba(65, 105, 225, 0.07);
 }
 
@@ -1722,7 +1296,7 @@ button {
 }
 
 .bike-modal__eyebrow {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -1860,7 +1434,7 @@ button {
 .bike-modal__equipment svg {
   width: 16px;
   height: 16px;
-  color: var(--accent);
+  color: var(--brand-accent);
   flex: 0 0 auto;
 }
 
@@ -1909,7 +1483,7 @@ button {
 .location-card__icon {
   width: 20px;
   height: 20px;
-  color: var(--accent);
+  color: var(--brand-accent);
   flex: 0 0 auto;
   margin-top: 3px;
 }
@@ -1947,7 +1521,7 @@ button {
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 500;
@@ -2078,7 +1652,7 @@ button {
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--brand-accent);
 }
 
 .cookie-banner__choice input:disabled {
@@ -2321,7 +1895,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 15px;
   font-weight: 600;
@@ -2375,7 +1949,7 @@ button {
 }
 
 .blog-preview-card__eyebrow {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -2412,7 +1986,7 @@ button {
 }
 
 .blog-preview-card__cta {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-weight: 600;
 }
@@ -2481,7 +2055,7 @@ button {
   padding: 0 16px;
   border-radius: 999px;
   background: rgba(65, 105, 225, 0.09);
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -2525,7 +2099,7 @@ button {
   align-items: center;
   gap: 10px;
   width: fit-content;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -2544,7 +2118,7 @@ button {
 }
 
 .blog-page-nav__link {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-weight: 600;
 }
@@ -2586,7 +2160,7 @@ button {
 }
 
 .blog-article__eyebrow {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -2674,7 +2248,7 @@ button {
   padding: 0 0.55rem;
   border-radius: 999px;
   background: rgba(65, 105, 225, 0.1);
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 0.82rem;
   font-weight: 700;
@@ -2696,7 +2270,7 @@ button {
 }
 
 .blog-route-card__meta {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -2722,7 +2296,7 @@ button {
   padding: 0 12px;
   border-radius: 999px;
   background: rgba(65, 105, 225, 0.1);
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 12px;
   font-weight: 600;
@@ -2748,7 +2322,7 @@ button {
 .blog-article__quote {
   margin: 0;
   padding: 20px 22px;
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--brand-accent);
   border-radius: 18px;
   background: rgba(65, 105, 225, 0.06);
 }
@@ -3105,7 +2679,7 @@ button {
   height: 18px;
   margin-top: 3px;
   flex: 0 0 auto;
-  accent-color: var(--accent);
+  accent-color: var(--brand-accent);
 }
 
 .contact-form__checkbox span {
@@ -3309,7 +2883,7 @@ button {
 }
 
 .location-selection-dialog__eyebrow {
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 12px;
   font-weight: 700;
@@ -3388,6 +2962,234 @@ button {
   font-size: 13px;
 }
 
+.booking-confirmation-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 28px 80px rgba(10, 12, 18, 0.26);
+}
+
+.booking-confirmation-dialog::backdrop {
+  background: rgba(9, 11, 17, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.booking-confirmation-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px 28px 0;
+}
+
+.booking-confirmation-dialog__eyebrow {
+  color: #639754;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.booking-confirmation-dialog h2 {
+  max-width: 470px;
+  margin: 8px 0 0;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.45rem, 4vw, 1.85rem);
+  line-height: 1.2;
+}
+
+.booking-confirmation-dialog__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+
+.booking-confirmation-dialog__close:hover,
+.booking-confirmation-dialog__close:focus-visible {
+  background: #f4f4f4;
+  outline: none;
+}
+
+.booking-confirmation-dialog__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.booking-confirmation-dialog__body,
+.booking-confirmation-dialog__loading,
+.booking-confirmation-dialog__error {
+  margin: 18px 28px 28px;
+}
+
+.booking-confirmation-dialog__loading,
+.booking-confirmation-dialog__error {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.booking-confirmation-dialog__error {
+  color: #b91c1c;
+}
+
+.booking-confirmation-dialog__success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(99, 151, 84, 0.28);
+  border-radius: 14px;
+  background: rgba(99, 151, 84, 0.1);
+  color: #426537;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.booking-confirmation-dialog__success svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.booking-confirmation-dialog__payment-note {
+  margin-bottom: 18px;
+  padding: 13px 14px;
+  border: 1px solid rgba(65, 105, 225, 0.18);
+  border-radius: 14px;
+  background: rgba(65, 105, 225, 0.06);
+}
+
+.booking-confirmation-dialog__payment-note strong {
+  display: block;
+  color: #111;
+  font-size: 14px;
+}
+
+.booking-confirmation-dialog__payment-note p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.booking-confirmation-dialog__payment-note small {
+  display: block;
+  margin-top: 8px;
+  color: #111;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.booking-confirmation-dialog__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 14px;
+  background: rgba(17, 17, 17, 0.08);
+}
+
+.booking-confirmation-dialog__summary > div {
+  min-width: 0;
+  padding: 11px 13px;
+  background: #fff;
+}
+
+.booking-confirmation-dialog__summary dt,
+.booking-confirmation-dialog__message > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.booking-confirmation-dialog__summary dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #111;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.booking-confirmation-dialog__bikes {
+  margin-top: 18px;
+}
+
+.booking-confirmation-dialog__bikes h3 {
+  margin: 0 0 8px;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 15px;
+}
+
+.booking-confirmation-dialog__bike {
+  display: grid;
+  gap: 3px;
+  margin-top: 7px;
+  padding: 11px 13px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 12px;
+}
+
+.booking-confirmation-dialog__bike strong {
+  color: #111;
+  font-size: 14px;
+}
+
+.booking-confirmation-dialog__bike span,
+.booking-confirmation-dialog__bike small {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.booking-confirmation-dialog__message {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.booking-confirmation-dialog__message p {
+  margin: 6px 0 0;
+  color: #111;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 560px) {
+  .booking-confirmation-dialog__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-confirmation-dialog__header {
+    padding: 22px 20px 0;
+  }
+
+  .booking-confirmation-dialog__body,
+  .booking-confirmation-dialog__loading,
+  .booking-confirmation-dialog__error {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+}
+
 .legal-page {
   min-height: 100vh;
   padding: 140px 0 90px;
@@ -3401,7 +3203,7 @@ button {
 .legal-page__back {
   display: inline-flex;
   margin-bottom: 28px;
-  color: var(--accent);
+  color: var(--brand-accent);
   font-family: "Poppins", Arial, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -3526,31 +3328,6 @@ button {
     right: 0;
   }
 
-  .service-hero__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .service-hero__panel {
-    justify-content: flex-start;
-  }
-
-  .service-offers__grid,
-  .service-form-section__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .service-price-card {
-    width: 100%;
-  }
-
-  .service-form-section__title-desktop {
-    display: none;
-  }
-
-  .service-form-section__title-mobile {
-    display: inline-block;
-  }
-
   .portfolio-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3622,14 +3399,6 @@ button {
   .cookie-banner {
     inset: auto 12px 12px 12px;
     width: auto;
-  }
-
-  .service-highlight__card {
-    flex-direction: column;
-  }
-
-  .service-highlight__price {
-    min-width: 0;
   }
 }
 
@@ -3729,7 +3498,7 @@ button {
 
   .nav__locations-link--mobile:hover,
   .nav__locations-link--mobile:focus-visible {
-    color: var(--accent);
+    color: var(--brand-accent);
   }
 
   .about-grid {
@@ -3890,33 +3659,8 @@ button {
     display: none;
   }
 
-  .maintenance-card,
-  .service-note__card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .section--maintenance-promo {
-    padding-top: 24px;
-    padding-bottom: 56px;
-  }
-
   .section--portfolio {
     padding-top: 64px;
-  }
-
-  .service-offers__card,
-  .service-price-card,
-  .service-highlight__card {
-    border-radius: 22px;
-  }
-
-  .service-form-section__title {
-    max-width: 8.5ch;
-  }
-
-  .maintenance-form__split {
-    grid-template-columns: 1fr;
   }
 
   .faq-grid {
@@ -4187,5 +3931,849 @@ button {
     left: 28%;
     top: 46%;
     width: 44%;
+  }
+}
+
+/* Public booking offer */
+.public-offer-page {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #f5f6f8;
+  color: #171a1d;
+}
+
+.public-offer-page__glow {
+  position: absolute;
+  z-index: 0;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.public-offer-page__glow--top {
+  top: -330px;
+  right: -180px;
+  background: rgba(65, 105, 225, 0.11);
+}
+
+.public-offer-page__glow--bottom {
+  bottom: -430px;
+  left: -210px;
+  background: rgba(126, 185, 178, 0.1);
+}
+
+.public-offer-container {
+  position: relative;
+  z-index: 1;
+  width: min(1160px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 28px 0 54px;
+}
+
+.public-offer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(23, 26, 29, 0.1);
+}
+
+.public-offer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #171a1d;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.public-offer-brand__mark {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #171a1d;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.public-offer-header__reference {
+  color: #71777c;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.public-offer-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 34px;
+  padding: 68px 0 42px;
+}
+
+.public-offer-hero__copy {
+  max-width: 730px;
+}
+
+.public-offer-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--brand-accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.public-offer-kicker__line {
+  width: 24px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.public-offer-hero h1 {
+  max-width: 780px;
+  margin: 14px 0 16px;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(3rem, 6.7vw, 5.6rem);
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.public-offer-hero__copy > p {
+  max-width: 650px;
+  margin: 0;
+  color: #697177;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.public-offer-status {
+  display: flex;
+  flex: 0 1 315px;
+  align-items: center;
+  gap: 13px;
+  min-height: 78px;
+  padding: 16px 18px;
+  border: 1px solid rgba(23, 26, 29, 0.1);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 12px 36px rgba(23, 26, 29, 0.04);
+}
+
+.public-offer-status__icon {
+  display: inline-grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.public-offer-status > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.public-offer-status small {
+  color: #7a8288;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.public-offer-status strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.public-offer-status--success .public-offer-status__icon {
+  background: #e5f6ec;
+  color: #187342;
+}
+
+.public-offer-status--pending .public-offer-status__icon {
+  background: #e9efff;
+  color: #4169e1;
+}
+
+.public-offer-status--danger .public-offer-status__icon {
+  background: #fce9e8;
+  color: #b33a34;
+}
+
+.public-offer-status--info .public-offer-status__icon {
+  background: #edf2f4;
+  color: #526169;
+}
+
+.public-offer-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.32fr) minmax(320px, 0.78fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.public-offer-content {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.public-offer-panel,
+.public-offer-summary__card {
+  border: 1px solid rgba(23, 26, 29, 0.1);
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.91);
+  box-shadow: 0 20px 50px rgba(23, 26, 29, 0.055);
+}
+
+.public-offer-panel {
+  padding: 30px;
+}
+
+.public-offer-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.public-offer-section-heading__icon {
+  display: inline-grid;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: #edf2ff;
+  color: var(--brand-accent);
+}
+
+.public-offer-section-heading__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--brand-accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-offer-section-heading h2,
+.public-offer-summary__header h2 {
+  margin: 0;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.public-offer-panel__intro {
+  margin: 19px 0 0;
+  color: #697177;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.public-offer-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 24px;
+  margin: 28px 0 0;
+  padding-top: 25px;
+  border-top: 1px solid rgba(23, 26, 29, 0.09);
+}
+
+.public-offer-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.public-offer-detail__icon {
+  display: inline-grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: #f2f3f4;
+  color: #6b747a;
+}
+
+.public-offer-detail__copy {
+  min-width: 0;
+}
+
+.public-offer-detail dt {
+  margin-bottom: 3px;
+  color: #81898e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.public-offer-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #202529;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.public-offer-bikes {
+  display: grid;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.public-offer-bike {
+  padding: 20px;
+  border: 1px solid rgba(23, 26, 29, 0.1);
+  border-radius: 17px;
+  background: #fbfbfc;
+}
+
+.public-offer-bike__topline {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.public-offer-bike__number {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: #171a1d;
+  color: #fff;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.public-offer-bike__name h3 {
+  margin: 2px 0 0;
+  color: #171a1d;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.public-offer-bike__name p {
+  margin: 4px 0 0;
+  color: #7a8288;
+  font-size: 13px;
+}
+
+.public-offer-bike__price {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+
+.public-offer-bike__price strong {
+  color: #171a1d;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.public-offer-bike__price span {
+  color: #7a8288;
+  font-size: 11px;
+}
+
+.public-offer-bike__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 0 52px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(23, 26, 29, 0.08);
+  color: #687177;
+  font-size: 13px;
+}
+
+.public-offer-bike__facts > span:not(.public-offer-chip) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 3px;
+  font-weight: 700;
+}
+
+.public-offer-chip {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eef1f3;
+  color: #5e686f;
+  font-size: 12px;
+}
+
+.public-offer-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 23px 25px;
+  border: 1px solid rgba(23, 26, 29, 0.1);
+  border-radius: 20px;
+  background: rgba(239, 243, 255, 0.72);
+}
+
+.public-offer-message__icon {
+  display: inline-grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: #dfe8ff;
+  color: var(--brand-accent);
+}
+
+.public-offer-message h2 {
+  margin: 1px 0 7px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.public-offer-message p {
+  margin: 0;
+  color: #4d575e;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.public-offer-summary {
+  position: sticky;
+  top: 24px;
+}
+
+.public-offer-summary__card {
+  padding: 28px;
+}
+
+.public-offer-summary__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(23, 26, 29, 0.09);
+}
+
+.public-offer-summary__badge {
+  display: inline-grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 11px;
+  background: #171a1d;
+  color: #fff;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.public-offer-estimate {
+  margin-top: 22px;
+  padding: 17px;
+  border-radius: 16px;
+  background: #f2f5ff;
+}
+
+.public-offer-estimate > span {
+  display: block;
+  color: #65707a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.public-offer-estimate > strong {
+  display: block;
+  margin-top: 5px;
+  color: #1b2d65;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.public-offer-estimate p {
+  margin: 10px 0 0;
+  color: #65707a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.public-offer-totals {
+  display: grid;
+  gap: 14px;
+  margin-top: 23px;
+}
+
+.public-offer-totals > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  color: #677177;
+  font-size: 14px;
+}
+
+.public-offer-totals > div strong {
+  color: #23282c;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.public-offer-totals .public-offer-totals__discount,
+.public-offer-totals .public-offer-totals__discount strong {
+  color: #278152;
+}
+
+.public-offer-totals .public-offer-total {
+  align-items: center;
+  margin-top: 7px;
+  padding-top: 17px;
+  border-top: 1px solid rgba(23, 26, 29, 0.1);
+  color: #171a1d;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.public-offer-totals .public-offer-total strong {
+  color: #171a1d;
+  font-size: 25px;
+  letter-spacing: -0.035em;
+}
+
+.public-offer-countdown {
+  margin-top: 23px;
+  padding: 15px 16px 14px;
+  border: 1px solid rgba(65, 105, 225, 0.16);
+  border-radius: 15px;
+  background: rgba(238, 242, 255, 0.78);
+}
+
+.public-offer-countdown__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.public-offer-countdown__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #53637e;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.public-offer-countdown__label svg {
+  flex: 0 0 auto;
+  color: var(--brand-accent);
+}
+
+.public-offer-countdown strong {
+  flex: 0 0 auto;
+  color: #1b2d65;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.public-offer-countdown__track {
+  height: 6px;
+  margin-top: 13px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(65, 105, 225, 0.14);
+}
+
+.public-offer-countdown__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4169e1, #6b88e9);
+  transition: width 1s linear;
+}
+
+.public-offer-countdown p {
+  margin: 9px 0 0;
+  color: #6c7890;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.public-offer-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 24px;
+  padding: 13px 14px;
+  border-radius: 13px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.public-offer-alert svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.public-offer-alert--success {
+  background: #eaf7ef;
+  color: #216c43;
+}
+
+.public-offer-alert--danger {
+  background: #fceceb;
+  color: #a13a35;
+}
+
+.public-offer-alert--warning {
+  background: #fff5df;
+  color: #85651f;
+}
+
+.public-offer-alert--info {
+  background: #eef2f4;
+  color: #55636b;
+}
+
+.public-offer-payment {
+  margin-top: 24px;
+}
+
+.public-offer-payment .public-offer-alert {
+  margin-top: 0;
+}
+
+.public-offer-payment > p {
+  margin: 17px 0 0;
+  color: #697177;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.public-offer-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 16px;
+  padding: 0 18px;
+  border-radius: 13px;
+  background: var(--brand-accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.public-offer-button svg:last-child {
+  margin-left: auto;
+}
+
+.public-offer-button:hover,
+.public-offer-button:focus-visible {
+  background: #3156cc;
+  box-shadow: 0 10px 24px rgba(65, 105, 225, 0.23);
+  transform: translateY(-1px);
+}
+
+.public-offer-button:focus-visible {
+  outline: 3px solid rgba(65, 105, 225, 0.3);
+  outline-offset: 2px;
+}
+
+.public-offer-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+  transform: none;
+}
+
+.public-offer-error {
+  margin: 10px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.public-offer-summary__updated {
+  margin: 22px 0 0;
+  color: #899196;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.public-offer-trust {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 15px 4px 0;
+  color: #758087;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.public-offer-trust svg {
+  flex: 0 0 auto;
+  color: #278152;
+}
+
+.public-offer-footer {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 32px;
+  color: #7b848a;
+  font-size: 12px;
+}
+
+.public-offer-footer a {
+  color: #4e5b63;
+  font-weight: 700;
+}
+
+.public-offer-footer a:hover,
+.public-offer-footer a:focus-visible {
+  color: var(--brand-accent);
+}
+
+@media (max-width: 920px) {
+  .public-offer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .public-offer-summary {
+    position: static;
+  }
+
+  .public-offer-summary__card {
+    max-width: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .public-offer-container {
+    width: min(100% - 32px, 1160px);
+    padding-top: 18px;
+  }
+
+  .public-offer-hero {
+    display: grid;
+    gap: 24px;
+    padding: 52px 0 30px;
+  }
+
+  .public-offer-hero h1 {
+    font-size: clamp(2.7rem, 13vw, 4.6rem);
+  }
+
+  .public-offer-hero__copy > p {
+    font-size: 15px;
+  }
+
+  .public-offer-status {
+    width: 100%;
+  }
+
+  .public-offer-panel,
+  .public-offer-summary__card {
+    padding: 23px;
+    border-radius: 21px;
+  }
+
+  .public-offer-details-grid {
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+
+  .public-offer-bike {
+    padding: 16px;
+  }
+
+  .public-offer-bike__topline {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .public-offer-bike__price {
+    grid-column: 2;
+    justify-items: start;
+    margin-top: 5px;
+  }
+
+  .public-offer-bike__facts {
+    margin-left: 48px;
+  }
+
+  .public-offer-message {
+    padding: 19px;
+  }
+}
+
+@media (max-width: 430px) {
+  .public-offer-header__reference {
+    max-width: 145px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .public-offer-kicker {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    font-size: 11px;
+  }
+
+  .public-offer-hero h1 {
+    font-size: clamp(2.55rem, 14vw, 3.7rem);
+  }
+
+  .public-offer-footer {
+    flex-direction: column;
+    align-items: center;
   }
 }

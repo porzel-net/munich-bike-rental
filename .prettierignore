@@ -6,3 +6,4 @@ test-results
 public
 package-lock.json
 pnpm-lock.yaml
+drizzle/meta/**

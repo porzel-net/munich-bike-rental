@@ -1,0 +1,4 @@
+Contact: mailto:hallo@munich-bike-rental.de
+Preferred-Languages: de, en
+Expires: 2027-08-08T00:00:00Z
+Canonical: https://munich-bike-rental.de/.well-known/security.txt

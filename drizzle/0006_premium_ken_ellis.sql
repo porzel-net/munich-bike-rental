@@ -1,0 +1,1 @@
+ALTER TABLE `rental_inquiries` ADD `total_price_cents` integer DEFAULT 0 NOT NULL;

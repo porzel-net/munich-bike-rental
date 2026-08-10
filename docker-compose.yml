@@ -1,23 +1,84 @@
 services:
+  database-init:
+    image: busybox:1.37.0
+    command: ["sh", "-ec", "mkdir -p /data && chown 1001:1001 /data && chmod 0700 /data"]
+    volumes:
+      - app-data:/data
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 16
+    mem_limit: 32m
+    restart: "no"
+
   app:
     image: ${APP_IMAGE:-bikerental:local}
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3000
-      SITE_URL: ${SITE_URL:-http://localhost:3000}
-      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      SITE_URL: ${SITE_URL:?SITE_URL must be set to the public HTTPS origin}
+      APP_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must be set to the public HTTPS origin}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL must be set to the public HTTPS origin}
+      __NEXT_PRIVATE_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must be set to the public HTTPS origin}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
+      DATABASE_URL: /data/bikerental.db
+      CALENDAR_FEED_TOKEN: ${CALENDAR_FEED_TOKEN:-}
+      MAIL_SYNC_TOKEN: ${MAIL_SYNC_TOKEN:-}
+      OUTBOX_DISPATCH_TOKEN: ${OUTBOX_DISPATCH_TOKEN:-}
+      BOOTSTRAP_ADMIN_INVITATION_FILE: ${BOOTSTRAP_ADMIN_INVITATION_FILE:-/data/bootstrap-admin-invitation.txt}
+      BOOTSTRAP_ADMIN_PRINT_LINK: ${BOOTSTRAP_ADMIN_PRINT_LINK:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-465}
       SMTP_SECURE: ${SMTP_SECURE:-true}
       MAIL_USE_SSL: ${MAIL_USE_SSL:-}
       MAIL_USE_STARTTLS: ${MAIL_USE_STARTTLS:-}
       MAIL_TIMEOUT_SECONDS: ${MAIL_TIMEOUT_SECONDS:-20}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_PASSWORD_FILE: ${SMTP_PASSWORD_FILE:-}
-      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-anfrage@munich-bike-rental.de}
-      MAIL_TO_ADDRESS: ${MAIL_TO_ADDRESS:-hallo@munich-bike-rental.de}
+      SMTP_REQUEST_HOST: ${SMTP_REQUEST_HOST:-}
+      SMTP_REQUEST_PORT: ${SMTP_REQUEST_PORT:-}
+      SMTP_REQUEST_SECURE: ${SMTP_REQUEST_SECURE:-}
+      SMTP_REQUEST_USER: ${SMTP_REQUEST_USER:-}
+      SMTP_REQUEST_PASSWORD: ${SMTP_REQUEST_PASSWORD:-}
+      SMTP_REQUEST_PASSWORD_FILE: ${SMTP_REQUEST_PASSWORD_FILE:-}
+      MAIL_REQUEST_FROM_ADDRESS: ${MAIL_REQUEST_FROM_ADDRESS:-anfrage@munich-bike-rental.de}
+      MAIL_REQUEST_TO_ADDRESS: ${MAIL_REQUEST_TO_ADDRESS:-hallo@munich-bike-rental.de}
+      SMTP_MAIN_HOST: ${SMTP_MAIN_HOST:-}
+      SMTP_MAIN_PORT: ${SMTP_MAIN_PORT:-}
+      SMTP_MAIN_SECURE: ${SMTP_MAIN_SECURE:-}
+      SMTP_MAIN_USER: ${SMTP_MAIN_USER:-}
+      SMTP_MAIN_PASSWORD: ${SMTP_MAIN_PASSWORD:-}
+      SMTP_MAIN_PASSWORD_FILE: ${SMTP_MAIN_PASSWORD_FILE:-}
+      MAIL_MAIN_FROM_ADDRESS: ${MAIL_MAIN_FROM_ADDRESS:-hallo@munich-bike-rental.de}
+      IMAP_MAIN_HOST: ${IMAP_MAIN_HOST:-}
+      IMAP_MAIN_PORT: ${IMAP_MAIN_PORT:-993}
+      IMAP_MAIN_SECURE: ${IMAP_MAIN_SECURE:-true}
+      IMAP_MAIN_USER: ${IMAP_MAIN_USER:-}
+      IMAP_MAIN_PASSWORD: ${IMAP_MAIN_PASSWORD:-}
+      IMAP_MAIN_PASSWORD_FILE: ${IMAP_MAIN_PASSWORD_FILE:-}
+      IMAP_MAIN_SENT_MAILBOX: ${IMAP_MAIN_SENT_MAILBOX:-Sent}
+      IMAP_MAIN_REJECTED_MAILBOX: ${IMAP_MAIN_REJECTED_MAILBOX:-Abgelehnt}
+      IMAP_MAIN_PENDING_MAILBOX: ${IMAP_MAIN_PENDING_MAILBOX:-Ausstehend}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_KEY_FILE: ${OPENAI_API_KEY_FILE:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      OPENAI_REASONING_EFFORT: ${OPENAI_REASONING_EFFORT:-middle}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      NEVLO_CLIENT_ID: ${NEVLO_CLIENT_ID:-}
+      NEVLO_ACCESS_TOKEN: ${NEVLO_ACCESS_TOKEN:-}
+      NEVLO_REFRESH_TOKEN: ${NEVLO_REFRESH_TOKEN:-}
+      NEVLO_ACCOUNT_ID: ${NEVLO_ACCOUNT_ID:-}
+      NEVLO_SYNC_DATE_FROM: ${NEVLO_SYNC_DATE_FROM:-}
+      NEVLO_SYNC_DATE_TO: ${NEVLO_SYNC_DATE_TO:-}
+    volumes:
+      - app-data:/data
     expose:
       - "3000"
     read_only: true
@@ -47,3 +108,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+volumes:
+  app-data:
