@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "test": "vitest run",
+    "test:backup": "sh tests/backup/run-container-tests.sh",
     "test:watch": "vitest",
     "test:browser": "playwright test",
     "quality": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm build"

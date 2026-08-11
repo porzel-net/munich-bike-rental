@@ -29,3 +29,4 @@ data/
 
 # test artifacts
 test-results/
+.backup-test.*

@@ -152,7 +152,7 @@ Danach kannst du das Image ziehen und den Stack starten:
 
 ```bash
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml pull
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml up -d
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml up -d --build
 ```
 
 Wenn du eine neue Version veröffentlichst, ziehst du sie mit demselben Befehl erneut:
@@ -170,7 +170,7 @@ Ergebnis:
 
 - der App-Container ist nur auf `127.0.0.1:3000` erreichbar
 - von außen ist nichts direkt aus dem Container exposed
-- `docker compose pull` aktualisiert nur das Image, `up -d` startet den neuen Container mit den aktuellen Env-Werten
+- `docker compose pull` aktualisiert das App-Image; `up -d --build backup` baut den kleinen Backup-Container aus dem Repository und startet ihn mit den aktuellen Env-Werten
 
 ## Nginx Reverse Proxy
 
@@ -280,14 +280,80 @@ pnpm db:generate
 DATABASE_URL=./data/bikerental.db pnpm db:migrate
 ```
 
-Im Docker-Setup wird `DATABASE_URL` bewusst auf `/data/bikerental.db` gesetzt und das Volume an genau diesem Pfad eingehängt. Dadurch gehen Anfragen weder bei einem Image-Neubau noch bei einem Container-Austausch verloren. Sichere das Volume regelmäßig, beispielsweise auf dem Host:
-
-```bash
-docker run --rm -v <compose-projekt>_app-data:/data -v "$PWD":/backup busybox \
-  sh -c 'tar czf /backup/bikerental-db-backup.tgz -C /data .'
-```
+Im Docker-Setup wird `DATABASE_URL` bewusst auf `/data/bikerental.db` gesetzt und das Volume an genau diesem Pfad eingehängt. Dadurch gehen Anfragen weder bei einem Image-Neubau noch bei einem Container-Austausch verloren. Für produktive Backups wird der unten beschriebene, verschlüsselte `backup`-Service verwendet.
 
 Die Datenbank enthält personenbezogene Kontakt- und Mietdaten. Backups gehören verschlüsselt abgelegt und sollten nur für berechtigte Personen zugänglich sein.
+
+### Automatische verschlüsselte Vollbackups
+
+Der Compose-Stack enthält einen separaten `backup`-Service. Er erstellt täglich um `02:30` Uhr (Zeitzone `Europe/Rome`) einen konsistenten SQLite-Snapshot und sichert zusätzlich die Verzeichnisse für Finanzbelege und WhatsApp-Authentifizierung. Die Sicherung wird mit Restic komprimiert, verschlüsselt und als vollständiger wiederherstellbarer Snapshot abgelegt.
+
+Die Aufbewahrung ist fest eingestellt auf:
+
+- 14 tägliche Backups
+- 8 wöchentliche Backups
+- 12 monatliche Backups
+
+Der Repository-Ordner muss außerhalb des `app-data`-Volumes liegen. Auf dem Server beispielsweise:
+
+```bash
+sudo install -d -m 700 /srv/bikerental-backups /srv/bikerental-secrets
+openssl rand -base64 48 | sudo tee /srv/bikerental-secrets/restic-password >/dev/null
+sudo chmod 600 /srv/bikerental-secrets/restic-password
+```
+
+Setze anschließend in `.env` mindestens:
+
+```dotenv
+BACKUP_DIR=/srv/bikerental-backups
+BACKUP_RESTIC_PASSWORD_FILE=/srv/bikerental-secrets/restic-password
+BACKUP_TIMEZONE=Europe/Rome
+BACKUP_SCHEDULE=30 2 * * *
+```
+
+Der erste Stack-Start initialisiert das verschlüsselte Repository automatisch:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml up -d --build backup
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml logs -f backup
+```
+
+Ein manuelles Backup kann jederzeit ausgeführt werden:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml run --rm backup run
+```
+
+Der Service prüft das Repository zusätzlich jeden Sonntag um `04:00` Uhr. Eine manuelle Prüfung ist möglich mit:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml run --rm backup check
+```
+
+Verfügbare Snapshots können vor einem Restore aufgelistet werden:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml run --rm backup snapshots
+```
+
+#### Restore
+
+Ein Restore wird zuerst immer in ein separates Verzeichnis geschrieben und dort geprüft. Die produktive App bleibt dabei unverändert:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml run --rm backup restore latest
+```
+
+Das Ergebnis liegt anschließend unter `${BACKUP_DIR}/restore/`. Der Restore prüft die SQLite-Integrität automatisch. Vor dem produktiven Einsetzen muss der App-Container gestoppt werden. Der Live-Restore ist absichtlich geschützt und darf nur kontrolliert ausgeführt werden:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml stop app
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml run --rm \
+  -e ALLOW_LIVE_RESTORE=true backup restore-live latest
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml start app
+```
+
+Der Live-Restore legt vor dem Ersetzen eine Kopie unter `${BACKUP_DIR}/state/before-restore-*` ab. Wenn möglich, sollte zusätzlich mindestens eine Kopie des verschlüsselten Restic-Repositorys auf einem zweiten Server oder externen Speicher liegen. Die Restic-Passwortdatei muss getrennt vom Repository aufbewahrt werden; ohne sie ist das Backup nicht entschlüsselbar.
 
 ### Buchungs-Umstellung und Outbox
 
