@@ -254,7 +254,16 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
         );
         return;
       }
-      if (result?.offer) setCurrentOffer(result.offer);
+      if (result?.offer) {
+        setCurrentOffer(result.offer);
+
+        // Load the offer page again from the server so the confirmed booking
+        // is reflected consistently after returning from Stripe. Remove the
+        // callback parameters first to avoid repeating the completion flow on
+        // the full reload.
+        window.history.replaceState(null, "", window.location.pathname);
+        window.location.reload();
+      }
     };
 
     void completePayment();
