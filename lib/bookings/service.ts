@@ -68,14 +68,22 @@ function assertBookingHasAssignee(db: AppDatabase, booking: typeof bookings.$inf
     throw new BookingCommandError("Für diese Buchung muss zuerst ein Sachbearbeiter eingetragen werden");
 }
 
-function getBookingPickupAddress(db: AppDatabase, booking: typeof bookings.$inferSelect) {
+function getBookingAssignee(db: AppDatabase, booking: typeof bookings.$inferSelect) {
   return booking.assignedUserId
     ? (db
-        .select({ privateAddress: authUser.privateAddress })
+        .select({ privateAddress: authUser.privateAddress, whatsappPhone: authUser.whatsappPhone })
         .from(authUser)
         .where(eq(authUser.id, booking.assignedUserId))
-        .get()?.privateAddress ?? undefined)
+        .get() ?? undefined)
     : undefined;
+}
+
+function getBookingPickupAddress(db: AppDatabase, booking: typeof bookings.$inferSelect) {
+  return getBookingAssignee(db, booking)?.privateAddress ?? undefined;
+}
+
+function getBookingContactPhone(db: AppDatabase, booking: typeof bookings.$inferSelect) {
+  return getBookingAssignee(db, booking)?.whatsappPhone?.trim() || undefined;
 }
 
 function receivedPaymentCents(db: AppDatabase, bookingId: number) {
@@ -503,6 +511,7 @@ export function createDirectBooking(
       locale: booking.communicationLocale,
       name: booking.customerName,
       orderNumber: booking.orderNumber,
+      contactPhone: getBookingContactPhone(db, booking),
       bikes: quote.offeredItems.map((item) => ({ name: item.assetName, frameNumber: item.frameNumber })),
     });
     db.insert(mailOutbox)
@@ -990,6 +999,7 @@ function confirmOfferRecord(
     locale: booking.communicationLocale,
     name: booking.customerName,
     orderNumber: booking.orderNumber,
+    contactPhone: getBookingContactPhone(db, booking),
     offerToken,
     bikes: offeredAssets.map((item) => {
       const asset = db.select().from(rentalAssets).where(eq(rentalAssets.id, item.assetId)).get();

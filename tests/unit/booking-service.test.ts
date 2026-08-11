@@ -54,6 +54,7 @@ function setup() {
       name: "Admin",
       email: "admin@example.com",
       role: "admin",
+      whatsappPhone: "+49 170 1234567",
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -273,9 +274,15 @@ describe("booking commands", () => {
       db.select({ invoiceNumber: bookings.invoiceNumber }).from(bookings).where(eq(bookings.id, booking.id)).get(),
     ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/) });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
-    expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, booking.id)).get()?.plainText).toContain(
-      `https://www.munich-bike-rental.de/angebot/${offer.confirmationToken}`,
-    );
+    const bookingMails = db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, booking.id)).all();
+    expect(
+      bookingMails.some((mail) =>
+        mail.plainText.includes(`https://www.munich-bike-rental.de/angebot/${offer.confirmationToken}`),
+      ),
+    ).toBe(true);
+    const confirmationMail = bookingMails.find((mail) => mail.kind === "booking_confirmed");
+    expect(confirmationMail?.plainText).toContain("+49 170 1234567");
+    expect(confirmationMail?.html).toContain("+49 170 1234567");
     expect(
       db
         .select({ kind: journalEntries.kind })
@@ -507,6 +514,9 @@ describe("booking commands", () => {
     expect(getBookingPaymentStatus(db, created.id)).toEqual({ openCents: 5_000, status: "open" });
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, created.id)).get()?.kind).toBe(
       "booking_confirmed",
+    );
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, created.id)).get()?.plainText).toContain(
+      "+49 170 1234567",
     );
   });
 

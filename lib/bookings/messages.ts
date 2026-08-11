@@ -388,12 +388,17 @@ export function renderBookingNotice(input: {
   cancellationPeriod?: string;
   senderFirstName?: string;
   personalMessage?: string;
+  contactPhone?: string;
   bikes?: Array<{ name: string; frameNumber?: string | null }>;
 }) {
   const de = input.locale === "de";
   const recipientFirstName = input.name.trim().split(/\s+/)[0] || input.name;
   const senderFirstName = input.senderFirstName ?? "Your Bike Rental";
   const offerLink = input.offerToken ? bookingPageUrl(input.offerToken) : null;
+  const contactPhone = input.contactPhone?.trim() || siteConfig.phone;
+  const contactText = de
+    ? `Wenn du bei der Abholung angekommen bist oder kurzfristig Hilfe brauchst, ruf bitte deine zuständige Ansprechperson unter ${contactPhone} an.`
+    : `When you arrive for pickup or need help at short notice, please call your assigned contact at ${contactPhone}.`;
   const bikeLines =
     input.bikes?.flatMap((bike, index) => [
       `${de ? "Fahrrad" : "Bike"} ${index + 1}: ${bike.name}`,
@@ -402,8 +407,8 @@ export function renderBookingNotice(input: {
   const text =
     input.kind === "confirmed"
       ? de
-        ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} ist verbindlich bestätigt.${bikeLines.length ? `\n\n${bikeLines.join("\n")}` : ""}${offerLink ? `\n\nAlle Informationen zu deiner Buchung findest du hier:\n${offerLink}` : ""}\n\nViele Grüße\nYour Bike Rental`
-        : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${bikeLines.length ? `\n\n${bikeLines.join("\n")}` : ""}${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nYour Bike Rental`
+        ? `Hallo ${input.name},\n\ndeine Buchung ${input.orderNumber} ist verbindlich bestätigt.${bikeLines.length ? `\n\n${bikeLines.join("\n")}` : ""}\n\n${contactText}${offerLink ? `\n\nAlle Informationen zu deiner Buchung findest du hier:\n${offerLink}` : ""}\n\nViele Grüße\nYour Bike Rental`
+        : `Hello ${input.name},\n\nyour booking ${input.orderNumber} is now confirmed.${bikeLines.length ? `\n\n${bikeLines.join("\n")}` : ""}\n\n${contactText}${offerLink ? `\n\nYou can find all booking details here:\n${offerLink}` : ""}\n\nKind regards\nYour Bike Rental`
       : input.kind === "cancelled"
         ? de
           ? [
@@ -568,7 +573,7 @@ export function renderBookingNotice(input: {
             : "Inquiry",
     title,
     intro,
-    content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
+    content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" ? emailCard(`${emailLabel(de ? "Deine Ansprechperson" : "Your contact person")}${emailParagraph(contactText)}`, "#eef2ff") : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
     cta: offerLink ? { label: de ? "Buchungsdetails öffnen" : "Open booking details", href: offerLink } : undefined,
   });
   return { subject, text, html };
