@@ -160,8 +160,6 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
     return item;
   });
   const showLocationSelection = params?.standortauswahl === "1";
-  const featuredPost = blogPosts[0];
-
   return (
     <main className="site-shell">
       <HomeTopbar
@@ -239,7 +237,6 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
           form: t.form,
         }}
         portfolioItems={localPortfolioItems}
-        showEnduracePromo={location.key === "munich"}
       />
 
       <section id="bestprice" className="section section--promise">
@@ -398,12 +395,17 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
 
             <p className="section-copy">{copy.blogIntro}</p>
 
-            <BlogPreviewCard
-              post={featuredPost}
-              lang={lang}
-              href={`/blog/${featuredPost.slug}?lang=${lang}`}
-              ctaLabel={t.blogSection.cta}
-            />
+            <div className="blog-section__list">
+              {blogPosts.map((post) => (
+                <BlogPreviewCard
+                  key={post.slug}
+                  post={post}
+                  lang={lang}
+                  href={`/blog/${post.slug}?lang=${lang}`}
+                  ctaLabel={t.blogSection.cta}
+                />
+              ))}
+            </div>
 
             <div className="blog-section__footer">
               <Link className="blog-section__link" href={`/blog?lang=${lang}`}>

@@ -1886,6 +1886,12 @@ button {
   max-width: 700px;
 }
 
+.blog-section__list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+}
+
 .blog-section__footer {
   display: flex;
   justify-content: flex-end;
@@ -1937,6 +1943,7 @@ button {
 
 .blog-preview-card__image {
   object-fit: cover;
+  object-position: top;
   padding: 14px;
   border-radius: 28px;
 }
@@ -2081,7 +2088,7 @@ button {
 
 .blog-archive__list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: 22px;
 }
 
@@ -2151,6 +2158,7 @@ button {
 
 .blog-article__hero-image {
   object-fit: cover;
+  object-position: top;
 }
 
 .blog-article__hero-copy {

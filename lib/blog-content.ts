@@ -45,6 +45,7 @@ export type BlogPost = {
 
 export const blogSlugRedirects: Record<string, string> = {
   "lorem-ipsum-dolor-sit-amet": "rennradtouren-rund-um-muenchen",
+  "wie-henrik-bike-rental-entstanden-ist": "wie-your-bike-rental-entstanden-ist",
 };
 
 export function getCanonicalBlogSlug(slug: string) {
@@ -52,6 +53,157 @@ export function getCanonicalBlogSlug(slug: string) {
 }
 
 export const blogPosts: BlogPost[] = [
+  {
+    slug: "wie-your-bike-rental-entstanden-ist",
+    title: {
+      de: "Vom ersten Rennrad zur eigenen Vermietung: Wie Your Bike Rental entstanden ist",
+      en: "From one road bike to our own rental business: How Your Bike Rental began",
+    },
+    excerpt: {
+      de: "Unsere Geschichte, erzählt von Julius und Justus.",
+      en: "One phone call, one road bike and far more demand than expected: the story of how a small idea between two students became Your Bike Rental.",
+    },
+    category: {
+      de: "Über uns",
+      en: "About us",
+    },
+    publishedAt: "2026-08-11",
+    readingTime: {
+      de: "6 Min. Lesezeit",
+      en: "6 min read",
+    },
+    heroImage: "/assets/img/blog/your-bike-rental-story-v3.png",
+    heroAlt: {
+      de: "Julius und Justus, die Gründer von Your Bike Rental, bei einem gemeinsamen Abend",
+      en: "Julius and Justus, the founders of Your Bike Rental, enjoying an evening together",
+    },
+    previewImage: "/assets/img/blog/your-bike-rental-story-v3.png",
+    previewAlt: {
+      de: "Julius und Justus als Vorschaubild für die Geschichte von Your Bike Rental",
+      en: "Julius and Justus as a preview image for the story of Your Bike Rental",
+    },
+    blocks: [
+      {
+        type: "paragraph",
+        text: {
+          de: "Wenn du uns an dem Abend gesagt hättest, dass daraus einmal Your Bike Rental wird, hätten wir dir wahrscheinlich nicht geglaubt. Wir hatten keinen ausgearbeiteten Plan, kein großes Budget und schon gar keine eigene Website. Wir hatten nur eine Idee und ziemlich viel Lust auf Rennräder.",
+          en: "Your Bike Rental did not start with a finished business plan. There was no big budget, no warehouse full of bikes and no website of our own. There was an idea, a real passion for road bikes and two students who noticed that something was missing in Munich.",
+        },
+      },
+      {
+        type: "quote",
+        text: {
+          de: "Wir wollten eigentlich nur herausfinden, wo man ein gutes Rennrad mieten kann. Am Ende haben wir uns gefragt: Warum machen wir das nicht einfach selbst?",
+          en: "Sometimes a business does not begin with a plan, but with a phone call and one question: Why does this not exist yet?",
+        },
+      },
+      {
+        type: "heading",
+        text: {
+          de: "Der Anruf, mit dem alles losging",
+          en: "It all began with a phone call",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Julius rief mich eines Abends an, weil er für eine Freundin ein Rennrad mieten wollte. Wir haben gemeinsam gesucht und ziemlich schnell gemerkt: Es gibt zwar Angebote, aber kein Rad, bei dem wir beide gesagt hätten: Ja, genau das würden wir guten Gewissens vermieten. Entweder stimmte die Qualität nicht oder der Zustand war nicht so, wie wir es uns vorgestellt hatten. Für ein gutes Rennrad, das man unkompliziert mieten kann, war die Auswahl in München überraschend klein.",
+          en: "One evening, Julius called me, Justus. He wanted to rent a road bike for a friend. The search ended quickly: there were a few options, but no road bikes that matched our expectations in terms of quality and condition. At the time, renting a good, high-quality bike in Munich was surprisingly difficult.",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Am Anfang wollten wir überhaupt keinen Rennradverleih gründen. Wir wollten einfach nur privat ein Rennrad über List and Ride anbieten und schauen, ob sich überhaupt jemand dafür interessiert. Wir fahren beide selbst gerne Rennrad, reden oft darüber und verbringen auch gerne Zeit damit, an den Rädern zu schrauben. Das war eigentlich schon der ganze Plan. Wenn jemand unser Rad mieten würde, sollte es sich natürlich genauso gut anfühlen wie ein Rad, das wir selbst fahren würden.",
+          en: "That conversation did not lead to a polished concept at first, but to a very direct thought: then we should start our own road bike rental business. We both enjoy riding, learning about bikes and working on them just as much. It quickly became clear that we did not want to offer just any bikes. They should ride well, be reliable and be maintained to the standard we would expect for ourselves.",
+        },
+      },
+      {
+        type: "heading",
+        text: {
+          de: "Unser Plan war eigentlich ziemlich klein",
+          en: "One road bike and a cautious calculation",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Am Anfang hatten wir genau ein Rennrad. Wir haben es über List and Ride eingestellt und erst einmal abgewartet. Unsere Rechnung war ziemlich vorsichtig: Vielleicht kommen 50 bis 100 Euro im Monat zusammen. Vielleicht ist das Rad in zwei Jahren abbezahlt. Und dann können wir es selbst fahren. Mehr hatten wir zu diesem Zeitpunkt ehrlich gesagt nicht vor.",
+          en: "We started by listing a single road bike on List and Ride. That was it at first: one bike, one listing and the hope that someone would occasionally be interested. Our original calculation was deliberately cautious. We thought we might earn around 50 to 100 euros per month and pay off the bike after roughly two years. After that, we could use it ourselves – a manageable risk and, in the best case, a bike that would eventually pay for itself.",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Dann kamen die ersten Anfragen. Und es waren nicht ein oder zwei, mit denen wir irgendwie gerechnet hatten. Es wurden schnell so viele, dass unser einzelnes Rennrad komplett ausgebucht war. Kurz danach kam über List and Ride unser erster großer Kunde. Das hat uns ehrlich gesagt ziemlich überrascht. Wir hatten mit einem kleinen Nebenverdienst gerechnet, nicht mit einem Auftrag, bei dem wir plötzlich überlegen mussten, wie wir das alles organisiert bekommen.",
+          en: "Then the enquiries started coming in – far more than we expected. Our first road bike was booked out very quickly. Soon after, our first major customer also came through List and Ride. That order was completely unexpected. At that point, we had been thinking about a small side income, not about handling a rental of that size.",
+        },
+      },
+      {
+        type: "heading",
+        text: {
+          de: "Plötzlich war ein Rennrad nicht mehr genug",
+          en: "From a test run to a real business",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Ab da war klar, dass wir nicht einfach nur ein Inserat laufen lassen können. Wir brauchten eine eigene Website, bessere Abläufe und einen Ort, an dem man uns und unsere Räder richtig kennenlernen kann. Vor allem wollten wir nicht bei jeder Anfrage wieder improvisieren. Aus unserem kleinen Test wurde langsam ein echtes Unternehmen: Your Bike Rental.",
+          en: "By then, it was clear that we had to approach things more professionally. We did not want to depend on a single listing forever. We wanted our own website, reliable processes and a business that we could genuinely stand behind. Step by step, a small test run became Your Bike Rental.",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Relativ schnell haben wir unser zweites Rennrad gekauft. Mit einem Rad sind wir einfach nicht mehr hinterhergekommen. Danach ging es schnell. Wir haben innerhalb kurzer Zeit weitere Rennräder angeschafft und mussten gleichzeitig lernen, Buchungen, Übergaben, Wartung und Kundenanfragen vernünftig unter einen Hut zu bekommen. Vieles davon machen wir bis heute selbst.",
+          en: "On July 11, 2026, we bought our second road bike. By then, we were already completely overbooked with just one bike. After that, everything moved faster than we had planned: we added several more road bikes within a short time and kept improving the processes around bookings, handovers, maintenance and customer communication.",
+        },
+      },
+      {
+        type: "heading",
+        text: {
+          de: "Warum wir das so gerne machen",
+          en: "What keeps us going",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Für uns sind Rennräder nicht einfach nur Mietgegenstände. Wir fahren selbst gerne, probieren neue Strecken aus und können uns ziemlich lange über Komponenten, Übersetzungen oder die richtige Einstellung am Rad unterhalten. Und ja: Wir schrauben auch einfach gerne. Ein Rad zu warten, Fehler zu finden und es wieder sauber auf die Straße zu bringen, gehört für uns genauso dazu wie die Fahrt selbst.",
+          en: "For us, Your Bike Rental is about more than renting out bikes. We are genuinely passionate about road cycling and share the joy of riding long distances, discovering new routes and understanding the technology behind the bikes. We enjoy working on the bikes, maintaining them carefully and learning from every bike and every rental.",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Und natürlich war nicht immer alles entspannt. Gerade am Anfang haben Julius und ich uns auch mal gestritten. Wenn neben dem Studium plötzlich viele Anfragen kommen, ein Rad repariert werden muss und irgendwo noch eine Übergabe wartet, liegen die Nerven manchmal blank. Das gehört wahrscheinlich dazu, wenn man gemeinsam etwas aufbaut. Wichtig war für uns, dass wir uns davon nicht auseinanderbringen lassen. Wir haben gelernt, Dinge früher anzusprechen, Aufgaben klarer aufzuteilen und nach einem Streit wieder an einem Tisch zu sitzen.",
+          en: "Of course, not everything went smoothly. Especially in the beginning, we had our share of disagreements. When an idea suddenly turns into a lot of work and university, schedules, customer enquiries and repairs all come together, different opinions are inevitable. What mattered was that we grew through those moments instead of letting them break us. We learned to communicate more clearly, divide responsibilities and look for solutions together.",
+        },
+      },
+      {
+        type: "heading",
+        text: {
+          de: "Wir sind noch lange nicht fertig",
+          en: "Still at the beginning – and that is what makes it exciting",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Heute ist Your Bike Rental deutlich größer, als wir es an diesem Abend am Telefon erwartet hätten. Trotzdem ist der Grundgedanke gleich geblieben: Du sollst ein gutes Rennrad unkompliziert mieten können, ohne dich durch unklare Angebote kämpfen zu müssen. Wir sind weiterhin Studenten, bauen das Ganze neben dem Studium auf und machen vieles selbst. Genau das ist für uns kein Nachteil, sondern ein Teil der Geschichte.",
+          en: "Today, Your Bike Rental is much bigger than we could have imagined on that evening phone call. Still, the original idea remains the same: make high-quality road bikes easy to access while staying personal, reliable and close to the cycling community. We are still students, building the business alongside our studies and doing a lot ourselves. That is an important part of Your Bike Rental for us.",
+        },
+      },
+      {
+        type: "paragraph",
+        text: {
+          de: "Wo die Reise genau hingeht, wissen wir selbst noch nicht. Aber wir haben Lust, weiterzumachen. Weitere Räder, neue Ideen und hoffentlich viele Menschen, die mit einem unserer Rennräder eine gute Zeit auf der Straße haben. Wenn du also einmal ein Rennrad in München brauchst, weißt du jetzt, wer hinter Your Bike Rental steckt.",
+          en: "We do not know exactly where the journey will take us. But we do know that we want to keep riding it – with good bikes, a lot of enthusiasm and the ambition to make every step a little more professional.",
+        },
+      },
+    ],
+  },
   {
     slug: "rennradtouren-rund-um-muenchen",
     title: {
