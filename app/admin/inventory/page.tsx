@@ -18,6 +18,8 @@ export type AdminInventoryBike = {
   title: string;
   frameNumber: string | null;
   priceCents: number;
+  discountTextDe: string;
+  discountTextEn: string;
   size: string;
   isAvailable: boolean;
 };
@@ -71,6 +73,8 @@ export default async function InventoryPage() {
     title: bike.title,
     frameNumber: bike.frameNumber,
     priceCents: bike.priceCentsPerDay,
+    discountTextDe: bike.discountTextDe,
+    discountTextEn: bike.discountTextEn,
     size: sizeRows.find((size) => size.locationBikeId === bike.id)?.size ?? "",
     isAvailable: bike.isAvailable,
   }));

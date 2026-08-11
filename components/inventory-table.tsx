@@ -19,6 +19,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 type LocationOption = { key: AdminInventoryBike["location"]; label: string };
 type InventoryKind = "bike" | "equipment";
@@ -102,6 +103,8 @@ export function InventoryTable({
             frameNumber: item.frameNumber,
             size: item.size,
             priceCents: item.priceCents,
+            discountTextDe: item.discountTextDe,
+            discountTextEn: item.discountTextEn,
             isAvailable: !item.isAvailable,
           }
         : {
@@ -224,13 +227,14 @@ export function InventoryTable({
                   <TableHead>Bike / Typ</TableHead>
                   <TableHead>Größe</TableHead>
                   <TableHead>Standort</TableHead>
+                  <TableHead>Rabatt-Hinweis</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Preis / Tag</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleBikes.length === 0 ? (
-                  <EmptyRow colSpan={5} label="Noch keine Bikes für diesen Standort erfasst." />
+                  <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
                 ) : (
                   visibleBikes.map((bike) => (
                     <TableRow
@@ -249,6 +253,13 @@ export function InventoryTable({
                       <TableCell>{bike.size}</TableCell>
                       <TableCell>
                         {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
+                      </TableCell>
+                      <TableCell>
+                        {bike.discountTextDe ? (
+                          <span className="text-sm font-medium text-red-700 dark:text-red-400">Hinterlegt</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <StatusButton
@@ -383,6 +394,8 @@ function InventoryDialog({
   const [title, setTitle] = useState(item?.kind === "bike" ? item.title : "");
   const [size, setSize] = useState(item?.kind === "bike" ? item.size : "");
   const [frameNumber, setFrameNumber] = useState(item?.kind === "bike" ? (item.frameNumber ?? "") : "");
+  const [discountTextDe, setDiscountTextDe] = useState(item?.kind === "bike" ? item.discountTextDe : "");
+  const [discountTextEn, setDiscountTextEn] = useState(item?.kind === "bike" ? item.discountTextEn : "");
   const [category, setCategory] = useState<EquipmentCategory>(item?.kind === "equipment" ? item.category : "pedal");
   const [labelDe, setLabelDe] = useState(item?.kind === "equipment" ? item.labelDe : "");
   const [labelEn, setLabelEn] = useState(item?.kind === "equipment" ? item.labelEn : "");
@@ -412,6 +425,8 @@ function InventoryDialog({
             size: size.trim(),
             frameNumber: frameNumber.trim() || null,
             priceCents,
+            discountTextDe: discountTextDe.trim(),
+            discountTextEn: discountTextEn.trim(),
             isAvailable,
           }
         : {
@@ -457,6 +472,8 @@ function InventoryDialog({
           title: title.trim(),
           frameNumber: frameNumber.trim() || null,
           priceCents,
+          discountTextDe: discountTextDe.trim(),
+          discountTextEn: discountTextEn.trim(),
           size: size.trim(),
           isAvailable,
         },
@@ -487,10 +504,12 @@ function InventoryDialog({
       <DialogContent className="max-w-xl">
         <form onSubmit={save}>
           <DialogHeader>
-            <DialogTitle>{item ? "Inventar bearbeiten" : "Inventar hinzufügen"}</DialogTitle>
+            <DialogTitle>
+              {item ? `${kind === "bike" ? "Bike" : "Inventar"} bearbeiten` : "Inventar hinzufügen"}
+            </DialogTitle>
             <DialogDescription>
               {kind === "bike"
-                ? "Pflege Typ, eine Größe und den Tagespreis des Bikes."
+                ? "Pflege Modell, Größe, Tagespreis und einen optionalen Rabatt-Hinweis für dieses Bike."
                 : "Pflege Kategorie, Art und Preis der Ausrüstung."}
             </DialogDescription>
           </DialogHeader>
@@ -542,6 +561,33 @@ function InventoryDialog({
                     placeholder="z. B. WTU123456789"
                   />
                 </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="inventory-discount-de">Rabatt-Hinweis (Deutsch)</FieldLabel>
+                    <Textarea
+                      id="inventory-discount-de"
+                      value={discountTextDe}
+                      onChange={(event) => setDiscountTextDe(event.target.value)}
+                      placeholder={"z. B. 50%\nRabatt insgesamt\nFür Größe S"}
+                      maxLength={500}
+                      rows={4}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="inventory-discount-en">Rabatt-Hinweis (Englisch)</FieldLabel>
+                    <Textarea
+                      id="inventory-discount-en"
+                      value={discountTextEn}
+                      onChange={(event) => setDiscountTextEn(event.target.value)}
+                      placeholder={"e.g. 50%\nTotal discount\nFor size S"}
+                      maxLength={500}
+                      rows={4}
+                    />
+                  </Field>
+                </div>
+                <p className="-mt-3 text-xs text-muted-foreground">
+                  Eine Zeile pro Textbaustein. Der Hinweis erscheint als Badge auf der öffentlichen Bike-Karte.
+                </p>
               </>
             ) : (
               <>

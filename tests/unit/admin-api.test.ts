@@ -142,6 +142,8 @@ describe("admin inventory API", () => {
         size: "M",
         frameNumber: "EDGE-1",
         priceCents: 4_500,
+        discountTextDe: "10%\nNur im Mai",
+        discountTextEn: "10%\nMay only",
         isAvailable: true,
       }),
     );
@@ -155,6 +157,13 @@ describe("admin inventory API", () => {
         .where(eq(rentalLocationBikeSizes.locationBikeId, bikeBody.item.id))
         .all(),
     ).toHaveLength(1);
+    expect(
+      db
+        .select({ de: rentalLocationBikes.discountTextDe, en: rentalLocationBikes.discountTextEn })
+        .from(rentalLocationBikes)
+        .where(eq(rentalLocationBikes.id, bikeBody.item.id))
+        .get(),
+    ).toEqual({ de: "10%\nNur im Mai", en: "10%\nMay only" });
 
     expect(
       (
@@ -193,6 +202,8 @@ describe("admin inventory API", () => {
       title: "Edge Bike Updated",
       frameNumber: "EDGE-2",
       priceCentsPerDay: 5_000,
+      discountTextDe: "10%\nNur im Mai",
+      discountTextEn: "10%\nMay only",
     });
     expect(
       db

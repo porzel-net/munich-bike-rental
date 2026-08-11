@@ -150,6 +150,8 @@ export const rentalLocationBikes = sqliteTable(
     title: text("title").notNull(),
     frameNumber: text("frame_number"),
     priceCentsPerDay: integer("price_cents_per_day").notNull(),
+    discountTextDe: text("discount_text_de").notNull().default(""),
+    discountTextEn: text("discount_text_en").notNull().default(""),
     descriptionDe: text("description_de").notNull(),
     descriptionEn: text("description_en").notNull(),
     image: text("image").notNull(),

@@ -29,6 +29,14 @@ describe("location inventory", () => {
     expect(munich.portfolioItems).toHaveLength(4);
     expect(munich.bikeOptions).toHaveLength(4);
     expect(munich.bikeOptions).toContain("Aeroad CF SL 8");
+    expect(munich.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")?.discountText).toEqual({
+      de: "50%\nRabatt insgesamt\nVom 6.8.–13.8.\nFür Größe S",
+      en: "50%\nTotal discount\nFrom Aug 6–13\nFor size S",
+    });
+    expect(regensburg.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")?.discountText).toEqual({
+      de: "",
+      en: "",
+    });
     expect(regensburg.portfolioItems.map((bike) => bike.title)).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
     expect(regensburg.bikeOptions).toHaveLength(2);
     expect(munich.pedalTypes.map((item) => item.value)).toEqual(["platform", "spdSl", "lookKeo2Max", "other"]);

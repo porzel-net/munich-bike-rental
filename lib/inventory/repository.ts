@@ -160,6 +160,14 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
         de: `${(bike.priceCentsPerDay / 100).toFixed(0)}€/Tag`,
         en: `${(bike.priceCentsPerDay / 100).toFixed(0)}€/day`,
       },
+      discountText: {
+        de:
+          bikes.find((candidate) => candidate.title === bike.title && candidate.discountTextDe.trim())
+            ?.discountTextDe ?? "",
+        en:
+          bikes.find((candidate) => candidate.title === bike.title && candidate.discountTextEn.trim())
+            ?.discountTextEn ?? "",
+      },
       description: { de: bike.descriptionDe, en: bike.descriptionEn },
       image: bike.image,
       gallery: parseGallery(bike.galleryJson),

@@ -50,6 +50,7 @@ export type PortfolioItem = {
   frameNumber?: string | null;
   subtitle: LocalizedText;
   price: LocalizedText;
+  discountText?: LocalizedText;
   description: LocalizedText;
   image: string | StaticImageData;
   gallery: Array<string | StaticImageData>;

@@ -28,6 +28,8 @@ const bikeSchema = baseSchema.extend({
   title: z.string().trim().min(1).max(160),
   size: z.string().trim().min(1).max(32),
   frameNumber: z.string().trim().max(120).optional().nullable(),
+  discountTextDe: z.string().trim().max(500).optional(),
+  discountTextEn: z.string().trim().max(500).optional(),
 });
 const equipmentSchema = baseSchema.extend({
   type: z.literal("equipment"),
@@ -118,6 +120,8 @@ export async function POST(request: Request) {
             title: input.data.title,
             frameNumber: input.data.frameNumber?.trim() || null,
             priceCentsPerDay: input.data.priceCents,
+            discountTextDe: input.data.discountTextDe ?? "",
+            discountTextEn: input.data.discountTextEn ?? "",
             ...contents,
             displayOrder,
             isAvailable: input.data.isAvailable,
@@ -176,7 +180,12 @@ export async function PATCH(request: Request) {
     if (input.data.type === "bike") {
       const bikeInput = input.data;
       const bike = db
-        .select({ id: rentalLocationBikes.id, bikeKey: rentalLocationBikes.bikeKey })
+        .select({
+          id: rentalLocationBikes.id,
+          bikeKey: rentalLocationBikes.bikeKey,
+          discountTextDe: rentalLocationBikes.discountTextDe,
+          discountTextEn: rentalLocationBikes.discountTextEn,
+        })
         .from(rentalLocationBikes)
         .where(and(eq(rentalLocationBikes.id, bikeInput.id), eq(rentalLocationBikes.location, bikeInput.location)))
         .get();
@@ -190,6 +199,8 @@ export async function PATCH(request: Request) {
             title: bikeInput.title,
             frameNumber: bikeInput.frameNumber?.trim() || null,
             priceCentsPerDay: bikeInput.priceCents,
+            discountTextDe: bikeInput.discountTextDe ?? bike.discountTextDe,
+            discountTextEn: bikeInput.discountTextEn ?? bike.discountTextEn,
             isAvailable: bikeInput.isAvailable,
           })
           .where(eq(rentalLocationBikes.id, bikeInput.id))
