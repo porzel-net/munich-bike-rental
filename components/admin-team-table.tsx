@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -153,59 +154,63 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
           </Button>
         </div>
         {message ? <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{message}</p> : null}
-        <Table>
-          <TableBody>
-            {users.map((user) => {
-              const isCurrentUser = user.id === currentUserId;
-              return (
-                <TableRow key={user.id}>
-                  <TableCell className="w-10">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                      <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{user.name}</span>
-                      <span className="text-sm text-muted-foreground">{user.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    <div className="flex flex-col">
-                      <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
-                      <span>
-                        {user.role === "admin"
-                          ? "Alle Standorte"
-                          : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-8">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                        <MoreHorizontal />
-                        <span className="sr-only">Aktionen für {user.name}</span>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
-                          Bearbeiten
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => void deleteUser(user)}
-                          disabled={isCurrentUser}
-                        >
-                          Löschen
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
+          <CardContent className="p-0">
+            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+              <TableBody>
+                {users.map((user) => {
+                  const isCurrentUser = user.id === currentUserId;
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell className="w-10">
+                        <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                          <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{user.name}</span>
+                          <span className="text-sm text-muted-foreground">{user.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        <div className="flex flex-col">
+                          <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
+                          <span>
+                            {user.role === "admin"
+                              ? "Alle Standorte"
+                              : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="w-8">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                            <MoreHorizontal />
+                            <span className="sr-only">Aktionen für {user.name}</span>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
+                              Bearbeiten
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => void deleteUser(user)}
+                              disabled={isCurrentUser}
+                            >
+                              Löschen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog open={editingUser !== null} onOpenChange={(open) => !open && setEditingUser(null)}>
