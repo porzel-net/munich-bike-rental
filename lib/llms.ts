@@ -52,7 +52,6 @@ This website is for a local bicycle rental service. The most useful pages are th
 - [Lindau road & gravel bike rental](${siteConfig.url}/de/rennradverleih/lindau/aeschach): Available bikes, prices, FAQ and contact in Lindau-Aeschach.
 - [Friedrichshafen road & gravel bike rental](${siteConfig.url}/de/rennradverleih/friedrichshafen/innenstadt): Available bikes, prices, FAQ and contact in Friedrichshafen city centre.
 - [Konstanz road & gravel bike rental](${siteConfig.url}/de/rennradverleih/konstanz/altstadt): Available bikes, prices, FAQ and contact in Konstanz-Altstadt.
-- [Maintenance](${siteConfig.url}/wartung): Road bike maintenance, oil-to-wax switch, parts replacement, repairs, pickup service and service requests.
 - [Blog](${siteConfig.url}/blog): Short posts about routes and bike topics.
 - [Imprint](${siteConfig.url}/impressum): Legal notice and operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Data processing and privacy information.
@@ -101,7 +100,7 @@ export function buildLlmsFullTxt() {
 
 ## Overview
 
-${siteConfig.name} is a local road and gravel bike rental business in Munich-Maxvorstadt and Regensburg-Altstadt, with bike maintenance offered in Munich-Maxvorstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
+${siteConfig.name} is a local road and gravel bike rental business in Munich-Maxvorstadt and Regensburg-Altstadt. The site focuses on owned endurance, gravel, all-round and aero bikes, direct booking, clear pricing, and a personal owner-run experience.
 
 The project uses a single-page home experience with sections for bikes, prices, FAQ and contact, plus legal pages for imprint and privacy policy.
 
@@ -122,7 +121,6 @@ The project uses a single-page home experience with sections for bikes, prices, 
 - [Lindau road & gravel bike rental](${siteConfig.url}/de/rennradverleih/lindau/aeschach): Main rental page for Lindau-Aeschach.
 - [Friedrichshafen road & gravel bike rental](${siteConfig.url}/de/rennradverleih/friedrichshafen/innenstadt): Main rental page for Friedrichshafen city centre.
 - [Konstanz road & gravel bike rental](${siteConfig.url}/de/rennradverleih/konstanz/altstadt): Main rental page for Konstanz-Altstadt.
-- [Maintenance](${siteConfig.url}/wartung): Dedicated maintenance page for service requests and bike-care questions.
 - [Imprint](${siteConfig.url}/impressum): Legal operator details.
 - [Privacy policy](${siteConfig.url}/datenschutzerklaerung): Privacy and data processing information.
 - [Terms and conditions](${siteConfig.url}/en/agb): General terms and conditions for bicycle rental.
@@ -131,7 +129,7 @@ The project uses a single-page home experience with sections for bikes, prices, 
 
 ## Hero message
 
-The homepage presents the business as a passion-driven, owner-operated bike rental service in Munich and Regensburg, with maintenance offered in Munich. The main promise is:
+The homepage presents the business as a passion-driven, owner-operated bike rental service in Munich and Regensburg. The main promise is:
 
 - personal contact
 - carefully maintained bikes

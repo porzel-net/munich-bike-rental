@@ -21,7 +21,6 @@ type TopbarTranslations = {
     prices: string;
     faq: string;
     contact: string;
-    maintenance?: string;
     blog: string;
     imprint: string;
     privacy: string;
@@ -138,13 +137,12 @@ type HomeTopbarProps = {
   topbar: TopbarTranslations;
   sectionAnchors?: Partial<{
     start: string;
-    maintenance: string;
     bikes: string;
     prices: string;
     faq: string;
     contact: string;
   }>;
-  hiddenNavItems?: Array<"start" | "maintenance" | "bikes" | "prices" | "faq" | "contact">;
+  hiddenNavItems?: Array<"start" | "bikes" | "prices" | "faq" | "contact">;
   backLink?: {
     href: string;
     label: string;
@@ -686,7 +684,7 @@ export function HomeTopbar({
   const [locationsOpen, setLocationsOpen] = useState(false);
   const pageHref = (path: string) => buildPathWithSearch({ pathname: path, searchParams, lang });
   const sectionHref = (hash: string, override?: string) => {
-    if (pathname === "/wartung" && override) {
+    if (override) {
       return override;
     }
 
@@ -706,9 +704,7 @@ export function HomeTopbar({
 
     return buildPathWithSearch({ pathname: targetHomePath, searchParams, hash, lang });
   };
-  const maintenanceHref =
-    pathname === "/wartung" ? sectionHref("#wartung", sectionAnchors?.maintenance) : pageHref("/wartung");
-  const isHidden = (item: "start" | "maintenance" | "bikes" | "prices" | "faq" | "contact") =>
+  const isHidden = (item: "start" | "bikes" | "prices" | "faq" | "contact") =>
     hiddenNavItems?.includes(item) ?? false;
 
   useEffect(() => {
@@ -752,13 +748,6 @@ export function HomeTopbar({
                   {topbar.nav.start}
                 </a>
               </li>
-              {!isHidden("maintenance") ? (
-                <li className="nav__item">
-                  <a href={maintenanceHref} className="nav__link nav__link--anchor">
-                    {topbar.nav.maintenance ?? (lang === "de" ? "Wartung" : "Maintenance")}
-                  </a>
-                </li>
-              ) : null}
               {!isHidden("bikes") ? (
                 <li className="nav__item">
                   <a href={sectionHref("#portfolio", sectionAnchors?.bikes)} className="nav__link nav__link--anchor">
@@ -881,17 +870,6 @@ export function HomeTopbar({
                 {topbar.nav.start}
               </a>
             </li>
-            {!isHidden("maintenance") ? (
-              <li className="nav__item nav__item--mobile">
-                <a
-                  href={maintenanceHref}
-                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {topbar.nav.maintenance ?? (lang === "de" ? "Wartung" : "Maintenance")}
-                </a>
-              </li>
-            ) : null}
             {!isHidden("bikes") ? (
               <li className="nav__item nav__item--mobile">
                 <a

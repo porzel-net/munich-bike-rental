@@ -6,7 +6,7 @@ export const siteConfig = {
   description:
     "Persönlicher Rennrad- und Gravel-Verleih in München, Regensburg, Lindau Bodensee, Friedrichshafen und Konstanz. Gepflegte Räder, direkte Beratung und klare Preise.",
   descriptionEn:
-    "Personal road and gravel bike rental in Munich, Regensburg, Lindau, Friedrichshafen and Constance with serviced bikes, direct advice and transparent pricing.",
+    "Personal road and gravel bike rental in Munich, Regensburg, Lindau, Friedrichshafen and Constance with well-maintained bikes, direct advice and transparent pricing.",
   email: "hallo@munich-bike-rental.de",
   phone: "+49 89 54193577",
   phoneE164: "+498954193577",

@@ -231,28 +231,6 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
         </div>
       </section>
 
-      {location.key === "munich" ? (
-        <section className="section section--maintenance-promo">
-          <div className="container">
-            <div className="maintenance-card">
-              <div className="maintenance-card__content">
-                <span className="maintenance-card__eyebrow">{t.maintenancePromo.eyebrow}</span>
-                <h2 className="maintenance-card__title">{copy.maintenanceTitle}</h2>
-                <p className="maintenance-card__text">{copy.maintenanceText}</p>
-              </div>
-
-              <Link
-                className="button--arrow maintenance-card__link"
-                href={`/wartung${lang === "de" ? "" : "?lang=en"}`}
-              >
-                <span>{t.maintenancePromo.cta}</span>
-                <ArrowUpRight aria-hidden="true" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       <PortfolioSection
         lang={lang}
         translations={{
