@@ -190,7 +190,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         advanceBooking(command.db, id, "expired", command.user.id, input.data.reason);
         break;
       case "check_out":
-        advanceBooking(command.db, id, "checked_out", command.user.id, input.data.reason);
+        {
+          const mailId = advanceBooking(command.db, id, "checked_out", command.user.id, input.data.reason);
+          if (mailId) await dispatchNextOutboxMail(command.db, mailId);
+        }
         break;
       case "complete":
         advanceBooking(command.db, id, "completed", command.user.id, input.data.reason);

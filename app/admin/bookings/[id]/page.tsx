@@ -34,6 +34,7 @@ import {
   type RentalLocation,
 } from "@/lib/inquiries/catalog";
 import {
+  bookingFeedback,
   bookingOfferItems,
   bookingOffers,
   bookingRequestedItems,
@@ -112,6 +113,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .where(eq(bookingOffers.bookingId, id))
     .orderBy(desc(bookingOffers.offerNumber))
     .all();
+  const feedback = db.select().from(bookingFeedback).where(eq(bookingFeedback.bookingId, id)).get() ?? null;
   const entries = db
     .select()
     .from(journalEntries)
@@ -335,6 +337,62 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               </CardContent>
             ) : null}
           </Card>
+
+          {feedback ? (
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>Kundenfeedback</CardTitle>
+                    <CardDescription className="mt-1">Kurze Bewertung nach der Fahrradausgabe.</CardDescription>
+                  </div>
+                  <Badge variant={feedback?.submittedAt ? "success" : "outline"}>
+                    {feedback?.submittedAt ? "Eingegangen" : feedback ? "Noch offen" : "Wird nach Ausgabe angelegt"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              {feedback.submittedAt ? (
+                <CardContent className="space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    {(
+                      [
+                        ["Fahrrad & Ausstattung", feedback.bikeRating],
+                        ["Übergabe", feedback.handoverRating],
+                        ["Kommunikation", feedback.communicationRating],
+                        ["Preis-Leistung", feedback.priceRating],
+                        ["Gesamterlebnis", feedback.overallRating],
+                      ] as Array<[string, number | null]>
+                    ).map(([label, rating]) => (
+                      <div className="rounded-2xl border bg-muted/25 p-4" key={label}>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                        <p className="mt-2 text-lg font-semibold text-amber-600">
+                          {"★".repeat(rating ?? 0)}
+                          <span className="text-muted-foreground/30">{"★".repeat(5 - (rating ?? 0))}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">{rating}/5 Sterne</p>
+                      </div>
+                    ))}
+                  </div>
+                  {feedback.comment ? (
+                    <div className="rounded-2xl border bg-muted/25 p-4">
+                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Kommentar</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{feedback.comment}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Kein zusätzlicher Kommentar.</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Eingegangen am{" "}
+                    {feedback.submittedAt.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}
+                  </p>
+                </CardContent>
+              ) : (
+                <CardContent className="text-sm text-muted-foreground">
+                  Der Feedback-Link wurde versendet. Sobald die Rückmeldung eingeht, erscheint sie hier.
+                </CardContent>
+              )}
+            </Card>
+          ) : null}
 
           <Card>
             <CardContent>

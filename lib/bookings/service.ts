@@ -8,6 +8,7 @@ import {
   bookingAccessoryAllocations,
   bookingAssetAllocations,
   bookingEvents,
+  bookingFeedback,
   bookingOfferItems,
   bookingOffers,
   bookingPublicLinks,
@@ -29,7 +30,7 @@ import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
 import { appendJournalEntry, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents } from "./money";
-import { renderBookingNotice, renderInquiryReceivedMail, renderOfferMail } from "./messages";
+import { renderBookingNotice, renderFeedbackRequestMail, renderInquiryReceivedMail, renderOfferMail } from "./messages";
 import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
 import { allocateInvoiceNumber } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
@@ -65,6 +66,16 @@ function assertBookingHasAssignee(db: AppDatabase, booking: typeof bookings.$inf
     !db.select({ id: authUser.id }).from(authUser).where(eq(authUser.id, booking.assignedUserId)).get()
   )
     throw new BookingCommandError("Für diese Buchung muss zuerst ein Sachbearbeiter eingetragen werden");
+}
+
+function getBookingPickupAddress(db: AppDatabase, booking: typeof bookings.$inferSelect) {
+  return booking.assignedUserId
+    ? (db
+        .select({ privateAddress: authUser.privateAddress })
+        .from(authUser)
+        .where(eq(authUser.id, booking.assignedUserId))
+        .get()?.privateAddress ?? undefined)
+    : undefined;
 }
 
 function receivedPaymentCents(db: AppDatabase, bookingId: number) {
@@ -610,6 +621,7 @@ export function createOffer(
       pickupTime: booking.pickupTime,
       dropoffTime: booking.dropoffTime,
       location: booking.location,
+      pickupAddress: getBookingPickupAddress(db, booking),
       token,
       senderFirstName: firstName(
         input.actorUserId
@@ -707,6 +719,7 @@ export function previewOffer(
     pickupTime: booking.pickupTime,
     dropoffTime: booking.dropoffTime,
     location: booking.location,
+    pickupAddress: getBookingPickupAddress(db, booking),
     token: "VORSCHAU",
     senderFirstName: firstName(
       input.actorUserId
@@ -1319,6 +1332,32 @@ export function advanceBooking(
         });
     }
     let queuedMailId: number | null = null;
+    if (target === "checked_out") {
+      const feedbackToken = randomBytes(32).toString("hex");
+      const feedbackMail = renderFeedbackRequestMail({
+        locale: booking.communicationLocale,
+        name: booking.customerName,
+        orderNumber: booking.orderNumber,
+        token: feedbackToken,
+      });
+      db.insert(bookingFeedback)
+        .values({
+          bookingId: booking.id,
+          tokenHash: createHash("sha256").update(feedbackToken).digest("hex"),
+          comment: "",
+          createdAt: now(),
+        })
+        .onConflictDoNothing()
+        .run();
+      queuedMailId = queueCustomerMail(db, booking, {
+        kind: "feedback_request",
+        subjectDe: feedbackMail.subject,
+        subjectEn: feedbackMail.subject,
+        textDe: feedbackMail.text,
+        textEn: feedbackMail.text,
+        html: feedbackMail.html,
+      });
+    }
     if (target === "rejected") {
       const notice = renderBookingNotice({
         kind: "rejected",

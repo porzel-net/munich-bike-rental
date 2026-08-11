@@ -427,6 +427,51 @@ export const mailOutbox = sqliteTable(
   ],
 );
 
+/** One feedback link is created when a bike is handed over and can be submitted once. */
+export const bookingFeedback = sqliteTable(
+  "booking_feedback",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "restrict" }),
+    tokenHash: text("token_hash").notNull(),
+    bikeRating: integer("bike_rating"),
+    handoverRating: integer("handover_rating"),
+    communicationRating: integer("communication_rating"),
+    priceRating: integer("price_rating"),
+    overallRating: integer("overall_rating"),
+    comment: text("comment").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    uniqueIndex("booking_feedback_booking_unique").on(table.bookingId),
+    uniqueIndex("booking_feedback_token_hash_unique").on(table.tokenHash),
+    index("booking_feedback_submitted_at_idx").on(table.submittedAt),
+    check(
+      "booking_feedback_bike_rating_check",
+      sql`${table.bikeRating} is null or ${table.bikeRating} between 1 and 5`,
+    ),
+    check(
+      "booking_feedback_handover_rating_check",
+      sql`${table.handoverRating} is null or ${table.handoverRating} between 1 and 5`,
+    ),
+    check(
+      "booking_feedback_communication_rating_check",
+      sql`${table.communicationRating} is null or ${table.communicationRating} between 1 and 5`,
+    ),
+    check(
+      "booking_feedback_price_rating_check",
+      sql`${table.priceRating} is null or ${table.priceRating} between 1 and 5`,
+    ),
+    check(
+      "booking_feedback_overall_rating_check",
+      sql`${table.overallRating} is null or ${table.overallRating} between 1 and 5`,
+    ),
+  ],
+);
+
 export const journalEntries = sqliteTable(
   "journal_entries",
   {

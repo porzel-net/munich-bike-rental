@@ -10,6 +10,7 @@ import {
   bookingAccessoryAllocations,
   bookingAssetAllocations,
   bookingEvents,
+  bookingFeedback,
   bookingOffers,
   bookingRequestedItems,
   bookings,
@@ -36,6 +37,7 @@ import {
 } from "../../lib/bookings/service";
 import { renderOfferMail } from "../../lib/bookings/messages";
 import { appendJournalEntry } from "../../lib/bookings/ledger";
+import { getPublicFeedbackByToken, submitPublicFeedback } from "../../lib/bookings/feedback";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 afterEach(() => {
@@ -292,6 +294,52 @@ describe("booking commands", () => {
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(2);
   });
 
+  it("creates a one-time feedback link and queues the request after handover", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOffer(db, offer.confirmationToken, "admin");
+
+    const mailId = advanceBooking(db, booking.id, "checked_out", "admin");
+    expect(mailId).toBeTypeOf("number");
+    const mail = db.select().from(mailOutbox).where(eq(mailOutbox.kind, "feedback_request")).get();
+    expect(mail?.html).toContain("How was your ride?");
+    const token = new URL(mail!.plainText.split("\n").find((line) => line.includes("/feedback/"))!).pathname
+      .split("/")
+      .at(-1)!;
+    expect(getPublicFeedbackByToken(db, token)).toMatchObject({
+      orderNumber: booking.orderNumber,
+      submittedAt: null,
+      ratings: { bikeRating: null, overallRating: null },
+    });
+
+    submitPublicFeedback(db, token, {
+      bikeRating: 5,
+      handoverRating: 4,
+      communicationRating: 5,
+      priceRating: 4,
+      overallRating: 5,
+      comment: "Alles hat super geklappt.",
+    });
+    expect(getPublicFeedbackByToken(db, token)).toMatchObject({
+      submittedAt: expect.any(String),
+      comment: "Alles hat super geklappt.",
+      ratings: { bikeRating: 5, handoverRating: 4, communicationRating: 5, priceRating: 4, overallRating: 5 },
+    });
+    expect(() =>
+      submitPublicFeedback(db, token, {
+        bikeRating: 1,
+        handoverRating: 1,
+        communicationRating: 1,
+        priceRating: 1,
+        overallRating: 1,
+        comment: "Noch einmal",
+      }),
+    ).toThrow("bereits abgegeben");
+    expect(db.select().from(bookingFeedback).where(eq(bookingFeedback.bookingId, booking.id)).all()).toHaveLength(1);
+  });
+
   it("queues a personalized rejection mail and stores the selected rejection reason", () => {
     const { db } = setup();
     const booking = createBooking(db, {
@@ -464,6 +512,10 @@ describe("booking commands", () => {
 
   it("previews an alternative without creating an offer version", () => {
     const { db, assetId } = setup();
+    db.update(authUser)
+      .set({ privateAddress: "Private Straße 7, 80333 München" })
+      .where(eq(authUser.id, "admin"))
+      .run();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");
     assignAdminBooking(db, booking.id);
     const preview = previewOffer(db, {
@@ -475,6 +527,7 @@ describe("booking commands", () => {
     expect(preview.quote.totalCents).toBe(10_000);
     expect(preview.mail.subject).toContain("Alternative offer");
     expect(preview.mail.html).toContain("Your alternative offer");
+    expect(preview.mail.text).toContain("Private Straße 7, 80333 München");
     const germanMail = renderOfferMail({
       locale: "de",
       alternative: true,

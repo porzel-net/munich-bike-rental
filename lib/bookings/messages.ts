@@ -9,6 +9,7 @@ import {
 } from "../inquiries/catalog";
 import { rentalLocationConfigs } from "../rental-locations";
 import { siteConfig } from "../site";
+import { feedbackCriteria, feedbackPageUrl } from "./feedback";
 import { emailCard, emailLabel, emailParagraph, escapeHtml, renderEmailLayout } from "../inquiries/email-template";
 import type { OfferAccessorySelection } from "./quotes";
 
@@ -37,6 +38,7 @@ export type OfferMailInput = {
   pickupTime: string;
   dropoffTime: string;
   location: string;
+  pickupAddress?: string;
   token: string;
   senderFirstName: string;
   alternativeReason?: string;
@@ -116,7 +118,9 @@ export function renderOfferMail(input: OfferMailInput) {
     .join("\n");
   const greeting = input.name.trim().split(/\s+/)[0] || input.name;
   const pickupAddress =
-    rentalLocationConfigs.find((location) => location.key === input.location)?.address ?? input.location;
+    input.pickupAddress?.trim() ||
+    rentalLocationConfigs.find((location) => location.key === input.location)?.address ||
+    input.location;
   const pickupLocation = rentalLocationConfigs.find((location) => location.key === input.location);
   const pickupNote =
     pickupLocation && "pickupNote" in pickupLocation ? pickupLocation.pickupNote?.[input.locale] : undefined;
@@ -566,6 +570,52 @@ export function renderBookingNotice(input: {
     intro,
     content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
     cta: offerLink ? { label: de ? "Buchungsdetails öffnen" : "Open booking details", href: offerLink } : undefined,
+  });
+  return { subject, text, html };
+}
+
+export function renderFeedbackRequestMail(input: {
+  locale: "de" | "en";
+  name: string;
+  orderNumber: string;
+  token: string;
+}) {
+  const de = input.locale === "de";
+  const greeting = input.name.trim().split(/\s+/)[0] || input.name;
+  const subject = de ? `Wie war deine Fahrt? ${input.orderNumber}` : `How was your ride? ${input.orderNumber}`;
+  const text = [
+    de ? `Hallo ${greeting},` : `Hello ${greeting},`,
+    "",
+    de
+      ? "dein Fahrrad wurde erfolgreich ausgegeben. Wir würden gerne kurz hören, wie alles geklappt hat."
+      : "Your bike has been handed over successfully. We would love to hear how everything went.",
+    "",
+    de
+      ? "Bewerte mit wenigen Klicks Fahrrad, Übergabe, Kommunikation, Preis-Leistung und dein Gesamterlebnis. Ein kurzer Kommentar ist optional."
+      : "With a few clicks, rate the bike, handover, communication, value for money and your overall experience. A short comment is optional.",
+    "",
+    feedbackPageUrl(input.token),
+    "",
+    de
+      ? "Vielen Dank für deine Zeit!\nViele Grüße\nYour Bike Rental"
+      : "Thank you for your time!\nKind regards\nYour Bike Rental",
+  ].join("\n");
+  const criteria = feedbackCriteria
+    .map(
+      (criterion) =>
+        `<div style="display:inline-block;margin:0 6px 8px 0;padding:8px 10px;border-radius:999px;background:#f7f8fa;color:#4f5960;font-size:12px">${escapeHtml(de ? criterion.de : criterion.en)}</div>`,
+    )
+    .join("");
+  const html = renderEmailLayout({
+    locale: input.locale,
+    preheader: de ? "Dein kurzes Feedback ist uns wichtig." : "Your quick feedback matters to us.",
+    eyebrow: de ? "Deine Fahrt" : "Your ride",
+    title: de ? "Wie war deine Fahrt?" : "How was your ride?",
+    intro: de
+      ? `Hallo ${greeting}, dein Fahrrad wurde ausgegeben – jetzt zählt dein Eindruck.`
+      : `Hello ${greeting}, your bike has been handed over – now we would love to hear your impression.`,
+    content: `${emailCard(`${emailParagraph(de ? "Nimm dir bitte eine Minute und bewerte kurz, wie Fahrrad, Übergabe, Kommunikation und Preis-Leistung geklappt haben. Die Sterne sind schnell vergeben, ein Text ist vollkommen optional." : "Please take a minute to rate the bike, handover, communication and value for money. The stars are quick to select, and a comment is completely optional.")}${`<div style="margin-top:16px">${criteria}</div>`}`, "#eef2ff")}${emailCard(`${emailLabel(de ? "Buchung" : "Booking")}<strong style="color:#171a1d;font-size:15px">${escapeHtml(input.orderNumber)}</strong>`)}`,
+    cta: { label: de ? "Feedback abgeben" : "Leave feedback", href: feedbackPageUrl(input.token) },
   });
   return { subject, text, html };
 }
