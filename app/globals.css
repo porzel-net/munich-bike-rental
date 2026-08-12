@@ -2471,14 +2471,12 @@ button {
 
 @media (max-width: 520px) {
   .rental-days-dialog {
-    place-items: start center;
-    padding: 16px;
-    padding-top: max(16px, env(safe-area-inset-top));
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    place-items: center;
+    padding: max(56px, calc(56px + env(safe-area-inset-top))) 16px max(56px, calc(56px + env(safe-area-inset-bottom)));
   }
 
   .rental-days-dialog__panel {
-    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 112px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     padding: 26px 22px;
   }
 
