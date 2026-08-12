@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -22,7 +22,6 @@ import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/sessi
 import { hasAssetConflict } from "@/lib/bookings/availability";
 import { getAssignableBookingUsers } from "@/lib/bookings/assignees";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
-import { selectableFinancialAccountCodes } from "@/lib/financial/accounts";
 import { formatEuro } from "@/lib/bookings/money";
 import { bookingPresentation, paymentPresentation } from "@/lib/bookings/presentation";
 import { getDatabase } from "@/lib/db/client";
@@ -136,12 +135,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       type: financialAccounts.type,
     })
     .from(financialAccounts)
-    .where(
-      and(
-        eq(financialAccounts.status, "active"),
-        inArray(financialAccounts.code, selectableFinancialAccountCodes as unknown as string[]),
-      ),
-    )
+    .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
     .all();
   const latestEmailActionReview = getLatestEmailActionReview(db, booking.id);

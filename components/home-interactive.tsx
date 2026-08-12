@@ -1085,7 +1085,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
   const formRef = useRef<HTMLFormElement>(null);
   const confirmRentalDaysRef = useRef(false);
   const affiliateKey = getAffiliateKey(searchParams);
-  const bikeOptions = inventory.bikeOptions;
+  const bikeOptions = inventory.requestBikeOptions;
 
   const clearFieldError = (field: ContactField) => {
     setFieldErrors((current) => {

@@ -2,9 +2,11 @@ ARG SITE_URL=https://www.munich-bike-rental.de
 
 FROM node:22.23.2-bookworm-slim AS deps
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@11.14.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --ignore-scripts
+# Native dependencies such as better-sqlite3 need their install scripts to
+# provide bindings for the Node.js/Linux image used by the builder.
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 FROM node:22.23.2-bookworm-slim AS builder
 WORKDIR /app
@@ -14,7 +16,7 @@ ENV SITE_URL=${SITE_URL}
 # Better Auth initializes the database while Next collects route metadata. The
 # runtime uses /data/bikerental.db from docker-compose instead.
 ENV DATABASE_URL=/tmp/bikerental.db
-RUN corepack enable && corepack prepare pnpm@11.14.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build

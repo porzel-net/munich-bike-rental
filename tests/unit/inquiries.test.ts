@@ -236,7 +236,7 @@ describe("contact route", () => {
     createBooking.mockReset();
     createBooking.mockReturnValue({ id: 1, orderNumber: "#20260717120000" });
     dispatchOutboxForBooking.mockReset();
-    dispatchOutboxForBooking.mockResolvedValue([]);
+    dispatchOutboxForBooking.mockResolvedValue([{ id: 1, status: "sent" }]);
     process.env = {
       ...environment,
       SMTP_HOST: "smtp.example.com",
@@ -308,7 +308,8 @@ describe("contact route", () => {
 
   it("queues the inquiry without SMTP credentials", async () => {
     delete process.env.SMTP_HOST;
-    expect((await contactPost(request(validContact))).status).toBe(200);
+    dispatchOutboxForBooking.mockResolvedValueOnce([{ id: 1, status: "failed" }]);
+    expect((await contactPost(request(validContact))).status).toBe(502);
     expect(createBooking).toHaveBeenCalledOnce();
   });
 

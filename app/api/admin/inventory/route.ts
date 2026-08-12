@@ -229,7 +229,7 @@ export async function PATCH(request: Request) {
         db.update(rentalAssets)
           .set({
             nickname: bikeInput.nickname?.trim() || null,
-            displayName: formatBikeDisplayName(bikeInput.title, bikeInput.size, nickname),
+            displayName: formatBikeDisplayName(bikeInput.title, bikeInput.size),
             frameNumber: bikeInput.frameNumber?.trim() || null,
             updatedAt: new Date(),
           })

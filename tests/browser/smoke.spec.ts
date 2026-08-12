@@ -93,7 +93,7 @@ test("keeps main interactions available", async ({ page }, testInfo) => {
   await expect(page.locator('input[name="location"]')).toHaveValue("munich");
   const bikeSizeSelect = page.locator('select[name="bikes.0.bikeSize"]');
   await bikeSizeSelect.scrollIntoViewIfNeeded();
-  await expect(bikeSizeSelect.locator("option")).toHaveCount(12);
+  await expect(bikeSizeSelect.locator("option")).toHaveCount(5);
   await bikeSizeSelect.selectOption({ index: 1 });
 });
 

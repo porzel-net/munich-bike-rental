@@ -9,11 +9,12 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "node .next/standalone/server.js",
+    command: "node scripts/start-browser-server.mjs",
     port: 3000,
     reuseExistingServer: !process.env.CI,
     env: {
       NODE_ENV: "development",
+      STARTUP_CHECKS_MODE: "browser-test",
       APP_ORIGIN: "https://browser-test.local",
       BETTER_AUTH_URL: "https://browser-test.local",
       SITE_URL: "https://browser-test.local",

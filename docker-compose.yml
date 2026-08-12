@@ -1,7 +1,7 @@
 services:
   database-init:
     image: busybox:1.37.0
-    command: ["sh", "-ec", "mkdir -p /data && chown 1001:1001 /data && chmod 0700 /data"]
+    command: ["sh", "-ec", "mkdir -p /data && chmod 0700 /data && chown 1001:1001 /data"]
     volumes:
       - app-data:/data
     read_only: true
@@ -9,6 +9,7 @@ services:
       - ALL
     cap_add:
       - CHOWN
+      - FOWNER
     security_opt:
       - no-new-privileges:true
     pids_limit: 16
