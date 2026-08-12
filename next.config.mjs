@@ -69,10 +69,6 @@ const nextConfig = {
         headers: noImageIndexHeaders,
       },
       {
-        source: "/favicon.png",
-        headers: noImageIndexHeaders,
-      },
-      {
         source: "/google-maps-lindau.png",
         headers: noImageIndexHeaders,
       },
