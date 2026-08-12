@@ -47,7 +47,11 @@ export async function POST(request: Request) {
         repairKitIncluded: bike.repairKitIncluded,
       })),
     });
-    await dispatchOutboxForBooking(database, created.id);
+    const dispatchResults = await dispatchOutboxForBooking(database, created.id);
+    const mailSent = dispatchResults.length > 0 && dispatchResults.every((result) => result.status === "sent");
+    if (!mailSent) {
+      return jsonError(502, "send_failed", "Unable to send message");
+    }
     return NextResponse.json(
       { ok: true, orderNumber: created.orderNumber, totalPriceCents },
       { headers: { "Cache-Control": "no-store" } },
