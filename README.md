@@ -91,9 +91,6 @@ IMAP_MAIN_PORT=993
 IMAP_MAIN_SECURE=true
 IMAP_MAIN_USER=dein-main-user
 IMAP_MAIN_PASSWORD_FILE=/run/secrets/imap_password
-IMAP_MAIN_SENT_MAILBOX=Sent
-IMAP_MAIN_REJECTED_MAILBOX=Abgelehnt
-IMAP_MAIN_PENDING_MAILBOX=Ausstehend
 # Mail poller and AI review of incoming customer questions
 OPENAI_API_KEY=sk-...
 # Alternativ als Docker Secret: OPENAI_API_KEY_FILE=/run/secrets/openai_api_key
@@ -126,7 +123,7 @@ Wichtig:
 - SQLite ist für diesen einzelnen App-Container vorgesehen. Mehrere parallele App-Replikas dürfen nicht dasselbe SQLite-Volume beschreiben.
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `SMTP_REQUEST_*` steuert den Versand der Website-Anfragen; `SMTP_MAIN_*` steuert Buchungsbestätigungen und Ablehnungen aus dem Adminbereich
-- `IMAP_MAIN_*` wird für die Suche automatischer Mailverläufe sowie das Verschieben gesendeter Mails nach `Abgelehnt` bzw. `Ausstehend` verwendet
+- `IMAP_MAIN_*` wird für die Suche automatischer Mailverläufe in allen IMAP-Postfächern einschließlich Papierkorb/Müll verwendet. Abgelehnte Buchungs-Mails werden automatisch in das feste Postfach `Abgelehnt` verschoben.
 - Der geschützte Endpunkt `POST /api/internal/sync-incoming-mail` soll mit `Authorization: Bearer $MAIL_SYNC_TOKEN` regelmäßig (empfohlen: jede Minute) aufgerufen werden. Er synchronisiert neue Mailnachrichten, löst die Fragenprüfung aus und speichert das Ergebnis pro Buchung.
 - Für die Fragenprüfung wird serverseitig die OpenAI Responses API mit `OPENAI_MODEL` (Standard `gpt-5.6-luna`) und dem Produktlabel `OPENAI_REASONING_EFFORT=middle` verwendet. Der öffentliche API-Parameter wird dafür auf `medium` abgebildet. Der alte Kurzname `gpt-luna` wird automatisch auf `gpt-5.6-luna` abgebildet. Der API-Key darf nicht mit `NEXT_PUBLIC_` beginnen.
 - `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht

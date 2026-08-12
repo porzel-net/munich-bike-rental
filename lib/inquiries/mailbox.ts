@@ -16,14 +16,23 @@ type MailboxConfig = {
   secure: boolean;
   user: string;
   password: string;
-  sentMailbox: string;
-  rejectedMailbox: string;
   ownAddresses: string[];
 };
 
 const MAX_MAIL_SOURCE_BYTES = 1_000_000;
 const MAX_MAIL_PARSE_DEPTH = 10;
 const MAX_MAIL_PARTS = 100;
+const REJECTED_MAILBOX = "Abgelehnt";
+const TRASH_MAILBOX_FALLBACKS = [
+  "Trash",
+  "Müll",
+  "Muell",
+  "Papierkorb",
+  "Deleted",
+  "Deleted Messages",
+  "[Gmail]/Trash",
+  "[Gmail]/Papierkorb",
+];
 
 export type MailboxOperationResult =
   | { configured: false; moved: false; reason: "not_configured" | "not_found" }
@@ -43,8 +52,6 @@ async function getMailboxConfig(environment: Partial<NodeJS.ProcessEnv> = proces
     secure: environment.IMAP_MAIN_SECURE !== "false",
     user,
     password,
-    sentMailbox: environment.IMAP_MAIN_SENT_MAILBOX?.trim() || "Sent",
-    rejectedMailbox: environment.IMAP_MAIN_REJECTED_MAILBOX?.trim() || "Abgelehnt",
     ownAddresses: [
       user,
       environment.SMTP_MAIN_USER,
@@ -189,7 +196,7 @@ export async function syncBookingMailThread(
   const newMessageIds: number[] = [];
   try {
     await client.connect();
-    for (const mailbox of await getSearchMailboxes(client, config)) {
+    for (const mailbox of await getSearchMailboxes(client)) {
       let lock;
       try {
         lock = await client.getMailboxLock(mailbox, { readOnly: true });
@@ -278,9 +285,25 @@ function uniqueMailboxes(mailboxes: string[]) {
   return [...new Set(mailboxes.filter(Boolean))];
 }
 
-async function getSearchMailboxes(client: ImapFlow, config: MailboxConfig) {
+function mailboxLooksLikeTrash(mailbox: { path: string; name: string; specialUse?: string }) {
+  return (
+    mailbox.specialUse?.toLocaleLowerCase() === "\\trash" ||
+    /(?:trash|papierkorb|müll|muell|deleted(?: messages)?|bin)/iu.test(`${mailbox.path} ${mailbox.name}`)
+  );
+}
+
+function getMailboxPaths(listed: Array<{ path: string; name: string; specialUse?: string }>) {
+  const trashPaths = listed.filter(mailboxLooksLikeTrash).map((mailbox) => mailbox.path);
+  const otherPaths = listed.filter((mailbox) => !mailboxLooksLikeTrash(mailbox)).map((mailbox) => mailbox.path);
+
+  // LIST normally includes every folder. The explicit aliases also cover servers
+  // that expose a localized/special-use trash folder inconsistently.
+  return uniqueMailboxes(["INBOX", ...trashPaths, ...otherPaths, ...TRASH_MAILBOX_FALLBACKS]);
+}
+
+async function getSearchMailboxes(client: ImapFlow) {
   const listed = await client.list();
-  return uniqueMailboxes(["INBOX", config.sentMailbox, ...listed.map((mailbox) => mailbox.path)]);
+  return getMailboxPaths(listed);
 }
 
 export type LatestBookingThreadMessage = {
@@ -308,7 +331,7 @@ export async function findLatestBookingThreadMessage(orderNumber: string): Promi
 
   try {
     await client.connect();
-    for (const mailbox of await getSearchMailboxes(client, config)) {
+    for (const mailbox of await getSearchMailboxes(client)) {
       let lock;
       try {
         lock = await client.getMailboxLock(mailbox, { readOnly: true });
@@ -381,7 +404,8 @@ export async function moveMailToMailbox(
     }
 
     let moveFailed = false;
-    for (const mailbox of uniqueMailboxes([config.sentMailbox, "INBOX"])) {
+    const listedPaths = new Set(mailboxes.map((mailbox) => mailbox.path));
+    for (const mailbox of getMailboxPaths(mailboxes)) {
       let lock;
       try {
         lock = await client.getMailboxLock(mailbox);
@@ -391,7 +415,8 @@ export async function moveMailToMailbox(
           if (moved) return { configured: true, moved: true };
         }
       } catch {
-        moveFailed = true;
+        // Missing fallback aliases are expected on many IMAP servers.
+        if (listedPaths.has(mailbox) || mailbox === "INBOX") moveFailed = true;
       } finally {
         lock?.release();
       }
@@ -405,6 +430,5 @@ export async function moveMailToMailbox(
 }
 
 export async function moveMailToRejectedMailbox(messageId: string | null): Promise<MailboxOperationResult> {
-  const rejectedMailbox = process.env.IMAP_MAIN_REJECTED_MAILBOX?.trim() || "Abgelehnt";
-  return moveMailToMailbox(messageId, rejectedMailbox);
+  return moveMailToMailbox(messageId, REJECTED_MAILBOX);
 }
