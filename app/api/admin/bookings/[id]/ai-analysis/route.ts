@@ -17,10 +17,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { db, booking } = command;
 
   if (booking.source === "legacy") {
-    return NextResponse.json(
-      { message: "Importierte Buchungen werden nicht per KI geprüft." },
-      { status: 422 },
-    );
+    return NextResponse.json({ message: "Importierte Buchungen werden nicht per KI geprüft." }, { status: 422 });
   }
 
   try {
