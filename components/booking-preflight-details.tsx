@@ -21,7 +21,8 @@ export function BookingPreflightDetails({ result }: { result: BookingMigrationPr
           <ul className="mt-3 space-y-2 text-sm">
             {result.unmapped.map((booking) => (
               <li className="rounded-2xl border border-red-600/30 bg-red-600/5 p-3 dark:bg-red-600/10" key={booking.id}>
-                <strong>{booking.orderNumber}</strong> · {locationLabel(booking.location)} · {statusLabel(booking.status)}
+                <strong>{booking.orderNumber}</strong> · {locationLabel(booking.location)} ·{" "}
+                {statusLabel(booking.status)}
                 <br />
                 <span className="text-muted-foreground">
                   {booking.allocatedAssets} von {booking.requestedItems} Fahrrädern zugeordnet

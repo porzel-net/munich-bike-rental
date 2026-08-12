@@ -686,6 +686,7 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
   const createdAt = input.source === "legacy" ? (legacyReceivedAt ?? now()) : now();
   let bookingId = 0;
   const { requestedItems, outbox, legacyReceivedAt: _legacyReceivedAt, ...bookingValues } = input;
+  void _legacyReceivedAt;
   const publicLinkToken = bookingValues.source === "web" ? randomBytes(32).toString("hex") : null;
   const orderNumber = createOrderNumberWithoutChangingFormat(
     (candidate) => {

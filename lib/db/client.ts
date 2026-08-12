@@ -42,7 +42,9 @@ export function getDatabasePath(environment: Partial<NodeJS.ProcessEnv> = proces
     throw new Error("DATABASE_URL must be a filesystem path");
   }
 
-  if (environment.NODE_ENV === "production" && !isAbsolute(databasePath)) {
+  const productionRuntime =
+    environment.NODE_ENV === "production" && environment.NEXT_PHASE !== "phase-production-build";
+  if (productionRuntime && !isAbsolute(databasePath)) {
     throw new Error("DATABASE_URL must be an absolute path in production");
   }
 

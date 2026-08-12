@@ -9,6 +9,7 @@ import { getBookingMigrationPreflight } from "./bookings/preflight";
 import { getDatabase, getDatabasePath, type AppDatabase } from "./db/client";
 import * as schema from "./db/schema";
 import { checkNevloConnection } from "./financial/nevlo-sync";
+import { seedRentalInventoryIfEmpty } from "./inventory/seed";
 import { getMailConfig, readSecret, verifyMailConnection } from "./inquiries/server";
 import { verifyImapConnection } from "./inquiries/mailbox";
 import { listStripeCheckoutSessions } from "./stripe";
@@ -52,7 +53,11 @@ export function getStartupCheckReport() {
 }
 
 function isProduction(environment: Partial<NodeJS.ProcessEnv>) {
-  return environment.NODE_ENV === "production" && environment.NEXT_PHASE !== "phase-production-build";
+  return (
+    environment.NODE_ENV === "production" &&
+    environment.NEXT_PHASE !== "phase-production-build" &&
+    environment.STARTUP_CHECKS_MODE !== "browser-test"
+  );
 }
 
 function isPresent(environment: Partial<NodeJS.ProcessEnv>, name: string) {
@@ -277,6 +282,15 @@ export async function runStartupChecks(
   await runCheck(checks, "database", true, () => {
     db = getDatabase();
     return validateDatabase(db, resolve(process.cwd(), "drizzle"));
+  });
+
+  await runCheck(checks, "browser-fixture", false, () => {
+    if (environment.STARTUP_CHECKS_MODE !== "browser-test") {
+      return { status: "skipped", message: "Nur im browser-test-Modus aktiviert" };
+    }
+    if (!db) return { status: "failed", message: "Browser-Fixture kann ohne Datenbank nicht angelegt werden" };
+    seedRentalInventoryIfEmpty(db);
+    return { status: "ok", message: "Browser-Testdaten für das Mietinventar sind vorbereitet" };
   });
 
   await runCheck(checks, "booking-data-preflight", false, () => {

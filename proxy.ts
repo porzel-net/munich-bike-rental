@@ -15,7 +15,7 @@ function createNonce() {
 }
 
 function buildContentSecurityPolicy(nonce: string) {
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = process.env.NODE_ENV === "production" && process.env.STARTUP_CHECKS_MODE !== "browser-test";
 
   if (isProduction) {
     return [
@@ -50,7 +50,7 @@ function buildContentSecurityPolicy(nonce: string) {
 export function proxy(request: NextRequest) {
   const nonce = createNonce();
   const requestHeaders = new Headers(request.headers);
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = process.env.NODE_ENV === "production" && process.env.STARTUP_CHECKS_MODE !== "browser-test";
 
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
