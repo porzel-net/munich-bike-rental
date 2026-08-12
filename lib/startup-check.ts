@@ -269,8 +269,6 @@ export async function runStartupChecks(
   environment: Partial<NodeJS.ProcessEnv> = process.env,
 ): Promise<StartupCheckReport> {
   const checks: StartupCheckResult[] = [];
-  const production = isProduction(environment);
-
   await runCheck(checks, "configuration", true, () => checkConfiguration(environment));
 
   let db: AppDatabase | null = null;
@@ -293,38 +291,50 @@ export async function runStartupChecks(
     };
   });
 
-  const mailNames = [
+  const sharedMailNames = [
     "SMTP_HOST",
     "SMTP_USER",
     "SMTP_PASSWORD",
     "SMTP_PASSWORD_FILE",
-    "SMTP_REQUEST_HOST",
-    "SMTP_REQUEST_USER",
-    "SMTP_REQUEST_PASSWORD",
-    "SMTP_REQUEST_PASSWORD_FILE",
-    "SMTP_MAIN_HOST",
-    "SMTP_MAIN_USER",
-    "SMTP_MAIN_PASSWORD",
-    "SMTP_MAIN_PASSWORD_FILE",
     "SMTP_PORT",
     "SMTP_SECURE",
     "MAIL_USE_SSL",
     "MAIL_USE_STARTTLS",
-    "SMTP_REQUEST_PORT",
-    "SMTP_REQUEST_SECURE",
-    "SMTP_MAIN_PORT",
-    "SMTP_MAIN_SECURE",
-    "MAIL_REQUEST_FROM_ADDRESS",
-    "MAIL_REQUEST_TO_ADDRESS",
-    "MAIL_MAIN_FROM_ADDRESS",
   ] as const;
+  const accountMailNames = {
+    request: [
+      "SMTP_REQUEST_HOST",
+      "SMTP_REQUEST_USER",
+      "SMTP_REQUEST_PASSWORD",
+      "SMTP_REQUEST_PASSWORD_FILE",
+      "SMTP_REQUEST_PORT",
+      "SMTP_REQUEST_SECURE",
+      "MAIL_REQUEST_FROM_ADDRESS",
+      "MAIL_REQUEST_TO_ADDRESS",
+    ],
+    main: [
+      "SMTP_MAIN_HOST",
+      "SMTP_MAIN_USER",
+      "SMTP_MAIN_PASSWORD",
+      "SMTP_MAIN_PASSWORD_FILE",
+      "SMTP_MAIN_PORT",
+      "SMTP_MAIN_SECURE",
+      "MAIL_MAIN_FROM_ADDRESS",
+    ],
+  } as const;
   for (const account of ["request", "main"] as const) {
-    await runCheck(checks, `smtp-${account}`, production || hasAny(environment, mailNames), async () => {
+    const accountHasConfiguration =
+      hasAny(environment, sharedMailNames) || hasAny(environment, accountMailNames[account]);
+    await runCheck(checks, `smtp-${account}`, accountHasConfiguration, async () => {
+      if (!accountHasConfiguration) {
+        return { status: "skipped", message: "SMTP ist nicht konfiguriert" };
+      }
       const configured = await getMailConfig(environment, account);
       if (!configured) {
-        return hasAny(environment, mailNames) || production
-          ? { status: "failed", message: `SMTP-Konfiguration für ${account} ist unvollständig` }
-          : { status: "skipped", message: "SMTP ist nicht konfiguriert" };
+        return {
+          status: "failed",
+          message: `SMTP-Konfiguration für ${account} ist unvollständig`,
+        };
       }
       await withTimeout(verifyMailConnection(account, environment));
       return {
