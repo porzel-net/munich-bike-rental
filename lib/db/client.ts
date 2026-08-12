@@ -35,18 +35,23 @@ export function runInImmediateTransaction<T>(db: AppDatabase, work: () => T): T 
 
 export function getDatabasePath(environment: Partial<NodeJS.ProcessEnv> = process.env) {
   const configuredPath = environment.DATABASE_URL?.trim();
-  const defaultPath = environment.NODE_ENV === "production" ? "/data/bikerental.db" : "./data/bikerental.db";
-  const databasePath = configuredPath || defaultPath;
+  const isProductionBuild = environment.NEXT_PHASE === "phase-production-build";
+  const defaultPath = isProductionBuild
+    ? ":memory:"
+    : environment.NODE_ENV === "production"
+      ? "/data/bikerental.db"
+      : "./data/bikerental.db";
+  const databasePath = isProductionBuild ? ":memory:" : configuredPath || defaultPath;
 
   if (databasePath.includes("\0")) {
     throw new Error("DATABASE_URL must be a filesystem path");
   }
 
-  if (environment.NODE_ENV === "production" && !isAbsolute(databasePath)) {
+  if (environment.NODE_ENV === "production" && !isProductionBuild && !isAbsolute(databasePath)) {
     throw new Error("DATABASE_URL must be an absolute path in production");
   }
 
-  return resolve(databasePath);
+  return databasePath === ":memory:" ? databasePath : resolve(databasePath);
 }
 
 function prepareDatabaseDirectory(databasePath: string) {
