@@ -178,6 +178,7 @@ export function BookingCommandActions({
   senderName,
   canExecuteActions,
   isAdmin,
+  hasActiveOffer,
   requestedItems,
   availableAssets,
   unavailableAssetIds,
@@ -198,6 +199,7 @@ export function BookingCommandActions({
   senderName: string;
   canExecuteActions: boolean;
   isAdmin: boolean;
+  hasActiveOffer: boolean;
   requestedItems: RequestedItem[];
   availableAssets: Asset[];
   unavailableAssetIds: number[];
@@ -237,6 +239,7 @@ export function BookingCommandActions({
   const [customRejectionReason, setCustomRejectionReason] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
   const [customOfferPrice, setCustomOfferPrice] = useState("");
+  const [isStudent, setIsStudent] = useState(false);
   const [legacyStatus, setLegacyStatus] = useState<BookingStatus>(status);
   const [legacyPeriodFrom, setLegacyPeriodFrom] = useState(periodFrom);
   const [legacyPeriodTo, setLegacyPeriodTo] = useState(periodTo);
@@ -335,6 +338,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomRejectionReason("");
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setIsStudent(false);
     setLegacyStatus(status);
     setLegacyPeriodFrom(periodFrom);
     setLegacyPeriodTo(periodTo);
@@ -358,6 +362,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreview(null);
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setIsStudent(false);
     setPreviewError(null);
     setPreviewLoading(false);
   };
@@ -428,6 +433,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           accessoriesByRequestedItem: Object.fromEntries(
             Object.entries(offerAccessories).map(([key, value]) => [key, value]),
           ),
+          isStudent,
           alternative: isAlternativeOffer,
           alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
           personalMessage: personalMessage.trim() || undefined,
@@ -548,6 +554,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             accessoriesByRequestedItem: Object.fromEntries(
               Object.entries(offerAccessories).map(([key, value]) => [key, value]),
             ),
+            isStudent,
             alternative: isAlternativeOffer,
             alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
             personalMessage: personalMessage.trim() || undefined,
@@ -574,6 +581,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       offerAccessories,
       personalMessage,
       customOfferPrice,
+      isStudent,
       requestedItems,
       unavailableAssetIdSet,
     ],
@@ -590,6 +598,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     isAlternativeOffer,
     personalMessage,
     customOfferPrice,
+    isStudent,
   });
 
   useEffect(() => {
@@ -707,7 +716,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             onClick={openOffer}
           />
         )}
-        {status === "offer_sent" && (
+        {status === "offer_sent" && hasActiveOffer && (
           <ActionItem
             icon={<XIcon />}
             title="Angebot zurückziehen"
@@ -962,6 +971,23 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             {showOfferFields && (
               <>
                 <div className="space-y-4">
+                  <label className="flex items-start gap-3 rounded-xl border bg-muted/30 p-4 text-sm">
+                    <Checkbox
+                      checked={isStudent}
+                      onCheckedChange={(checked) => {
+                        setIsStudent(Boolean(checked));
+                        setPreview(null);
+                        setPreviewError(null);
+                        setPreviewLoading(false);
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium">Studentenrabatt anwenden</span>
+                      <span className="mt-1 block text-muted-foreground">
+                        Der konfigurierte Studentenrabatt wird auf die Fahrradmiete angewendet.
+                      </span>
+                    </span>
+                  </label>
                   {requestedItems.map((item) => {
                     const accessories = offerAccessories[String(item.id)] ?? item.accessories;
                     const selectedAsset = availableAssets.find(

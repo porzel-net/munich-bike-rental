@@ -945,6 +945,7 @@ export function createOffer(
     bookingId: number;
     assetsByRequestedItem: Record<number, number>;
     accessoriesByRequestedItem?: Record<number, OfferAccessorySelection>;
+    isStudent?: boolean;
     actorUserId?: string | null;
     reason?: string;
     alternative?: boolean;
@@ -961,7 +962,7 @@ export function createOffer(
     if (booking.status !== "inquiry_received" && booking.status !== "offer_sent" && booking.status !== "expired")
       throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
     const quote = applyCustomOfferPrice(
-      buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem),
+      buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent),
       input.customTotalCents,
     );
     const alternative =
@@ -1141,6 +1142,7 @@ export function previewOffer(
     bookingId: number;
     assetsByRequestedItem: Record<number, number>;
     accessoriesByRequestedItem?: Record<number, OfferAccessorySelection>;
+    isStudent?: boolean;
     alternative?: boolean;
     alternativeReason?: string;
     personalMessage?: string;
@@ -1156,7 +1158,7 @@ export function previewOffer(
     throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
   assertBookingHasAssignee(db, booking);
   const quote = applyCustomOfferPrice(
-    buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem),
+    buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent),
     input.customTotalCents,
   );
   const alternative =

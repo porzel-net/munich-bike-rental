@@ -27,6 +27,7 @@ const schema = z.object({
       }),
     )
     .optional(),
+  isStudent: z.boolean().optional(),
   alternative: z.boolean().optional(),
   alternativeReason: z.string().trim().max(1000).optional(),
   personalMessage: z.string().trim().max(2000).optional(),
@@ -50,6 +51,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
               Object.entries(input.data.accessoriesByRequestedItem).map(([key, value]) => [Number(key), value]),
             )
           : undefined,
+        isStudent: input.data.isStudent,
         alternative: input.data.alternative,
         alternativeReason: input.data.alternativeReason,
         personalMessage: input.data.personalMessage,

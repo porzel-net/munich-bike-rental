@@ -41,6 +41,7 @@ const commandSchema = z.discriminatedUnion("command", [
     command: z.literal("send_offer"),
     assetsByRequestedItem: z.record(z.string(), z.number().int().positive()),
     accessoriesByRequestedItem: z.record(z.string(), offerAccessories).optional(),
+    isStudent: z.boolean().optional(),
     alternative: z.boolean().optional(),
     reason: z.string().trim().max(500).optional(),
     alternativeReason: z.string().trim().max(1000).optional(),
@@ -121,6 +122,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
                 Object.entries(input.data.accessoriesByRequestedItem).map(([key, value]) => [Number(key), value]),
               )
             : undefined,
+          isStudent: input.data.isStudent,
           alternative: input.data.alternative,
           reason: input.data.reason,
           alternativeReason: input.data.alternativeReason,

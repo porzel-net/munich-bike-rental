@@ -96,6 +96,7 @@ export function buildOfferQuote(
   bookingId: number,
   assetsByRequestedItem: Record<number, number>,
   accessoriesByRequestedItem: Record<number, OfferAccessorySelection> = {},
+  isStudent = false,
 ): OfferQuote {
   const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
   if (!booking) throw new BookingCommandError("Booking not found");
@@ -151,7 +152,7 @@ export function buildOfferQuote(
   const dailyBikePriceCents = offeredItems.reduce((sum, item) => sum + item.dailyPriceCents, 0);
   const { discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(
     getLocationInventory(db, booking.location),
-    { dailyBikePriceCents, periodFrom: booking.periodFrom, rentalDays },
+    { dailyBikePriceCents, periodFrom: booking.periodFrom, rentalDays, isStudent },
   );
   const bikeSubtotalCents = dailyBikePriceCents * rentalDays;
   return {
