@@ -407,6 +407,13 @@
       "when": 1786533500000,
       "tag": "0058_legacy_bookings_rejected",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1786545102242,
+      "tag": "0059_spooky_the_fallen",
+      "breakpoints": true
     }
   ]
 }

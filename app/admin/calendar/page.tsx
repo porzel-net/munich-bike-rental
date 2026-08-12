@@ -29,7 +29,13 @@ import {
   type BookingStatus,
 } from "@/lib/db/schema";
 import { bookingPresentation } from "@/lib/bookings/presentation";
-import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
+import {
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
+  rentalLocationLabels,
+  rentalLocations,
+  type RentalLocation,
+} from "@/lib/inquiries/catalog";
 import { siteConfig } from "@/lib/site";
 
 function resolveLocation(value: string | undefined, administrator: boolean, assignedLocation: RentalLocation | null) {
@@ -175,9 +181,11 @@ export default async function CalendarPage({
         ...new Set(
           (itemsByBooking.get(row.id) ?? []).flatMap((item) =>
             [
-              item.needsPedals ? `Pedale${item.pedalType ? ` (${item.pedalType})` : ""}` : null,
+              item.needsPedals
+                ? `Pedale${item.pedalType ? ` (${getPedalTypeLabel(item.pedalType, "de")})` : ""}`
+                : null,
               item.needsComputerMount
-                ? `Computerhalterung${item.computerMountType ? ` (${item.computerMountType})` : ""}`
+                ? `Computerhalterung${item.computerMountType ? ` (${getComputerMountTypeLabel(item.computerMountType, "de")})` : ""}`
                 : null,
               item.needsHelmet ? "Helm" : null,
               item.needsClothing ? "Radbekleidung" : null,

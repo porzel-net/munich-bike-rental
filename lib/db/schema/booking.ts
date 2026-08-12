@@ -86,6 +86,7 @@ export const rentalAssets = sqliteTable(
       .references(() => bikeVariants.id, { onDelete: "restrict" }),
     location: text("location").notNull(),
     assetCode: text("asset_code").notNull(),
+    nickname: text("nickname"),
     frameNumber: text("frame_number"),
     displayName: text("display_name").notNull(),
     dailyPriceCents: integer("daily_price_cents").notNull(),

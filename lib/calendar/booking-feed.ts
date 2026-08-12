@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { BookingStatus } from "../db/schema";
-import { rentalLocationLabels, type RentalLocation } from "../inquiries/catalog";
+import {
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
+  rentalLocationLabels,
+  type RentalLocation,
+} from "../inquiries/catalog";
 
 /** Only operationally relevant booking states are published to subscribed calendars. */
 export const calendarBookingStatuses = [
@@ -85,8 +90,10 @@ function sourceLabel(source: BookingCalendarRow["source"]) {
 
 function itemDescription(item: CalendarBookingItem) {
   const equipment = [
-    item.needsPedals ? `Pedale${item.pedalType ? ` (${item.pedalType})` : ""}` : null,
-    item.needsComputerMount ? `Computerhalterung${item.computerMountType ? ` (${item.computerMountType})` : ""}` : null,
+    item.needsPedals ? `Pedale${item.pedalType ? ` (${getPedalTypeLabel(item.pedalType, "de")})` : ""}` : null,
+    item.needsComputerMount
+      ? `Computerhalterung${item.computerMountType ? ` (${getComputerMountTypeLabel(item.computerMountType, "de")})` : ""}`
+      : null,
     item.needsHelmet ? "Helm" : null,
     item.needsClothing ? "Radbekleidung" : null,
   ].filter((value): value is string => Boolean(value));

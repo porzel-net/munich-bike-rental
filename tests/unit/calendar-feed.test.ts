@@ -86,7 +86,7 @@ describe("booking calendar feed", () => {
     expect(unfoldedFeed).toContain("STATUS:TENTATIVE");
     expect(unfoldedFeed).toContain("LAST-MODIFIED:20260721T120000Z");
     expect(unfoldedFeed).toContain("SEQUENCE:2");
-    expect(unfoldedFeed).toContain("Anfragen: Gravelbike - L · Körpergröße 182 cm · Pedale (SPD)\\, Helm");
+    expect(unfoldedFeed).toContain("Anfragen: Gravelbike - L · Körpergröße 182 cm · Pedale (SPD-SL)\\, Helm");
     expect(unfoldedFeed).toContain("Zubehör: Helm (1x)");
     expect(unfoldedFeed).not.toContain("Rechnungsnummer: RE-2026-12");
   });

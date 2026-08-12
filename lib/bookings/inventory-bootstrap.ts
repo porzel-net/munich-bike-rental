@@ -10,6 +10,7 @@ import {
   rentalLocationBikeSizes,
   rentalLocationEquipment,
 } from "../db/schema";
+import { formatBikeDisplayName } from "../inventory/display-name";
 
 /** Explicit one-time bootstrap for installations that still use the legacy catalog seed. */
 export function importLegacyInventoryIntoBookingInventory(db: AppDatabase) {
@@ -56,23 +57,42 @@ export function importLegacyInventoryIntoBookingInventory(db: AppDatabase) {
           .from(bikeVariants)
           .where(and(eq(bikeVariants.modelId, model.id), eq(bikeVariants.size, size)))
           .get()!;
-      const created = tx
-        .insert(rentalAssets)
-        .values({
-          variantId: variant.id,
-          location: bike.location,
-          assetCode: `legacy-${bike.id}`,
-          frameNumber: bike.frameNumber,
-          displayName: `${bike.title} - ${size}`,
-          dailyPriceCents: bike.priceCentsPerDay,
-          state: bike.isAvailable ? "active" : "maintenance",
-          legacyLocationBikeId: bike.id,
-          createdAt: stamp,
-          updatedAt: stamp,
-        })
-        .onConflictDoNothing()
-        .run();
-      assets += created.changes;
+      const existingAsset = tx
+        .select({ id: rentalAssets.id })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.legacyLocationBikeId, bike.id))
+        .get();
+      if (existingAsset) {
+        tx.update(rentalAssets)
+          .set({
+            nickname: bike.nickname,
+            frameNumber: bike.frameNumber,
+            displayName: formatBikeDisplayName(bike.title, size, bike.nickname),
+            dailyPriceCents: bike.priceCentsPerDay,
+            state: bike.isAvailable ? "active" : "maintenance",
+            updatedAt: stamp,
+          })
+          .where(eq(rentalAssets.id, existingAsset.id))
+          .run();
+      } else {
+        const created = tx
+          .insert(rentalAssets)
+          .values({
+            variantId: variant.id,
+            location: bike.location,
+            assetCode: `legacy-${bike.id}`,
+            nickname: bike.nickname,
+            frameNumber: bike.frameNumber,
+            displayName: formatBikeDisplayName(bike.title, size, bike.nickname),
+            dailyPriceCents: bike.priceCentsPerDay,
+            state: bike.isAvailable ? "active" : "maintenance",
+            legacyLocationBikeId: bike.id,
+            createdAt: stamp,
+            updatedAt: stamp,
+          })
+          .run();
+        assets += created.changes;
+      }
     }
     for (const equipment of tx.select().from(rentalLocationEquipment).all()) {
       tx.insert(accessoryInventory)

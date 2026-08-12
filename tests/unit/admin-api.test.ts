@@ -75,6 +75,7 @@ import {
   financialCategories,
   financialTransactions,
   fixedAssets,
+  rentalAssets,
   rentalLocationBikeSizes,
   rentalLocationBikes,
   rentalLocationEquipment,
@@ -83,6 +84,7 @@ import { createDatabaseConnection } from "../../lib/db/client";
 import { hashInvitationToken } from "../../lib/auth/invitations";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 import { createFixedAsset } from "../../lib/financial/fixed-assets";
+import { importLegacyInventoryIntoBookingInventory } from "../../lib/bookings/inventory-bootstrap";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 let testDb: ReturnType<typeof createDatabaseConnection>["db"];
@@ -139,6 +141,7 @@ describe("admin inventory API", () => {
         location: "munich",
         type: "bike",
         title: "Edge Bike",
+        nickname: "Blitz",
         size: "M",
         frameNumber: "EDGE-1",
         priceCents: 4_500,
@@ -164,6 +167,22 @@ describe("admin inventory API", () => {
         .where(eq(rentalLocationBikes.id, bikeBody.item.id))
         .get(),
     ).toEqual({ de: "10%\nNur im Mai", en: "10%\nMay only" });
+    expect(
+      db
+        .select({ nickname: rentalLocationBikes.nickname })
+        .from(rentalLocationBikes)
+        .where(eq(rentalLocationBikes.id, bikeBody.item.id))
+        .get(),
+    ).toEqual({ nickname: "Blitz" });
+
+    importLegacyInventoryIntoBookingInventory(db);
+    expect(
+      db
+        .select({ nickname: rentalAssets.nickname, displayName: rentalAssets.displayName })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.legacyLocationBikeId, bikeBody.item.id))
+        .get(),
+    ).toMatchObject({ nickname: "Blitz", displayName: "Blitz" });
 
     expect(
       (
@@ -188,6 +207,7 @@ describe("admin inventory API", () => {
             location: "munich",
             type: "bike",
             title: "Edge Bike Updated",
+            nickname: "Turbo",
             size: "L",
             frameNumber: "EDGE-2",
             priceCents: 5_000,
@@ -200,11 +220,19 @@ describe("admin inventory API", () => {
       db.select().from(rentalLocationBikes).where(eq(rentalLocationBikes.id, bikeBody.item.id)).get(),
     ).toMatchObject({
       title: "Edge Bike Updated",
+      nickname: "Turbo",
       frameNumber: "EDGE-2",
       priceCentsPerDay: 5_000,
       discountTextDe: "10%\nNur im Mai",
       discountTextEn: "10%\nMay only",
     });
+    expect(
+      db
+        .select({ nickname: rentalAssets.nickname, displayName: rentalAssets.displayName })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.legacyLocationBikeId, bikeBody.item.id))
+        .get(),
+    ).toMatchObject({ nickname: "Turbo", displayName: "Turbo" });
     expect(
       db
         .select()

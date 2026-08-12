@@ -16,6 +16,7 @@ export type AdminInventoryBike = {
   location: RentalLocation;
   bikeKey: string;
   title: string;
+  nickname: string | null;
   frameNumber: string | null;
   priceCents: number;
   discountTextDe: string;
@@ -71,6 +72,7 @@ export default async function InventoryPage() {
     location: bike.location as RentalLocation,
     bikeKey: bike.bikeKey,
     title: bike.title,
+    nickname: bike.nickname,
     frameNumber: bike.frameNumber,
     priceCents: bike.priceCentsPerDay,
     discountTextDe: bike.discountTextDe,

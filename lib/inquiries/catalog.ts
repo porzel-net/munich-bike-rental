@@ -24,6 +24,8 @@ export const bikeOptionsByLocation = {
   munich: [
     "Endurace CF SL 8 - XS",
     "Endurace CF SL 8 - S",
+    "Endurace CF SL 8 - S",
+    "Endurace CF SL 8 - M",
     "Endurace CF SL 8 - M",
     "Endurace CF SL 8 - L",
     "Grail CF SL 7 - S",
@@ -86,14 +88,34 @@ export const computerMountTypeLabels = {
   en: { garmin: "Garmin", wahoo: "Wahoo", other: "Other" },
 } as const;
 
+const pedalTypeAliases: Record<string, keyof typeof pedalTypeLabels.de> = {
+  platform: "platform",
+  flat: "platform",
+  spd: "spdSl",
+  spdsl: "spdSl",
+  "spd-sl": "spdSl",
+  lookkeo: "lookKeo2Max",
+  lookkeo2max: "lookKeo2Max",
+  "look-keo-2-max": "lookKeo2Max",
+  other: "other",
+  unknown: "other",
+};
+
+const computerMountTypeAliases: Record<string, keyof typeof computerMountTypeLabels.de> = {
+  garmin: "garmin",
+  wahoo: "wahoo",
+  other: "other",
+  unknown: "other",
+};
+
 export function getPedalTypeLabel(value: string | null | undefined, locale: Locale) {
-  return (value && pedalTypeLabels[locale][value as keyof (typeof pedalTypeLabels)[typeof locale]]) ?? value ?? "";
+  if (!value) return "";
+  const key = pedalTypeAliases[value.trim().toLowerCase()] ?? "other";
+  return pedalTypeLabels[locale][key];
 }
 
 export function getComputerMountTypeLabel(value: string | null | undefined, locale: Locale) {
-  return (
-    (value && computerMountTypeLabels[locale][value as keyof (typeof computerMountTypeLabels)[typeof locale]]) ??
-    value ??
-    ""
-  );
+  if (!value) return "";
+  const key = computerMountTypeAliases[value.trim().toLowerCase()] ?? "other";
+  return computerMountTypeLabels[locale][key];
 }

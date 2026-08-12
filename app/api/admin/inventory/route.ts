@@ -14,6 +14,7 @@ import {
 } from "../../../../lib/db/schema";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { formatBikeDisplayName } from "@/lib/inventory/display-name";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,7 @@ const baseSchema = z.object({
 const bikeSchema = baseSchema.extend({
   type: z.literal("bike"),
   title: z.string().trim().min(1).max(160),
+  nickname: z.string().trim().max(120).optional().nullable(),
   size: z.string().trim().min(1).max(32),
   frameNumber: z.string().trim().max(120).optional().nullable(),
   discountTextDe: z.string().trim().max(500).optional(),
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
             location: input.data.location,
             bikeKey: bikeKey(input.data.title, input.data.size),
             title: input.data.title,
+            nickname: input.data.nickname?.trim() || null,
             frameNumber: input.data.frameNumber?.trim() || null,
             priceCentsPerDay: input.data.priceCents,
             discountTextDe: input.data.discountTextDe ?? "",
@@ -183,6 +186,7 @@ export async function PATCH(request: Request) {
         .select({
           id: rentalLocationBikes.id,
           bikeKey: rentalLocationBikes.bikeKey,
+          nickname: rentalLocationBikes.nickname,
           discountTextDe: rentalLocationBikes.discountTextDe,
           discountTextEn: rentalLocationBikes.discountTextEn,
         })
@@ -190,6 +194,7 @@ export async function PATCH(request: Request) {
         .where(and(eq(rentalLocationBikes.id, bikeInput.id), eq(rentalLocationBikes.location, bikeInput.location)))
         .get();
       if (!bike) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
+      const nickname = bikeInput.nickname === undefined ? bike.nickname : bikeInput.nickname?.trim() || null;
 
       db.transaction((transaction) => {
         transaction
@@ -197,6 +202,7 @@ export async function PATCH(request: Request) {
           .set({
             bikeKey: bikeKey(bikeInput.title, bikeInput.size),
             title: bikeInput.title,
+            nickname,
             frameNumber: bikeInput.frameNumber?.trim() || null,
             priceCentsPerDay: bikeInput.priceCents,
             discountTextDe: bikeInput.discountTextDe ?? bike.discountTextDe,
@@ -221,7 +227,12 @@ export async function PATCH(request: Request) {
         .get();
       if (linkedAsset) {
         db.update(rentalAssets)
-          .set({ frameNumber: bikeInput.frameNumber?.trim() || null, updatedAt: new Date() })
+          .set({
+            nickname: bikeInput.nickname?.trim() || null,
+            displayName: formatBikeDisplayName(bikeInput.title, bikeInput.size, nickname),
+            frameNumber: bikeInput.frameNumber?.trim() || null,
+            updatedAt: new Date(),
+          })
           .where(eq(rentalAssets.id, linkedAsset.id))
           .run();
       }

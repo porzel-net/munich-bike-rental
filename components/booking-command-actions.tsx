@@ -42,6 +42,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } f
 import { BookingEditDialog, type EditableItem } from "@/components/booking-edit-dialog";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
 import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
+import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
 import { getComputerMountTypeLabel, getPedalTypeLabel } from "@/lib/inquiries/catalog";
 import type { BookingStatus } from "@/lib/db/schema";
 
@@ -60,7 +61,15 @@ type RequestedItem = {
   heightCm: number;
   accessories: OfferAccessorySelection;
 };
-type Asset = { id: number; label: string; priceCents: number };
+type Asset = {
+  id: number;
+  label: string;
+  nickname: string | null;
+  modelTitle: string;
+  size: string;
+  modelLabel: string;
+  priceCents: number;
+};
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
 type Action = "offer" | "cancel" | "refund" | "correct" | "reject" | "status";
@@ -92,6 +101,26 @@ const cancellationPeriods: Array<{
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Aktion fehlgeschlagen";
+}
+
+function BikeOptionLabel({
+  asset,
+  includePrice = true,
+  suffix = "",
+}: {
+  asset: Asset;
+  includePrice?: boolean;
+  suffix?: string;
+}) {
+  return (
+    <span>
+      {asset.nickname ? <strong>{asset.nickname}</strong> : null}
+      {asset.nickname ? " · " : null}
+      <span>{asset.modelLabel}</span>
+      {includePrice ? ` · ${formatEuro(asset.priceCents)} / Tag` : null}
+      {suffix}
+    </span>
+  );
 }
 
 export function ActionItem({
@@ -239,7 +268,7 @@ export function BookingCommandActions({
   const unavailableAssetIdSet = useMemo(() => new Set(unavailableAssetIds), [unavailableAssetIds]);
   const isAlternativeOffer = requestedItems.some((item) => {
     const selectedAsset = availableAssets.find((asset) => String(asset.id) === assetsByRequestedItem[String(item.id)]);
-    return Boolean(selectedAsset && selectedAsset.label !== item.requestedLabel);
+    return Boolean(selectedAsset && !bikeMatchesRequestedLabel(selectedAsset, item.requestedLabel));
   });
   const alternativeReason =
     alternativeReasonType === "size"
@@ -839,16 +868,20 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           >
                             <SelectTrigger id={`legacy-asset-${item.id}`} className="w-full">
                               <SelectValue>
-                                {availableAssets.find(
-                                  (asset) => String(asset.id) === legacyAssetsByRequestedItem[String(item.id)],
-                                )?.label ?? "Fahrrad auswählen"}
+                                {(() => {
+                                  const asset = availableAssets.find(
+                                    (candidate) =>
+                                      String(candidate.id) === legacyAssetsByRequestedItem[String(item.id)],
+                                  );
+                                  return asset ? <BikeOptionLabel asset={asset} /> : "Fahrrad auswählen";
+                                })()}
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
                                 {availableAssets.map((asset) => (
                                   <SelectItem key={asset.id} value={String(asset.id)}>
-                                    {asset.label} · {formatEuro(asset.priceCents)} / Tag
+                                    <BikeOptionLabel asset={asset} />
                                   </SelectItem>
                                 ))}
                               </SelectGroup>
@@ -881,16 +914,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     const selectedAsset = availableAssets.find(
                       (asset) => String(asset.id) === assetsByRequestedItem[String(item.id)],
                     );
-                    const sizeWarning = getBikeSizeWarning(selectedAsset?.label ?? item.requestedLabel, item.heightCm);
+                    const sizeWarning = getBikeSizeWarning(
+                      selectedAsset?.modelLabel ?? item.requestedLabel,
+                      item.heightCm,
+                    );
                     return (
                       <div className="rounded-xl border p-4" key={item.id}>
                         <Field>
                           <FieldLabel htmlFor={`asset-${item.id}`}>{item.label}</FieldLabel>
                           <Select
-                            items={availableAssets.map((asset) => ({
-                              value: String(asset.id),
-                              label: `${asset.label} · ${formatEuro(asset.priceCents)} / Tag`,
-                            }))}
                             value={assetsByRequestedItem[String(item.id)] ?? ""}
                             onValueChange={(value) => {
                               setAssetsByRequestedItem((current) => ({ ...current, [String(item.id)]: value ?? "" }));
@@ -900,9 +932,12 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           >
                             <SelectTrigger id={`asset-${item.id}`} className="w-full">
                               <SelectValue className="text-sm font-normal">
-                                {availableAssets.find(
-                                  (asset) => String(asset.id) === assetsByRequestedItem[String(item.id)],
-                                )?.label ?? "Konkretes Fahrrad auswählen"}
+                                {(() => {
+                                  const asset = availableAssets.find(
+                                    (candidate) => String(candidate.id) === assetsByRequestedItem[String(item.id)],
+                                  );
+                                  return asset ? <BikeOptionLabel asset={asset} /> : "Konkretes Fahrrad auswählen";
+                                })()}
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
@@ -917,8 +952,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                                         assetsByRequestedItem[String(item.id)] !== String(asset.id))
                                     }
                                   >
-                                    {asset.label} · {formatEuro(asset.priceCents)} / Tag
-                                    {unavailableAssetIdSet.has(asset.id) ? " · im Zeitraum belegt" : ""}
+                                    <BikeOptionLabel
+                                      asset={asset}
+                                      suffix={unavailableAssetIdSet.has(asset.id) ? " · im Zeitraum belegt" : ""}
+                                    />
                                   </SelectItem>
                                 ))}
                               </SelectGroup>

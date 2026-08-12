@@ -25,6 +25,7 @@ import {
   type BookingStatus,
 } from "../db/schema";
 import { createOrderNumber } from "../inquiries/server";
+import { getComputerMountTypeLabel, getPedalTypeLabel } from "../inquiries/catalog";
 
 import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
@@ -1165,7 +1166,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       input.communicationLocale === "de" ? "Deutsch" : "English",
     );
     const formatRequestedItem = (item: BookingRequestedItemCommand) =>
-      `${item.requestedLabel} (${item.heightCm} cm${item.needsHelmet ? ", Helm" : ""}${item.needsClothing ? ", Kleidung" : ""}${item.needsPedals ? `, Pedale${item.pedalType ? `: ${item.pedalType}` : ""}` : ""}${item.needsComputerMount ? `, Computerhalterung${item.computerMountType ? `: ${item.computerMountType}` : ""}` : ""}${item.needsBikepackingBag ? ", Bikepackingtasche" : ""}${item.needsGlasses ? ", Rennradbrille" : ""})`;
+      `${item.requestedLabel} (${item.heightCm} cm${item.needsHelmet ? ", Helm" : ""}${item.needsClothing ? ", Kleidung" : ""}${item.needsPedals ? `, Pedale${item.pedalType ? `: ${getPedalTypeLabel(item.pedalType, "de")}` : ""}` : ""}${item.needsComputerMount ? `, Computerhalterung${item.computerMountType ? `: ${getComputerMountTypeLabel(item.computerMountType, "de")}` : ""}` : ""}${item.needsBikepackingBag ? ", Bikepackingtasche" : ""}${item.needsGlasses ? ", Rennradbrille" : ""})`;
     const currentItemsSummary = currentItems.map(formatRequestedItem).join(", ");
     const nextItemsSummary = input.requestedItems.map(formatRequestedItem).join(", ");
     addMailChange("Fahrräder und Ausstattung", "Bikes and equipment", currentItemsSummary, nextItemsSummary);

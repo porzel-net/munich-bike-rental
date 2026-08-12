@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ManualBookingForm } from "@/components/manual-booking-form";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import { rentalAssets } from "@/lib/db/schema";
+import { bikeModels, bikeVariants, rentalAssets } from "@/lib/db/schema";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -20,12 +20,18 @@ export default async function NewBookingPage() {
       id: rentalAssets.id,
       location: rentalAssets.location,
       label: rentalAssets.displayName,
+      nickname: rentalAssets.nickname,
+      modelTitle: bikeModels.title,
+      size: bikeVariants.size,
       priceCents: rentalAssets.dailyPriceCents,
     })
     .from(rentalAssets)
+    .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+    .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
     .where(eq(rentalAssets.state, "active"))
     .all()
-    .filter((asset) => administrator || asset.location === assigned);
+    .filter((asset) => administrator || asset.location === assigned)
+    .map((asset) => ({ ...asset, modelLabel: `${asset.modelTitle} - ${asset.size}` }));
   return (
     <SidebarProvider>
       <AppSidebar user={session.user} isAdmin={administrator} variant="inset" />

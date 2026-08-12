@@ -13,7 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
 
-type Asset = { id: number; location: string; label: string; priceCents: number };
+type Asset = {
+  id: number;
+  location: string;
+  label: string;
+  nickname: string | null;
+  modelLabel: string;
+  priceCents: number;
+};
 type Item = {
   key: number;
   requestedLabel: string;
@@ -45,6 +52,16 @@ const emptyItem = (key: number): Item => ({
   needsClothing: false,
   assetId: "",
 });
+
+function BikeOptionLabel({ asset }: { asset: Asset }) {
+  return (
+    <span>
+      {asset.nickname ? <strong>{asset.nickname}</strong> : null}
+      {asset.nickname ? " · " : null}
+      <span>{asset.modelLabel}</span> · {formatEuro(asset.priceCents)} / Tag
+    </span>
+  );
+}
 
 export function ManualBookingForm({ assets }: { assets: Asset[] }) {
   const [mode, setMode] = useState<"inquiry" | "direct">("inquiry");
@@ -257,8 +274,10 @@ export function ManualBookingForm({ assets }: { assets: Asset[] }) {
                     <Select value={item.assetId} onValueChange={(value) => update(item.key, { assetId: value ?? "" })}>
                       <SelectTrigger className="w-full">
                         <SelectValue>
-                          {availableAssets.find((asset) => String(asset.id) === item.assetId)?.label ??
-                            "Aktives Asset auswählen"}
+                          {(() => {
+                            const asset = availableAssets.find((candidate) => String(candidate.id) === item.assetId);
+                            return asset ? <BikeOptionLabel asset={asset} /> : "Aktives Asset auswählen";
+                          })()}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
@@ -270,7 +289,7 @@ export function ManualBookingForm({ assets }: { assets: Asset[] }) {
                               (other) => other.key !== item.key && other.assetId === String(asset.id),
                             )}
                           >
-                            {asset.label} · {formatEuro(asset.priceCents)} / Tag
+                            <BikeOptionLabel asset={asset} />
                           </SelectItem>
                         ))}
                       </SelectContent>

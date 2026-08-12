@@ -49,11 +49,12 @@ function imagePath(image: (typeof portfolioItems)[number]["image"]) {
   return typeof image === "string" ? image : image.src;
 }
 
-function bikeKey(title: string) {
-  return title
+function bikeKey(title: string, size: string, occurrence: number) {
+  const base = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+  return `${base}-${sizeKey(size)}${occurrence > 1 ? `-${occurrence}` : ""}`;
 }
 
 function sizeKey(size: string) {
@@ -99,6 +100,7 @@ function normalizeExistingBikeSizes(db: AppDatabase) {
             location: bike.location,
             bikeKey: `${bike.bikeKey}-${sizeKey(size.size)}`,
             title: bike.title,
+            nickname: bike.nickname,
             frameNumber: bike.frameNumber,
             priceCentsPerDay: bike.priceCentsPerDay,
             discountTextDe: bike.discountTextDe,
@@ -132,16 +134,18 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
       if (needsInventory) {
         const offers = portfolioItems.filter((item) => offeredBikes.some((bike) => bike.startsWith(item.title)));
         for (const [index, item] of offers.entries()) {
-          const key = bikeKey(item.title);
           const sizes = offeredBikes
             .filter((bike) => bike.startsWith(item.title + " - "))
             .map((bike) => bike.slice(item.title.length + 3));
+          const sizeOccurrences = new Map<string, number>();
           for (const [sizeIndex, size] of sizes.entries()) {
+            const occurrence = (sizeOccurrences.get(size) ?? 0) + 1;
+            sizeOccurrences.set(size, occurrence);
             const inserted = transaction
               .insert(rentalLocationBikes)
               .values({
                 location,
-                bikeKey: `${key}-${sizeKey(size)}`,
+                bikeKey: bikeKey(item.title, size, occurrence),
                 title: item.title,
                 priceCentsPerDay: locationPrices[location as keyof typeof locationPrices],
                 ...bikeDiscountText(item.title),

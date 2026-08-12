@@ -28,16 +28,19 @@ import { bookingPresentation, paymentPresentation } from "@/lib/bookings/present
 import { getDatabase } from "@/lib/db/client";
 import { getLatestEmailActionReview, isEmailActionEligible, reviewQuestions } from "@/lib/inquiries/email-action";
 import { getLocationInventory } from "@/lib/inventory/repository";
+import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
 import { getDailyBikePriceCents } from "@/lib/inventory/pricing";
 import { formatReceivedAt } from "@/lib/bookings/order-number";
 import { allocateInvoiceNumber } from "@/lib/bookings/invoice-number";
 import {
-  computerMountTypeLabels,
-  pedalTypeLabels,
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
   rentalLocationLabels,
   type RentalLocation,
 } from "@/lib/inquiries/catalog";
 import {
+  bikeModels,
+  bikeVariants,
   bookingFeedback,
   bookingOfferItems,
   bookingOffers,
@@ -171,10 +174,20 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const locationLabel =
     rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
   const availableAssets = db
-    .select({ id: rentalAssets.id, label: rentalAssets.displayName, priceCents: rentalAssets.dailyPriceCents })
+    .select({
+      id: rentalAssets.id,
+      label: rentalAssets.displayName,
+      nickname: rentalAssets.nickname,
+      modelTitle: bikeModels.title,
+      size: bikeVariants.size,
+      priceCents: rentalAssets.dailyPriceCents,
+    })
     .from(rentalAssets)
+    .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+    .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
     .where(and(eq(rentalAssets.location, booking.location), eq(rentalAssets.state, "active")))
-    .all();
+    .all()
+    .map((asset) => ({ ...asset, modelLabel: `${asset.modelTitle} - ${asset.size}` }));
   const unavailableAssetIds = availableAssets
     .filter((asset) => hasAssetConflict(db, booking, asset.id))
     .map((asset) => asset.id);
@@ -185,7 +198,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const likelyUnavailable =
     booking.status === "inquiry_received" &&
     [...requestedQuantities].some(([requestedLabel, quantity]) => {
-      const matchingAssets = availableAssets.filter((asset) => asset.label === requestedLabel);
+      const matchingAssets = availableAssets.filter((asset) => bikeMatchesRequestedLabel(asset, requestedLabel));
       const availableQuantity = matchingAssets.filter((asset) => !unavailableAssetIdSet.has(asset.id)).length;
       return availableQuantity < quantity;
     });
@@ -448,16 +461,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
                     const requestedDailyPriceCents = getDailyBikePriceCents(locationInventory, item.requestedLabel);
                     const accessories = [
-                      item.needsPedals
-                        ? item.pedalType
-                          ? (pedalTypeLabels.de[item.pedalType as keyof typeof pedalTypeLabels.de] ?? item.pedalType)
-                          : "Pedale"
-                        : null,
+                      item.needsPedals ? (item.pedalType ? getPedalTypeLabel(item.pedalType, "de") : "Pedale") : null,
                       item.needsComputerMount
                         ? item.computerMountType
-                          ? (computerMountTypeLabels.de[
-                              item.computerMountType as keyof typeof computerMountTypeLabels.de
-                            ] ?? item.computerMountType)
+                          ? getComputerMountTypeLabel(item.computerMountType, "de")
                           : "Computerhalterung"
                         : null,
                       item.needsHelmet ? "Helm" : null,

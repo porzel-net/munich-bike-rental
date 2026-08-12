@@ -100,6 +100,7 @@ export function InventoryTable({
             id: item.id,
             location: item.location,
             title: item.title,
+            nickname: item.nickname,
             frameNumber: item.frameNumber,
             size: item.size,
             priceCents: item.priceCents,
@@ -135,7 +136,7 @@ export function InventoryTable({
   }
 
   async function deleteItem(item: EditingItem) {
-    const label = item.kind === "bike" ? item.title : item.labelDe;
+    const label = item.kind === "bike" ? item.nickname || item.title : item.labelDe;
     if (!window.confirm(`„${label}“ wirklich aus dem Inventar entfernen?`)) return;
     const response = await fetch("/api/admin/inventory", {
       method: "DELETE",
@@ -249,7 +250,10 @@ export function InventoryTable({
                         }
                       }}
                     >
-                      <TableCell className="font-medium">{bike.title}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{bike.nickname || bike.title}</div>
+                        {bike.nickname ? <div className="text-xs text-muted-foreground">{bike.title}</div> : null}
+                      </TableCell>
                       <TableCell>{bike.size}</TableCell>
                       <TableCell>
                         {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
@@ -392,6 +396,7 @@ function InventoryDialog({
     item?.location ?? defaultLocation ?? locations[0]?.key,
   );
   const [title, setTitle] = useState(item?.kind === "bike" ? item.title : "");
+  const [nickname, setNickname] = useState(item?.kind === "bike" ? (item.nickname ?? "") : "");
   const [size, setSize] = useState(item?.kind === "bike" ? item.size : "");
   const [frameNumber, setFrameNumber] = useState(item?.kind === "bike" ? (item.frameNumber ?? "") : "");
   const [discountTextDe, setDiscountTextDe] = useState(item?.kind === "bike" ? item.discountTextDe : "");
@@ -422,6 +427,7 @@ function InventoryDialog({
             ...(item ? { id: item.id } : {}),
             location,
             title: title.trim(),
+            nickname: nickname.trim() || null,
             size: size.trim(),
             frameNumber: frameNumber.trim() || null,
             priceCents,
@@ -470,6 +476,7 @@ function InventoryDialog({
           location,
           bikeKey: item?.kind === "bike" ? item.bikeKey : (result.item.bikeKey ?? title),
           title: title.trim(),
+          nickname: nickname.trim() || null,
           frameNumber: frameNumber.trim() || null,
           priceCents,
           discountTextDe: discountTextDe.trim(),
@@ -540,6 +547,19 @@ function InventoryDialog({
                     onChange={(event) => setTitle(event.target.value)}
                     placeholder="z. B. Endurace CF SL 8"
                   />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="inventory-nickname">Spitzname (optional)</FieldLabel>
+                  <Input
+                    id="inventory-nickname"
+                    value={nickname}
+                    onChange={(event) => setNickname(event.target.value)}
+                    placeholder="z. B. Blitz"
+                    maxLength={120}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Wenn vorhanden, wird dieser Name bei der Fahrradauswahl angezeigt.
+                  </p>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="inventory-size">Größe</FieldLabel>

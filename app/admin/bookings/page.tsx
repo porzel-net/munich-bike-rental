@@ -15,8 +15,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import { hasAssetConflict } from "@/lib/bookings/availability";
+import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
 import { getDatabase } from "@/lib/db/client";
 import {
+  bikeModels,
+  bikeVariants,
   bookingRequestedItems,
   bookings,
   emailActionReviews,
@@ -150,15 +153,21 @@ export default async function BookingsPage({
         .all()
     : [];
   const activeAssets = db
-    .select({ id: rentalAssets.id, location: rentalAssets.location, displayName: rentalAssets.displayName })
+    .select({
+      id: rentalAssets.id,
+      location: rentalAssets.location,
+      displayName: rentalAssets.displayName,
+      modelTitle: bikeModels.title,
+      size: bikeVariants.size,
+    })
     .from(rentalAssets)
+    .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+    .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
     .where(eq(rentalAssets.state, "active"))
     .all();
-  const activeAssetsByLocationAndLabel = new Map<string, typeof activeAssets>();
-  for (const asset of activeAssets) {
-    const key = `${asset.location}\u0000${asset.displayName}`;
-    activeAssetsByLocationAndLabel.set(key, [...(activeAssetsByLocationAndLabel.get(key) ?? []), asset]);
-  }
+  const activeAssetsByLocation = new Map<string, typeof activeAssets>();
+  for (const asset of activeAssets)
+    activeAssetsByLocation.set(asset.location, [...(activeAssetsByLocation.get(asset.location) ?? []), asset]);
   const itemsByBooking = new Map<number, string[]>();
   const requestedItemsByBooking = new Map<number, typeof items>();
   for (const item of items)
@@ -301,8 +310,9 @@ export default async function BookingsPage({
                       const likelyUnavailable =
                         row.status === "inquiry_received" &&
                         [...requestedQuantities].some(([requestedLabel, quantity]) => {
-                          const assets =
-                            activeAssetsByLocationAndLabel.get(`${row.location}\u0000${requestedLabel}`) ?? [];
+                          const assets = (activeAssetsByLocation.get(row.location) ?? []).filter((asset) =>
+                            bikeMatchesRequestedLabel(asset, requestedLabel),
+                          );
                           const availableQuantity = assets.filter(
                             (asset) => !hasAssetConflict(db, row, asset.id),
                           ).length;

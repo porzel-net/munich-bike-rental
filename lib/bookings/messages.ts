@@ -1,9 +1,7 @@
 import { formatEuro } from "./money";
 import {
-  computerMountTypeLabels,
   getComputerMountTypeLabel,
   getPedalTypeLabel,
-  pedalTypeLabels,
   rentalLocationLabels,
   type RentalLocation,
 } from "../inquiries/catalog";
@@ -93,8 +91,8 @@ export function renderOfferMail(input: OfferMailInput) {
     const accessories = item.accessories;
     const lines = de
       ? [
-          `Pedale: ${accessories.needsPedals ? (pedalTypeLabels.de[accessories.pedalType as keyof typeof pedalTypeLabels.de] ?? accessories.pedalType ?? "Enthalten") : "Nicht enthalten"}`,
-          `Computerhalterung: ${accessories.needsComputerMount ? (computerMountTypeLabels.de[accessories.computerMountType as keyof typeof computerMountTypeLabels.de] ?? accessories.computerMountType ?? "Enthalten") : "Nicht enthalten"}`,
+          `Pedale: ${accessories.needsPedals ? getPedalTypeLabel(accessories.pedalType, "de") || "Enthalten" : "Nicht enthalten"}`,
+          `Computerhalterung: ${accessories.needsComputerMount ? getComputerMountTypeLabel(accessories.computerMountType, "de") || "Enthalten" : "Nicht enthalten"}`,
           `Helm: ${accessories.needsHelmet ? "Enthalten" : "Nicht enthalten"}`,
           `Kleidung: ${accessories.needsClothing ? "Enthalten" : "Nicht enthalten"}`,
           `Bikepackingtasche: ${accessories.needsBikepackingBag ? "Enthalten" : "Nicht enthalten"}`,
@@ -103,8 +101,8 @@ export function renderOfferMail(input: OfferMailInput) {
           `Reparaturset: ${accessories.repairKitIncluded !== false ? "Inklusive" : "Nicht enthalten"}`,
         ]
       : [
-          `Pedals: ${accessories.needsPedals ? (pedalTypeLabels.en[accessories.pedalType as keyof typeof pedalTypeLabels.en] ?? accessories.pedalType ?? "Included") : "Not included"}`,
-          `Computer mount: ${accessories.needsComputerMount ? (computerMountTypeLabels.en[accessories.computerMountType as keyof typeof computerMountTypeLabels.en] ?? accessories.computerMountType ?? "Included") : "Not included"}`,
+          `Pedals: ${accessories.needsPedals ? getPedalTypeLabel(accessories.pedalType, "en") || "Included" : "Not included"}`,
+          `Computer mount: ${accessories.needsComputerMount ? getComputerMountTypeLabel(accessories.computerMountType, "en") || "Included" : "Not included"}`,
           `Helmet: ${accessories.needsHelmet ? "Included" : "Not included"}`,
           `Clothing: ${accessories.needsClothing ? "Included" : "Not included"}`,
           `Bikepacking bag: ${accessories.needsBikepackingBag ? "Included" : "Not included"}`,
