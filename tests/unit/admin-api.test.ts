@@ -182,7 +182,7 @@ describe("admin inventory API", () => {
         .from(rentalAssets)
         .where(eq(rentalAssets.legacyLocationBikeId, bikeBody.item.id))
         .get(),
-    ).toMatchObject({ nickname: "Blitz", displayName: "Blitz" });
+    ).toMatchObject({ nickname: "Blitz", displayName: "Edge Bike - M" });
 
     expect(
       (
@@ -232,7 +232,7 @@ describe("admin inventory API", () => {
         .from(rentalAssets)
         .where(eq(rentalAssets.legacyLocationBikeId, bikeBody.item.id))
         .get(),
-    ).toMatchObject({ nickname: "Turbo", displayName: "Turbo" });
+    ).toMatchObject({ nickname: "Turbo", displayName: "Edge Bike Updated - L" });
     expect(
       db
         .select()

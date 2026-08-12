@@ -1,6 +1,7 @@
-export function formatBikeDisplayName(title: string, size: string, nickname?: string | null) {
-  const trimmedNickname = nickname?.trim();
-  if (trimmedNickname) return trimmedNickname;
+/**
+ * Public-facing bike names must never contain the internal nickname.
+ */
+export function formatBikeDisplayName(title: string, size: string) {
   return `${title} - ${size}`;
 }
 

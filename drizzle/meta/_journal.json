@@ -428,6 +428,13 @@
       "when": 1786546827000,
       "tag": "0061_munich_endurance_only",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1786547000000,
+      "tag": "0062_public_bike_model_names",
+      "breakpoints": true
     }
   ]
 }

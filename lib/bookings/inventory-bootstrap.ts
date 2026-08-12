@@ -67,7 +67,7 @@ export function importLegacyInventoryIntoBookingInventory(db: AppDatabase) {
           .set({
             nickname: bike.nickname,
             frameNumber: bike.frameNumber,
-            displayName: formatBikeDisplayName(bike.title, size, bike.nickname),
+            displayName: formatBikeDisplayName(bike.title, size),
             dailyPriceCents: bike.priceCentsPerDay,
             state: bike.isAvailable ? "active" : "maintenance",
             updatedAt: stamp,
@@ -83,7 +83,7 @@ export function importLegacyInventoryIntoBookingInventory(db: AppDatabase) {
             assetCode: `legacy-${bike.id}`,
             nickname: bike.nickname,
             frameNumber: bike.frameNumber,
-            displayName: formatBikeDisplayName(bike.title, size, bike.nickname),
+            displayName: formatBikeDisplayName(bike.title, size),
             dailyPriceCents: bike.priceCentsPerDay,
             state: bike.isAvailable ? "active" : "maintenance",
             legacyLocationBikeId: bike.id,
