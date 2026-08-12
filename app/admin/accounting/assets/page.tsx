@@ -1,4 +1,4 @@
-import { desc, inArray } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 
@@ -10,7 +10,6 @@ import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { financialAccounts, fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
 import { postDueFixedAssetDepreciation } from "@/lib/financial/fixed-assets";
-import { selectableFinancialAccountCodes } from "@/lib/financial/accounts";
 
 export default async function FixedAssetsPage() {
   const session = await getServerSession();
@@ -26,7 +25,7 @@ export default async function FixedAssetsPage() {
   const financialAccountOptions = db
     .select({ id: financialAccounts.id, code: financialAccounts.code, name: financialAccounts.name })
     .from(financialAccounts)
-    .where(inArray(financialAccounts.code, selectableFinancialAccountCodes as unknown as string[]))
+    .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
     .all();
   const assets: FixedAssetRow[] = db

@@ -65,12 +65,14 @@ import {
 } from "../../app/api/admin/inventory/route";
 import { POST as financialTransactionPost } from "../../app/api/admin/financial/transactions/[id]/route";
 import { POST as manualTransactionPost } from "../../app/api/admin/financial/transactions/manual/route";
+import { POST as financialAccountPost } from "../../app/api/admin/financial/accounts/route";
 import { PATCH as financialAccountPatch } from "../../app/api/admin/financial/accounts/[id]/route";
 import { POST as depreciationPost } from "../../app/api/admin/financial/assets/depreciation/route";
 import { POST as disposalPost } from "../../app/api/admin/financial/assets/disposal/route";
 import {
   authInvitation,
   authUser,
+  accountingAccounts,
   financialAccounts,
   financialCategories,
   financialTransactions,
@@ -544,6 +546,34 @@ describe("admin financial APIs", () => {
         .all()
         .some((row) => row.status === "posted"),
     ).toBe(true);
+
+    const createdAccountResponse = await financialAccountPost(
+      request("/api/admin/financial/accounts", "POST", {
+        code: "paypal_main",
+        name: "PayPal-Verrechnung",
+        type: "other",
+        currency: "eur",
+        provider: "PayPal",
+        notes: "Manuell angelegt",
+      }),
+    );
+    expect(createdAccountResponse.status).toBe(201);
+    const createdAccount = (await createdAccountResponse.json()).account;
+    expect(createdAccount.code).toBe("paypal_main");
+    expect(db.select().from(accountingAccounts).where(eq(accountingAccounts.code, "paypal_main")).get()?.isActive).toBe(
+      true,
+    );
+    expect(
+      (
+        await financialAccountPatch(
+          request(`/api/admin/financial/accounts/${createdAccount.id}`, "PATCH", { status: "archived" }),
+          { params: Promise.resolve({ id: String(createdAccount.id) }) },
+        )
+      ).status,
+    ).toBe(200);
+    expect(db.select().from(financialAccounts).where(eq(financialAccounts.id, createdAccount.id)).get()?.status).toBe(
+      "archived",
+    );
 
     const bank = db
       .insert(financialAccounts)

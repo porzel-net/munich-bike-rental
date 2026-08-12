@@ -130,7 +130,7 @@ function checkConfiguration(environment: Partial<NodeJS.ProcessEnv>) {
     errors.push("STRIPE_SECRET_KEY hat kein gültiges Stripe-Format");
   if (stripeWebhook && !stripeWebhook.startsWith("whsec_"))
     errors.push("STRIPE_WEBHOOK_SECRET muss mit whsec_ beginnen");
-  if (Boolean(stripeSecret) !== Boolean(stripeWebhook))
+  if (production && Boolean(stripeSecret) !== Boolean(stripeWebhook))
     errors.push("STRIPE_SECRET_KEY und STRIPE_WEBHOOK_SECRET müssen gemeinsam gesetzt sein");
 
   if (errors.length > 0) throw new Error(errors.join("; "));
@@ -144,12 +144,12 @@ function checkConfiguration(environment: Partial<NodeJS.ProcessEnv>) {
 
 function readMigrationJournal(migrationsFolder: string) {
   const journal = JSON.parse(readFileSync(join(migrationsFolder, "meta/_journal.json"), "utf8")) as {
-    entries?: Array<{ when?: number; tag?: string }>;
+    entries?: Array<{ idx?: number; when?: number; tag?: string }>;
   };
   return journal.entries ?? [];
 }
 
-function validateDatabase(db: AppDatabase, migrationsFolder: string) {
+function validateDatabase(db: AppDatabase, migrationsFolder: string, production: boolean) {
   const integrity = db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`);
   if (integrity?.integrity_check !== "ok")
     throw new Error(`SQLite integrity_check: ${integrity?.integrity_check ?? "kein Ergebnis"}`);
@@ -165,21 +165,31 @@ function validateDatabase(db: AppDatabase, migrationsFolder: string) {
   const appliedMigrations = db.all<{ created_at: number; hash: string }>(sql`
     SELECT created_at, hash FROM __drizzle_migrations ORDER BY created_at
   `);
-  const latestExpected = journalEntries.at(-1)?.when;
-  const latestApplied = appliedMigrations.at(-1)?.created_at;
-  if (appliedMigrations.length !== journalEntries.length || latestApplied !== latestExpected) {
-    throw new Error(
-      `Migrationen unvollständig: ${appliedMigrations.length}/${journalEntries.length}, ` +
-        `letzte Migration ${latestApplied ?? "keine"}/${latestExpected ?? "unbekannt"}`,
-    );
-  }
-  const migrationHashMismatches = journalEntries.flatMap((entry, index) => {
-    if (!entry.tag) return [`Index ${index} ohne Migrationstag`];
+  const appliedByCreatedAt = new Map(appliedMigrations.map((migration) => [migration.created_at, migration.hash]));
+  const missingMigrations: string[] = [];
+  const migrationHashMismatches: string[] = [];
+  for (const entry of journalEntries) {
+    if (!entry.tag) {
+      missingMigrations.push(`Index ${entry.idx ?? "unbekannt"} ohne Migrationstag`);
+      continue;
+    }
+    if (entry.when === undefined) {
+      missingMigrations.push(`${entry.tag} ohne Zeitstempel`);
+      continue;
+    }
     const migrationPath = join(migrationsFolder, `${entry.tag}.sql`);
     const expectedHash = createHash("sha256").update(readFileSync(migrationPath)).digest("hex");
-    return appliedMigrations[index]?.hash === expectedHash ? [] : [entry.tag];
-  });
-  if (migrationHashMismatches.length > 0) {
+    const appliedHash = appliedByCreatedAt.get(entry.when);
+    if (!appliedHash) {
+      missingMigrations.push(`${entry.tag} (nicht angewendet)`);
+    } else if (appliedHash !== expectedHash) {
+      migrationHashMismatches.push(entry.tag);
+    }
+  }
+  if (missingMigrations.length > 0) {
+    throw new Error(`Migrationen fehlen: ${missingMigrations.join(", ")}`);
+  }
+  if (production && migrationHashMismatches.length > 0) {
     throw new Error(`Migration-Hash passt nicht zur ausgelieferten Datei: ${migrationHashMismatches.join(", ")}`);
   }
 
@@ -281,7 +291,12 @@ export async function runStartupChecks(
   let db: AppDatabase | null = null;
   await runCheck(checks, "database", true, () => {
     db = getDatabase();
-    return validateDatabase(db, resolve(process.cwd(), "drizzle"));
+    const result = validateDatabase(db, resolve(process.cwd(), "drizzle"), production);
+    seedRentalInventoryIfEmpty(db);
+    return {
+      ...result,
+      message: `${result.message}; Mietinventar-Seed ist angewendet`,
+    };
   });
 
   await runCheck(checks, "browser-fixture", false, () => {

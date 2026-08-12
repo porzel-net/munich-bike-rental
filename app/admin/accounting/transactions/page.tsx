@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
@@ -23,7 +23,6 @@ import {
   bookings,
 } from "@/lib/db/schema";
 import { findBookingOrderNumber } from "@/lib/financial/booking-matching";
-import { selectableFinancialAccountCodes } from "@/lib/financial/accounts";
 
 export default async function BankTransactionsPage({
   searchParams,
@@ -56,7 +55,7 @@ export default async function BankTransactionsPage({
       currency: financialAccounts.currency,
     })
     .from(financialAccounts)
-    .where(inArray(financialAccounts.code, selectableFinancialAccountCodes as unknown as string[]))
+    .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
     .all();
   const categories = db
