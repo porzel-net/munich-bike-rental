@@ -15,6 +15,13 @@ import type { OfferAccessorySelection } from "./quotes";
 
 export type RenderedMail = { subject: string; text: string; html: string };
 
+export type BookingInformationChange = {
+  labelDe: string;
+  labelEn: string;
+  previous: string;
+  current: string;
+};
+
 export type OfferMailInput = {
   locale: "de" | "en";
   alternative: boolean;
@@ -575,6 +582,93 @@ export function renderBookingNotice(input: {
     intro,
     content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" ? emailCard(`${emailLabel(de ? "Deine Ansprechperson" : "Your contact person")}${emailParagraph(contactText)}`, "#eef2ff") : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
     cta: offerLink ? { label: de ? "Buchungsdetails öffnen" : "Open booking details", href: offerLink } : undefined,
+  });
+  return { subject, text, html };
+}
+
+export function renderBookingInformationChangedMail(input: {
+  locale: "de" | "en";
+  name: string;
+  orderNumber: string;
+  location: string;
+  periodFrom: string;
+  periodTo: string;
+  pickupTime: string;
+  dropoffTime: string;
+  bikes: string[];
+  changes: BookingInformationChange[];
+}) {
+  const de = input.locale === "de";
+  const greeting = input.name.trim().split(/\s+/)[0] || input.name;
+  const changeLines = input.changes.map((change) =>
+    de
+      ? `- ${change.labelDe}: NEU ${change.current} (vorher: ${change.previous})`
+      : `- ${change.labelEn}: NEW ${change.current} (previously: ${change.previous})`,
+  );
+  const currentLines = de
+    ? [
+        `Zeitraum: ${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`,
+        `Standort: ${rentalLocationLabels.de[input.location as RentalLocation] ?? input.location}`,
+        ...(input.bikes.length ? [`Fahrräder: ${input.bikes.join(", ")}`] : []),
+      ]
+    : [
+        `Rental period: ${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`,
+        `Location: ${rentalLocationLabels.en[input.location as RentalLocation] ?? input.location}`,
+        ...(input.bikes.length ? [`Bikes: ${input.bikes.join(", ")}`] : []),
+      ];
+  const subject = de
+    ? `Aktualisierte Buchungsinformationen ${input.orderNumber}`
+    : `Updated booking information ${input.orderNumber}`;
+  const text = [
+    de ? `Hallo ${greeting},` : `Hello ${greeting},`,
+    "",
+    de
+      ? `wir haben die Buchungsinformationen für deine Buchung ${input.orderNumber} geändert.`
+      : `We have updated the booking information for your booking ${input.orderNumber}.`,
+    "",
+    de ? "Geänderte Angaben:" : "Changed details:",
+    ...changeLines,
+    "",
+    de ? "Aktuelle Buchungsinformationen:" : "Current booking information:",
+    ...currentLines.map((line) => `- ${line}`),
+    "",
+    de
+      ? "Bitte prüfe die aktualisierten Angaben. Bei Fragen antworte einfach auf diese E-Mail."
+      : "Please check the updated details. If you have any questions, simply reply to this email.",
+    "",
+    de ? "Viele Grüße\nYour Bike Rental" : "Kind regards\nYour Bike Rental",
+  ].join("\n");
+  const changeRows = input.changes
+    .map(
+      (change) =>
+        `<tr><td style="padding:8px 12px 8px 0;color:#697177;font-size:13px;line-height:1.45">${escapeHtml(de ? change.labelDe : change.labelEn)}</td><td style="padding:8px 0;color:#171a1d;font-size:14px;line-height:1.45"><strong>${escapeHtml(change.current)}</strong><br /><span style="color:#899196;font-size:12px">${escapeHtml(de ? `Vorher: ${change.previous}` : `Previously: ${change.previous}`)}</span></td></tr>`,
+    )
+    .join("");
+  const currentDetails = [
+    [
+      de ? "Zeitraum" : "Rental period",
+      `${input.periodFrom} ${input.pickupTime} – ${input.periodTo} ${input.dropoffTime}`,
+    ],
+    [
+      de ? "Standort" : "Location",
+      rentalLocationLabels[input.locale][input.location as RentalLocation] ?? input.location,
+    ],
+    ...(input.bikes.length ? [[de ? "Fahrräder" : "Bikes", input.bikes.join(", ")]] : []),
+  ]
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:8px 12px 8px 0;color:#697177;font-size:13px;line-height:1.45">${escapeHtml(label)}</td><td style="padding:8px 0;color:#171a1d;font-size:14px;line-height:1.45">${escapeHtml(value)}</td></tr>`,
+    )
+    .join("");
+  const html = renderEmailLayout({
+    locale: input.locale,
+    preheader: subject,
+    eyebrow: de ? "Buchung geändert" : "Booking changed",
+    title: de ? "Buchungsinformationen aktualisiert" : "Booking information updated",
+    intro: de
+      ? `Wir haben die Buchungsinformationen für deine Buchung ${input.orderNumber} geändert. Die Änderungen sind fett markiert.`
+      : `We have updated the booking information for your booking ${input.orderNumber}. The changes are shown in bold.`,
+    content: `${emailCard(`${emailLabel(de ? "Geänderte Angaben" : "Changed details")}<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">${changeRows}</table>`, "#eef2ff")}${emailCard(`${emailLabel(de ? "Aktuelle Buchungsinformationen" : "Current booking information")}<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">${currentDetails}</table>`)}${emailParagraph(de ? "Bitte prüfe die aktualisierten Angaben. Bei Fragen antworte einfach auf diese E-Mail." : "Please check the updated details. If you have any questions, simply reply to this email.")}`,
   });
   return { subject, text, html };
 }

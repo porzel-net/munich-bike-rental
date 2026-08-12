@@ -105,6 +105,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         .where(eq(authUser.id, booking.assignedUserId))
         .get() as BookingAssigneeUser | undefined) ?? null)
     : null;
+  const hasAssignedCaseworker = Boolean(assignee);
   const eligibleAssignees = isAdmin(session.user)
     ? getAssignableBookingUsers(db, booking.location as RentalLocation)
     : [];
@@ -279,8 +280,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               </p>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              {booking.source !== "legacy" && <BookingAiAnalysisButton bookingId={booking.id} />}
-              {canGenerateInvoice ? (
+              {hasAssignedCaseworker && booking.source !== "legacy" && (
+                <BookingAiAnalysisButton bookingId={booking.id} />
+              )}
+              {hasAssignedCaseworker && canGenerateInvoice ? (
                 <Button
                   nativeButton={false}
                   variant="outline"
@@ -289,22 +292,44 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   Rechnung als PDF
                 </Button>
               ) : null}
-              {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ? (
-                <BookingEditDialog
-                  bookingId={booking.id}
-                  expectedVersion={booking.version}
-                  customerName={booking.customerName}
-                  customerEmail={booking.customerEmail}
-                  customerPhone={booking.customerPhone}
-                  periodFrom={booking.periodFrom}
-                  periodTo={booking.periodTo}
-                  pickupTime={booking.pickupTime}
-                  dropoffTime={booking.dropoffTime}
-                  customerMessage={booking.customerMessage}
-                  communicationLocale={booking.communicationLocale}
-                  requestedItems={items}
-                  commercialEditingAllowed={commercialEditingAllowed}
-                />
+              {hasAssignedCaseworker ? (
+                <>
+                  {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ? (
+                    <BookingEditDialog
+                      bookingId={booking.id}
+                      expectedVersion={booking.version}
+                      customerName={booking.customerName}
+                      customerEmail={booking.customerEmail}
+                      customerPhone={booking.customerPhone}
+                      periodFrom={booking.periodFrom}
+                      periodTo={booking.periodTo}
+                      pickupTime={booking.pickupTime}
+                      dropoffTime={booking.dropoffTime}
+                      customerMessage={booking.customerMessage}
+                      communicationLocale={booking.communicationLocale}
+                      requestedItems={items}
+                      commercialEditingAllowed={commercialEditingAllowed}
+                    />
+                  ) : null}
+                  {booking.status === "confirmed" ? (
+                    <BookingEditDialog
+                      bookingId={booking.id}
+                      expectedVersion={booking.version}
+                      customerName={booking.customerName}
+                      customerEmail={booking.customerEmail}
+                      customerPhone={booking.customerPhone}
+                      periodFrom={booking.periodFrom}
+                      periodTo={booking.periodTo}
+                      pickupTime={booking.pickupTime}
+                      dropoffTime={booking.dropoffTime}
+                      customerMessage={booking.customerMessage}
+                      communicationLocale={booking.communicationLocale}
+                      requestedItems={items}
+                      commercialEditingAllowed
+                      notifyCustomer
+                    />
+                  ) : null}
+                </>
               ) : null}
             </div>
           </div>
@@ -559,7 +584,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   paymentAccounts={paymentAccounts}
                   isLegacy={booking.source === "legacy"}
                   canExecuteActions={
-                    isAdmin(session.user) || Boolean(assignee && booking.assignedUserId === session.user.id)
+                    hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
                   }
                   requestedItems={items.map((item) => ({
                     id: item.id,

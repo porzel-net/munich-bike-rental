@@ -30,7 +30,13 @@ import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
 import { appendJournalEntry, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents } from "./money";
-import { renderBookingNotice, renderFeedbackRequestMail, renderInquiryReceivedMail, renderOfferMail } from "./messages";
+import {
+  renderBookingInformationChangedMail,
+  renderBookingNotice,
+  renderFeedbackRequestMail,
+  renderInquiryReceivedMail,
+  renderOfferMail,
+} from "./messages";
 import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
 import { allocateInvoiceNumber, invoiceNumberPattern } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
@@ -109,7 +115,15 @@ function firstName(name: string | undefined) {
 function queueCustomerMail(
   db: AppDatabase,
   booking: typeof bookings.$inferSelect,
-  input: { kind: string; subjectDe: string; subjectEn: string; textDe: string; textEn: string; html?: string },
+  input: {
+    kind: string;
+    subjectDe: string;
+    subjectEn: string;
+    textDe: string;
+    textEn: string;
+    html?: string;
+    idempotencyKey?: string;
+  },
 ) {
   const locale = booking.communicationLocale;
   return (
@@ -117,7 +131,7 @@ function queueCustomerMail(
       .insert(mailOutbox)
       .values({
         bookingId: booking.id,
-        idempotencyKey: `booking:${booking.id}:${input.kind}`,
+        idempotencyKey: input.idempotencyKey ?? `booking:${booking.id}:${input.kind}`,
         kind: input.kind,
         locale,
         recipient: booking.customerEmail,
@@ -1057,6 +1071,7 @@ export type UpdateBookingCommand = {
   customerMessage: string;
   communicationLocale: "de" | "en";
   requestedItems: Array<BookingRequestedItemCommand & { id: number }>;
+  notifyCustomer?: boolean;
 };
 
 /** Updates editable booking details while keeping offers, allocations and the event history consistent. */
@@ -1064,6 +1079,8 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
     if (!booking) throw new BookingCommandError("Booking not found");
+    if (input.notifyCustomer && booking.status !== "confirmed")
+      throw new BookingCommandError("Eine Änderungsmail kann nur für verbindlich gebuchte Buchungen versendet werden");
     if (booking.version !== input.expectedVersion)
       throw new BookingCommandError("Die Buchung wurde zwischenzeitlich geändert. Bitte lade sie neu.");
     if (["completed", "rejected", "cancelled", "expired"].includes(booking.status))
@@ -1089,30 +1106,33 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     )
       throw new BookingCommandError("Die Anzahl der Fahrräder kann hier nicht geändert werden");
 
+    const bikeDetailsChanged = currentItems.some((current) => {
+      const next = input.requestedItems.find((item) => item.id === current.id);
+      return (
+        !next ||
+        current.requestedLabel !== next.requestedLabel ||
+        current.heightCm !== next.heightCm ||
+        current.needsPedals !== Boolean(next.needsPedals) ||
+        current.pedalType !== (next.needsPedals ? (next.pedalType ?? null) : null) ||
+        current.needsComputerMount !== Boolean(next.needsComputerMount) ||
+        current.computerMountType !== (next.needsComputerMount ? (next.computerMountType ?? null) : null) ||
+        current.needsHelmet !== Boolean(next.needsHelmet) ||
+        current.needsClothing !== Boolean(next.needsClothing) ||
+        current.needsBikepackingBag !== Boolean(next.needsBikepackingBag) ||
+        current.needsGlasses !== Boolean(next.needsGlasses) ||
+        current.bottleHolderIncluded !== (next.bottleHolderIncluded ?? true) ||
+        current.repairKitIncluded !== (next.repairKitIncluded ?? true)
+      );
+    });
     const commercialChanged =
       booking.periodFrom !== input.periodFrom ||
       booking.periodTo !== input.periodTo ||
       booking.pickupTime !== input.pickupTime ||
       booking.dropoffTime !== input.dropoffTime ||
-      currentItems.some((current) => {
-        const next = input.requestedItems.find((item) => item.id === current.id);
-        return (
-          !next ||
-          current.requestedLabel !== next.requestedLabel ||
-          current.heightCm !== next.heightCm ||
-          current.needsPedals !== Boolean(next.needsPedals) ||
-          current.pedalType !== (next.needsPedals ? (next.pedalType ?? null) : null) ||
-          current.needsComputerMount !== Boolean(next.needsComputerMount) ||
-          current.computerMountType !== (next.needsComputerMount ? (next.computerMountType ?? null) : null) ||
-          current.needsHelmet !== Boolean(next.needsHelmet) ||
-          current.needsClothing !== Boolean(next.needsClothing) ||
-          current.needsBikepackingBag !== Boolean(next.needsBikepackingBag) ||
-          current.needsGlasses !== Boolean(next.needsGlasses) ||
-          current.bottleHolderIncluded !== (next.bottleHolderIncluded ?? true) ||
-          current.repairKitIncluded !== (next.repairKitIncluded ?? true)
-        );
-      });
-    if (commercialChanged && !["inquiry_received", "offer_sent"].includes(booking.status))
+      bikeDetailsChanged;
+    if (input.notifyCustomer && booking.status === "confirmed" && bikeDetailsChanged)
+      throw new BookingCommandError("Fahrräder und Ausstattung können hier nicht geändert werden");
+    if (commercialChanged && !["inquiry_received", "offer_sent"].includes(booking.status) && !input.notifyCustomer)
       throw new BookingCommandError(
         "Fahrrad- und Zeitraumdaten können nach der Bestätigung nicht mehr geändert werden",
       );
@@ -1124,6 +1144,102 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         booking.communicationLocale !== input.communicationLocale);
 
     const stamp = now();
+    const mailChanges: Array<{
+      labelDe: string;
+      labelEn: string;
+      previous: string;
+      current: string;
+    }> = [];
+    const addMailChange = (labelDe: string, labelEn: string, previous: string, current: string) => {
+      if (previous !== current) mailChanges.push({ labelDe, labelEn, previous, current });
+    };
+    addMailChange("Name", "Name", booking.customerName, input.customerName);
+    addMailChange("E-Mail", "Email", booking.customerEmail, input.customerEmail);
+    addMailChange("Telefon", "Phone", booking.customerPhone, input.customerPhone);
+    addMailChange("Abholdatum", "Pickup date", booking.periodFrom, input.periodFrom);
+    addMailChange("Rückgabedatum", "Return date", booking.periodTo, input.periodTo);
+    addMailChange("Abholzeit", "Pickup time", booking.pickupTime, input.pickupTime);
+    addMailChange("Rückgabezeit", "Return time", booking.dropoffTime, input.dropoffTime);
+    addMailChange(
+      "Kommunikationssprache",
+      "Communication language",
+      booking.communicationLocale === "de" ? "Deutsch" : "English",
+      input.communicationLocale === "de" ? "Deutsch" : "English",
+    );
+    const formatRequestedItem = (item: BookingRequestedItemCommand) =>
+      `${item.requestedLabel} (${item.heightCm} cm${item.needsHelmet ? ", Helm" : ""}${item.needsClothing ? ", Kleidung" : ""}${item.needsPedals ? `, Pedale${item.pedalType ? `: ${item.pedalType}` : ""}` : ""}${item.needsComputerMount ? `, Computerhalterung${item.computerMountType ? `: ${item.computerMountType}` : ""}` : ""}${item.needsBikepackingBag ? ", Bikepackingtasche" : ""}${item.needsGlasses ? ", Rennradbrille" : ""})`;
+    const currentItemsSummary = currentItems.map(formatRequestedItem).join(", ");
+    const nextItemsSummary = input.requestedItems.map(formatRequestedItem).join(", ");
+    addMailChange("Fahrräder und Ausstattung", "Bikes and equipment", currentItemsSummary, nextItemsSummary);
+    const confirmedPeriodChanged =
+      booking.status === "confirmed" &&
+      input.notifyCustomer === true &&
+      (booking.periodFrom !== input.periodFrom ||
+        booking.periodTo !== input.periodTo ||
+        booking.pickupTime !== input.pickupTime ||
+        booking.dropoffTime !== input.dropoffTime);
+    const changedFields = [
+      ...(booking.customerName !== input.customerName ? ["customerName"] : []),
+      ...(booking.customerEmail !== input.customerEmail ? ["customerEmail"] : []),
+      ...(booking.customerPhone !== input.customerPhone ? ["customerPhone"] : []),
+      ...(booking.periodFrom !== input.periodFrom ? ["periodFrom"] : []),
+      ...(booking.periodTo !== input.periodTo ? ["periodTo"] : []),
+      ...(booking.pickupTime !== input.pickupTime ? ["pickupTime"] : []),
+      ...(booking.dropoffTime !== input.dropoffTime ? ["dropoffTime"] : []),
+      ...(booking.customerMessage !== input.customerMessage ? ["customerMessage"] : []),
+      ...(booking.communicationLocale !== input.communicationLocale ? ["communicationLocale"] : []),
+      ...(commercialChanged ? ["requestedItems"] : []),
+    ];
+    let queuedMailId: number | null = null;
+    if (confirmedPeriodChanged) {
+      const activeAllocations = db
+        .select()
+        .from(bookingAssetAllocations)
+        .where(
+          and(eq(bookingAssetAllocations.bookingId, booking.id), sql`${bookingAssetAllocations.releasedAt} is null`),
+        )
+        .all();
+      db.update(bookingAssetAllocations)
+        .set({ releasedAt: stamp })
+        .where(
+          and(eq(bookingAssetAllocations.bookingId, booking.id), sql`${bookingAssetAllocations.releasedAt} is null`),
+        )
+        .run();
+      const nextBooking = {
+        ...booking,
+        periodFrom: input.periodFrom,
+        periodTo: input.periodTo,
+        pickupTime: input.pickupTime,
+        dropoffTime: input.dropoffTime,
+      };
+      if (activeAllocations.some((allocation) => hasAssetConflict(db, nextBooking, allocation.assetId)))
+        throw new BookingCommandError("Das Fahrrad ist im neuen Zeitraum bereits anderweitig gebucht");
+      for (const allocation of activeAllocations)
+        db.update(bookingAssetAllocations)
+          .set({
+            periodFrom: input.periodFrom,
+            periodTo: input.periodTo,
+            pickupTime: input.pickupTime,
+            dropoffTime: input.dropoffTime,
+            releasedAt: null,
+          })
+          .where(eq(bookingAssetAllocations.id, allocation.id))
+          .run();
+      db.update(bookingAccessoryAllocations)
+        .set({
+          periodFrom: input.periodFrom,
+          periodTo: input.periodTo,
+          pickupTime: input.pickupTime,
+          dropoffTime: input.dropoffTime,
+        })
+        .where(
+          and(
+            eq(bookingAccessoryAllocations.bookingId, booking.id),
+            sql`${bookingAccessoryAllocations.releasedAt} is null`,
+          ),
+        )
+        .run();
+    }
     db.update(bookings)
       .set({
         customerName: input.customerName,
@@ -1168,6 +1284,34 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         .run();
     }
 
+    if (input.notifyCustomer && booking.status === "confirmed" && changedFields.length && mailChanges.length) {
+      const notice = renderBookingInformationChangedMail({
+        locale: input.communicationLocale,
+        name: input.customerName,
+        orderNumber: booking.orderNumber,
+        location: booking.location,
+        periodFrom: input.periodFrom,
+        periodTo: input.periodTo,
+        pickupTime: input.pickupTime,
+        dropoffTime: input.dropoffTime,
+        bikes: input.requestedItems.map((item) => item.requestedLabel),
+        changes: mailChanges,
+      });
+      queuedMailId = queueCustomerMail(
+        db,
+        { ...booking, ...input },
+        {
+          kind: "booking_information_changed",
+          idempotencyKey: `booking:${booking.id}:booking_information_changed:${booking.version + 1}`,
+          subjectDe: notice.subject,
+          subjectEn: notice.subject,
+          textDe: notice.text,
+          textEn: notice.text,
+          html: notice.html,
+        },
+      );
+    }
+
     event(
       db,
       booking.id,
@@ -1177,22 +1321,12 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       input.actorUserId,
       "Buchungsdaten bearbeitet",
       {
-        changedFields: [
-          ...(booking.customerName !== input.customerName ? ["customerName"] : []),
-          ...(booking.customerEmail !== input.customerEmail ? ["customerEmail"] : []),
-          ...(booking.customerPhone !== input.customerPhone ? ["customerPhone"] : []),
-          ...(booking.periodFrom !== input.periodFrom ? ["periodFrom"] : []),
-          ...(booking.periodTo !== input.periodTo ? ["periodTo"] : []),
-          ...(booking.pickupTime !== input.pickupTime ? ["pickupTime"] : []),
-          ...(booking.dropoffTime !== input.dropoffTime ? ["dropoffTime"] : []),
-          ...(booking.customerMessage !== input.customerMessage ? ["customerMessage"] : []),
-          ...(booking.communicationLocale !== input.communicationLocale ? ["communicationLocale"] : []),
-          ...(commercialChanged ? ["requestedItems"] : []),
-        ],
+        changedFields,
         revokedOffer: offerNeedsRevocation,
+        customerNotified: Boolean(queuedMailId),
       },
     );
-    return { bookingId: booking.id, version: booking.version + 1 };
+    return { bookingId: booking.id, version: booking.version + 1, mailId: queuedMailId };
   });
 }
 

@@ -732,6 +732,48 @@ describe("booking commands", () => {
     ).toThrow("YBR-2026-0002");
   });
 
+  it("updates confirmed booking times and queues a highlighted change mail", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOffer(db, offer.confirmationToken, "admin");
+    const confirmed = db.select().from(bookings).where(eq(bookings.id, booking.id)).get()!;
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, booking.id)).get()!;
+
+    const result = updateBooking(db, {
+      bookingId: booking.id,
+      expectedVersion: confirmed.version,
+      actorUserId: "admin",
+      customerName: confirmed.customerName,
+      customerEmail: confirmed.customerEmail,
+      customerPhone: confirmed.customerPhone,
+      periodFrom: "2026-08-01",
+      periodTo: "2026-08-03",
+      pickupTime: "09:00",
+      dropoffTime: "17:00",
+      customerMessage: confirmed.customerMessage,
+      communicationLocale: confirmed.communicationLocale,
+      requestedItems: [{ ...item }],
+      notifyCustomer: true,
+    });
+
+    expect(result.mailId).toBeTypeOf("number");
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toMatchObject({
+      periodFrom: "2026-08-01",
+      periodTo: "2026-08-03",
+      pickupTime: "09:00",
+      dropoffTime: "17:00",
+    });
+    expect(
+      db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, booking.id)).get(),
+    ).toMatchObject({ periodFrom: "2026-08-01", periodTo: "2026-08-03", pickupTime: "09:00", dropoffTime: "17:00" });
+    const mail = db.select().from(mailOutbox).where(eq(mailOutbox.id, result.mailId!)).get();
+    expect(mail?.kind).toBe("booking_information_changed");
+    expect(mail?.html).toContain("<strong>2026-08-01</strong>");
+    expect(mail?.plainText).toContain("NEW 2026-08-01");
+  });
+
   it("covers the alternative offer to completed rental lifecycle", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");

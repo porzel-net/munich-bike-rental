@@ -5,6 +5,7 @@ import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { BookingCommandError, updateBooking } from "@/lib/bookings/service";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,7 @@ const schema = z.object({
   customerMessage: z.string().trim().max(5000),
   communicationLocale: z.enum(["de", "en"]),
   requestedItems: z.array(requestedItem).min(1).max(10),
+  notifyCustomer: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -45,13 +47,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!command || !input.success) return NextResponse.json({ message: "Ungültige Buchungsdaten" }, { status: 400 });
 
   try {
-    return NextResponse.json(
-      updateBooking(command.db, {
-        bookingId: id,
-        actorUserId: command.user.id,
-        ...input.data,
-      }),
-    );
+    const result = updateBooking(command.db, {
+      bookingId: id,
+      actorUserId: command.user.id,
+      ...input.data,
+    });
+    const mailResult = result.mailId ? await dispatchNextOutboxMail(command.db, result.mailId) : null;
+    return NextResponse.json({ ...result, mailStatus: mailResult?.status ?? null });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof BookingCommandError ? error.message : "Buchung konnte nicht bearbeitet werden" },

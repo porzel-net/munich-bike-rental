@@ -53,9 +53,15 @@ type BookingEditValues = {
 type BookingEditDialogProps = BookingEditValues & {
   bookingId: number;
   commercialEditingAllowed: boolean;
+  notifyCustomer?: boolean;
 };
 
-export function BookingEditDialog({ bookingId, commercialEditingAllowed, ...initialValues }: BookingEditDialogProps) {
+export function BookingEditDialog({
+  bookingId,
+  commercialEditingAllowed,
+  notifyCustomer = false,
+  ...initialValues
+}: BookingEditDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,6 +83,7 @@ export function BookingEditDialog({ bookingId, commercialEditingAllowed, ...init
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...values,
+          notifyCustomer,
           requestedItems: values.requestedItems.map((item) => ({
             ...item,
             pedalType: item.needsPedals ? item.pedalType || null : null,
@@ -84,9 +91,18 @@ export function BookingEditDialog({ bookingId, commercialEditingAllowed, ...init
           })),
         }),
       });
-      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      const result = (await response.json().catch(() => null)) as {
+        message?: string;
+        mailStatus?: string | null;
+      } | null;
       if (!response.ok) throw new Error(result?.message ?? "Buchung konnte nicht gespeichert werden.");
-      toast.success("Buchung wurde gespeichert.");
+      toast.success(
+        notifyCustomer
+          ? result?.mailStatus === "sent"
+            ? "Buchung wurde geändert und die Änderungsmail wurde versendet."
+            : "Buchung wurde geändert. Die Änderungsmail wurde in die Outbox gelegt."
+          : "Buchung wurde gespeichert.",
+      );
       setOpen(false);
       router.refresh();
     } catch (error) {
@@ -103,12 +119,11 @@ export function BookingEditDialog({ bookingId, commercialEditingAllowed, ...init
       </Button>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Buchung bearbeiten</DialogTitle>
+          <DialogTitle>{notifyCustomer ? "Buchungsinformationen ändern" : "Buchung bearbeiten"}</DialogTitle>
           <DialogDescription>
-            Kontaktdaten und interne Nachricht können jederzeit angepasst werden.
-            {commercialEditingAllowed
-              ? " Zeitraum, Fahrradwünsche und Zubehör sind in diesem Buchungsstatus ebenfalls editierbar."
-              : " Zeitraum, Fahrräder und Zubehör sind nach der Bestätigung gesperrt."}
+            {notifyCustomer
+              ? "Ändere die Buchungsdaten. Danach erhält die Kundin oder der Kunde eine Änderungsmail; alle geänderten Angaben werden darin fett markiert."
+              : `Kontaktdaten und interne Nachricht können jederzeit angepasst werden.${commercialEditingAllowed ? " Zeitraum, Fahrradwünsche und Zubehör sind in diesem Buchungsstatus ebenfalls editierbar." : " Zeitraum, Fahrräder und Zubehör sind nach der Bestätigung gesperrt."}`}
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-6" onSubmit={submit}>
@@ -163,6 +178,7 @@ export function BookingEditDialog({ bookingId, commercialEditingAllowed, ...init
                 value={values.customerMessage}
                 onChange={(event) => update({ customerMessage: event.target.value })}
                 placeholder="Zusätzliche Hinweise zur Buchung"
+                disabled={notifyCustomer}
               />
             </Field>
           </FieldGroup>
@@ -213,7 +229,7 @@ export function BookingEditDialog({ bookingId, commercialEditingAllowed, ...init
             </FieldGroup>
           </fieldset>
 
-          <fieldset disabled={!commercialEditingAllowed} className="space-y-4">
+          <fieldset disabled={!commercialEditingAllowed || notifyCustomer} className="space-y-4">
             <legend className="text-sm font-medium">Angefragte Fahrräder und Zubehör</legend>
             <FieldDescription>
               Wenn ein offenes Angebot durch diese Änderungen veraltet ist, wird es automatisch widerrufen.

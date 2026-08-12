@@ -187,6 +187,16 @@ export default async function BookingsPage({
   for (const review of actionReviews) {
     if (!latestActionReviewByBooking.has(review.bookingId)) latestActionReviewByBooking.set(review.bookingId, review);
   }
+  const hasPendingEmailAction = (row: (typeof queriedRows)[number]) => {
+    const latestActionReview = latestActionReviewByBooking.get(row.id);
+    return (
+      latestActionReview?.status === "needs_action" ||
+      latestActionReview?.status === "error" ||
+      (!latestActionReview &&
+        row.status === "inquiry_received" &&
+        row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime())
+    );
+  };
   const receivableLines = queriedRows.length
     ? db
         .select({ bookingId: journalEntries.bookingId, amountCents: journalLines.amountCents })
@@ -208,24 +218,31 @@ export default async function BookingsPage({
     if (line.bookingId === null) continue;
     openByBooking.set(line.bookingId, (openByBooking.get(line.bookingId) ?? 0) + line.amountCents);
   }
-  const rows = queriedRows.filter((row) => {
-    const openCents = openByBooking.get(row.id) ?? 0;
-    const searchableText = [
-      row.customerName,
-      row.orderNumber,
-      row.customerEmail,
-      row.customerPhone,
-      rentalLocationLabels.de[row.location as keyof typeof rentalLocationLabels.de] ?? row.location,
-      row.assignedUserId ? (assigneeNames.get(row.assignedUserId) ?? "") : "",
-      bookingPresentation[row.status].label,
-      ...(openCents > 0 ? ["offen", "unbezahlt"] : []),
-      ...(itemsByBooking.get(row.id) ?? []),
-    ]
-      .join(" ")
-      .toLocaleLowerCase("de-DE");
-    const matchesSearch = !search || searchableText.includes(search);
-    return matchesSearch;
-  });
+  const rows = queriedRows
+    .filter((row) => {
+      const openCents = openByBooking.get(row.id) ?? 0;
+      const searchableText = [
+        row.customerName,
+        row.orderNumber,
+        row.customerEmail,
+        row.customerPhone,
+        rentalLocationLabels.de[row.location as keyof typeof rentalLocationLabels.de] ?? row.location,
+        row.assignedUserId ? (assigneeNames.get(row.assignedUserId) ?? "") : "",
+        bookingPresentation[row.status].label,
+        ...(openCents > 0 ? ["offen", "unbezahlt"] : []),
+        ...(itemsByBooking.get(row.id) ?? []),
+      ]
+        .join(" ")
+        .toLocaleLowerCase("de-DE");
+      const matchesSearch = !search || searchableText.includes(search);
+      return matchesSearch;
+    })
+    .sort(
+      (left, right) =>
+        Number(hasPendingEmailAction(right)) - Number(hasPendingEmailAction(left)) ||
+        right.createdAt.getTime() - left.createdAt.getTime() ||
+        right.id - left.id,
+    );
   return (
     <SidebarProvider
       style={
@@ -291,13 +308,7 @@ export default async function BookingsPage({
                           ).length;
                           return availableQuantity < quantity;
                         });
-                      const latestActionReview = latestActionReviewByBooking.get(row.id);
-                      const hasPendingEmailAction =
-                        latestActionReview?.status === "needs_action" ||
-                        latestActionReview?.status === "error" ||
-                        (!latestActionReview &&
-                          row.status === "inquiry_received" &&
-                          row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime());
+                      const rowHasPendingEmailAction = hasPendingEmailAction(row);
                       return (
                         <Item
                           className="transform-gpu bg-card cursor-pointer transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"
@@ -307,7 +318,7 @@ export default async function BookingsPage({
                         >
                           <ItemMedia>
                             <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
-                              {hasPendingEmailAction ? (
+                              {rowHasPendingEmailAction ? (
                                 <span
                                   aria-label="Offene Kundenfrage"
                                   className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
