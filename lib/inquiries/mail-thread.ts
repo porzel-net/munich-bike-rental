@@ -78,6 +78,13 @@ export function splitMailThreadBody(value: string): SplitMailThreadBody {
   const normalized = repairMojibake(value).replace(/\r\n/g, "\n").trimEnd();
   if (!normalized) return { visibleText: null, quotedText: null };
 
+  // Do not render already-persisted binary attachment data as thousands of
+  // replacement/control characters while the message is being re-synced.
+  const controlCharacters = (normalized.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g) ?? []).length;
+  if (normalized.includes("\u0000") || controlCharacters > Math.max(3, normalized.length / 100)) {
+    return { visibleText: "Der Inhalt dieser E-Mail konnte nicht gelesen werden.", quotedText: null };
+  }
+
   const lines = normalized.split("\n");
   const quoteStartIndex = lines.findIndex(isQuotedHistoryLine);
   if (quoteStartIndex === -1) return { visibleText: normalized, quotedText: null };

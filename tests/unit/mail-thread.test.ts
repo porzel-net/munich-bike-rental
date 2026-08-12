@@ -1,8 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 import { splitMailThreadBody } from "../../lib/inquiries/mail-thread";
+import { plainTextFromSource } from "../../lib/inquiries/mailbox";
 
 describe("mail thread body splitting", () => {
+  it("ignores binary MIME attachments when extracting the message body", () => {
+    const source = Buffer.from(
+      [
+        "Content-Type: multipart/mixed; boundary=mail-boundary",
+        "",
+        "--mail-boundary",
+        "Content-Type: image/tiff",
+        "Content-Transfer-Encoding: base64",
+        "",
+        "TU0AKgAAAAA=",
+        "--mail-boundary",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "Hallo, hier ist der eigentliche Mailtext.",
+        "--mail-boundary--",
+      ].join("\r\n"),
+    );
+
+    expect(plainTextFromSource(source)).toBe("Hallo, hier ist der eigentliche Mailtext.");
+  });
+
   it("keeps the latest reply visible and collapses the quoted history", () => {
     const result = splitMailThreadBody(`Hallo Valerie,
 
@@ -30,6 +52,13 @@ Vielen Dank für deine Rückmeldung.
     const result = splitMailThreadBody("Hallo zusammen,\n\nDas ist eine normale Nachricht.");
 
     expect(result.visibleText).toBe("Hallo zusammen,\n\nDas ist eine normale Nachricht.");
+    expect(result.quotedText).toBeNull();
+  });
+
+  it("does not render persisted binary attachment data", () => {
+    const result = splitMailThreadBody("MM\u0000*\u0001\u0011\u0000\u0000\u0000binary data");
+
+    expect(result.visibleText).toBe("Der Inhalt dieser E-Mail konnte nicht gelesen werden.");
     expect(result.quotedText).toBeNull();
   });
 });

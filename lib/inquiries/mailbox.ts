@@ -136,6 +136,11 @@ function htmlToText(body: string) {
     .replace(/&quot;/gi, '"');
 }
 
+function containsBinaryMailData(value: string) {
+  const controlCharacters = (value.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g) ?? []).length;
+  return value.includes("\u0000") || controlCharacters > Math.max(3, value.length / 100);
+}
+
 function extractMimeText(source: string, depth = 0): { plain: string; html: string } {
   if (depth > MAX_MAIL_PARSE_DEPTH) return { plain: "", html: "" };
   const { headers, body } = unfoldHeaders(source);
@@ -155,17 +160,23 @@ function extractMimeText(source: string, depth = 0): { plain: string; html: stri
     headers.get("content-transfer-encoding"),
     headerParameter(contentType, "charset"),
   );
-  return contentType.toLowerCase().startsWith("text/html")
-    ? { plain: "", html: decoded }
-    : { plain: decoded, html: "" };
+  const normalizedContentType = contentType.split(";", 1)[0].trim().toLowerCase();
+  if (normalizedContentType === "text/html") return { plain: "", html: decoded };
+  if (normalizedContentType === "text/plain") return { plain: decoded, html: "" };
+
+  // Attachments (for example TIFF images beginning with `MM\x00*`) must never
+  // be treated as the message body just because they are not HTML parts.
+  return { plain: "", html: "" };
 }
 
-function plainTextFromSource(source: Buffer | string | undefined) {
+export function plainTextFromSource(source: Buffer | string | undefined) {
   const boundedSource = Buffer.isBuffer(source)
     ? source.subarray(0, MAX_MAIL_SOURCE_BYTES).toString()
     : (source ?? "").slice(0, MAX_MAIL_SOURCE_BYTES);
   const { plain, html } = extractMimeText(boundedSource);
-  return repairMojibake(plain || htmlToText(html))
+  const text = repairMojibake(plain || htmlToText(html));
+  if (containsBinaryMailData(text)) return "";
+  return text
     .replace(/\r\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
