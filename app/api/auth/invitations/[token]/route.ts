@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { hasTrustedOrigin } from "../../../../../lib/auth/request";
 import { auth } from "../../../../../lib/auth";
-import { clearBootstrapInvitationFile, hashInvitationToken } from "../../../../../lib/auth/invitations";
+import { hashInvitationToken } from "../../../../../lib/auth/invitations";
 import { invitationRegistrationSchema, resolveInvitationName } from "../../../../../lib/auth/invitation-validation";
 import { getDatabase } from "../../../../../lib/db/client";
 import { authInvitation, authUser } from "../../../../../lib/db/schema/auth";
@@ -76,7 +76,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     });
     if (!result.user) throw new Error("User was not created");
     getDatabase().update(authUser).set({ mustChangePassword: false }).where(eq(authUser.id, result.user.id)).run();
-    if (invitation.name === "" && invitation.createdBy === null) clearBootstrapInvitationFile();
   } catch (error) {
     console.error(
       "Invitation account creation failed",
