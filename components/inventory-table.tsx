@@ -664,7 +664,7 @@ function InventoryDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="inventory-available">Status</FieldLabel>
+                <FieldLabel htmlFor="inventory-available">Buchungsstatus</FieldLabel>
                 <label className="flex h-9 items-center gap-2 text-sm">
                   <input
                     id="inventory-available"
@@ -672,7 +672,7 @@ function InventoryDialog({
                     checked={isAvailable}
                     onChange={(event) => setIsAvailable(event.target.checked)}
                   />
-                  Auf Landingpage anbieten
+                  Für Buchungen aktiv
                 </label>
               </Field>
             </div>

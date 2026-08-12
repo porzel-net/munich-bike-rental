@@ -94,8 +94,8 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .from(rentalLocationBikes)
     .where(eq(rentalLocationBikes.location, location))
     .orderBy(asc(rentalLocationBikes.displayOrder))
-    .all()
-    .filter((bike) => bike.isAvailable);
+    .all();
+  const activeBikes = bikes.filter((bike) => bike.isAvailable);
   const sizes = bikes.length
     ? db
         .select()
@@ -130,8 +130,8 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   );
   // Customers choose the bike model only. Frame size is selected internally
   // later based on the customer's height and the available assets.
-  const bikeOptions = [...new Set(bikes.map((bike) => bike.title))];
-  const bikePrices = bikes.map((bike) => ({ option: bike.title, dailyPriceCents: bike.priceCentsPerDay }));
+  const bikeOptions = [...new Set(activeBikes.map((bike) => bike.title))];
+  const bikePrices = activeBikes.map((bike) => ({ option: bike.title, dailyPriceCents: bike.priceCentsPerDay }));
   const portfolioBikes = [...new Map(bikes.map((bike) => [bike.title, bike])).values()];
   const optionList = (category: string, prefix: string) =>
     equipment

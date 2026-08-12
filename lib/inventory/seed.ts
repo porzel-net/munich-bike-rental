@@ -147,6 +147,7 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
                 location,
                 bikeKey: bikeKey(item.title, size, occurrence),
                 title: item.title,
+                isAvailable: location === "munich",
                 priceCentsPerDay: locationPrices[location as keyof typeof locationPrices],
                 ...bikeDiscountText(item.title),
                 descriptionDe: item.description.de,

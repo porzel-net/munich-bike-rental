@@ -38,7 +38,7 @@ describe("location inventory", () => {
       en: "",
     });
     expect(regensburg.portfolioItems.map((bike) => bike.title)).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
-    expect(regensburg.bikeOptions).toHaveLength(2);
+    expect(regensburg.bikeOptions).toHaveLength(0);
     expect(munich.pedalTypes.map((item) => item.value)).toEqual(["platform", "spdSl", "lookKeo2Max", "other"]);
     expect(munich.computerMountTypes.map((item) => item.value)).toEqual(["garmin", "wahoo", "other"]);
     expect(munich.helmetAvailable).toBe(true);
@@ -74,23 +74,23 @@ describe("location inventory", () => {
       needsClothing: true,
     };
 
-    expect(isRequestAvailable(db, "regensburg", [bike])).toBe(true);
+    expect(isRequestAvailable(db, "regensburg", [bike])).toBe(false);
     expect(isRequestAvailable(db, "regensburg", [{ ...bike, bikeSize: "Aeroad CF SL 8 - M" }])).toBe(false);
     expect(isRequestAvailable(db, "regensburg", [{ ...bike, pedalType: "nonexistent" }])).toBe(false);
   });
 
   it("uses the configured location discounts for future rental calculations", () => {
     const db = createTestDatabase();
-    const inventory = getLocationInventory(db, "regensburg");
+    const inventory = getLocationInventory(db, "munich");
 
     expect(
       calculateRentalPrice(inventory, {
-        dailyPriceCents: 4900,
+        dailyPriceCents: 5900,
         rentalDays: 3,
         pickupDate: new Date("2026-07-20T12:00:00Z"),
         isStudent: true,
       }),
-    ).toMatchObject({ subtotalCents: 14700, discountPercentage: 20, discountCents: 2940, totalCents: 11760 });
+    ).toMatchObject({ subtotalCents: 17700, discountPercentage: 20, discountCents: 3540, totalCents: 14160 });
   });
 
   it("handles malformed catalog JSON without crashing and keeps the real minimum bike price", () => {
@@ -107,14 +107,14 @@ describe("location inventory", () => {
 
   it("prices each selected asset once and applies discounts to every qualifying rental day", () => {
     const db = createTestDatabase();
-    const inventory = getLocationInventory(db, "regensburg");
+    const inventory = getLocationInventory(db, "munich");
 
     expect(
       calculateInquiryPrice(inventory, {
         name: "Max Mustermann",
         contact: "max@example.com",
         phone: "+49 123456789",
-        location: "regensburg",
+        location: "munich",
         periodFrom: "2026-07-20", // Monday
         periodTo: "2026-07-24", // Friday: five rental days, both dates included
         pickupTime: "10:00",
@@ -143,25 +143,25 @@ describe("location inventory", () => {
       }),
     ).toMatchObject({
       rentalDays: 5,
-      bikeSubtotalCents: 24_500,
+      bikeSubtotalCents: 29_500,
       equipmentSubtotalCents: 3_500,
       // Long-term discount (20%) wins over the non-stackable weekday discount on all five days.
-      discountCents: 4_900,
-      totalCents: 23_100,
+      discountCents: 5_900,
+      totalCents: 27_100,
       appliedDiscountKeys: ["long-term"],
     });
   });
 
   it("charges paid new extras once and never charges included equipment", () => {
     const db = createTestDatabase();
-    const inventory = getLocationInventory(db, "regensburg");
+    const inventory = getLocationInventory(db, "munich");
 
     expect(
       calculateInquiryPrice(inventory, {
         name: "Max Mustermann",
         contact: "max@example.com",
         phone: "+49 123456789",
-        location: "regensburg",
+        location: "munich",
         periodFrom: "2026-07-20",
         periodTo: "2026-07-20",
         pickupTime: "10:00",
@@ -190,10 +190,10 @@ describe("location inventory", () => {
       }),
     ).toMatchObject({
       rentalDays: 1,
-      bikeSubtotalCents: 4_900,
+      bikeSubtotalCents: 5_900,
       equipmentSubtotalCents: 3_000,
-      discountCents: 490,
-      totalCents: 7_410,
+      discountCents: 590,
+      totalCents: 8_310,
     });
   });
 });
