@@ -2408,6 +2408,70 @@ button {
   padding-left: 20px;
 }
 
+.rental-days-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 17, 17, 0.58);
+}
+
+.rental-days-dialog__panel {
+  width: min(100%, 560px);
+  padding: clamp(26px, 5vw, 44px);
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.rental-days-dialog__eyebrow {
+  color: #6e767b;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rental-days-dialog h2 {
+  margin: 12px 0 18px;
+  color: #111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(25px, 4vw, 36px);
+  line-height: 1.12;
+}
+
+.rental-days-dialog p {
+  margin: 0 0 14px;
+  color: #454b4f;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.rental-days-dialog__exception {
+  padding: 14px 16px;
+  border-left: 3px solid #d99a41;
+  background: #fff8ee;
+  color: #332719 !important;
+}
+
+.rental-days-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+@media (max-width: 520px) {
+  .rental-days-dialog__actions > * {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .contact-form__fields {
   display: grid;
   gap: 18px;
@@ -2726,6 +2790,31 @@ button {
     transform 0.2s ease,
     background-color 0.2s ease,
     box-shadow 0.2s ease;
+}
+
+.rental-days-dialog .button--arrow {
+  margin-top: 0;
+}
+
+.button--secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  padding: 13px 20px;
+  border: 1px solid rgba(17, 17, 17, 0.22);
+  border-radius: 999px;
+  color: #222;
+  background: transparent;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.button--secondary:hover,
+.button--secondary:focus-visible {
+  border-color: #111;
+  background: #f5f5f3;
 }
 
 .button--arrow:hover,

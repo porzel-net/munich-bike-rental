@@ -514,6 +514,16 @@ export const translations = {
       submit: "Unverbindlich Anfragen",
       subject: "Fahrradanfrage",
       sending: "Senden...",
+      rentalDaysWarning: {
+        title: "Bitte prüfe die angefragte Mietdauer",
+        intro: "Du hast aktuell {days} volle Miettage angefragt.",
+        details:
+          "Auch wenn du das Fahrrad am ersten Tag erst später abholst oder am letzten Tag früher zurückgibst, bleibt es für den gesamten angefragten Zeitraum für dich reserviert.",
+        exception:
+          "Wenn du mehrere Tage buchst, das Fahrrad aber nur an einzelnen Tagen nutzen und bezahlen möchtest, entsteht für uns ein Einnahmeausfall: Wegen deiner angegebenen Abhol- und Rückgabezeiten können wir das Fahrrad in der Zwischenzeit nicht an andere Kunden ausgeben. Eine abweichende Berechnung ist deshalb nur in Ausnahmefällen möglich. Bitte schreibe deinen Wunsch ausdrücklich in das Nachrichtenfeld unten.",
+        cancel: "Abbrechen",
+        submit: "Trotzdem abschicken",
+      },
       success:
         "Danke, deine Anfrage wurde gesendet. Wir haben dir außerdem eine Bestätigungsmail geschickt. Falls sie nicht ankommt, schau bitte auch in deinem Spam-Ordner nach. Wir melden uns innerhalb von 24 Stunden per E-Mail.",
       orderNumberLabel: "Auftragsnummer",
@@ -679,6 +689,16 @@ export const translations = {
       submit: "Send inquiry",
       subject: "Bike inquiry",
       sending: "Sending...",
+      rentalDaysWarning: {
+        title: "Please check the requested rental period",
+        intro: "You are currently requesting {days} full rental days.",
+        details:
+          "Even if you pick up the bike later on the first day or return it earlier on the last day, it remains reserved for you for the entire requested period.",
+        exception:
+          "If you book several days but only want to use and pay for selected days, this creates a loss of revenue for us: because of your stated pickup and return times, we cannot rent the bike to another customer in between. A different price is therefore only possible in exceptional cases. Please state your request explicitly in the message field below.",
+        cancel: "Cancel",
+        submit: "Send anyway",
+      },
       success: "Thanks, your inquiry has been sent. We will reply within 24 hours by email.",
       orderNumberLabel: "Order number",
       error: "The message could not be sent. Please try again.",
