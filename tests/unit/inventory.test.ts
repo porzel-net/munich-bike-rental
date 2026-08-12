@@ -29,6 +29,7 @@ describe("location inventory", () => {
     expect(munich.portfolioItems).toHaveLength(4);
     expect(munich.bikeOptions).toHaveLength(4);
     expect(munich.bikeOptions).toContain("Aeroad CF SL 8");
+    expect(munich.requestBikeOptions).toEqual(munich.bikeOptions);
     expect(munich.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")?.discountText).toEqual({
       de: "",
       en: "",
@@ -39,6 +40,7 @@ describe("location inventory", () => {
     });
     expect(regensburg.portfolioItems.map((bike) => bike.title)).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
     expect(regensburg.bikeOptions).toHaveLength(0);
+    expect(regensburg.requestBikeOptions).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
     expect(munich.pedalTypes.map((item) => item.value)).toEqual(["platform", "spdSl", "lookKeo2Max", "other"]);
     expect(munich.computerMountTypes.map((item) => item.value)).toEqual(["garmin", "wahoo", "other"]);
     expect(munich.helmetAvailable).toBe(true);

@@ -11,6 +11,9 @@ import type { Locale, PortfolioItem } from "../home-content";
 
 export type LocationInventory = {
   portfolioItems: PortfolioItem[];
+  /** All catalog bikes that customers may ask about, including paused bikes. */
+  requestBikeOptions: string[];
+  /** Bikes currently eligible for internal availability checks. */
   bikeOptions: string[];
   bikePrices: Array<{ option: string; dailyPriceCents: number }>;
   equipmentPrices: Array<{ key: string; priceCents: number }>;
@@ -130,8 +133,13 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   );
   // Customers choose the bike model only. Frame size is selected internally
   // later based on the customer's height and the available assets.
+  const requestBikeOptions = [...new Set(bikes.map((bike) => bike.title))];
   const bikeOptions = [...new Set(activeBikes.map((bike) => bike.title))];
-  const bikePrices = activeBikes.map((bike) => ({ option: bike.title, dailyPriceCents: bike.priceCentsPerDay }));
+  // Public inquiries may name paused bikes so they remain trackable. Concrete
+  // asset selection in the admin still uses only active assets.
+  const bikePrices = [...new Map(bikes.map((bike) => [bike.title, bike.priceCentsPerDay])).entries()].map(
+    ([option, dailyPriceCents]) => ({ option, dailyPriceCents }),
+  );
   const portfolioBikes = [...new Map(bikes.map((bike) => [bike.title, bike])).values()];
   const optionList = (category: string, prefix: string) =>
     equipment
@@ -174,6 +182,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       facts: parseFacts(bike.factsJson),
       equipment: parseEquipment(bike.equipmentJson),
     })),
+    requestBikeOptions,
     bikeOptions,
     bikePrices,
     equipmentPrices: equipment.map((item) => ({ key: item.equipmentKey, priceCents: item.priceCents })),
