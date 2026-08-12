@@ -99,6 +99,12 @@ function getNevloClient(db: AppDatabase) {
   return (sharedClient ??= new NevloClient(undefined, undefined, undefined, new DatabaseNevloTokenStore(db)));
 }
 
+/** Verifies credentials and token rotation without importing any transactions. */
+export async function checkNevloConnection(db: AppDatabase) {
+  const accounts = await getNevloClient(db).getAccounts();
+  return { accounts: accounts.length };
+}
+
 function amountToCents(amount: number) {
   if (!Number.isFinite(amount)) throw new Error("Nevlo lieferte einen ungültigen Transaktionsbetrag.");
   const cents = Math.round(amount * 100);

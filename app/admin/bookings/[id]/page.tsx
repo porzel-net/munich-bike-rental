@@ -204,6 +204,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     });
   const locationInventory = getLocationInventory(db, booking.location);
   const latestOffer = offers[0];
+  const hasActiveOffer = offers.some((offer) => offer.status === "sent");
   const acceptedOffer = offers.find((offer) => offer.status === "accepted");
   const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
   const suggestedInvoiceNumber =
@@ -576,6 +577,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
                   }
                   isAdmin={isAdmin(session.user)}
+                  hasActiveOffer={hasActiveOffer}
                   confirmedBookingEdit={
                     hasAssignedCaseworker && booking.status === "confirmed"
                       ? {

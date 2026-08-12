@@ -56,6 +56,26 @@ async function getMailboxConfig(environment: Partial<NodeJS.ProcessEnv> = proces
   } satisfies MailboxConfig;
 }
 
+/** Opens and authenticates IMAP without reading or modifying mailbox data. */
+export async function verifyImapConnection(environment: Partial<NodeJS.ProcessEnv> = process.env) {
+  const config = await getMailboxConfig(environment);
+  if (!config) throw new Error("IMAP-Konfiguration ist unvollständig");
+
+  const client = new ImapFlow({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: { user: config.user, pass: config.password },
+    logger: false,
+  });
+  try {
+    await client.connect();
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
+  return { host: config.host, port: config.port };
+}
+
 function unfoldHeaders(source: string) {
   const separator = source.search(/\r?\n\r?\n/);
   const headerSource = separator >= 0 ? source.slice(0, separator) : source;

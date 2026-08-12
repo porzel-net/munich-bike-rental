@@ -259,6 +259,10 @@ Logs:
 docker compose -f docker-compose.yml -f docker-compose.server.yml logs -f
 ```
 
+Beim Node-Serverstart laufen zusätzlich strukturierte Startup-Checks mit dem Präfix `[startup]`. Geprüft werden die produktionsrelevante Konfiguration, Secret-Formate, SMTP/IMAP, aktivierte OpenAI-, Stripe- und Nevlo-Verbindungen sowie die SQLite-Datenbank. Die Datenbankprüfung umfasst SQLite-Integrität, Foreign Keys, den vollständigen Drizzle-Migrationsstand inklusive Hash-Abgleich und alle erwarteten Tabellen und Spalten. Ein fachlicher Buchungs-/Asset-Preflight wird als Warnung geloggt.
+
+Fehlende oder ungültige Pflichtkonfiguration, nicht erreichbare aktivierte Integrationen und fehlerhafte Migrationen verhindern den Serverstart. Der Health-Endpunkt antwortet in diesem Fall mit HTTP 503. Secrets und Tokens werden nicht geloggt; die Logs enthalten nur Checkname, Status, Laufzeit und nicht-sensitive Details.
+
 Registry-Status prüfen:
 
 ```bash

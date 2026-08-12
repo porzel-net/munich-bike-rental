@@ -251,6 +251,34 @@ export async function getMailConfig(
   };
 }
 
+/** Opens and verifies an SMTP connection without sending a message. */
+export async function verifyMailConnection(
+  account: MailAccount,
+  environment: Partial<NodeJS.ProcessEnv> = process.env,
+) {
+  const config = await getMailConfig(environment, account);
+  if (!config) throw new Error(`SMTP-Konfiguration für ${account} ist unvollständig`);
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTLS: config.requireTLS,
+    connectionTimeout: config.timeout,
+    greetingTimeout: config.timeout,
+    socketTimeout: config.timeout,
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    auth: { user: config.user, pass: config.password },
+  });
+  try {
+    await transporter.verify();
+  } finally {
+    transporter.close();
+  }
+  return { host: config.host, port: config.port };
+}
+
 export function createOrderNumber(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Berlin",
