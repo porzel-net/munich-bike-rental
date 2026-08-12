@@ -575,6 +575,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   canExecuteActions={
                     hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
                   }
+                  isAdmin={isAdmin(session.user)}
                   confirmedBookingEdit={
                     hasAssignedCaseworker && booking.status === "confirmed"
                       ? {

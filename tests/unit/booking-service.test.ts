@@ -29,9 +29,11 @@ import {
   createBooking,
   createDirectBooking,
   createOffer,
+  deleteBookingPermanently,
   expireDueOffers,
   getBookingPaymentStatus,
   previewOffer,
+  revokeOffer,
   recordPayment,
   updateBooking,
   setLegacyBookingStatus,
@@ -124,6 +126,44 @@ function assignAdminBooking(db: ReturnType<typeof setup>["db"], bookingId: numbe
 }
 
 describe("booking commands", () => {
+  it("deletes an unbooked duplicate inquiry and its child records", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+    db.insert(bookingEvents)
+      .values({
+        bookingId: booking.id,
+        eventType: "test",
+        payloadJson: "{}",
+        occurredAt: new Date(),
+      })
+      .run();
+
+    deleteBookingPermanently(db, booking.id);
+
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toBeUndefined();
+    expect(
+      db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, booking.id)).all(),
+    ).toHaveLength(0);
+    expect(db.select().from(bookingEvents).where(eq(bookingEvents.bookingId, booking.id)).all()).toHaveLength(0);
+  });
+
+  it("keeps bookings with journal history and completed rentals", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-08-22", "2026-08-23");
+    db.insert(journalEntries)
+      .values({
+        bookingId: booking.id,
+        kind: "correction",
+        reason: "Test",
+        occurredAt: new Date(),
+        createdAt: new Date(),
+      })
+      .run();
+
+    expect(() => deleteBookingPermanently(db, booking.id)).toThrow("Finanz- oder Journalverknüpfungen");
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toBeDefined();
+  });
+
   it("rejects impossible dates and makes manual payments retry-safe", () => {
     const { db, assetId } = setup();
     expect(() => inquiry(db, "2026-02-30", "2026-03-01")).toThrow("Zeitraum und Uhrzeiten sind ungültig");
@@ -626,6 +666,38 @@ describe("booking commands", () => {
         .where(eq(bookingOffers.bookingId, created.id))
         .get(),
     ).toEqual({ status: "revoked" });
+  });
+
+  it("withdraws an issued offer without queueing another customer mail", () => {
+    const { db, assetId } = setup();
+    const created = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, created.id);
+    const offer = createOffer(db, {
+      bookingId: created.id,
+      assetsByRequestedItem: { [created.itemId]: assetId },
+      actorUserId: "admin",
+    });
+    const outboxCount = db.select().from(mailOutbox).all().length;
+
+    expect(
+      revokeOffer(db, { bookingId: created.id, actorUserId: "admin", reason: "Rad kurzfristig nicht verfügbar" }),
+    ).toEqual({
+      offerIds: [offer.offerId],
+    });
+    expect(
+      db.select({ status: bookingOffers.status }).from(bookingOffers).where(eq(bookingOffers.id, offer.offerId)).get(),
+    ).toEqual({
+      status: "revoked",
+    });
+    expect(db.select().from(mailOutbox).all()).toHaveLength(outboxCount);
+    expect(
+      db
+        .select({ eventType: bookingEvents.eventType, reason: bookingEvents.reason })
+        .from(bookingEvents)
+        .where(eq(bookingEvents.bookingId, created.id))
+        .all()
+        .at(-1),
+    ).toMatchObject({ eventType: "offer_revoked", reason: "Rad kurzfristig nicht verfügbar" });
   });
 
   it("requires booking details and allocates a bike when an import becomes confirmed", () => {

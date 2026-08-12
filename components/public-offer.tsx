@@ -154,6 +154,7 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
     currentOffer.status === "revoked" ||
     (currentOffer.status === "sent" && expiresAtMs !== null && clientNow !== null && expiresAtMs <= clientNow);
   const canConfirm = currentOffer.status === "sent" && bookingStatus === "offer_sent" && !expired;
+  const offerRevoked = currentOffer.status === "revoked";
   const statusLabels: Record<string, string> = de
     ? {
         inquiry_received: "Anfrage eingegangen",
@@ -175,7 +176,11 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
         cancelled: "Booking cancelled",
         expired: "Offer expired",
       };
-  const statusLabel = statusLabels[bookingStatus] ?? bookingStatus;
+  const statusLabel = offerRevoked
+    ? de
+      ? "Angebot zurückgezogen"
+      : "Offer withdrawn"
+    : (statusLabels[bookingStatus] ?? bookingStatus);
   const statusTone = confirmed
     ? "success"
     : expired || bookingStatus === "cancelled" || bookingStatus === "rejected"
@@ -325,19 +330,23 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
               <span>{de ? "Mietanfrage" : "Rental inquiry"}</span>
             </div>
             <h1 id="public-offer-title">
-              {confirmed
-                ? statusLabel
-                : bookingStatus === "inquiry_received"
-                  ? de
-                    ? "Anfrage erhalten"
-                    : "Inquiry received"
-                  : expired
+              {offerRevoked
+                ? de
+                  ? "Angebot zurückgezogen"
+                  : "Offer withdrawn"
+                : confirmed
+                  ? statusLabel
+                  : bookingStatus === "inquiry_received"
                     ? de
-                      ? "Angebot nicht mehr gültig"
-                      : "Offer no longer valid"
-                    : de
-                      ? "Angebot prüfen"
-                      : "Review your offer"}
+                      ? "Anfrage erhalten"
+                      : "Inquiry received"
+                    : expired
+                      ? de
+                        ? "Angebot nicht mehr gültig"
+                        : "Offer no longer valid"
+                      : de
+                        ? "Angebot prüfen"
+                        : "Review your offer"}
             </h1>
             <p>
               {de
@@ -545,6 +554,15 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                 <div className="public-offer-alert public-offer-alert--danger">
                   <AlertTriangle size={17} strokeWidth={2} aria-hidden="true" />
                   <span>{de ? "Diese Anfrage wurde abgelehnt." : "This inquiry has been rejected."}</span>
+                </div>
+              ) : offerRevoked ? (
+                <div className="public-offer-alert public-offer-alert--danger">
+                  <AlertTriangle size={17} strokeWidth={2} aria-hidden="true" />
+                  <span>
+                    {de
+                      ? "Dieses Angebot wurde zurückgezogen und ist nicht mehr gültig. Bitte melde dich, wenn du ein neues Angebot benötigst."
+                      : "This offer was withdrawn and is no longer valid. Please contact us if you need a new offer."}
+                  </span>
                 </div>
               ) : expired ? (
                 <div className="public-offer-alert public-offer-alert--warning">

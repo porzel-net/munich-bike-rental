@@ -14,6 +14,11 @@ import {
   bookingPublicLinks,
   bookingRequestedItems,
   bookings,
+  bikeModels,
+  bikeVariants,
+  communicationMessages,
+  emailActionReviews,
+  financialDocumentLinks,
   financialAccounts,
   financialCategories,
   financialTransactionAllocations,
@@ -22,10 +27,12 @@ import {
   journalLines,
   mailOutbox,
   rentalAssets,
+  rentalInquiries,
   type BookingStatus,
 } from "../db/schema";
 import { createOrderNumber } from "../inquiries/server";
 import { getComputerMountTypeLabel, getPedalTypeLabel } from "../inquiries/catalog";
+import { bikeMatchesRequestedLabel } from "../inventory/display-name";
 
 import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
@@ -43,6 +50,85 @@ import { allocateInvoiceNumber, invoiceNumberPattern } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
 
 export { BookingCommandError } from "./errors";
+
+/**
+ * Permanently removes a booking only when it has no accounting or operational history.
+ * This is intentionally stricter than a normal cancellation: financial evidence must remain
+ * immutable and an allocated or completed rental must never disappear silently.
+ */
+export function deleteBookingPermanently(db: AppDatabase, bookingId: number) {
+  return runInImmediateTransaction(db, () => {
+    const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
+    if (!booking) throw new BookingCommandError("Buchung nicht gefunden.");
+    if (["confirmed", "checked_out", "completed"].includes(booking.status)) {
+      throw new BookingCommandError("Verbindliche oder bereits ausgegebene Buchungen können nicht gelöscht werden.");
+    }
+    if (booking.invoiceNumber || booking.invoiceIssuedAt) {
+      throw new BookingCommandError("Buchungen mit Rechnungsdaten können nicht gelöscht werden.");
+    }
+
+    const requestedItems = db
+      .select({ id: bookingRequestedItems.id })
+      .from(bookingRequestedItems)
+      .where(eq(bookingRequestedItems.bookingId, bookingId))
+      .all();
+    const requestedItemIds = requestedItems.map((item) => item.id);
+    const hasJournal = db
+      .select({ id: journalEntries.id })
+      .from(journalEntries)
+      .where(eq(journalEntries.bookingId, bookingId))
+      .get();
+    const hasFinancialAllocation = db
+      .select({ id: financialTransactionAllocations.id })
+      .from(financialTransactionAllocations)
+      .where(
+        requestedItemIds.length
+          ? sql`${financialTransactionAllocations.bookingId} = ${bookingId} OR ${financialTransactionAllocations.bookingRequestedItemId} IN (${sql.join(
+              requestedItemIds.map((id) => sql`${id}`),
+              sql`, `,
+            )})`
+          : eq(financialTransactionAllocations.bookingId, bookingId),
+      )
+      .get();
+    const hasFinancialDocument = db
+      .select({ id: financialDocumentLinks.id })
+      .from(financialDocumentLinks)
+      .where(eq(financialDocumentLinks.bookingId, bookingId))
+      .get();
+    if (hasJournal || hasFinancialAllocation || hasFinancialDocument) {
+      throw new BookingCommandError("Buchungen mit Finanz- oder Journalverknüpfungen können nicht gelöscht werden.");
+    }
+
+    const hasAllocation = db
+      .select({ id: bookingAssetAllocations.id })
+      .from(bookingAssetAllocations)
+      .where(eq(bookingAssetAllocations.bookingId, bookingId))
+      .get();
+    const hasAccessoryAllocation = db
+      .select({ id: bookingAccessoryAllocations.id })
+      .from(bookingAccessoryAllocations)
+      .where(eq(bookingAccessoryAllocations.bookingId, bookingId))
+      .get();
+    if (hasAllocation || hasAccessoryAllocation) {
+      throw new BookingCommandError("Buchungen mit Fahrrad- oder Zubehörausgaben können nicht gelöscht werden.");
+    }
+
+    db.delete(mailOutbox).where(eq(mailOutbox.bookingId, bookingId)).run();
+    db.delete(bookingFeedback).where(eq(bookingFeedback.bookingId, bookingId)).run();
+    db.delete(bookingEvents).where(eq(bookingEvents.bookingId, bookingId)).run();
+    db.delete(bookingPublicLinks).where(eq(bookingPublicLinks.bookingId, bookingId)).run();
+    db.delete(bookingOfferItems)
+      .where(sql`${bookingOfferItems.offerId} IN (SELECT id FROM booking_offers WHERE booking_id = ${bookingId})`)
+      .run();
+    db.delete(emailActionReviews).where(eq(emailActionReviews.bookingId, bookingId)).run();
+    db.delete(communicationMessages).where(eq(communicationMessages.bookingId, bookingId)).run();
+    db.delete(bookingOffers).where(eq(bookingOffers.bookingId, bookingId)).run();
+    db.delete(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, bookingId)).run();
+    db.delete(bookings).where(eq(bookings.id, bookingId)).run();
+    if (booking.legacyInquiryId)
+      db.delete(rentalInquiries).where(eq(rentalInquiries.id, booking.legacyInquiryId)).run();
+  });
+}
 
 const transitions: Record<BookingStatus, readonly BookingStatus[]> = {
   inquiry_received: ["offer_sent", "rejected"],
@@ -879,7 +965,17 @@ export function createOffer(
       input.customTotalCents,
     );
     const alternative =
-      Boolean(input.alternative) || quote.offeredItems.some((item) => item.requestedLabel !== item.assetName);
+      Boolean(input.alternative) ||
+      quote.offeredItems.some((item) => {
+        const asset = db
+          .select({ modelTitle: bikeModels.title, size: bikeVariants.size })
+          .from(rentalAssets)
+          .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+          .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+          .where(eq(rentalAssets.id, item.assetId))
+          .get();
+        return !asset || !bikeMatchesRequestedLabel(asset, item.requestedLabel);
+      });
     if (alternative && !input.alternativeReason?.trim())
       throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
     for (const item of quote.offeredItems) {
@@ -1000,6 +1096,44 @@ export function createOffer(
   });
 }
 
+/** Revokes the currently published offer without sending another customer email. */
+export function revokeOffer(
+  db: AppDatabase,
+  input: { bookingId: number; actorUserId?: string | null; reason?: string },
+) {
+  return runInImmediateTransaction(db, () => {
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking) throw new BookingCommandError("Booking not found");
+    assertBookingHasAssignee(db, booking);
+    if (booking.status !== "offer_sent")
+      throw new BookingCommandError("Nur ein ausgestelltes Angebot kann zurückgezogen werden.");
+    const offers = db
+      .select()
+      .from(bookingOffers)
+      .where(and(eq(bookingOffers.bookingId, booking.id), eq(bookingOffers.status, "sent")))
+      .all();
+    if (!offers.length) throw new BookingCommandError("Für diese Buchung gibt es kein aktives Angebot.");
+    const stamp = now();
+    for (const offer of offers)
+      db.update(bookingOffers).set({ status: "revoked", revokedAt: stamp }).where(eq(bookingOffers.id, offer.id)).run();
+    db.update(bookings)
+      .set({ version: booking.version + 1, updatedAt: stamp })
+      .where(eq(bookings.id, booking.id))
+      .run();
+    event(
+      db,
+      booking.id,
+      "offer_revoked",
+      booking.status,
+      booking.status,
+      input.actorUserId,
+      input.reason?.trim() ?? "",
+      { offerIds: offers.map((offer) => offer.id) },
+    );
+    return { offerIds: offers.map((offer) => offer.id) };
+  });
+}
+
 /** Side-effect-free admin preview. The supplied assets are checked again by the sending command. */
 export function previewOffer(
   db: AppDatabase,
@@ -1026,7 +1160,17 @@ export function previewOffer(
     input.customTotalCents,
   );
   const alternative =
-    Boolean(input.alternative) || quote.offeredItems.some((item) => item.requestedLabel !== item.assetName);
+    Boolean(input.alternative) ||
+    quote.offeredItems.some((item) => {
+      const asset = db
+        .select({ modelTitle: bikeModels.title, size: bikeVariants.size })
+        .from(rentalAssets)
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+        .where(eq(rentalAssets.id, item.assetId))
+        .get();
+      return !asset || !bikeMatchesRequestedLabel(asset, item.requestedLabel);
+    });
   if (alternative && !input.alternativeReason?.trim())
     throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
   const mail = renderOfferMail({

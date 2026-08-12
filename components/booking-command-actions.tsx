@@ -8,6 +8,7 @@ import {
   RefreshCwIcon,
   SendIcon,
   SlidersHorizontalIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -72,8 +73,8 @@ type Asset = {
 };
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
-type Action = "offer" | "cancel" | "refund" | "correct" | "reject" | "status";
-type ConfirmAction = "check_out" | "complete" | null;
+type Action = "offer" | "revoke_offer" | "cancel" | "refund" | "correct" | "reject" | "status";
+type ConfirmAction = "check_out" | "complete" | "delete_permanently" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
 type CancellationPeriod = "more_than_7_days" | "between_7_days_and_24_hours" | "less_than_24_hours";
@@ -176,6 +177,7 @@ export function BookingCommandActions({
   customerName,
   senderName,
   canExecuteActions,
+  isAdmin,
   requestedItems,
   availableAssets,
   unavailableAssetIds,
@@ -195,6 +197,7 @@ export function BookingCommandActions({
   customerName: string;
   senderName: string;
   canExecuteActions: boolean;
+  isAdmin: boolean;
   requestedItems: RequestedItem[];
   availableAssets: Asset[];
   unavailableAssetIds: number[];
@@ -450,6 +453,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           dueAt: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
         });
         toast.success("Buchung wurde storniert.");
+      } else if (activeAction === "revoke_offer") {
+        await request({ command: "revoke_offer", reason: reason.trim() || undefined });
+        toast.success("Angebot wurde zurückgezogen. Der Hinweis ist jetzt online sichtbar.");
       } else if (activeAction === "refund") {
         const amountCents = euroToCents(amount);
         if (amountCents === null || amountCents <= 0) throw new Error("Bitte gib einen positiven Euro-Betrag ein.");
@@ -604,6 +610,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     try {
       setBusy(true);
       await request({ command: confirmAction });
+      if (confirmAction === "delete_permanently") {
+        toast.success("Buchung wurde endgültig gelöscht.");
+        router.push("/admin/bookings");
+        return;
+      }
       toast.success(confirmAction === "check_out" ? "Ausgabe wurde erfasst." : "Buchung wurde abgeschlossen.");
       setConfirmAction(null);
       router.refresh();
@@ -621,15 +632,17 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       ? "Der Statuswechsel prüft automatisch, welche Buchungsdaten für den Zielstatus noch benötigt werden."
       : showOfferFields
         ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
-        : activeAction === "reject"
-          ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
-          : activeAction === "cancel"
-            ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
-            : activeAction === "refund"
-              ? "Gib den Betrag und den Buchungstext ein."
-              : activeAction === "correct"
-                ? "Die Korrektur wird im Finanzjournal dokumentiert."
-                : "Die Aktion wird dokumentiert.";
+        : activeAction === "revoke_offer"
+          ? "Das Angebot wird sofort ungültig. Es wird keine neue E-Mail versendet; die Angebotsseite zeigt den Hinweis online an."
+          : activeAction === "reject"
+            ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
+            : activeAction === "cancel"
+              ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
+              : activeAction === "refund"
+                ? "Gib den Betrag und den Buchungstext ein."
+                : activeAction === "correct"
+                  ? "Die Korrektur wird im Finanzjournal dokumentiert."
+                  : "Die Aktion wird dokumentiert.";
   const title =
     activeAction === "status"
       ? "Buchungsstatus ändern"
@@ -637,13 +650,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         ? status === "offer_sent"
           ? "Angebot überarbeiten"
           : "Angebot erstellen"
-        : activeAction === "cancel"
-          ? "Buchung stornieren"
-          : activeAction === "refund"
-            ? "Erstattung erfassen"
-            : activeAction === "correct"
-              ? "Journal korrigieren"
-              : "Anfrage ablehnen";
+        : activeAction === "revoke_offer"
+          ? "Angebot zurückziehen"
+          : activeAction === "cancel"
+            ? "Buchung stornieren"
+            : activeAction === "refund"
+              ? "Erstattung erfassen"
+              : activeAction === "correct"
+                ? "Journal korrigieren"
+                : "Anfrage ablehnen";
   const actionsLocked = !canExecuteActions;
 
   return (
@@ -692,6 +707,19 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             onClick={openOffer}
           />
         )}
+        {status === "offer_sent" && (
+          <ActionItem
+            icon={<XIcon />}
+            title="Angebot zurückziehen"
+            description="Online ungültig machen, ohne neue Mail zu senden"
+            disabled={actionsLocked}
+            destructive
+            onClick={() => {
+              setReason("");
+              setActiveAction("revoke_offer");
+            }}
+          />
+        )}
         {status === "inquiry_received" && (
           <ActionItem
             icon={<XIcon />}
@@ -736,6 +764,16 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           disabled={actionsLocked}
           onClick={() => setActiveAction("refund")}
         />
+        {isAdmin && !["confirmed", "checked_out", "completed"].includes(status) ? (
+          <ActionItem
+            icon={<Trash2Icon />}
+            title="Buchung endgültig löschen"
+            description="Nur möglich, wenn keine Finanz- oder Ausgabedaten verknüpft sind"
+            disabled={busy}
+            destructive
+            onClick={() => setConfirmAction("delete_permanently")}
+          />
+        ) : null}
       </ItemGroup>
 
       <Dialog open={activeAction !== null} onOpenChange={(open) => !open && close()}>
@@ -745,6 +783,21 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
           <FieldGroup>
+            {activeAction === "revoke_offer" && (
+              <Field>
+                <FieldLabel htmlFor="revoke-offer-reason">Grund (optional)</FieldLabel>
+                <Textarea
+                  id="revoke-offer-reason"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  placeholder="z. B. Fahrrad kurzfristig nicht verfügbar"
+                  maxLength={500}
+                />
+                <FieldDescription>
+                  Der Grund wird nur intern im Buchungsverlauf gespeichert und nicht per E-Mail versendet.
+                </FieldDescription>
+              </Field>
+            )}
             {activeAction === "status" && (
               <>
                 <Field>
@@ -1371,9 +1424,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 ? "Wird gesendet…"
                 : showOfferFields
                   ? "Angebot versenden"
-                  : activeAction === "reject"
-                    ? "Ablehnung schicken"
-                    : "Aktion speichern"}
+                  : activeAction === "revoke_offer"
+                    ? "Angebot zurückziehen"
+                    : activeAction === "reject"
+                      ? "Ablehnung schicken"
+                      : "Aktion speichern"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1383,12 +1438,18 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmAction === "check_out" ? "Ausgabe wirklich erfassen?" : "Buchung wirklich abschließen?"}
+              {confirmAction === "check_out"
+                ? "Ausgabe wirklich erfassen?"
+                : confirmAction === "delete_permanently"
+                  ? "Buchung endgültig löschen?"
+                  : "Buchung wirklich abschließen?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "check_out"
                 ? "Das Fahrrad wird als ausgegeben markiert."
-                : "Nach dem Abschluss sind keine weiteren Statuswechsel möglich."}
+                : confirmAction === "delete_permanently"
+                  ? "Der Vorgang wird vollständig aus der Datenbank entfernt. Diese Aktion kann nicht rückgängig gemacht werden. Finanz-, Rechnungs- und Ausgabedaten verhindern die Löschung automatisch."
+                  : "Nach dem Abschluss sind keine weiteren Statuswechsel möglich."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1400,7 +1461,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 void confirmTransition();
               }}
             >
-              {busy ? "Wird gespeichert…" : "Bestätigen"}
+              {busy ? "Wird verarbeitet…" : confirmAction === "delete_permanently" ? "Endgültig löschen" : "Bestätigen"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

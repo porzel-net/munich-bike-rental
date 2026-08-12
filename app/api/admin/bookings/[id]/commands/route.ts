@@ -9,6 +9,8 @@ import {
   cancelBooking,
   correctJournalEntry,
   createOffer,
+  deleteBookingPermanently,
+  revokeOffer,
   recordRefund,
   setLegacyBookingStatus,
 } from "@/lib/bookings/service";
@@ -34,6 +36,7 @@ const offerAccessories = z.object({
   repairKitIncluded: z.boolean().default(true),
 });
 const commandSchema = z.discriminatedUnion("command", [
+  z.object({ command: z.literal("delete_permanently") }),
   z.object({
     command: z.literal("send_offer"),
     assetsByRequestedItem: z.record(z.string(), z.number().int().positive()),
@@ -63,6 +66,7 @@ const commandSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("correct_journal"), entryId: z.number().int().positive(), reason }),
   z.object({ command: z.literal("reject"), reason, personalMessage: z.string().trim().max(2000).optional() }),
   z.object({ command: z.literal("expire"), reason: z.string().trim().max(500).optional() }),
+  z.object({ command: z.literal("revoke_offer"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("check_out"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("complete"), reason: z.string().trim().max(500).optional() }),
   z.object({
@@ -98,11 +102,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const input = commandSchema.safeParse(await readBoundedJson(request));
   const command = await getBookingAdminContext(request, id, { requireAssignee: true });
   if (!command || !input.success) return NextResponse.json({ message: "Invalid command" }, { status: 400 });
-  if (input.data.command === "correct_journal" && !isAdmin(command.user)) {
+  if (["correct_journal", "delete_permanently"].includes(input.data.command) && !isAdmin(command.user)) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
   }
   try {
     switch (input.data.command) {
+      case "delete_permanently":
+        deleteBookingPermanently(command.db, id);
+        return NextResponse.json({ ok: true, deleted: true });
       case "send_offer": {
         const createdOffer = createOffer(command.db, {
           bookingId: id,
@@ -192,6 +199,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "expire":
         advanceBooking(command.db, id, "expired", command.user.id, input.data.reason);
+        break;
+      case "revoke_offer":
+        revokeOffer(command.db, { bookingId: id, actorUserId: command.user.id, reason: input.data.reason });
         break;
       case "check_out":
         {
