@@ -87,7 +87,11 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
   const syncThread = useCallback(
     async (automatic = false) => {
       setSyncing(true);
-      setNotice(null);
+      if (automatic) {
+        setLoading(true);
+        setFailed(false);
+      }
+      setNotice(automatic ? "Synchronisiere mit dem Mailserver …" : null);
       try {
         const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
           method: "POST",
@@ -100,50 +104,21 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
         setMessages(result.messages);
         const sync = result.sync;
         setNotice(formatSyncNotice(sync, automatic));
+        setFailed(false);
       } catch (error) {
+        if (automatic) setFailed(true);
         setNotice(error instanceof Error ? error.message : "Mailverlauf konnte nicht synchronisiert werden.");
       } finally {
         setSyncing(false);
+        if (automatic) setLoading(false);
       }
     },
     [bookingId],
   );
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    const loadThread = async () => {
-      setLoading(true);
-      setFailed(false);
-      setNotice(null);
-
-      try {
-        const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const result = (await response.json().catch(() => null)) as MailThreadResponse | null;
-
-        if (!response.ok || !result?.messages) {
-          throw new Error("Mailverlauf konnte nicht geladen werden.");
-        }
-
-        setMessages(result.messages);
-        setNotice("Archivierter Mailverlauf geladen. Synchronisiere mit dem Mailserver …");
-        setLoading(false);
-        void syncThread(true);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setFailed(true);
-        setNotice(error instanceof Error ? error.message : "Mailverlauf konnte nicht geladen werden.");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-
-    void loadThread();
-    return () => controller.abort();
+    const timeout = window.setTimeout(() => void syncThread(true), 0);
+    return () => window.clearTimeout(timeout);
   }, [bookingId, syncThread]);
 
   const emptyState = useMemo(
