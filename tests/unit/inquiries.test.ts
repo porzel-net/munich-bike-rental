@@ -7,13 +7,30 @@ const { createTransport, sendMail } = vi.hoisted(() => {
 });
 vi.mock("nodemailer", () => ({ default: { createTransport } }));
 
+const { getDatabase, getLocationInventory, isRequestAvailable, calculateInquiryPrice, createBooking } = vi.hoisted(
+  () => ({
+    getDatabase: vi.fn(),
+    getLocationInventory: vi.fn(),
+    isRequestAvailable: vi.fn(),
+    calculateInquiryPrice: vi.fn(),
+    createBooking: vi.fn(),
+  }),
+);
+const { dispatchOutboxForBooking } = vi.hoisted(() => ({ dispatchOutboxForBooking: vi.fn() }));
+vi.mock("../../lib/db/client", () => ({ getDatabase }));
+vi.mock("../../lib/inventory/repository", () => ({ getLocationInventory, isRequestAvailable }));
+vi.mock("../../lib/inventory/pricing", () => ({ calculateInquiryPrice }));
+vi.mock("../../lib/bookings/service", () => ({ createBooking }));
+vi.mock("../../lib/bookings/outbox", () => ({ dispatchOutboxForBooking }));
+
 import { POST as contactPost } from "../../app/api/contact/route";
-import { contactInquirySchema, maintenanceInquirySchema } from "../../lib/inquiries/schemas";
+import { contactInquirySchema } from "../../lib/inquiries/schemas";
 import {
   consumeRateLimit,
   createOrderNumber,
   getMailConfig,
   resetRateLimitsForTests,
+  sendConfiguredMail,
 } from "../../lib/inquiries/server";
 
 const validContact = {
@@ -100,21 +117,6 @@ describe("inquiry schemas", () => {
       }).success,
     ).toBe(false);
   });
-
-  it("requires a known maintenance service", () => {
-    expect(
-      maintenanceInquirySchema.safeParse({
-        name: "Max",
-        contact: "max@example.com",
-        bikeModel: "Canyon",
-        serviceType: "unknown",
-        pickup: false,
-        message: "Bitte prüfen",
-        locale: "de",
-        website: "",
-      }).success,
-    ).toBe(false);
-  });
 });
 
 describe("inquiry server helpers", () => {
@@ -132,8 +134,8 @@ describe("inquiry server helpers", () => {
     expect(
       await getMailConfig({
         SMTP_HOST: "smtp.example.com",
-        SMTP_USER: "user",
-        SMTP_PASSWORD: "secret",
+        SMTP_REQUEST_USER: "user",
+        SMTP_REQUEST_PASSWORD: "secret",
         SMTP_PORT: "70000",
       }),
     ).toBeNull();
@@ -141,8 +143,8 @@ describe("inquiry server helpers", () => {
       (
         await getMailConfig({
           SMTP_HOST: "smtp.example.com",
-          SMTP_USER: "user",
-          SMTP_PASSWORD: "secret",
+          SMTP_REQUEST_USER: "user",
+          SMTP_REQUEST_PASSWORD: "secret",
           MAIL_TIMEOUT_SECONDS: "20",
         })
       )?.timeout,
@@ -151,11 +153,68 @@ describe("inquiry server helpers", () => {
       (
         await getMailConfig({
           SMTP_HOST: "smtp.example.com",
-          SMTP_USER: "user",
-          SMTP_PASSWORD_FILE: fileURLToPath(new URL("../fixtures/smtp-password.txt", import.meta.url)),
+          SMTP_REQUEST_USER: "user",
+          SMTP_REQUEST_PASSWORD_FILE: fileURLToPath(new URL("../fixtures/smtp-password.txt", import.meta.url)),
         })
       )?.password,
     ).toBe("test-password-from-file");
+  });
+
+  it("falls back from blank Compose account overrides to shared SMTP settings", async () => {
+    await expect(
+      getMailConfig({
+        SMTP_HOST: "smtp.example.com",
+        SMTP_PORT: "465",
+        SMTP_SECURE: "true",
+        SMTP_USER: "legacy-user",
+        SMTP_PASSWORD: "legacy-password",
+        SMTP_REQUEST_HOST: "",
+        SMTP_REQUEST_PORT: "",
+        SMTP_REQUEST_USER: "",
+        SMTP_REQUEST_PASSWORD: "",
+      }),
+    ).resolves.toMatchObject({
+      host: "smtp.example.com",
+      port: 465,
+      secure: true,
+      user: "legacy-user",
+      password: "legacy-password",
+    });
+  });
+
+  it("keeps recipients in the SMTP envelope when an aligned sender is configured", async () => {
+    process.env = {
+      ...process.env,
+      SMTP_HOST: "smtp.example.com",
+      SMTP_MAIN_USER: "main@example.com",
+      SMTP_MAIN_PASSWORD: "secret",
+      SMTP_MAIN_PORT: "465",
+      SMTP_MAIN_SECURE: "true",
+      MAIL_MAIN_FROM_ADDRESS: "main@example.com",
+    };
+    sendMail.mockResolvedValue({ messageId: "<test@example.com>" });
+
+    await sendConfiguredMail({
+      account: "main",
+      to: "customer@example.com",
+      subject: "Test",
+      text: "Test",
+    });
+
+    expect(sendMail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        to: "customer@example.com",
+        envelope: { from: "main@example.com", to: "customer@example.com" },
+        html: expect.stringContaining('src="cid:your-bike-rental-logo@munich-bike-rental.de"'),
+        attachments: [
+          expect.objectContaining({
+            filename: "favicon-96.png",
+            contentType: "image/png",
+            cid: "your-bike-rental-logo@munich-bike-rental.de",
+          }),
+        ],
+      }),
+    );
   });
 });
 
@@ -166,11 +225,23 @@ describe("contact route", () => {
     resetRateLimitsForTests();
     sendMail.mockReset();
     sendMail.mockResolvedValue({});
+    getDatabase.mockReset();
+    getDatabase.mockReturnValue({});
+    getLocationInventory.mockReset();
+    getLocationInventory.mockReturnValue({});
+    isRequestAvailable.mockReset();
+    isRequestAvailable.mockReturnValue(true);
+    calculateInquiryPrice.mockReset();
+    calculateInquiryPrice.mockReturnValue({ totalCents: 23_100 });
+    createBooking.mockReset();
+    createBooking.mockReturnValue({ id: 1, orderNumber: "#20260717120000" });
+    dispatchOutboxForBooking.mockReset();
+    dispatchOutboxForBooking.mockResolvedValue([]);
     process.env = {
       ...environment,
       SMTP_HOST: "smtp.example.com",
-      SMTP_USER: "user",
-      SMTP_PASSWORD: "secret",
+      SMTP_REQUEST_USER: "user",
+      SMTP_REQUEST_PASSWORD: "secret",
       SMTP_PORT: "587",
       MAIL_TIMEOUT_SECONDS: "20",
       APP_ORIGIN: "http://localhost:3000",
@@ -179,9 +250,13 @@ describe("contact route", () => {
 
   it("sends a valid inquiry and rejects bot and invalid input", async () => {
     expect((await contactPost(request(validContact))).status).toBe(200);
-    expect(sendMail).toHaveBeenCalledOnce();
-    expect(createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({ disableFileAccess: true, disableUrlAccess: true }),
+    expect(createBooking).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        customerName: validContact.name,
+        customerEmail: validContact.contact,
+        quotedTotalCents: 23_100,
+      }),
     );
     expect(
       (await contactPost(request({ ...validContact, website: "https://bot.invalid" }, "198.51.100.11"))).status,
@@ -189,7 +264,7 @@ describe("contact route", () => {
     expect((await contactPost(request({ ...validContact, name: "" }, "198.51.100.12"))).status).toBe(400);
   });
 
-  it("includes all bike details in the email", async () => {
+  it("keeps all bike details on the booking and skips the old internal inquiry mail", async () => {
     const response = await contactPost(
       request({
         ...validContact,
@@ -212,24 +287,35 @@ describe("contact route", () => {
     );
 
     expect(response.status).toBe(200);
-    const mail = sendMail.mock.calls[0]?.[0];
-    expect(mail.subject).toContain("(2 Bikes)");
-    expect(mail.text).toContain("Anzahl Bikes: 2");
-    expect(mail.text).toContain("Bike 1");
-    expect(mail.text).toContain("Körpergröße: 180 cm");
-    expect(mail.text).toContain("Bike 2");
-    expect(mail.text).toContain("Körpergröße: 172 cm");
-    expect(mail.text).toContain("Rennrad: Grail CF SL 7 - M");
-    expect(mail.text).toContain("Fahrradcomputerhalterung: Ja, Garmin");
-    expect(mail.text).toContain("Kleidung: Ja");
-    expect(mail.text).toContain("Flaschenhalter: Inklusive");
-    expect(mail.text).toContain("Reparaturset: Inklusive");
-    expect(mail.text).toContain("Rennradbrille: Ja");
-    expect(Object.keys(mail)).not.toEqual(expect.arrayContaining(["raw", "path", "href"]));
+    const command = createBooking.mock.calls[0]?.[1];
+    expect(command.outbox).toBeUndefined();
+    expect(command.requestedItems).toHaveLength(2);
+    expect(command.requestedItems[1]).toMatchObject({
+      requestedLabel: "Grail CF SL 7 - M",
+      heightCm: 172,
+      needsPedals: true,
+      pedalType: "spdSl",
+      needsComputerMount: true,
+      computerMountType: "garmin",
+      needsHelmet: true,
+      needsClothing: true,
+      needsBikepackingBag: false,
+      needsGlasses: true,
+      bottleHolderIncluded: true,
+      repairKitIncluded: true,
+    });
   });
 
-  it("returns a configuration error without SMTP credentials", async () => {
+  it("queues the inquiry without SMTP credentials", async () => {
     delete process.env.SMTP_HOST;
+    expect((await contactPost(request(validContact))).status).toBe(200);
+    expect(createBooking).toHaveBeenCalledOnce();
+  });
+
+  it("does not persist an inquiry when mail delivery throws", async () => {
+    createBooking.mockImplementationOnce(() => {
+      throw new Error("Database unavailable");
+    });
     expect((await contactPost(request(validContact))).status).toBe(500);
   });
 });

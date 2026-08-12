@@ -5,6 +5,7 @@ node_modules
 .env.*
 *.log
 coverage
+data
 tsconfig.tsbuildinfo
 Dockerfile
 docker-compose.yml

@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 
 import { siteConfig } from "../site";
+import { readBoundedText } from "../security/request-body";
+import { EMAIL_LOGO_CID, emailCard, emailParagraph, renderEmailLayout } from "./email-template";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
@@ -31,6 +34,15 @@ export function jsonError(status: number, code: ApiErrorCode, error: string) {
 
 function getExpectedOrigin(request: Request) {
   const configuredOrigin = process.env.APP_ORIGIN ?? new URL(siteConfig.url).origin;
+  if (process.env.NODE_ENV === "production") {
+    try {
+      const parsedOrigin = new URL(configuredOrigin);
+      return parsedOrigin.protocol === "https:" ? parsedOrigin.origin : null;
+    } catch {
+      return null;
+    }
+  }
+
   const localOrigins = new Set([
     "http://localhost",
     "https://localhost",
@@ -51,12 +63,9 @@ function getExpectedOrigin(request: Request) {
 
 function getClientIp(request: Request) {
   const realIp = request.headers.get("x-real-ip")?.trim();
-  if (realIp) {
-    return realIp;
-  }
-
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  return forwardedFor?.split(",").at(-1)?.trim() || "unknown";
+  // X-Forwarded-For is client-spoofable unless every proxy hop is tightly
+  // controlled. Nginx overwrites X-Real-IP in the documented deployment.
+  return realIp || "unknown";
 }
 
 export function consumeRateLimit(key: string, now = Date.now()) {
@@ -95,7 +104,7 @@ export function resetRateLimitsForTests() {
 
 export async function parseInquiryRequest<T extends { website?: unknown }>(
   request: Request,
-  endpoint: "contact" | "maintenance",
+  endpoint: "contact",
   schema: z.ZodType<T>,
 ): Promise<{ data: T } | { error: NextResponse }> {
   const origin = request.headers.get("origin");
@@ -112,13 +121,8 @@ export async function parseInquiryRequest<T extends { website?: unknown }>(
     return { error: jsonError(415, "unsupported_content_type", "Unsupported content type") };
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return { error: jsonError(413, "payload_too_large", "Payload too large") };
-  }
-
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+  const rawBody = await readBoundedText(request, MAX_BODY_BYTES);
+  if (rawBody === null) {
     return { error: jsonError(413, "payload_too_large", "Payload too large") };
   }
 
@@ -152,7 +156,11 @@ function parseTimeoutMs(value: string | undefined) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1_000) : undefined;
 }
 
-async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string) {
+function firstNonBlank(...values: Array<string | undefined>) {
+  return values.find((value) => value?.trim())?.trim();
+}
+
+export async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string) {
   const directValue = environment[name];
   if (directValue) {
     return directValue;
@@ -170,17 +178,62 @@ async function readSecret(environment: Partial<NodeJS.ProcessEnv>, name: string)
   }
 }
 
-export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = process.env) {
-  const host = environment.SMTP_HOST?.trim();
-  const user = environment.SMTP_USER?.trim();
-  const password = await readSecret(environment, "SMTP_PASSWORD");
-  const port = Number(environment.SMTP_PORT ?? "587");
+export type MailAccount = "request" | "main";
+
+export type MailConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS: boolean;
+  timeout?: number;
+  user: string;
+  password: string;
+  fromAddress: string;
+  toAddress: string;
+};
+
+const accountEnv = {
+  request: {
+    host: "SMTP_REQUEST_HOST",
+    port: "SMTP_REQUEST_PORT",
+    secure: "SMTP_REQUEST_SECURE",
+    user: "SMTP_REQUEST_USER",
+    password: "SMTP_REQUEST_PASSWORD",
+    from: "MAIL_REQUEST_FROM_ADDRESS",
+    to: "MAIL_REQUEST_TO_ADDRESS",
+  },
+  main: {
+    host: "SMTP_MAIN_HOST",
+    port: "SMTP_MAIN_PORT",
+    secure: "SMTP_MAIN_SECURE",
+    user: "SMTP_MAIN_USER",
+    password: "SMTP_MAIN_PASSWORD",
+    from: "MAIL_MAIN_FROM_ADDRESS",
+    to: "MAIL_MAIN_TO_ADDRESS",
+  },
+} as const;
+
+export async function getMailConfig(
+  environment: Partial<NodeJS.ProcessEnv> = process.env,
+  account: MailAccount = "request",
+): Promise<MailConfig | null> {
+  const names = accountEnv[account];
+  // Docker Compose passes unset optional variables as empty strings. Treat
+  // those as absent so the documented shared SMTP settings still work.
+  const host = firstNonBlank(environment[names.host], environment.SMTP_HOST);
+  const user = firstNonBlank(environment[names.user], environment.SMTP_USER);
+  const password = (await readSecret(environment, names.password)) || (await readSecret(environment, "SMTP_PASSWORD"));
+  const port = Number(firstNonBlank(environment[names.port], environment.SMTP_PORT, "587"));
 
   if (!host || !user || !password || !Number.isInteger(port) || port < 1 || port > 65_535) {
     return null;
   }
 
-  const secure = parseBoolean(environment.SMTP_SECURE) ?? parseBoolean(environment.MAIL_USE_SSL) ?? port === 465;
+  const secure =
+    parseBoolean(environment[names.secure]) ??
+    parseBoolean(environment.SMTP_SECURE) ??
+    parseBoolean(environment.MAIL_USE_SSL) ??
+    port === 465;
   return {
     host,
     port,
@@ -189,9 +242,41 @@ export async function getMailConfig(environment: Partial<NodeJS.ProcessEnv> = pr
     timeout: parseTimeoutMs(environment.MAIL_TIMEOUT_SECONDS),
     user,
     password,
-    fromAddress: environment.MAIL_FROM_ADDRESS ?? "anfrage@munich-bike-rental.de",
-    toAddress: environment.MAIL_TO_ADDRESS ?? "hallo@munich-bike-rental.de",
+    fromAddress:
+      firstNonBlank(environment[names.from], environment.MAIL_FROM_ADDRESS) ??
+      (account === "main" ? user : "anfrage@munich-bike-rental.de"),
+    toAddress:
+      firstNonBlank(environment[names.to], environment.MAIL_TO_ADDRESS) ??
+      (account === "main" ? "" : "hallo@munich-bike-rental.de"),
   };
+}
+
+/** Opens and verifies an SMTP connection without sending a message. */
+export async function verifyMailConnection(
+  account: MailAccount,
+  environment: Partial<NodeJS.ProcessEnv> = process.env,
+) {
+  const config = await getMailConfig(environment, account);
+  if (!config) throw new Error(`SMTP-Konfiguration für ${account} ist unvollständig`);
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTLS: config.requireTLS,
+    connectionTimeout: config.timeout,
+    greetingTimeout: config.timeout,
+    socketTimeout: config.timeout,
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    auth: { user: config.user, pass: config.password },
+  });
+  try {
+    await transporter.verify();
+  } finally {
+    transporter.close();
+  }
+  return { host: config.host, port: config.port };
 }
 
 export function createOrderNumber(date = new Date()) {
@@ -211,11 +296,77 @@ export function createOrderNumber(date = new Date()) {
   return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
 }
 
-export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {
-  const config = await getMailConfig();
+export type SentMail = { messageId: string | null };
+
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+  cid?: string;
+};
+
+let emailLogoPromise: Promise<Buffer | null> | null = null;
+
+function readEmailLogo() {
+  emailLogoPromise ??= readFile(join(process.cwd(), "public", "favicon-96.png")).catch(() => null);
+  return emailLogoPromise;
+}
+
+function fallbackMailHtml(subject: string, text: string) {
+  return renderEmailLayout({
+    locale: "de",
+    preheader: subject,
+    eyebrow: "Your Bike Rental",
+    title: subject,
+    content: emailCard(emailParagraph(text)),
+  });
+}
+
+function inlineLogoReference(html: string, reference: string) {
+  const publicLogoUrl = `${siteConfig.url.replace(/\/$/, "")}/favicon.png`;
+  return html.replaceAll(`cid:${EMAIL_LOGO_CID}`, reference).replaceAll(publicLogoUrl, reference);
+}
+
+export async function sendConfiguredMail({
+  account,
+  subject,
+  text,
+  html,
+  attachments,
+  to,
+  replyTo,
+  inReplyTo,
+  references,
+}: {
+  account: MailAccount;
+  subject: string;
+  text: string;
+  html?: string;
+  attachments?: MailAttachment[];
+  to: string;
+  replyTo?: string;
+  inReplyTo?: string;
+  references?: string | string[];
+}): Promise<SentMail | null> {
+  const config = await getMailConfig(process.env, account);
   if (!config) {
-    return false;
+    return null;
   }
+
+  const logo = await readEmailLogo();
+  const logoReference = logo ? `cid:${EMAIL_LOGO_CID}` : `${siteConfig.url.replace(/\/$/, "")}/favicon.png`;
+  const mailHtml = inlineLogoReference(html?.trim() || fallbackMailHtml(subject, text), logoReference);
+  const mailAttachments = logo
+    ? [
+        ...(attachments ?? []),
+        {
+          filename: "favicon-96.png",
+          content: logo,
+          contentType: "image/png",
+          cid: EMAIL_LOGO_CID,
+        },
+      ]
+    : attachments;
 
   const transporter = nodemailer.createTransport({
     host: config.host,
@@ -230,13 +381,29 @@ export async function sendInquiryMail({ subject, text, replyTo }: { subject: str
     auth: { user: config.user, pass: config.password },
   });
 
-  await transporter.sendMail({
-    from: `Munich Rental <${config.fromAddress}>`,
-    to: config.toAddress,
+  const result = await transporter.sendMail({
+    from: `Your Bike Rental <${config.fromAddress}>`,
+    // Keep the SMTP envelope sender on the same domain as the visible From:
+    // header so SPF can align with DMARC for direct customer mail.
+    envelope: { from: config.fromAddress, to },
+    to,
     replyTo,
+    inReplyTo,
+    references,
     subject,
     text,
+    // Keep the HTML part present even for older/admin-created outbox rows that
+    // predate the shared templates. The plain-text part is always sent too.
+    html: mailHtml,
+    attachments: mailAttachments,
   });
 
-  return true;
+  return { messageId: typeof result.messageId === "string" ? result.messageId : null };
+}
+
+export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {
+  const config = await getMailConfig(process.env, "request");
+  if (!config || !config.toAddress) return null;
+
+  return sendConfiguredMail({ account: "request", subject, text, to: config.toAddress, replyTo });
 }

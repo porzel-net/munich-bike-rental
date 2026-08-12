@@ -1,0 +1,281 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "f2e8ae45-c83b-4297-b4db-145be709508b",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "rental_inquiries": {
+      "name": "rental_inquiries",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "order_number": {
+          "name": "order_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "period_from": {
+          "name": "period_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "period_to": {
+          "name": "period_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pickup_time": {
+          "name": "pickup_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dropoff_time": {
+          "name": "dropoff_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bike_title": {
+          "name": "bike_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "affiliate_key": {
+          "name": "affiliate_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mail_status": {
+          "name": "mail_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "mail_sent_at": {
+          "name": "mail_sent_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rental_inquiries_order_number_unique": {
+          "name": "rental_inquiries_order_number_unique",
+          "columns": ["order_number"],
+          "isUnique": true
+        },
+        "rental_inquiries_submitted_at_idx": {
+          "name": "rental_inquiries_submitted_at_idx",
+          "columns": ["submitted_at"],
+          "isUnique": false
+        },
+        "rental_inquiries_mail_status_submitted_at_idx": {
+          "name": "rental_inquiries_mail_status_submitted_at_idx",
+          "columns": ["mail_status", "submitted_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "rental_inquiries_locale_check": {
+          "name": "rental_inquiries_locale_check",
+          "value": "\"rental_inquiries\".\"locale\" in ('de', 'en')"
+        },
+        "rental_inquiries_mail_status_check": {
+          "name": "rental_inquiries_mail_status_check",
+          "value": "\"rental_inquiries\".\"mail_status\" in ('pending', 'sent', 'failed')"
+        }
+      }
+    },
+    "rental_inquiry_bikes": {
+      "name": "rental_inquiry_bikes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "inquiry_id": {
+          "name": "inquiry_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height_cm": {
+          "name": "height_cm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bike_size": {
+          "name": "bike_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "needs_pedals": {
+          "name": "needs_pedals",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pedal_type": {
+          "name": "pedal_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "needs_computer_mount": {
+          "name": "needs_computer_mount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "computer_mount_type": {
+          "name": "computer_mount_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "needs_helmet": {
+          "name": "needs_helmet",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "needs_clothing": {
+          "name": "needs_clothing",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rental_inquiry_bikes_inquiry_position_unique": {
+          "name": "rental_inquiry_bikes_inquiry_position_unique",
+          "columns": ["inquiry_id", "position"],
+          "isUnique": true
+        },
+        "rental_inquiry_bikes_inquiry_id_idx": {
+          "name": "rental_inquiry_bikes_inquiry_id_idx",
+          "columns": ["inquiry_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rental_inquiry_bikes_inquiry_id_rental_inquiries_id_fk": {
+          "name": "rental_inquiry_bikes_inquiry_id_rental_inquiries_id_fk",
+          "tableFrom": "rental_inquiry_bikes",
+          "tableTo": "rental_inquiries",
+          "columnsFrom": ["inquiry_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

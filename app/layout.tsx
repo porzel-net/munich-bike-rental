@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
-import "./globals.css";
 import { ConsentProvider } from "../components/consent-manager";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { parseConsentCookie } from "../lib/consent";
 import { getRentalStructuredDataJson } from "../lib/structured-data";
 import { resolveLocale } from "../lib/home-content";
@@ -70,19 +70,11 @@ export const metadata: Metadata = {
     "Carbon Rennrad mieten",
     "Carbon Rennräder München",
     "Aero Rennrad mieten München",
-    "Fahrradwartung München",
-    "Rennrad Wartung München",
-    "Gravelbike Wartung München",
-    "Öl auf Wachs München",
-    "Fahrrad reparieren München",
     "Endurace CF SL 8",
     "Shimano 105 Di2",
     "Grail CF SL 7",
     "Ultimate CF SL 7",
     "Aeroad CF SL 8",
-    "Bike maintenance Munich",
-    "Road bike maintenance Munich",
-    "Gravel bike maintenance Munich",
     "Road bike rental Munich",
     "Road bike hire Munich",
     "Road bikes Munich",
@@ -128,9 +120,12 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
+    icon: [
+      { url: "/favicon-96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/favicon-96.png",
+    apple: "/favicon-192.png",
   },
 };
 
@@ -168,7 +163,7 @@ export default async function RootLayout({
           googleAdsConversionId={googleAdsConversionId}
           googleAdsConversionLabel={googleAdsConversionLabel}
         >
-          {children}
+          <TooltipProvider>{children}</TooltipProvider>
         </ConsentProvider>
       </body>
     </html>

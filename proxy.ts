@@ -75,6 +75,17 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  if (request.nextUrl.pathname === "/admin" || request.nextUrl.pathname.startsWith("/admin/")) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet");
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  }
+
+  if (request.nextUrl.pathname === "/angebot" || request.nextUrl.pathname.startsWith("/angebot/")) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  }
+
   return response;
 }
 

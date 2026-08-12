@@ -11,6 +11,9 @@ WORKDIR /app
 ARG SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SITE_URL=${SITE_URL}
+# Better Auth initializes the database while Next collects route metadata. The
+# runtime uses /data/bikerental.db from docker-compose instead.
+ENV DATABASE_URL=/tmp/bikerental.db
 RUN corepack enable && corepack prepare pnpm@11.14.0 --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -32,9 +35,15 @@ LABEL org.opencontainers.image.description="BikeRental Next.js application"
 RUN groupadd --gid 1001 nodejs \
   && useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nextjs
 
+# Invoice PDFs are rendered on demand from LaTeX.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-xetex \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 
 USER nextjs
 

@@ -1,0 +1,433 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784623843656,
+      "tag": "0000_high_onslaught",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784624248152,
+      "tag": "0001_cooing_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784625306293,
+      "tag": "0002_narrow_nico_minoru",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784625615714,
+      "tag": "0003_luxuriant_thunderbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784626300000,
+      "tag": "0004_fix_rate_limit_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784628407088,
+      "tag": "0005_graceful_stick",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784628614238,
+      "tag": "0006_premium_ken_ellis",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1784629000000,
+      "tag": "0007_invitation_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784631645800,
+      "tag": "0008_lowly_plazm",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784632000000,
+      "tag": "0009_encrypt_bootstrap_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1784636034110,
+      "tag": "0010_inquiry-statuses",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1784636985421,
+      "tag": "0011_shocking_ser_duncan",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784641559531,
+      "tag": "0012_late_stingray",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1784642277241,
+      "tag": "0013_steady_guardsmen",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1784643007933,
+      "tag": "0014_fine_patch",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1784645000000,
+      "tag": "0015_booking-source",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1784646000000,
+      "tag": "0016_booking-mail-actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1784647000000,
+      "tag": "0017_booking-confirmation-tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1784654027785,
+      "tag": "0018_abandoned_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1784655946464,
+      "tag": "0019_eminent_captain_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1784657000000,
+      "tag": "0020_restore_inquiry_bikes",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1784723610562,
+      "tag": "0021_real_quasar",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1784725430888,
+      "tag": "0022_panoramic_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1784725600000,
+      "tag": "0023_migrate_legacy_booking_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1784725629488,
+      "tag": "0024_yummy_pete_wisdom",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1784727000000,
+      "tag": "0025_offer_price_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1784728000000,
+      "tag": "0026_booking_assignees",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1785766666233,
+      "tag": "0028_mute_bucky",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1785767000000,
+      "tag": "0029_booking_public_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1785768000000,
+      "tag": "0030_accounting_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1785769000000,
+      "tag": "0031_booking_mail_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1785949646259,
+      "tag": "0032_real_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1785950211800,
+      "tag": "0033_illegal_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1785952520501,
+      "tag": "0034_cool_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1785954000000,
+      "tag": "0035_fix_financial_category_euer_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1785954600000,
+      "tag": "0036_normalize_financial_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1785958844386,
+      "tag": "0037_daily_cloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1786007527233,
+      "tag": "0038_lush_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1786007780936,
+      "tag": "0039_first_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1786008104423,
+      "tag": "0040_sharp_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1786009000000,
+      "tag": "0041_fill_confirmed_invoice_numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1786009200000,
+      "tag": "0042_persist_nevlo_oauth_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1786009300000,
+      "tag": "0043_fixed_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1786123869742,
+      "tag": "0044_smooth_hammerhead",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1786124117214,
+      "tag": "0045_hot_sister_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1786124300000,
+      "tag": "0046_private_asset_contributions",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1786124400000,
+      "tag": "0047_add_frame_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1786124500000,
+      "tag": "0048_business_meal_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1786283402908,
+      "tag": "0049_tricky_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1786284518453,
+      "tag": "0050_special_vector",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1786285000000,
+      "tag": "0051_extended_equipment",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1786452823833,
+      "tag": "0052_sticky_cassandra_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1786454116121,
+      "tag": "0053_medical_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1786455013463,
+      "tag": "0054_mature_gorilla_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1786457202084,
+      "tag": "0055_private-user-address",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1786459000000,
+      "tag": "0056_seed_fixed_financial_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1786532481858,
+      "tag": "0057_secret_morgan_stark",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1786533500000,
+      "tag": "0058_legacy_bookings_rejected",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1786545102242,
+      "tag": "0059_spooky_the_fallen",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1786546000000,
+      "tag": "0060_munich_bikes_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1786546827000,
+      "tag": "0061_munich_endurance_only",
+      "breakpoints": true
+    }
+  ]
+}

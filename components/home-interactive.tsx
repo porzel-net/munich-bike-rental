@@ -2,21 +2,22 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUpRight, ChevronDown, ImageIcon, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
 import { PrivacyConsentLabel } from "./privacy-consent-label";
 import { type Locale, type PortfolioItem } from "../lib/home-content";
-import { bikeOptionsByLocation, rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
+import { rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
+import { getRentalDays } from "../lib/inventory/pricing";
+import type { LocationInventory } from "../lib/inventory/repository";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
 import { defaultRentalLocation, getLocalizedLocationPath, rentalLocationConfigs } from "../lib/rental-locations";
 
 type TopbarTranslations = {
   nav: {
     start: string;
-    maintenance: string;
     bikes: string;
     prices: string;
     faq: string;
@@ -90,6 +91,14 @@ type FormTranslations = {
   agb: string;
   submit: string;
   sending: string;
+  rentalDaysWarning: {
+    title: string;
+    intro: string;
+    details: string;
+    exception: string;
+    cancel: string;
+    submit: string;
+  };
   success: string;
   orderNumberLabel: string;
   error: string;
@@ -137,13 +146,12 @@ type HomeTopbarProps = {
   topbar: TopbarTranslations;
   sectionAnchors?: Partial<{
     start: string;
-    maintenance: string;
     bikes: string;
     prices: string;
     faq: string;
     contact: string;
   }>;
-  hiddenNavItems?: Array<"start" | "maintenance" | "bikes" | "prices" | "faq" | "contact">;
+  hiddenNavItems?: Array<"start" | "bikes" | "prices" | "faq" | "contact">;
   backLink?: {
     href: string;
     label: string;
@@ -154,13 +162,13 @@ type PortfolioSectionProps = {
   lang: Locale;
   translations: SharedTranslations;
   portfolioItems: PortfolioItem[];
-  showEnduracePromo?: boolean;
 };
 
 type ContactFormProps = {
   lang: Locale;
   translations: SharedTranslations;
   defaultLocation?: RentalLocation;
+  inventory: LocationInventory;
 };
 
 type AboutImageStackProps = {
@@ -684,7 +692,7 @@ export function HomeTopbar({
   const [locationsOpen, setLocationsOpen] = useState(false);
   const pageHref = (path: string) => buildPathWithSearch({ pathname: path, searchParams, lang });
   const sectionHref = (hash: string, override?: string) => {
-    if (pathname === "/wartung" && override) {
+    if (override) {
       return override;
     }
 
@@ -704,10 +712,7 @@ export function HomeTopbar({
 
     return buildPathWithSearch({ pathname: targetHomePath, searchParams, hash, lang });
   };
-  const maintenanceHref =
-    pathname === "/wartung" ? sectionHref("#wartung", sectionAnchors?.maintenance) : pageHref("/wartung");
-  const isHidden = (item: "start" | "maintenance" | "bikes" | "prices" | "faq" | "contact") =>
-    hiddenNavItems?.includes(item) ?? false;
+  const isHidden = (item: "start" | "bikes" | "prices" | "faq" | "contact") => hiddenNavItems?.includes(item) ?? false;
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -750,13 +755,6 @@ export function HomeTopbar({
                   {topbar.nav.start}
                 </a>
               </li>
-              {!isHidden("maintenance") ? (
-                <li className="nav__item">
-                  <a href={maintenanceHref} className="nav__link nav__link--anchor">
-                    {topbar.nav.maintenance}
-                  </a>
-                </li>
-              ) : null}
               {!isHidden("bikes") ? (
                 <li className="nav__item">
                   <a href={sectionHref("#portfolio", sectionAnchors?.bikes)} className="nav__link nav__link--anchor">
@@ -879,17 +877,6 @@ export function HomeTopbar({
                 {topbar.nav.start}
               </a>
             </li>
-            {!isHidden("maintenance") ? (
-              <li className="nav__item nav__item--mobile">
-                <a
-                  href={maintenanceHref}
-                  className="nav__link nav__link--mobile nav__link--mobile-anchor"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {topbar.nav.maintenance}
-                </a>
-              </li>
-            ) : null}
             {!isHidden("bikes") ? (
               <li className="nav__item nav__item--mobile">
                 <a
@@ -986,12 +973,7 @@ export function HomeTopbar({
   );
 }
 
-export function PortfolioSection({
-  lang,
-  translations,
-  portfolioItems,
-  showEnduracePromo = false,
-}: PortfolioSectionProps) {
+export function PortfolioSection({ lang, translations, portfolioItems }: PortfolioSectionProps) {
   const [activeBike, setActiveBike] = useState<PortfolioItem | null>(null);
 
   useEffect(() => {
@@ -1017,11 +999,7 @@ export function PortfolioSection({
           {portfolioItems.map((item) => (
             <button
               key={item.title}
-              className={`portfolio-card ${
-                item.title === "Aeroad CF SL 8" || (showEnduracePromo && item.title === "Endurace CF SL 8")
-                  ? "portfolio-card--promo"
-                  : ""
-              }`}
+              className={`portfolio-card ${item.discountText?.[lang]?.trim() ? "portfolio-card--promo" : ""}`}
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -1041,20 +1019,17 @@ export function PortfolioSection({
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
-              {item.title === "Aeroad CF SL 8" ? (
+              {item.discountText?.[lang]?.trim() ? (
                 <span className="portfolio-card__promo" aria-hidden="true">
-                  <strong>25%</strong>
-                  <span>{lang === "de" ? "Dauerhaften" : "Permanent"}</span>
-                  <span>{lang === "de" ? "Juli - August" : "July - August"}</span>
-                  <span>{lang === "de" ? "Rabatt" : "Discount"}</span>
-                </span>
-              ) : null}
-              {showEnduracePromo && item.title === "Endurace CF SL 8" ? (
-                <span className="portfolio-card__promo" aria-hidden="true">
-                  <strong>50%</strong>
-                  <span>{lang === "de" ? "Rabatt insgesamt" : "Total discount"}</span>
-                  <span>{lang === "de" ? "Vom 6.8.–13.8." : "From Aug 6–13"}</span>
-                  <span>{lang === "de" ? "Für Größe S" : "For size S"}</span>
+                  {item.discountText[lang]
+                    .split("\n")
+                    .map((line, index) =>
+                      index === 0 ? (
+                        <strong key={`${line}-${index}`}>{line}</strong>
+                      ) : (
+                        <span key={`${line}-${index}`}>{line}</span>
+                      ),
+                    )}
                 </span>
               ) : null}
               <div className="portfolio-card__details">
@@ -1082,7 +1057,7 @@ export function PortfolioSection({
   );
 }
 
-export function ContactForm({ lang, translations, defaultLocation = "munich" }: ContactFormProps) {
+export function ContactForm({ lang, translations, defaultLocation = "munich", inventory }: ContactFormProps) {
   const { trackLead, saveAll } = useConsent();
   const searchParams = useSearchParams();
   const [location, setLocation] = useState<RentalLocation>(defaultLocation);
@@ -1106,8 +1081,11 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
   const [bikeErrors, setBikeErrors] = useState<BikeFieldErrors[]>([{}]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [rentalDaysWarningOpen, setRentalDaysWarningOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmRentalDaysRef = useRef(false);
   const affiliateKey = getAffiliateKey(searchParams);
-  const bikeOptions = bikeOptionsByLocation[location];
+  const bikeOptions = inventory.bikeOptions;
 
   const clearFieldError = (field: ContactField) => {
     setFieldErrors((current) => {
@@ -1179,6 +1157,14 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
       return;
     }
 
+    const rentalDays = getRentalDays(periodFrom, periodTo);
+    const hasShortFirstOrLastDay = pickupTime >= "15:00" || dropoffTime <= "15:00";
+    if (rentalDays > 1 && hasShortFirstOrLastDay && !confirmRentalDaysRef.current) {
+      setRentalDaysWarningOpen(true);
+      return;
+    }
+    confirmRentalDaysRef.current = false;
+
     const form = event.currentTarget;
     const formData = new FormData(form);
     const nameValue = String(formData.get("name") ?? "").trim();
@@ -1247,527 +1233,591 @@ export function ContactForm({ lang, translations, defaultLocation = "munich" }: 
   };
 
   return (
-    <form className="contact-form" onSubmit={handleContactSubmit} noValidate>
-      <InquiryHoneypot />
-      <div className="contact-form__fields">
-        <input type="hidden" name="location" value={location} />
-        <div className="contact-form__field">
-          <label htmlFor="name">{translations.form.name}</label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            placeholder={translations.form.name}
-            value={name}
-            aria-invalid={Boolean(fieldErrors.name)}
-            aria-describedby={fieldErrors.name ? "name-error" : undefined}
-            onChange={(event) => {
-              setName(event.target.value);
-              clearFieldError("name");
-            }}
-          />
-          {fieldErrors.name ? (
-            <p className="contact-form__error" id="name-error">
-              {fieldErrors.name}
-            </p>
-          ) : null}
-        </div>
-        <div className="contact-form__field">
-          <label htmlFor="contact">{translations.form.contact}</label>
-          <input
-            id="contact"
-            name="contact"
-            type="email"
-            placeholder={translations.form.contact}
-            value={contact}
-            aria-invalid={Boolean(fieldErrors.contact)}
-            aria-describedby={fieldErrors.contact ? "contact-error" : undefined}
-            onChange={(event) => {
-              setContact(event.target.value);
-              clearFieldError("contact");
-            }}
-            inputMode="email"
-            autoComplete="email"
-          />
-          {fieldErrors.contact ? (
-            <p className="contact-form__error" id="contact-error">
-              {fieldErrors.contact}
-            </p>
-          ) : null}
-        </div>
-        <div className="contact-form__field">
-          <label htmlFor="phone">{translations.form.phone}</label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            placeholder={translations.form.phone}
-            value={phone}
-            aria-invalid={Boolean(fieldErrors.phone)}
-            aria-describedby={fieldErrors.phone ? "phone-hint phone-error" : "phone-hint"}
-            onChange={(event) => {
-              setPhone(event.target.value);
-              clearFieldError("phone");
-            }}
-            inputMode="tel"
-            autoComplete="tel"
-          />
-          <p className="contact-form__hint" id="phone-hint">
-            {translations.form.phoneHint}
-          </p>
-          {fieldErrors.phone ? (
-            <p className="contact-form__error" id="phone-error">
-              {fieldErrors.phone}
-            </p>
-          ) : null}
-        </div>
-        <div className="contact-form__bike-count">
+    <>
+      <form ref={formRef} className="contact-form" onSubmit={handleContactSubmit} noValidate>
+        <InquiryHoneypot />
+        <div className="contact-form__fields">
+          <input type="hidden" name="location" value={location} />
           <div className="contact-form__field">
-            <label htmlFor="bike-count">{translations.form.bikeCount}</label>
-            <select
-              id="bike-count"
-              name="bikeCount"
-              value={bikes.length}
-              onChange={(event) => resizeBikes(Number(event.target.value))}
-            >
-              {Array.from({ length: 10 }, (_, index) => {
-                const count = index + 1;
-                return (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                );
-              })}
-            </select>
+            <label htmlFor="name">{translations.form.name}</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              placeholder={translations.form.name}
+              value={name}
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={fieldErrors.name ? "name-error" : undefined}
+              onChange={(event) => {
+                setName(event.target.value);
+                clearFieldError("name");
+              }}
+            />
+            {fieldErrors.name ? (
+              <p className="contact-form__error" id="name-error">
+                {fieldErrors.name}
+              </p>
+            ) : null}
           </div>
-        </div>
-        {bikes.map((bike, index) => {
-          const errors = bikeErrors[index] ?? {};
-          const bikePrefix = "bike-" + index;
-
-          return (
-            <div key={index} className="contact-form__bike-card">
-              <h3 className="contact-form__bike-title">
-                {translations.form.bike} {index + 1}
-              </h3>
-              <div className="contact-form__bike-fields">
-                <div className="contact-form__field">
-                  <label htmlFor={bikePrefix + "-height"}>{translations.form.height}</label>
-                  <input
-                    id={bikePrefix + "-height"}
-                    name={"bikes." + index + ".height"}
-                    type="number"
-                    min="100"
-                    max="250"
-                    value={bike.height}
-                    aria-invalid={Boolean(errors.height)}
-                    aria-describedby={errors.height ? bikePrefix + "-height-error" : undefined}
-                    onChange={(event) => {
-                      updateBike(index, "height", event.target.value);
-                      clearBikeFieldError(index, "height");
-                    }}
-                    inputMode="numeric"
-                  />
-                  {errors.height ? (
-                    <p className="contact-form__error" id={bikePrefix + "-height-error"}>
-                      {errors.height}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="contact-form__field">
-                  <label htmlFor={bikePrefix + "-size"}>{translations.form.bikeSize}</label>
-                  <select
-                    id={bikePrefix + "-size"}
-                    name={"bikes." + index + ".bikeSize"}
-                    value={bike.bikeSize}
-                    aria-invalid={Boolean(errors.bikeSize)}
-                    aria-describedby={errors.bikeSize ? bikePrefix + "-size-error" : undefined}
-                    onChange={(event) => {
-                      updateBike(index, "bikeSize", event.target.value);
-                      clearBikeFieldError(index, "bikeSize");
-                    }}
-                  >
-                    <option value="" disabled>
-                      {lang === "de" ? "Rennrad auswählen" : "Choose a road bike"}
+          <div className="contact-form__field">
+            <label htmlFor="contact">{translations.form.contact}</label>
+            <input
+              id="contact"
+              name="contact"
+              type="email"
+              placeholder={translations.form.contact}
+              value={contact}
+              aria-invalid={Boolean(fieldErrors.contact)}
+              aria-describedby={fieldErrors.contact ? "contact-error" : undefined}
+              onChange={(event) => {
+                setContact(event.target.value);
+                clearFieldError("contact");
+              }}
+              inputMode="email"
+              autoComplete="email"
+            />
+            {fieldErrors.contact ? (
+              <p className="contact-form__error" id="contact-error">
+                {fieldErrors.contact}
+              </p>
+            ) : null}
+          </div>
+          <div className="contact-form__field">
+            <label htmlFor="phone">{translations.form.phone}</label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              placeholder={translations.form.phone}
+              value={phone}
+              aria-invalid={Boolean(fieldErrors.phone)}
+              aria-describedby={fieldErrors.phone ? "phone-hint phone-error" : "phone-hint"}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                clearFieldError("phone");
+              }}
+              inputMode="tel"
+              autoComplete="tel"
+            />
+            <p className="contact-form__hint" id="phone-hint">
+              {translations.form.phoneHint}
+            </p>
+            {fieldErrors.phone ? (
+              <p className="contact-form__error" id="phone-error">
+                {fieldErrors.phone}
+              </p>
+            ) : null}
+          </div>
+          <div className="contact-form__bike-count">
+            <div className="contact-form__field">
+              <label htmlFor="bike-count">{translations.form.bikeCount}</label>
+              <select
+                id="bike-count"
+                name="bikeCount"
+                value={bikes.length}
+                onChange={(event) => resizeBikes(Number(event.target.value))}
+              >
+                {Array.from({ length: 10 }, (_, index) => {
+                  const count = index + 1;
+                  return (
+                    <option key={count} value={count}>
+                      {count}
                     </option>
-                    {bikeOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+          {bikes.map((bike, index) => {
+            const errors = bikeErrors[index] ?? {};
+            const bikePrefix = "bike-" + index;
+
+            return (
+              <div key={index} className="contact-form__bike-card">
+                <h3 className="contact-form__bike-title">
+                  {translations.form.bike} {index + 1}
+                </h3>
+                <div className="contact-form__bike-fields">
+                  <div className="contact-form__field">
+                    <label htmlFor={bikePrefix + "-height"}>{translations.form.height}</label>
+                    <input
+                      id={bikePrefix + "-height"}
+                      name={"bikes." + index + ".height"}
+                      type="number"
+                      min="100"
+                      max="250"
+                      value={bike.height}
+                      aria-invalid={Boolean(errors.height)}
+                      aria-describedby={errors.height ? bikePrefix + "-height-error" : undefined}
+                      onChange={(event) => {
+                        updateBike(index, "height", event.target.value);
+                        clearBikeFieldError(index, "height");
+                      }}
+                      inputMode="numeric"
+                    />
+                    {errors.height ? (
+                      <p className="contact-form__error" id={bikePrefix + "-height-error"}>
+                        {errors.height}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="contact-form__field">
+                    <label htmlFor={bikePrefix + "-size"}>{translations.form.bikeSize}</label>
+                    <select
+                      id={bikePrefix + "-size"}
+                      name={"bikes." + index + ".bikeSize"}
+                      value={bike.bikeSize}
+                      aria-invalid={Boolean(errors.bikeSize)}
+                      aria-describedby={errors.bikeSize ? bikePrefix + "-size-error" : undefined}
+                      onChange={(event) => {
+                        updateBike(index, "bikeSize", event.target.value);
+                        clearBikeFieldError(index, "bikeSize");
+                      }}
+                    >
+                      <option value="" disabled>
+                        {lang === "de" ? "Rennrad auswählen" : "Choose a road bike"}
                       </option>
-                    ))}
-                  </select>
-                  {errors.bikeSize ? (
-                    <p className="contact-form__error" id={bikePrefix + "-size-error"}>
-                      {errors.bikeSize}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <span className="contact-form__section-title">{translations.form.equipment}</span>
-              <div className="contact-form__equipment-grid">
-                <div className="contact-form__equipment-item">
-                  <label className="contact-form__checkbox">
-                    <input
-                      type="checkbox"
-                      name={"bikes." + index + ".needsPedals"}
-                      checked={bike.needsPedals}
-                      onChange={(event) => {
-                        const nextValue = event.target.checked;
-                        updateBike(index, "needsPedals", nextValue);
-                        if (!nextValue) {
-                          updateBike(index, "pedalType", "");
-                        }
-                        clearBikeFieldError(index, "pedalType");
-                      }}
-                    />
-                    <span>{translations.form.pedals}</span>
-                  </label>
-
-                  {bike.needsPedals ? (
-                    <div className="contact-form__field">
-                      <label htmlFor={bikePrefix + "-pedal-type"}>{translations.form.pedalType}</label>
-                      <select
-                        id={bikePrefix + "-pedal-type"}
-                        name={"bikes." + index + ".pedalType"}
-                        value={bike.pedalType}
-                        aria-invalid={Boolean(errors.pedalType)}
-                        aria-describedby={errors.pedalType ? bikePrefix + "-pedal-type-error" : undefined}
-                        onChange={(event) => {
-                          updateBike(index, "pedalType", event.target.value);
-                          clearBikeFieldError(index, "pedalType");
-                        }}
-                      >
-                        <option value="" disabled>
-                          {translations.form.pedalType}
+                      {bikeOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
                         </option>
-                        <option value="platform">{translations.form.pedalTypeOptions.platform}</option>
-                        <option value="spdSl">{translations.form.pedalTypeOptions.spdSl}</option>
-                        <option value="lookKeo2Max">{translations.form.pedalTypeOptions.lookKeo2Max}</option>
-                        <option value="other">{translations.form.pedalTypeOptions.other}</option>
-                      </select>
-                      {errors.pedalType ? (
-                        <p className="contact-form__error" id={bikePrefix + "-pedal-type-error"}>
-                          {errors.pedalType}
-                        </p>
+                      ))}
+                    </select>
+                    {errors.bikeSize ? (
+                      <p className="contact-form__error" id={bikePrefix + "-size-error"}>
+                        {errors.bikeSize}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <span className="contact-form__section-title">{translations.form.equipment}</span>
+                <div className="contact-form__equipment-grid">
+                  {inventory.pedalTypes.length > 0 ? (
+                    <div className="contact-form__equipment-item">
+                      <label className="contact-form__checkbox">
+                        <input
+                          type="checkbox"
+                          name={"bikes." + index + ".needsPedals"}
+                          checked={bike.needsPedals}
+                          onChange={(event) => {
+                            const nextValue = event.target.checked;
+                            updateBike(index, "needsPedals", nextValue);
+                            if (!nextValue) {
+                              updateBike(index, "pedalType", "");
+                            }
+                            clearBikeFieldError(index, "pedalType");
+                          }}
+                        />
+                        <span>{translations.form.pedals}</span>
+                      </label>
+
+                      {bike.needsPedals ? (
+                        <div className="contact-form__field">
+                          <label htmlFor={bikePrefix + "-pedal-type"}>{translations.form.pedalType}</label>
+                          <select
+                            id={bikePrefix + "-pedal-type"}
+                            name={"bikes." + index + ".pedalType"}
+                            value={bike.pedalType}
+                            aria-invalid={Boolean(errors.pedalType)}
+                            aria-describedby={errors.pedalType ? bikePrefix + "-pedal-type-error" : undefined}
+                            onChange={(event) => {
+                              updateBike(index, "pedalType", event.target.value);
+                              clearBikeFieldError(index, "pedalType");
+                            }}
+                          >
+                            <option value="" disabled>
+                              {translations.form.pedalType}
+                            </option>
+                            {inventory.pedalTypes.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label[lang]}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.pedalType ? (
+                            <p className="contact-form__error" id={bikePrefix + "-pedal-type-error"}>
+                              {errors.pedalType}
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
-                </div>
 
-                <div className="contact-form__equipment-item">
-                  <label className="contact-form__checkbox">
-                    <input
-                      type="checkbox"
-                      name={"bikes." + index + ".needsComputerMount"}
-                      checked={bike.needsComputerMount}
-                      onChange={(event) => {
-                        const nextValue = event.target.checked;
-                        updateBike(index, "needsComputerMount", nextValue);
-                        if (!nextValue) {
-                          updateBike(index, "computerMountType", "");
-                        }
-                        clearBikeFieldError(index, "computerMountType");
-                      }}
-                    />
-                    <span>{translations.form.computerMount}</span>
-                  </label>
+                  {inventory.computerMountTypes.length > 0 ? (
+                    <div className="contact-form__equipment-item">
+                      <label className="contact-form__checkbox">
+                        <input
+                          type="checkbox"
+                          name={"bikes." + index + ".needsComputerMount"}
+                          checked={bike.needsComputerMount}
+                          onChange={(event) => {
+                            const nextValue = event.target.checked;
+                            updateBike(index, "needsComputerMount", nextValue);
+                            if (!nextValue) {
+                              updateBike(index, "computerMountType", "");
+                            }
+                            clearBikeFieldError(index, "computerMountType");
+                          }}
+                        />
+                        <span>{translations.form.computerMount}</span>
+                      </label>
 
-                  {bike.needsComputerMount ? (
-                    <div className="contact-form__field">
-                      <label htmlFor={bikePrefix + "-computer-mount-type"}>{translations.form.computerMountType}</label>
-                      <select
-                        id={bikePrefix + "-computer-mount-type"}
-                        name={"bikes." + index + ".computerMountType"}
-                        value={bike.computerMountType}
-                        aria-invalid={Boolean(errors.computerMountType)}
-                        aria-describedby={
-                          errors.computerMountType ? bikePrefix + "-computer-mount-type-error" : undefined
-                        }
-                        onChange={(event) => {
-                          updateBike(index, "computerMountType", event.target.value);
-                          clearBikeFieldError(index, "computerMountType");
-                        }}
-                      >
-                        <option value="" disabled>
-                          {translations.form.computerMountType}
-                        </option>
-                        <option value="garmin">{translations.form.computerMountTypeOptions.garmin}</option>
-                        <option value="wahoo">{translations.form.computerMountTypeOptions.wahoo}</option>
-                        <option value="other">{translations.form.computerMountTypeOptions.other}</option>
-                      </select>
-                      {errors.computerMountType ? (
-                        <p className="contact-form__error" id={bikePrefix + "-computer-mount-type-error"}>
-                          {errors.computerMountType}
-                        </p>
+                      {bike.needsComputerMount ? (
+                        <div className="contact-form__field">
+                          <label htmlFor={bikePrefix + "-computer-mount-type"}>
+                            {translations.form.computerMountType}
+                          </label>
+                          <select
+                            id={bikePrefix + "-computer-mount-type"}
+                            name={"bikes." + index + ".computerMountType"}
+                            value={bike.computerMountType}
+                            aria-invalid={Boolean(errors.computerMountType)}
+                            aria-describedby={
+                              errors.computerMountType ? bikePrefix + "-computer-mount-type-error" : undefined
+                            }
+                            onChange={(event) => {
+                              updateBike(index, "computerMountType", event.target.value);
+                              clearBikeFieldError(index, "computerMountType");
+                            }}
+                          >
+                            <option value="" disabled>
+                              {translations.form.computerMountType}
+                            </option>
+                            {inventory.computerMountTypes.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label[lang]}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.computerMountType ? (
+                            <p className="contact-form__error" id={bikePrefix + "-computer-mount-type-error"}>
+                              {errors.computerMountType}
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   ) : null}
-                </div>
 
-                <label className="contact-form__checkbox">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".needsHelmet"}
-                    checked={bike.needsHelmet}
-                    onChange={(event) => updateBike(index, "needsHelmet", event.target.checked)}
-                  />
-                  <span>{translations.form.helmet}</span>
-                </label>
-
-                <label className="contact-form__checkbox">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".needsClothing"}
-                    checked={bike.needsClothing}
-                    onChange={(event) => updateBike(index, "needsClothing", event.target.checked)}
-                  />
-                  <span>{translations.form.clothing}</span>
-                </label>
-
-                <label className="contact-form__checkbox">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".needsBikepackingBag"}
-                    checked={bike.needsBikepackingBag}
-                    onChange={(event) => updateBike(index, "needsBikepackingBag", event.target.checked)}
-                  />
-                  <span>{translations.form.bikepackingBag}</span>
-                </label>
-
-                <div className="contact-form__equipment-item contact-form__equipment-item--glasses">
-                  <div className="contact-form__equipment-option">
+                  {inventory.helmetAvailable ? (
                     <label className="contact-form__checkbox">
                       <input
                         type="checkbox"
-                        name={"bikes." + index + ".needsGlasses"}
-                        checked={bike.needsGlasses}
-                        onChange={(event) => updateBike(index, "needsGlasses", event.target.checked)}
+                        name={"bikes." + index + ".needsHelmet"}
+                        checked={bike.needsHelmet}
+                        onChange={(event) => updateBike(index, "needsHelmet", event.target.checked)}
                       />
-                      <span>{translations.form.glasses}</span>
+                      <span>{translations.form.helmet}</span>
                     </label>
-                    <button
-                      type="button"
-                      className="contact-form__equipment-help"
-                      aria-label={translations.form.glassesPreview}
-                    >
-                      <ImageIcon aria-hidden="true" size={17} />
-                      <span className="contact-form__equipment-tooltip" role="tooltip">
-                        <Image
-                          src="/assets/img/accessories/road-bike-glasses.jpg"
-                          alt={translations.form.glassesPreview}
-                          width={240}
-                          height={180}
-                        />
-                      </span>
-                    </button>
-                  </div>
+                  ) : null}
+
+                  {inventory.clothingAvailable ? (
+                    <label className="contact-form__checkbox">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".needsClothing"}
+                        checked={bike.needsClothing}
+                        onChange={(event) => updateBike(index, "needsClothing", event.target.checked)}
+                      />
+                      <span>{translations.form.clothing}</span>
+                    </label>
+                  ) : null}
+
+                  {inventory.bikepackingBagAvailable ? (
+                    <label className="contact-form__checkbox">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".needsBikepackingBag"}
+                        checked={bike.needsBikepackingBag}
+                        onChange={(event) => updateBike(index, "needsBikepackingBag", event.target.checked)}
+                      />
+                      <span>{translations.form.bikepackingBag}</span>
+                    </label>
+                  ) : null}
+
+                  {inventory.glassesAvailable ? (
+                    <div className="contact-form__equipment-item contact-form__equipment-item--glasses">
+                      <div className="contact-form__equipment-option">
+                        <label className="contact-form__checkbox">
+                          <input
+                            type="checkbox"
+                            name={"bikes." + index + ".needsGlasses"}
+                            checked={bike.needsGlasses}
+                            onChange={(event) => updateBike(index, "needsGlasses", event.target.checked)}
+                          />
+                          <span>{translations.form.glasses}</span>
+                        </label>
+                        <button
+                          type="button"
+                          className="contact-form__equipment-help"
+                          aria-label={translations.form.glassesPreview}
+                        >
+                          <ImageIcon aria-hidden="true" size={17} />
+                          <span className="contact-form__equipment-tooltip" role="tooltip">
+                            <Image
+                              src="/assets/img/accessories/road-bike-glasses.jpg"
+                              alt={translations.form.glassesPreview}
+                              width={240}
+                              height={180}
+                            />
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {inventory.bottleHolderIncluded ? (
+                    <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".bottleHolderIncluded"}
+                        checked={bike.bottleHolderIncluded}
+                        disabled
+                        readOnly
+                      />
+                      <span>{translations.form.bottleHolder}</span>
+                    </label>
+                  ) : null}
+
+                  {inventory.repairKitIncluded ? (
+                    <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                      <input
+                        type="checkbox"
+                        name={"bikes." + index + ".repairKitIncluded"}
+                        checked={bike.repairKitIncluded}
+                        disabled
+                        readOnly
+                      />
+                      <span>{translations.form.repairKit}</span>
+                    </label>
+                  ) : null}
                 </div>
-
-                <label className="contact-form__checkbox contact-form__checkbox--fixed">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".bottleHolderIncluded"}
-                    checked={bike.bottleHolderIncluded}
-                    disabled
-                    readOnly
-                  />
-                  <span>{translations.form.bottleHolder}</span>
-                </label>
-
-                <label className="contact-form__checkbox contact-form__checkbox--fixed">
-                  <input
-                    type="checkbox"
-                    name={"bikes." + index + ".repairKitIncluded"}
-                    checked={bike.repairKitIncluded}
-                    disabled
-                    readOnly
-                  />
-                  <span>{translations.form.repairKit}</span>
-                </label>
               </div>
+            );
+          })}
+        </div>
+        <div className="contact-form__period">
+          <span className="contact-form__hint">{translations.form.periodHint}</span>
+          <div className="contact-form__period-fields">
+            <div className="contact-form__period-field">
+              <label htmlFor="period-from">{translations.form.periodFrom}</label>
+              <input
+                id="period-from"
+                name="periodFrom"
+                type="date"
+                value={periodFrom}
+                aria-invalid={Boolean(fieldErrors.periodFrom)}
+                aria-describedby={fieldErrors.periodFrom ? "period-from-error" : undefined}
+                onChange={(event) => {
+                  setPeriodFrom(event.target.value);
+                  clearFieldError("periodFrom");
+                }}
+              />
+              {fieldErrors.periodFrom ? (
+                <p className="contact-form__error" id="period-from-error">
+                  {fieldErrors.periodFrom}
+                </p>
+              ) : null}
             </div>
-          );
-        })}
-      </div>
-      <div className="contact-form__period">
-        <span className="contact-form__hint">{translations.form.periodHint}</span>
-        <div className="contact-form__period-fields">
-          <div className="contact-form__period-field">
-            <label htmlFor="period-from">{translations.form.periodFrom}</label>
-            <input
-              id="period-from"
-              name="periodFrom"
-              type="date"
-              value={periodFrom}
-              aria-invalid={Boolean(fieldErrors.periodFrom)}
-              aria-describedby={fieldErrors.periodFrom ? "period-from-error" : undefined}
-              onChange={(event) => {
-                setPeriodFrom(event.target.value);
-                clearFieldError("periodFrom");
-              }}
-            />
-            {fieldErrors.periodFrom ? (
-              <p className="contact-form__error" id="period-from-error">
-                {fieldErrors.periodFrom}
-              </p>
-            ) : null}
-          </div>
-          <div className="contact-form__period-field">
-            <label htmlFor="period-to">{translations.form.periodTo}</label>
-            <input
-              id="period-to"
-              name="periodTo"
-              type="date"
-              value={periodTo}
-              aria-invalid={Boolean(fieldErrors.periodTo)}
-              aria-describedby={fieldErrors.periodTo ? "period-to-error" : undefined}
-              onChange={(event) => {
-                setPeriodTo(event.target.value);
-                clearFieldError("periodTo");
-              }}
-            />
-            {fieldErrors.periodTo ? (
-              <p className="contact-form__error" id="period-to-error">
-                {fieldErrors.periodTo}
-              </p>
-            ) : null}
+            <div className="contact-form__period-field">
+              <label htmlFor="period-to">{translations.form.periodTo}</label>
+              <input
+                id="period-to"
+                name="periodTo"
+                type="date"
+                value={periodTo}
+                aria-invalid={Boolean(fieldErrors.periodTo)}
+                aria-describedby={fieldErrors.periodTo ? "period-to-error" : undefined}
+                onChange={(event) => {
+                  setPeriodTo(event.target.value);
+                  clearFieldError("periodTo");
+                }}
+              />
+              {fieldErrors.periodTo ? (
+                <p className="contact-form__error" id="period-to-error">
+                  {fieldErrors.periodTo}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="contact-form__period">
-        <div className="contact-form__period-fields">
-          <div className="contact-form__period-field">
-            <label htmlFor="pickup-time">{translations.form.pickupTime}</label>
-            <input
-              id="pickup-time"
-              name="pickupTime"
-              type="time"
-              value={pickupTime}
-              aria-invalid={Boolean(fieldErrors.pickupTime)}
-              aria-describedby={fieldErrors.pickupTime ? "pickup-time-error" : undefined}
-              onChange={(event) => {
-                setPickupTime(event.target.value);
-                clearFieldError("pickupTime");
-              }}
-            />
-            {fieldErrors.pickupTime ? (
-              <p className="contact-form__error" id="pickup-time-error">
-                {fieldErrors.pickupTime}
-              </p>
-            ) : null}
-          </div>
-          <div className="contact-form__period-field">
-            <label htmlFor="dropoff-time">{translations.form.dropoffTime}</label>
-            <input
-              id="dropoff-time"
-              name="dropoffTime"
-              type="time"
-              value={dropoffTime}
-              aria-invalid={Boolean(fieldErrors.dropoffTime)}
-              aria-describedby={fieldErrors.dropoffTime ? "dropoff-time-error" : undefined}
-              onChange={(event) => {
-                setDropoffTime(event.target.value);
-                clearFieldError("dropoffTime");
-              }}
-            />
-            {fieldErrors.dropoffTime ? (
-              <p className="contact-form__error" id="dropoff-time-error">
-                {fieldErrors.dropoffTime}
-              </p>
-            ) : null}
+        <div className="contact-form__period">
+          <div className="contact-form__period-fields">
+            <div className="contact-form__period-field">
+              <label htmlFor="pickup-time">{translations.form.pickupTime}</label>
+              <input
+                id="pickup-time"
+                name="pickupTime"
+                type="time"
+                value={pickupTime}
+                aria-invalid={Boolean(fieldErrors.pickupTime)}
+                aria-describedby={fieldErrors.pickupTime ? "pickup-time-error" : undefined}
+                onChange={(event) => {
+                  setPickupTime(event.target.value);
+                  clearFieldError("pickupTime");
+                }}
+              />
+              {fieldErrors.pickupTime ? (
+                <p className="contact-form__error" id="pickup-time-error">
+                  {fieldErrors.pickupTime}
+                </p>
+              ) : null}
+            </div>
+            <div className="contact-form__period-field">
+              <label htmlFor="dropoff-time">{translations.form.dropoffTime}</label>
+              <input
+                id="dropoff-time"
+                name="dropoffTime"
+                type="time"
+                value={dropoffTime}
+                aria-invalid={Boolean(fieldErrors.dropoffTime)}
+                aria-describedby={fieldErrors.dropoffTime ? "dropoff-time-error" : undefined}
+                onChange={(event) => {
+                  setDropoffTime(event.target.value);
+                  clearFieldError("dropoffTime");
+                }}
+              />
+              {fieldErrors.dropoffTime ? (
+                <p className="contact-form__error" id="dropoff-time-error">
+                  {fieldErrors.dropoffTime}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
-      <textarea
-        id="message"
-        name="message"
-        placeholder={translations.form.message}
-        value={contactMessage}
-        aria-invalid={Boolean(fieldErrors.message)}
-        aria-describedby={fieldErrors.message ? "message-error" : undefined}
-        onChange={(event) => {
-          setContactMessage(event.target.value);
-          clearFieldError("message");
-        }}
-      />
-      {fieldErrors.message ? (
-        <p className="contact-form__error" id="message-error">
-          {fieldErrors.message}
-        </p>
-      ) : null}
-
-      <label className="contact-form__checkbox">
-        <input
-          type="checkbox"
-          checked={privacyAccepted}
+        <textarea
+          id="message"
+          name="message"
+          placeholder={translations.form.message}
+          value={contactMessage}
+          aria-invalid={Boolean(fieldErrors.message)}
+          aria-describedby={fieldErrors.message ? "message-error" : undefined}
           onChange={(event) => {
-            const nextValue = event.target.checked;
-            setPrivacyAccepted(nextValue);
-            if (nextValue) {
-              saveAll();
-            }
-            clearFieldError("privacy");
+            setContactMessage(event.target.value);
+            clearFieldError("message");
           }}
-          aria-invalid={Boolean(fieldErrors.privacy)}
-          aria-describedby={fieldErrors.privacy ? "privacy-error" : undefined}
         />
-        <span>
-          <PrivacyConsentLabel label={translations.form.privacy} />
-        </span>
-      </label>
-      {fieldErrors.privacy ? (
-        <p className="contact-form__error" id="privacy-error">
-          {fieldErrors.privacy}
-        </p>
-      ) : null}
+        {fieldErrors.message ? (
+          <p className="contact-form__error" id="message-error">
+            {fieldErrors.message}
+          </p>
+        ) : null}
 
-      <label className="contact-form__checkbox" htmlFor="agb">
-        <input
-          id="agb"
-          name="agb"
-          type="checkbox"
-          checked={agbAccepted}
-          onChange={(event) => {
-            setAgbAccepted(event.target.checked);
-            clearFieldError("agb");
-          }}
-          aria-invalid={Boolean(fieldErrors.agb)}
-          aria-describedby={fieldErrors.agb ? "agb-error" : undefined}
-        />
-        <span>
-          <PrivacyConsentLabel
-            label={translations.form.agb}
-            linkText={lang === "de" ? "AGB" : "terms and conditions"}
-            href={lang === "en" ? "/en/agb" : "/de/agb"}
+        <label className="contact-form__checkbox">
+          <input
+            type="checkbox"
+            checked={privacyAccepted}
+            onChange={(event) => {
+              const nextValue = event.target.checked;
+              setPrivacyAccepted(nextValue);
+              if (nextValue) {
+                saveAll();
+              }
+              clearFieldError("privacy");
+            }}
+            aria-invalid={Boolean(fieldErrors.privacy)}
+            aria-describedby={fieldErrors.privacy ? "privacy-error" : undefined}
           />
-        </span>
-      </label>
-      {fieldErrors.agb ? (
-        <p className="contact-form__error" id="agb-error">
-          {fieldErrors.agb}
-        </p>
-      ) : null}
+          <span>
+            <PrivacyConsentLabel label={translations.form.privacy} />
+          </span>
+        </label>
+        {fieldErrors.privacy ? (
+          <p className="contact-form__error" id="privacy-error">
+            {fieldErrors.privacy}
+          </p>
+        ) : null}
 
-      <button type="submit" className="button button--arrow" disabled={contactStatus === "sending"}>
-        <span>{contactStatus === "sending" ? translations.form.sending : translations.form.submit}</span>
-        <img src="/assets/img/svg/right-arrow.svg" alt="" />
-      </button>
+        <label className="contact-form__checkbox" htmlFor="agb">
+          <input
+            id="agb"
+            name="agb"
+            type="checkbox"
+            checked={agbAccepted}
+            onChange={(event) => {
+              setAgbAccepted(event.target.checked);
+              clearFieldError("agb");
+            }}
+            aria-invalid={Boolean(fieldErrors.agb)}
+            aria-describedby={fieldErrors.agb ? "agb-error" : undefined}
+          />
+          <span>
+            <PrivacyConsentLabel
+              label={translations.form.agb}
+              linkText={lang === "de" ? "AGB" : "terms and conditions"}
+              href={lang === "en" ? "/en/agb" : "/de/agb"}
+            />
+          </span>
+        </label>
+        {fieldErrors.agb ? (
+          <p className="contact-form__error" id="agb-error">
+            {fieldErrors.agb}
+          </p>
+        ) : null}
 
-      {contactStatus === "success" ? (
-        <div className="contact-form__status is-success" aria-live="polite">
-          <p>{translations.form.success}</p>
-          {orderNumber ? (
+        <button type="submit" className="button button--arrow" disabled={contactStatus === "sending"}>
+          <span>{contactStatus === "sending" ? translations.form.sending : translations.form.submit}</span>
+          <img src="/assets/img/svg/right-arrow.svg" alt="" />
+        </button>
+
+        {contactStatus === "success" ? (
+          <div className="contact-form__status is-success" aria-live="polite">
+            <p>{translations.form.success}</p>
+            {orderNumber ? (
+              <p>
+                {translations.form.orderNumberLabel}: {orderNumber}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {contactStatus === "error" ? (
+          <p className="contact-form__status is-error" aria-live="polite">
+            {submitError ?? translations.form.error}
+          </p>
+        ) : null}
+      </form>
+      {rentalDaysWarningOpen ? (
+        <div className="rental-days-dialog" role="presentation">
+          <div
+            className="rental-days-dialog__panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rental-days-dialog-title"
+          >
+            <span className="rental-days-dialog__eyebrow">
+              {lang === "de" ? "Hinweis zur Mietdauer" : "Rental period note"}
+            </span>
+            <h2 id="rental-days-dialog-title">{translations.form.rentalDaysWarning.title}</h2>
             <p>
-              {translations.form.orderNumberLabel}: {orderNumber}
+              {translations.form.rentalDaysWarning.intro.replace("{days}", String(getRentalDays(periodFrom, periodTo)))}
             </p>
-          ) : null}
+            <p>{translations.form.rentalDaysWarning.details}</p>
+            <p className="rental-days-dialog__exception">{translations.form.rentalDaysWarning.exception}</p>
+            <div className="rental-days-dialog__actions">
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => setRentalDaysWarningOpen(false)}
+              >
+                {translations.form.rentalDaysWarning.cancel}
+              </button>
+              <button
+                type="button"
+                className="button button--arrow"
+                onClick={() => {
+                  confirmRentalDaysRef.current = true;
+                  setRentalDaysWarningOpen(false);
+                  formRef.current?.requestSubmit();
+                }}
+              >
+                <span>{translations.form.rentalDaysWarning.submit}</span>
+                <img src="/assets/img/svg/right-arrow.svg" alt="" />
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
-      {contactStatus === "error" ? (
-        <p className="contact-form__status is-error" aria-live="polite">
-          {submitError ?? translations.form.error}
-        </p>
-      ) : null}
-    </form>
+    </>
   );
 }

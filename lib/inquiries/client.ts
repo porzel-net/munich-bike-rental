@@ -5,7 +5,7 @@ export type InquiryResult = {
   orderNumber?: string;
 };
 
-export async function postInquiry(path: "/api/contact" | "/api/maintenance", payload: Record<string, unknown>) {
+export async function postInquiry(path: "/api/contact", payload: Record<string, unknown>) {
   const response = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

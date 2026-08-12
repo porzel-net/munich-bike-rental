@@ -16,22 +16,52 @@ server {
   ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
   ssl_protocols TLSv1.2 TLSv1.3;
 
-  client_max_body_size 16k;
+  client_max_body_size 16m;
   client_header_timeout 10s;
   client_body_timeout 10s;
   keepalive_timeout 15s;
   server_tokens off;
 
   # Requires docker/nginx-http-security.conf.example to be included from nginx's http block.
-  location ~ ^/api/(contact|maintenance)$ {
+  location ~ ^/api/contact$ {
     limit_req zone=inquiry_per_ip burst=3 nodelay;
     limit_conn connections_per_ip 10;
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
+    # Pin the host seen by Next.js. Do not forward a client-controlled Host
+    # or X-Forwarded-Host header into the standalone server.
+    proxy_set_header Host $server_name;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Host $server_name;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+  }
+
+  # Keep JSON/auth endpoints small; the financial document route below still
+  # uses the 16 MB server-wide limit for the explicitly validated upload.
+  location ~ ^/api/auth/ {
+    client_max_body_size 256k;
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $server_name;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $server_name;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+  }
+
+  location ~ ^/api/(booking-confirmation-v2/(checkout|complete)|stripe/webhook)$ {
+    client_max_body_size 1m;
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $server_name;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $server_name;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 60s;
     proxy_send_timeout 60s;
@@ -40,10 +70,10 @@ server {
   location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
+    proxy_set_header Host $server_name;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Host $server_name;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -55,4 +85,5 @@ server {
   add_header X-Frame-Options DENY always;
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   add_header Permissions-Policy "camera=(), geolocation=(), microphone=()" always;
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 }

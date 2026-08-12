@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  canAccessAdmin,
+  canAccessLocation,
+  canUseAdminApi,
+  canUseAdminApiAsAdmin,
+  getAssignedLocation,
+  getVisibleLocationScope,
+  hasCompletedAdminSetup,
+} from "../../lib/auth/authorization";
+
+describe("location-scoped authorization", () => {
+  it("grants admins access to every location", () => {
+    const admin = { role: "admin", locationKey: null };
+
+    expect(canAccessAdmin(admin)).toBe(true);
+    expect(canAccessLocation(admin, "munich")).toBe(true);
+    expect(canAccessLocation(admin, "konstanz")).toBe(true);
+  });
+
+  it("limits Standortuser to their assigned location", () => {
+    const user = { role: "standortuser", locationKey: "regensburg" };
+
+    expect(getAssignedLocation(user)).toBe("regensburg");
+    expect(canAccessAdmin(user)).toBe(true);
+    expect(canAccessLocation(user, "regensburg")).toBe(true);
+    expect(canAccessLocation(user, "munich")).toBe(false);
+  });
+
+  it("scopes aggregate views to the assigned location", () => {
+    expect(getVisibleLocationScope({ role: "standortuser", locationKey: "regensburg" })).toBe("regensburg");
+    expect(getVisibleLocationScope({ role: "standortuser", locationKey: "unknown" })).toBeNull();
+    expect(getVisibleLocationScope({ role: "admin", locationKey: "regensburg" })).toBeNull();
+  });
+
+  it("rejects a Standortuser without a valid assignment", () => {
+    expect(canAccessAdmin({ role: "standortuser", locationKey: null })).toBe(false);
+    expect(canAccessAdmin({ role: "standortuser", locationKey: "unknown" })).toBe(false);
+  });
+
+  it("rejects malformed multi-role values instead of granting the strongest role", () => {
+    expect(canAccessAdmin({ role: "standortuser,admin", locationKey: "munich" })).toBe(false);
+  });
+
+  it("requires completed setup before allowing direct admin API access", () => {
+    const admin = { role: "admin", locationKey: null, twoFactorEnabled: true, mustChangePassword: false };
+
+    expect(hasCompletedAdminSetup(admin)).toBe(true);
+    expect(canUseAdminApi(admin)).toBe(true);
+    expect(canUseAdminApiAsAdmin(admin)).toBe(true);
+    expect(canUseAdminApi({ ...admin, twoFactorEnabled: false })).toBe(false);
+    expect(canUseAdminApi({ ...admin, mustChangePassword: true })).toBe(false);
+  });
+
+  it("keeps completed Standortuser sessions location-scoped", () => {
+    const user = { role: "standortuser", locationKey: "regensburg", twoFactorEnabled: true };
+
+    expect(canUseAdminApi(user)).toBe(true);
+    expect(canUseAdminApiAsAdmin(user)).toBe(false);
+  });
+});

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { computerMountTypes, maintenanceServiceTypes, pedalTypes, rentalBikeOptions, rentalLocations } from "./catalog";
+import { rentalLocations } from "./catalog";
 
 const MAX_MESSAGE_LENGTH = 4_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -43,7 +43,7 @@ const bikeInquirySchema = z
     height: requiredLine(3)
       .regex(/^\d{2,3}$/)
       .refine((value) => Number(value) >= 100 && Number(value) <= 250, "Height out of range"),
-    bikeSize: z.enum(rentalBikeOptions),
+    bikeSize: requiredLine(120),
     needsPedals: booleanInput.default(false),
     pedalType: optionalLine(32),
     needsComputerMount: booleanInput.default(false),
@@ -56,15 +56,12 @@ const bikeInquirySchema = z
     needsGlasses: booleanInput.default(false),
   })
   .superRefine((value, context) => {
-    if (value.needsPedals && !pedalTypes.includes(value.pedalType as (typeof pedalTypes)[number])) {
-      context.addIssue({ code: "custom", path: ["pedalType"], message: "Invalid pedal type" });
+    if (value.needsPedals && !value.pedalType) {
+      context.addIssue({ code: "custom", path: ["pedalType"], message: "Pedal type is required" });
     }
 
-    if (
-      value.needsComputerMount &&
-      !computerMountTypes.includes(value.computerMountType as (typeof computerMountTypes)[number])
-    ) {
-      context.addIssue({ code: "custom", path: ["computerMountType"], message: "Invalid computer mount type" });
+    if (value.needsComputerMount && !value.computerMountType) {
+      context.addIssue({ code: "custom", path: ["computerMountType"], message: "Computer mount type is required" });
     }
   });
 
@@ -91,19 +88,7 @@ export const contactInquirySchema = z
     }
   });
 
-export const maintenanceInquirySchema = z.object({
-  name: requiredLine(120),
-  contact: requiredLine(254).email(),
-  bikeModel: requiredLine(160),
-  serviceType: z.enum(maintenanceServiceTypes),
-  pickup: booleanInput.default(false),
-  message,
-  locale,
-  website: honeypot,
-});
-
 export type ContactInquiry = z.infer<typeof contactInquirySchema>;
-export type MaintenanceInquiry = z.infer<typeof maintenanceInquirySchema>;
 
 export function isValidEmail(value: string) {
   return z.string().trim().email().safeParse(value).success;
