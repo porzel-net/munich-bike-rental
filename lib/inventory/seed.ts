@@ -63,13 +63,7 @@ function sizeKey(size: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-function bikeDiscountText(location: string, title: string, size: string) {
-  if (location === "munich" && title === "Endurace CF SL 8" && size === "S") {
-    return {
-      discountTextDe: "50%\nRabatt insgesamt\nVom 6.8.–13.8.\nFür Größe S",
-      discountTextEn: "50%\nTotal discount\nFrom Aug 6–13\nFor size S",
-    };
-  }
+function bikeDiscountText(title: string) {
   if (title === "Aeroad CF SL 8") {
     return {
       discountTextDe: "25%\nDauerhafter\nJuli – August\nRabatt",
@@ -150,7 +144,7 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
                 bikeKey: `${key}-${sizeKey(size)}`,
                 title: item.title,
                 priceCentsPerDay: locationPrices[location as keyof typeof locationPrices],
-                ...bikeDiscountText(location, item.title, size),
+                ...bikeDiscountText(item.title),
                 descriptionDe: item.description.de,
                 descriptionEn: item.description.en,
                 image: imagePath(item.image),
