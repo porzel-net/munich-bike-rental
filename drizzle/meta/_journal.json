@@ -421,6 +421,13 @@
       "when": 1786546000000,
       "tag": "0060_munich_bikes_active",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1786546827000,
+      "tag": "0061_munich_endurance_only",
+      "breakpoints": true
     }
   ]
 }
