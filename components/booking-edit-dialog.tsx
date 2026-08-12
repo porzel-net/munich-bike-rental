@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type EditableItem = {
+export type EditableItem = {
   id: number;
   position: number;
   requestedLabel: string;
@@ -54,12 +54,14 @@ type BookingEditDialogProps = BookingEditValues & {
   bookingId: number;
   commercialEditingAllowed: boolean;
   notifyCustomer?: boolean;
+  trigger?: (open: () => void) => ReactNode;
 };
 
 export function BookingEditDialog({
   bookingId,
   commercialEditingAllowed,
   notifyCustomer = false,
+  trigger,
   ...initialValues
 }: BookingEditDialogProps) {
   const router = useRouter();
@@ -114,9 +116,13 @@ export function BookingEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Buchung bearbeiten
-      </Button>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          {notifyCustomer ? "Buchungsinformationen ändern" : "Buchung bearbeiten"}
+        </Button>
+      )}
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{notifyCustomer ? "Buchungsinformationen ändern" : "Buchung bearbeiten"}</DialogTitle>
@@ -229,7 +235,7 @@ export function BookingEditDialog({
             </FieldGroup>
           </fieldset>
 
-          <fieldset disabled={!commercialEditingAllowed || notifyCustomer} className="space-y-4">
+          <fieldset disabled={!commercialEditingAllowed} className="space-y-4">
             <legend className="text-sm font-medium">Angefragte Fahrräder und Zubehör</legend>
             <FieldDescription>
               Wenn ein offenes Angebot durch diese Änderungen veraltet ist, wird es automatisch widerrufen.

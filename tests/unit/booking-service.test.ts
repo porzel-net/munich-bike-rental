@@ -754,7 +754,7 @@ describe("booking commands", () => {
       dropoffTime: "17:00",
       customerMessage: confirmed.customerMessage,
       communicationLocale: confirmed.communicationLocale,
-      requestedItems: [{ ...item }],
+      requestedItems: [{ ...item, requestedLabel: "Test Bike - L", needsHelmet: true }],
       notifyCustomer: true,
     });
 
@@ -772,6 +772,7 @@ describe("booking commands", () => {
     expect(mail?.kind).toBe("booking_information_changed");
     expect(mail?.html).toContain("<strong>2026-08-01</strong>");
     expect(mail?.plainText).toContain("NEW 2026-08-01");
+    expect(mail?.plainText).toContain("Bikes and equipment: NEW Test Bike - L");
   });
 
   it("covers the alternative offer to completed rental lifecycle", () => {

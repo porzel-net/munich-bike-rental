@@ -311,24 +311,6 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       commercialEditingAllowed={commercialEditingAllowed}
                     />
                   ) : null}
-                  {booking.status === "confirmed" ? (
-                    <BookingEditDialog
-                      bookingId={booking.id}
-                      expectedVersion={booking.version}
-                      customerName={booking.customerName}
-                      customerEmail={booking.customerEmail}
-                      customerPhone={booking.customerPhone}
-                      periodFrom={booking.periodFrom}
-                      periodTo={booking.periodTo}
-                      pickupTime={booking.pickupTime}
-                      dropoffTime={booking.dropoffTime}
-                      customerMessage={booking.customerMessage}
-                      communicationLocale={booking.communicationLocale}
-                      requestedItems={items}
-                      commercialEditingAllowed
-                      notifyCustomer
-                    />
-                  ) : null}
                 </>
               ) : null}
             </div>
@@ -585,6 +567,23 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   isLegacy={booking.source === "legacy"}
                   canExecuteActions={
                     hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
+                  }
+                  confirmedBookingEdit={
+                    hasAssignedCaseworker && booking.status === "confirmed"
+                      ? {
+                          expectedVersion: booking.version,
+                          customerName: booking.customerName,
+                          customerEmail: booking.customerEmail,
+                          customerPhone: booking.customerPhone,
+                          periodFrom: booking.periodFrom,
+                          periodTo: booking.periodTo,
+                          pickupTime: booking.pickupTime,
+                          dropoffTime: booking.dropoffTime,
+                          customerMessage: booking.customerMessage,
+                          communicationLocale: booking.communicationLocale,
+                          requestedItems: items,
+                        }
+                      : undefined
                   }
                   requestedItems={items.map((item) => ({
                     id: item.id,

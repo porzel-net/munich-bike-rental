@@ -1,7 +1,15 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronRightIcon, RefreshCwIcon, SendIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  RefreshCwIcon,
+  SendIcon,
+  SlidersHorizontalIcon,
+  XIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -31,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { BookingEditDialog, type EditableItem } from "@/components/booking-edit-dialog";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
 import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
 import { getComputerMountTypeLabel, getPedalTypeLabel } from "@/lib/inquiries/catalog";
@@ -85,7 +94,7 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Aktion fehlgeschlagen";
 }
 
-function ActionItem({
+export function ActionItem({
   icon,
   title,
   description,
@@ -144,6 +153,7 @@ export function BookingCommandActions({
   journalEntries,
   paymentAccounts,
   isLegacy,
+  confirmedBookingEdit,
 }: {
   bookingId: number;
   bookingTotalCents: number;
@@ -162,6 +172,19 @@ export function BookingCommandActions({
   journalEntries: Entry[];
   paymentAccounts: PaymentAccount[];
   isLegacy: boolean;
+  confirmedBookingEdit?: {
+    expectedVersion: number;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    periodFrom: string;
+    periodTo: string;
+    pickupTime: string;
+    dropoffTime: string;
+    customerMessage: string;
+    communicationLocale: "de" | "en";
+    requestedItems: EditableItem[];
+  };
 }) {
   const router = useRouter();
   const [activeAction, setActiveAction] = useState<Action | null>(null);
@@ -603,6 +626,23 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         </div>
       ) : null}
       <ItemGroup className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {confirmedBookingEdit ? (
+          <BookingEditDialog
+            bookingId={bookingId}
+            {...confirmedBookingEdit}
+            commercialEditingAllowed
+            notifyCustomer
+            trigger={(open) => (
+              <ActionItem
+                icon={<PencilIcon />}
+                title="Buchungsinformationen ändern"
+                description="Änderungsmail mit aktualisierten Daten senden"
+                disabled={actionsLocked}
+                onClick={open}
+              />
+            )}
+          />
+        ) : null}
         {isLegacy && (
           <ActionItem
             icon={<SlidersHorizontalIcon />}

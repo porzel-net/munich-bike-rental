@@ -1130,8 +1130,6 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       booking.pickupTime !== input.pickupTime ||
       booking.dropoffTime !== input.dropoffTime ||
       bikeDetailsChanged;
-    if (input.notifyCustomer && booking.status === "confirmed" && bikeDetailsChanged)
-      throw new BookingCommandError("Fahrräder und Ausstattung können hier nicht geändert werden");
     if (commercialChanged && !["inquiry_received", "offer_sent"].includes(booking.status) && !input.notifyCustomer)
       throw new BookingCommandError(
         "Fahrrad- und Zeitraumdaten können nach der Bestätigung nicht mehr geändert werden",
