@@ -225,7 +225,11 @@ export function getLatestEmailActionReview(db: AppDatabase, bookingId: number) {
 }
 
 export async function reviewLatestUnprocessedEmailThread(db: AppDatabase, bookingId: number) {
-  const booking = db.select({ createdAt: bookings.createdAt }).from(bookings).where(eq(bookings.id, bookingId)).get();
+  const booking = db
+    .select({ createdAt: bookings.createdAt, source: bookings.source })
+    .from(bookings)
+    .where(eq(bookings.id, bookingId))
+    .get();
   const messages = db
     .select()
     .from(communicationMessages)
@@ -234,6 +238,7 @@ export async function reviewLatestUnprocessedEmailThread(db: AppDatabase, bookin
     .all();
   const latestMessage = messages[0];
   if (!booking || !latestMessage) return { status: "no_message" as const, review: null };
+  if (booking.source === "legacy") return { status: "not_eligible" as const, review: null };
   if (!isEmailActionEligible(booking.createdAt, messages.map(messageForReview))) {
     return { status: "not_eligible" as const, review: null };
   }
@@ -261,7 +266,12 @@ export async function reviewBookingEmailThread(
   const trigger = messages.find((message) => message.id === triggerMessageId);
   if (!trigger) return null;
 
-  const booking = db.select({ createdAt: bookings.createdAt }).from(bookings).where(eq(bookings.id, bookingId)).get();
+  const booking = db
+    .select({ createdAt: bookings.createdAt, source: bookings.source })
+    .from(bookings)
+    .where(eq(bookings.id, bookingId))
+    .get();
+  if (booking?.source === "legacy") return null;
   if (!booking || !isEmailActionEligible(booking.createdAt, messages.map(messageForReview))) return null;
 
   const environment = process.env;

@@ -1,4 +1,4 @@
-import { gte } from "drizzle-orm";
+import { and, gte, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const candidates = db
     .select({ id: bookings.id, orderNumber: bookings.orderNumber })
     .from(bookings)
-    .where(gte(bookings.createdAt, EMAIL_ACTION_START_AT))
+    .where(and(ne(bookings.source, "legacy"), gte(bookings.createdAt, EMAIL_ACTION_START_AT)))
     .all();
   const results = [];
 

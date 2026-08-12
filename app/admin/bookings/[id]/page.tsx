@@ -269,7 +269,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               </p>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              <BookingAiAnalysisButton bookingId={booking.id} />
+              {booking.source !== "legacy" && <BookingAiAnalysisButton bookingId={booking.id} />}
               {canGenerateInvoice ? (
                 <Button
                   nativeButton={false}
