@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownLeftIcon, ArrowUpRightIcon, FileTextIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { NevloSyncButton } from "@/components/nevlo-sync-button";
+import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FinancialTransactionDialog } from "@/components/financial-transaction-dialog";
+import { Button } from "@/components/ui/button";
 
 export type FinancialReviewCategory = {
   id: number;
@@ -23,6 +26,14 @@ export type FinancialReviewAccount = {
   code: string;
   name: string;
   currency: string;
+  status?: string;
+};
+
+export type FinancialReviewBooking = {
+  id: number;
+  orderNumber: string;
+  customerName: string;
+  status: string;
 };
 
 export type FinancialReviewTransaction = {
@@ -46,6 +57,7 @@ export type FinancialReviewTransaction = {
   notes: string;
   documentCount: number;
   documents: Array<{ id: number; originalFileName: string }>;
+  matchedBooking: { id: number; orderNumber: string } | null;
 };
 
 function formatBookedDate(value: string) {
@@ -77,12 +89,14 @@ export function FinancialReviewInbox({
   transactions,
   categories,
   accounts,
+  bookings,
   initialTransactionId,
   title = "Buchhaltung",
 }: {
   transactions: FinancialReviewTransaction[];
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
+  bookings: FinancialReviewBooking[];
   initialTransactionId?: number;
   title?: string;
 }) {
@@ -90,6 +104,27 @@ export function FinancialReviewInbox({
   const [selected, setSelected] = useState<FinancialReviewTransaction | null>(null);
   const initialReviewOpened = useRef(false);
   const openCount = rows.filter((row) => row.status !== "posted" && row.status !== "ignored").length;
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+
+  async function assignBooking(row: FinancialReviewTransaction) {
+    if (!row.matchedBooking) return;
+    setAssigningId(row.id);
+    try {
+      const response = await fetch(`/api/admin/financial/transactions/${row.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign_booking", bookingId: row.matchedBooking.id }),
+      });
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) throw new Error(result?.message ?? "Auftrag konnte nicht zugewiesen werden.");
+      setRows((current) => current.map((item) => (item.id === row.id ? { ...item, status: "posted" } : item)));
+      toast.success(`Auftrag ${row.matchedBooking.orderNumber} wurde zugewiesen.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Auftrag konnte nicht zugewiesen werden.");
+    } finally {
+      setAssigningId(null);
+    }
+  }
 
   const openReview = useCallback((row: FinancialReviewTransaction) => {
     setSelected(row);
@@ -111,6 +146,7 @@ export function FinancialReviewInbox({
           <h2 className="text-lg font-semibold">{title}</h2>
         </div>
         <div className="flex flex-col items-end gap-2">
+          <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} bookings={bookings} />
           <NevloSyncButton />
           <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
         </div>
@@ -174,6 +210,22 @@ export function FinancialReviewInbox({
                         <span className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
                           <FileTextIcon className="size-3" /> Beleg hinterlegt
                         </span>
+                      ) : null}
+                      {row.matchedBooking && row.status !== "posted" && row.status !== "ignored" ? (
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto justify-start p-0 text-xs text-primary"
+                          disabled={assigningId === row.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void assignBooking(row);
+                          }}
+                        >
+                          {assigningId === row.id
+                            ? "Wird zugewiesen …"
+                            : `Auftrag ${row.matchedBooking.orderNumber} zuweisen`}
+                        </Button>
                       ) : null}
                     </div>
                   </TableCell>

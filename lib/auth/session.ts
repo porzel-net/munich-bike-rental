@@ -7,6 +7,7 @@ export {
   canUseAdminApi,
   canUseAdminApiAsAdmin,
   getAssignedLocation,
+  getVisibleLocationScope,
   hasCompletedAdminSetup,
   isAdmin,
   isLocationUser,

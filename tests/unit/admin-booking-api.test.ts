@@ -8,7 +8,6 @@ const bookingApiMocks = vi.hoisted(() => ({
   cancelBooking: vi.fn(),
   correctJournalEntry: vi.fn(),
   createOffer: vi.fn(),
-  recordPayment: vi.fn(),
   recordRefund: vi.fn(),
   dispatchNextOutboxMail: vi.fn(),
 }));
@@ -22,7 +21,6 @@ vi.mock("@/lib/bookings/service", () => ({
   cancelBooking: bookingApiMocks.cancelBooking,
   correctJournalEntry: bookingApiMocks.correctJournalEntry,
   createOffer: bookingApiMocks.createOffer,
-  recordPayment: bookingApiMocks.recordPayment,
   recordRefund: bookingApiMocks.recordRefund,
 }));
 vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: bookingApiMocks.dispatchNextOutboxMail }));
@@ -52,35 +50,12 @@ describe("admin booking command API", () => {
     bookingApiMocks.cancelBooking.mockReset();
     bookingApiMocks.correctJournalEntry.mockReset();
     bookingApiMocks.createOffer.mockReset();
-    bookingApiMocks.recordPayment.mockReset();
     bookingApiMocks.recordRefund.mockReset();
     bookingApiMocks.dispatchNextOutboxMail.mockReset();
     bookingApiMocks.dispatchNextOutboxMail.mockResolvedValue({ status: "sent" });
   });
 
-  it("forwards payment and refund commands with their financial metadata", async () => {
-    const payment = await bookingCommandPost(
-      request({
-        command: "payment",
-        amountCents: 5_000,
-        bookedAt: "2026-08-10",
-        financialAccountId: 7,
-        reason: "Anzahlung",
-        idempotencyKey: "11111111-1111-4111-8111-111111111111",
-      }),
-      context(),
-    );
-    expect(payment.status).toBe(200);
-    expect(bookingApiMocks.recordPayment).toHaveBeenCalledWith(bookingApiMocks.context.db, {
-      bookingId: 42,
-      amountCents: 5_000,
-      bookedAt: "2026-08-10",
-      financialAccountId: 7,
-      reason: "Anzahlung",
-      idempotencyKey: "11111111-1111-4111-8111-111111111111",
-      actorUserId: "admin",
-    });
-
+  it("forwards refund commands with their financial metadata", async () => {
     const refund = await bookingCommandPost(
       request({
         command: "refund",
@@ -99,6 +74,21 @@ describe("admin booking command API", () => {
     );
   });
 
+  it("rejects the legacy payment command so payments go through manual transactions", async () => {
+    const response = await bookingCommandPost(
+      request({
+        command: "payment",
+        amountCents: 5_000,
+        bookedAt: "2026-08-10",
+        financialAccountId: 7,
+        reason: "Anzahlung",
+        idempotencyKey: "11111111-1111-4111-8111-111111111111",
+      }),
+      context(),
+    );
+    expect(response.status).toBe(400);
+  });
+
   it("rejects invalid dates, identifiers and inaccessible bookings before dispatching a command", async () => {
     const invalidDate = await bookingCommandPost(
       request({
@@ -112,8 +102,6 @@ describe("admin booking command API", () => {
       context(),
     );
     expect(invalidDate.status).toBe(400);
-    expect(bookingApiMocks.recordPayment).not.toHaveBeenCalled();
-
     const accessible = await bookingCommandPost(request({ command: "expire", reason: "Abgelaufen" }), {
       params: Promise.resolve({ id: "42" }),
     });
@@ -152,17 +140,17 @@ describe("admin booking command API", () => {
     expect(bookingApiMocks.correctJournalEntry).not.toHaveBeenCalled();
 
     bookingApiMocks.isAdmin.mockReturnValue(true);
-    bookingApiMocks.recordPayment.mockImplementation(() => {
+    bookingApiMocks.recordRefund.mockImplementation(() => {
       throw new BookingCommandError("Buchung ist bereits abgeschlossen");
     });
     const failed = await bookingCommandPost(
       request({
-        command: "payment",
-        amountCents: 5_000,
+        command: "refund",
+        amountCents: 1_500,
         bookedAt: "2026-08-10",
         financialAccountId: 7,
-        reason: "Anzahlung",
-        idempotencyKey: "11111111-1111-4111-8111-111111111111",
+        reason: "Storno",
+        idempotencyKey: "22222222-2222-4222-8222-222222222222",
       }),
       context(),
     );

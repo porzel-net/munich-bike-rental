@@ -9,9 +9,10 @@ import {
   fixedAssets,
   financialTransactionAllocations,
   financialTransactions,
+  bookings,
 } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
-import { appendJournalEntry } from "../bookings/ledger";
+import { appendJournalEntry, getReceivableStatus } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
 
@@ -158,6 +159,83 @@ export function postFinancialTransaction(db: AppDatabase, input: FinancialTransa
   return runInImmediateTransaction(db, () => postFinancialTransactionInTransaction(db, input));
 }
 
+export function assignNevloTransactionToBooking(
+  db: AppDatabase,
+  input: { transactionId: number; bookingId: number; actorUserId: string },
+) {
+  return runInImmediateTransaction(db, () => {
+    const transaction = db
+      .select()
+      .from(financialTransactions)
+      .where(eq(financialTransactions.id, input.transactionId))
+      .get();
+    if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
+    if (transaction.source !== "bank" || transaction.provider !== "nevlo")
+      throw new BookingCommandError(
+        "Nur importierte Nevlo-Überweisungen können direkt einem Auftrag zugewiesen werden.",
+      );
+    if (transaction.status === "ignored")
+      throw new BookingCommandError("Eine ignorierte Transaktion kann nicht zugewiesen werden.");
+    if (transaction.amountCents <= 0)
+      throw new BookingCommandError("Nur Zahlungseingänge können einem Auftrag zugewiesen werden.");
+    if (
+      db
+        .select({ id: financialTransactionAllocations.id })
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, transaction.id))
+        .get()
+    )
+      throw new BookingCommandError("Diese Transaktion ist bereits zugewiesen.");
+
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking) throw new BookingCommandError("Auftrag nicht gefunden.");
+    const receivable = getReceivableStatus(db, booking.id);
+    if (receivable.openCents <= 0) throw new BookingCommandError("Dieser Auftrag hat keine offene Forderung mehr.");
+    if (transaction.amountCents > receivable.openCents)
+      throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
+
+    const sourceAccount = db
+      .select()
+      .from(financialAccounts)
+      .where(eq(financialAccounts.id, transaction.financialAccountId))
+      .get();
+    if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
+    const journalEntryId = appendJournalEntry(db, {
+      bookingId: booking.id,
+      financialTransactionId: transaction.id,
+      actorUserId: input.actorUserId,
+      kind: "payment_received",
+      reason: `Nevlo-Überweisung ${booking.orderNumber}`,
+      lines: [
+        { account: sourceAccount.code, amountCents: transaction.amountCents },
+        { account: "accounts_receivable", amountCents: -transaction.amountCents },
+      ],
+    });
+    const now = new Date();
+    db.insert(financialTransactionAllocations)
+      .values({
+        transactionId: transaction.id,
+        bookingId: booking.id,
+        allocationKind: "booking_payment",
+        matchMethod: "automatic",
+        matchScore: 100,
+        amountCents: transaction.amountCents,
+        journalEntryId,
+        note: `Auftrag ${booking.orderNumber}`,
+        matchedByUserId: input.actorUserId,
+        matchedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    db.update(financialTransactions)
+      .set({ status: "posted", reconciledAt: now, reconciledByUserId: input.actorUserId, updatedAt: now })
+      .where(eq(financialTransactions.id, transaction.id))
+      .run();
+    return { transactionId: transaction.id, bookingId: booking.id, orderNumber: booking.orderNumber };
+  });
+}
+
 export function postFinancialTransactionInTransaction(db: AppDatabase, input: FinancialTransactionPostingInput) {
   const transaction = db
     .select()
@@ -195,7 +273,8 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
     .where(eq(financialAccounts.id, transaction.financialAccountId))
     .get();
   if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
-  if (sourceAccount.status !== "active") throw new BookingCommandError("Das Finanzkonto ist nicht aktiv.");
+  if (sourceAccount.status !== "active" && transaction.source !== "manual")
+    throw new BookingCommandError("Das Finanzkonto ist nicht aktiv.");
   if (sourceAccount.currency !== transaction.currency)
     throw new BookingCommandError("Finanzkonto und Transaktion müssen dieselbe Währung haben.");
 

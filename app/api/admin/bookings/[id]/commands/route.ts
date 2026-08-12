@@ -16,7 +16,7 @@ import { BookingCommandError } from "@/lib/bookings/errors";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { mailOutbox } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
-import { isValidIsoDate } from "@/lib/bookings/validation";
+import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 
 export const runtime = "nodejs";
 
@@ -77,6 +77,19 @@ const commandSchema = z.discriminatedUnion("command", [
       "cancelled",
       "expired",
     ]),
+    reason: z.string().trim().max(500).optional(),
+    details: z
+      .object({
+        periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
+        periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
+        pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
+        dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
+        quotedTotalCents: z.number().int().min(0),
+        assetsByRequestedItem: z.record(z.string(), z.number().int().positive()),
+        invoiceNumber: z.string().trim().max(32).optional(),
+        reason: z.string().trim().max(500).optional(),
+      })
+      .optional(),
   }),
 ]);
 
@@ -190,7 +203,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         advanceBooking(command.db, id, "completed", command.user.id, input.data.reason);
         break;
       case "set_legacy_status":
-        setLegacyBookingStatus(command.db, { bookingId: id, status: input.data.status, actorUserId: command.user.id });
+        setLegacyBookingStatus(command.db, {
+          bookingId: id,
+          status: input.data.status,
+          reason: input.data.reason,
+          details: input.data.details
+            ? {
+                ...input.data.details,
+                assetsByRequestedItem: Object.fromEntries(
+                  Object.entries(input.data.details.assetsByRequestedItem).map(([key, value]) => [Number(key), value]),
+                ),
+              }
+            : undefined,
+          actorUserId: command.user.id,
+        });
         break;
     }
     return NextResponse.json({ ok: true });

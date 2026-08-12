@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { createDatabaseConnection } from "../../lib/db/client";
 import {
   authUser,
+  bookings,
   financialAccounts,
   financialCategories,
   financialTransactionAllocations,
@@ -18,6 +19,7 @@ import {
   ignoreFinancialTransaction,
   postFinancialTransaction,
 } from "../../lib/financial/reconciliation";
+import { appendJournalEntry, getReceivableStatus } from "../../lib/bookings/ledger";
 import { getEuerSummary } from "../../lib/financial/euer";
 import { createAndPostManualTransaction } from "../../lib/financial/manual-transactions";
 import { postFixedAssetDepreciation } from "../../lib/financial/fixed-assets";
@@ -240,5 +242,64 @@ describe("financial reconciliation", () => {
     postFixedAssetDepreciation(db, { assetId: asset.id, periodStart: "2026-01-01", actorUserId: "admin" });
     expect(db.select().from(fixedAssetDepreciationEntries).all()).toHaveLength(1);
     expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 1_190, profitCents: -1_190 });
+  });
+
+  it("records a manual account payment against a booking", () => {
+    const { db, bank, income } = setup();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260808000000",
+        customerName: "Alte Buchung",
+        customerEmail: "alt@example.com",
+        customerPhone: "0123",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        source: "legacy",
+        status: "completed",
+        quotedTotalCents: 10_000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+      .get();
+    appendJournalEntry(db, {
+      bookingId: booking.id,
+      kind: "rental_charge",
+      actorUserId: "admin",
+      reason: "Historischer Auftragswert",
+      lines: [
+        { account: "accounts_receivable", amountCents: 10_000 },
+        { account: "rental_revenue", amountCents: -10_000 },
+      ],
+    });
+
+    const result = createAndPostManualTransaction(db, {
+      source: "manual",
+      bookedAt: "2026-08-12",
+      amountCents: 10_000,
+      accountId: bank.id,
+      bookingId: booking.id,
+      categoryId: income.id,
+      description: "Alte Überweisung",
+      actorUserId: "admin",
+    });
+
+    const transaction = db
+      .select()
+      .from(financialTransactions)
+      .where(eq(financialTransactions.id, result.transactionId))
+      .get();
+    const allocation = db
+      .select()
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.transactionId, result.transactionId))
+      .get();
+    expect(transaction).toMatchObject({ financialAccountId: bank.id, status: "posted", amountCents: 10_000 });
+    expect(allocation).toMatchObject({ bookingId: booking.id, categoryId: null, allocationKind: "booking_payment" });
+    expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
   });
 });

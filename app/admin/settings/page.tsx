@@ -11,7 +11,7 @@ export default async function SettingsPage() {
   const session = await getServerSession();
   if (!session) return null;
   const user = getDatabase()
-    .select({ whatsappPhone: authUser.whatsappPhone })
+    .select({ whatsappPhone: authUser.whatsappPhone, privateAddress: authUser.privateAddress })
     .from(authUser)
     .where(eq(authUser.id, session.user.id))
     .get();
@@ -38,7 +38,10 @@ export default async function SettingsPage() {
                 </p>
               </div>
             </div>
-            <AdminSettingsForm initialWhatsappPhone={user?.whatsappPhone ?? ""} />
+            <AdminSettingsForm
+              initialWhatsappPhone={user?.whatsappPhone ?? ""}
+              initialPrivateAddress={user?.privateAddress ?? ""}
+            />
           </main>
         </div>
       </SidebarInset>

@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { generateRentalMetadata, RentalPage } from "../../../../(site)/page";
-import { type Locale } from "../../../../../lib/home-content";
-import { getRentalLocation, rentalLocationConfigs } from "../../../../../lib/rental-locations";
+import { generateRentalMetadata, RentalPage } from "../../../../page";
+import { type Locale } from "@/lib/home-content";
+import { getRentalLocation, rentalLocationConfigs } from "@/lib/rental-locations";
 
 type PageProps = {
   params: Promise<{

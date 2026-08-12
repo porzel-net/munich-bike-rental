@@ -239,12 +239,9 @@ export default async function AdminPage() {
     })
     .from(bookings)
     .where(
-      visibleLocation
-        ? and(
-            eq(bookings.location, visibleLocation),
-            inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
-          )
-        : inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
+      // These charts describe incoming demand. The workflow status must not
+      // remove historical inquiries from the demand totals.
+      visibleLocation ? eq(bookings.location, visibleLocation) : undefined,
     )
     .all()
     .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
@@ -299,7 +296,22 @@ export default async function AdminPage() {
   }
   const acceptedMunichStatuses = new Set(["confirmed", "checked_out", "completed"]);
   const openMunichStatuses = new Set(["inquiry_received", "offer_sent"]);
-  const munichRequestCapacity = demandBookings.reduce(
+  const capacityBookings = db
+    .select({
+      location: bookings.location,
+      status: bookings.status,
+    })
+    .from(bookings)
+    .where(
+      visibleLocation
+        ? and(
+            eq(bookings.location, visibleLocation),
+            inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
+          )
+        : inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
+    )
+    .all();
+  const munichRequestCapacity = capacityBookings.reduce(
     (result, booking) => {
       if (booking.location !== (visibleLocation ?? "munich")) return result;
       result.total += 1;

@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
@@ -20,7 +20,10 @@ import {
   financialDocuments,
   financialTransactionAllocations,
   financialTransactions,
+  bookings,
 } from "@/lib/db/schema";
+import { findBookingOrderNumber } from "@/lib/financial/booking-matching";
+import { selectableFinancialAccountCodes } from "@/lib/financial/accounts";
 
 export default async function BankTransactionsPage({
   searchParams,
@@ -35,6 +38,16 @@ export default async function BankTransactionsPage({
   const initialTransactionId =
     params.transaction && /^\d+$/.test(params.transaction) ? Number(params.transaction) : undefined;
   const db = getDatabase();
+  const bookingReferences = db
+    .select({
+      id: bookings.id,
+      orderNumber: bookings.orderNumber,
+      customerName: bookings.customerName,
+      status: bookings.status,
+    })
+    .from(bookings)
+    .orderBy(bookings.orderNumber)
+    .all();
   const activeAccounts = db
     .select({
       id: financialAccounts.id,
@@ -43,7 +56,7 @@ export default async function BankTransactionsPage({
       currency: financialAccounts.currency,
     })
     .from(financialAccounts)
-    .where(eq(financialAccounts.status, "active"))
+    .where(inArray(financialAccounts.code, selectableFinancialAccountCodes as unknown as string[]))
     .orderBy(financialAccounts.name)
     .all();
   const categories = db
@@ -67,6 +80,7 @@ export default async function BankTransactionsPage({
       accountName: financialAccounts.name,
       accountCode: financialAccounts.code,
       source: financialTransactions.source,
+      provider: financialTransactions.provider,
       kind: financialTransactions.kind,
       status: financialTransactions.status,
       euerTreatment: financialCategories.euerTreatment,
@@ -118,6 +132,10 @@ export default async function BankTransactionsPage({
     const documents = documentCounts.get(row.id) ?? [];
     return {
       ...row,
+      matchedBooking:
+        row.source === "bank" && row.provider === "nevlo"
+          ? findBookingOrderNumber([row.reference, row.description], bookingReferences)
+          : null,
       documentCount: documents.length,
       documents,
     };
@@ -142,6 +160,7 @@ export default async function BankTransactionsPage({
               transactions={reviewTransactionsForClient}
               categories={categories as FinancialReviewCategory[]}
               accounts={activeAccounts as FinancialReviewAccount[]}
+              bookings={bookingReferences}
               initialTransactionId={initialTransactionId}
             />
           </main>

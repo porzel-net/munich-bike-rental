@@ -17,9 +17,10 @@ const schema = z.object({
   bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Buchungsdatum"),
   amountCents: z.number().int().positive(),
   categoryId: z.number().int().positive(),
+  bookingId: z.number().int().positive().optional(),
   destinationAccountId: z.number().int().positive().optional(),
   counterpartyName: z.string().trim().max(200).optional(),
-  description: z.string().trim().min(1).max(2000),
+  description: z.string().trim().max(2000).optional(),
   note: z.string().trim().max(1000).optional(),
   businessMeal: z
     .object({

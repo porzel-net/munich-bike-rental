@@ -6,6 +6,7 @@ import {
   canUseAdminApi,
   canUseAdminApiAsAdmin,
   getAssignedLocation,
+  getVisibleLocationScope,
   hasCompletedAdminSetup,
 } from "../../lib/auth/authorization";
 
@@ -25,6 +26,12 @@ describe("location-scoped authorization", () => {
     expect(canAccessAdmin(user)).toBe(true);
     expect(canAccessLocation(user, "regensburg")).toBe(true);
     expect(canAccessLocation(user, "munich")).toBe(false);
+  });
+
+  it("scopes aggregate views to the assigned location", () => {
+    expect(getVisibleLocationScope({ role: "standortuser", locationKey: "regensburg" })).toBe("regensburg");
+    expect(getVisibleLocationScope({ role: "standortuser", locationKey: "unknown" })).toBeNull();
+    expect(getVisibleLocationScope({ role: "admin", locationKey: "regensburg" })).toBeNull();
   });
 
   it("rejects a Standortuser without a valid assignment", () => {

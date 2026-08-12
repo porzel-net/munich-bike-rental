@@ -6,6 +6,8 @@ import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import { financialAccounts, financialTransactions } from "../db/schema";
 import { isValidIsoDate } from "../bookings/validation";
 
+export const selectableFinancialAccountCodes = ["cash_main", "operating_main", "private_main", "stripe_main"] as const;
+
 /**
  * Opening balances are only editable before the first imported movement.
  * Once movements exist, corrections must be represented by an auditable

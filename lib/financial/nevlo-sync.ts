@@ -99,14 +99,6 @@ function getNevloClient(db: AppDatabase) {
   return (sharedClient ??= new NevloClient(undefined, undefined, undefined, new DatabaseNevloTokenStore(db)));
 }
 
-function accountCode(account: NevloAccount) {
-  const suffix = account.id
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .toLowerCase()
-    .slice(0, 40);
-  return `nevlo_${suffix || "bank"}`;
-}
-
 function amountToCents(amount: number) {
   if (!Number.isFinite(amount)) throw new Error("Nevlo lieferte einen ungültigen Transaktionsbetrag.");
   const cents = Math.round(amount * 100);
@@ -141,21 +133,19 @@ function configuredAccountId() {
 }
 
 function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
-  const existing = db
-    .select()
-    .from(financialAccounts)
-    .where(and(eq(financialAccounts.provider, "nevlo"), eq(financialAccounts.providerAccountId, account.id)))
-    .get();
+  const existing = db.select().from(financialAccounts).where(eq(financialAccounts.code, "operating_main")).get();
   const now = new Date();
   const providerBalanceCents = optionalAmountToCents(account.balance);
   const providerBalanceAt = account.lastSyncedAt || now.toISOString();
   if (existing) {
     db.update(financialAccounts)
       .set({
-        name: account.accountName || existing.name,
+        name: "Betriebskonto Verleih",
         iban: account.iban || existing.iban,
         currency: account.currency || existing.currency,
-        notes: `Nevlo-Bankkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
+        provider: "nevlo",
+        providerAccountId: account.id,
+        notes: `Festes Nevlo-Importkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
         ...(providerBalanceCents === null ? {} : { providerBalanceCents, providerBalanceAt }),
         updatedAt: now,
       })
@@ -166,8 +156,8 @@ function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
   return db
     .insert(financialAccounts)
     .values({
-      code: accountCode(account),
-      name: account.accountName || "Nevlo-Bankkonto",
+      code: "operating_main",
+      name: "Betriebskonto Verleih",
       type: "bank",
       status: "active",
       iban: account.iban || null,
@@ -177,7 +167,7 @@ function upsertFinancialAccount(db: AppDatabase, account: NevloAccount) {
       openingBalanceCents: 0,
       providerBalanceCents,
       providerBalanceAt: providerBalanceCents === null ? null : providerBalanceAt,
-      notes: `Nevlo-Bankkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
+      notes: `Festes Nevlo-Importkonto${account.bankConnection?.bankName ? `: ${account.bankConnection.bankName}` : ""}`,
       createdAt: now,
       updatedAt: now,
     })

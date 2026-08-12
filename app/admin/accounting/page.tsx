@@ -10,7 +10,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { getEuerSummary } from "@/lib/financial/euer";
-import { financialAccounts, financialCategories } from "@/lib/db/schema";
+import { bookings, financialAccounts, financialCategories } from "@/lib/db/schema";
 
 export default async function AccountingPage() {
   const session = await getServerSession();
@@ -39,10 +39,20 @@ export default async function AccountingPage() {
       code: financialAccounts.code,
       name: financialAccounts.name,
       currency: financialAccounts.currency,
+      status: financialAccounts.status,
     })
     .from(financialAccounts)
-    .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
+    .all();
+  const bookingReferences = db
+    .select({
+      id: bookings.id,
+      orderNumber: bookings.orderNumber,
+      customerName: bookings.customerName,
+      status: bookings.status,
+    })
+    .from(bookings)
+    .orderBy(bookings.orderNumber)
     .all();
   return (
     <SidebarProvider
@@ -62,7 +72,7 @@ export default async function AccountingPage() {
               <StripeAutoSyncStatus />
             </div>
             <div className="flex flex-col gap-6">
-              <EuerSummary data={euer} categories={categories} accounts={accounts} />
+              <EuerSummary data={euer} categories={categories} accounts={accounts} bookings={bookingReferences} />
             </div>
           </main>
         </div>

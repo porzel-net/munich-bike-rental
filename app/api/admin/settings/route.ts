@@ -10,6 +10,12 @@ import { readBoundedJson } from "@/lib/security/request-body";
 
 const settingsSchema = z.object({
   whatsappPhone: z.string().trim().max(40, "Die Handynummer darf höchstens 40 Zeichen enthalten."),
+  privateAddress: z
+    .string()
+    .trim()
+    .max(200, "Die private Adresse darf höchstens 200 Zeichen enthalten.")
+    .optional()
+    .default(""),
 });
 
 export async function PATCH(request: Request) {
@@ -26,9 +32,16 @@ export async function PATCH(request: Request) {
 
   getDatabase()
     .update(authUser)
-    .set({ whatsappPhone: parsed.data.whatsappPhone || null, updatedAt: new Date() })
+    .set({
+      whatsappPhone: parsed.data.whatsappPhone || null,
+      privateAddress: parsed.data.privateAddress || null,
+      updatedAt: new Date(),
+    })
     .where(eq(authUser.id, session.user.id))
     .run();
 
-  return NextResponse.json({ whatsappPhone: parsed.data.whatsappPhone }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(
+    { whatsappPhone: parsed.data.whatsappPhone, privateAddress: parsed.data.privateAddress },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

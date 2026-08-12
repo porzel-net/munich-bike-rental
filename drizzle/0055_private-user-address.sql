@@ -1,0 +1,1 @@
+ALTER TABLE `user` ADD `private_address` text;

@@ -5,7 +5,11 @@ import { BookingCommandError } from "@/lib/bookings/errors";
 import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import { ignoreFinancialTransaction, postFinancialTransaction } from "@/lib/financial/reconciliation";
+import {
+  assignNevloTransactionToBooking,
+  ignoreFinancialTransaction,
+  postFinancialTransaction,
+} from "@/lib/financial/reconciliation";
 import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
@@ -38,6 +42,7 @@ const schema = z.discriminatedUnion("action", [
       .optional(),
   }),
   z.object({ action: z.literal("ignore"), reason: z.string().trim().min(1).max(1000) }),
+  z.object({ action: z.literal("assign_booking"), bookingId: z.number().int().positive() }),
 ]);
 
 function authorized(request: Request, session: Awaited<ReturnType<typeof getServerSession>>) {
@@ -59,7 +64,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const result =
       input.data.action === "post"
         ? postFinancialTransaction(db, { transactionId, actorUserId: session.user.id, ...input.data })
-        : ignoreFinancialTransaction(db, { transactionId, actorUserId: session.user.id, reason: input.data.reason });
+        : input.data.action === "ignore"
+          ? ignoreFinancialTransaction(db, { transactionId, actorUserId: session.user.id, reason: input.data.reason })
+          : assignNevloTransactionToBooking(db, {
+              transactionId,
+              bookingId: input.data.bookingId,
+              actorUserId: session.user.id,
+            });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return NextResponse.json(

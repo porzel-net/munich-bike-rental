@@ -34,6 +34,7 @@ import {
   previewOffer,
   recordPayment,
   updateBooking,
+  setLegacyBookingStatus,
 } from "../../lib/bookings/service";
 import { renderOfferMail } from "../../lib/bookings/messages";
 import { appendJournalEntry } from "../../lib/bookings/ledger";
@@ -299,6 +300,19 @@ describe("booking commands", () => {
     ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/) });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(2);
+  });
+
+  it("starts invoice numbering at 0001", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+
+    confirmOffer(db, offer.confirmationToken, "admin");
+
+    expect(
+      db.select({ invoiceNumber: bookings.invoiceNumber }).from(bookings).where(eq(bookings.id, booking.id)).get(),
+    ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-0001$/) });
   });
 
   it("creates a one-time feedback link and queues the request after handover", () => {
@@ -612,6 +626,110 @@ describe("booking commands", () => {
         .where(eq(bookingOffers.bookingId, created.id))
         .get(),
     ).toEqual({ status: "revoked" });
+  });
+
+  it("requires booking details and allocates a bike when an import becomes confirmed", () => {
+    const { db, assetId } = setup();
+    const created = createBooking(db, {
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-07-20",
+      periodTo: "2026-07-21",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      customerMessage: "",
+      communicationLocale: "de",
+      source: "legacy",
+      quotedTotalCents: 0,
+      requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+    });
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, created.id)).get()!;
+
+    expect(() => setLegacyBookingStatus(db, { bookingId: created.id, status: "confirmed" })).toThrow(
+      "Zeitraum, Uhrzeiten und Preis",
+    );
+
+    setLegacyBookingStatus(db, {
+      bookingId: created.id,
+      status: "confirmed",
+      details: {
+        periodFrom: "2026-08-01",
+        periodTo: "2026-08-03",
+        pickupTime: "09:00",
+        dropoffTime: "17:00",
+        quotedTotalCents: 12_500,
+        assetsByRequestedItem: { [item.id]: assetId },
+        invoiceNumber: "YBR-2026-0001",
+      },
+    });
+
+    expect(db.select().from(bookings).where(eq(bookings.id, created.id)).get()).toMatchObject({
+      status: "confirmed",
+      periodFrom: "2026-08-01",
+      periodTo: "2026-08-03",
+      quotedTotalCents: 12_500,
+      invoiceNumber: "YBR-2026-0001",
+    });
+    expect(
+      db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, created.id)).all(),
+    ).toHaveLength(1);
+    expect(getBookingPaymentStatus(db, created.id)).toEqual({ openCents: 12_500, status: "open" });
+    expect(
+      db
+        .select({ kind: journalEntries.kind })
+        .from(journalEntries)
+        .where(eq(journalEntries.bookingId, created.id))
+        .all(),
+    ).toEqual([{ kind: "rental_charge" }]);
+
+    const next = createBooking(db, {
+      customerName: "Grace Hopper",
+      customerEmail: "grace@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-09-01",
+      periodTo: "2026-09-02",
+      pickupTime: "09:00",
+      dropoffTime: "17:00",
+      customerMessage: "",
+      communicationLocale: "de",
+      source: "legacy",
+      quotedTotalCents: 0,
+      requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+    });
+    const nextItem = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, next.id)).get()!;
+    expect(() =>
+      setLegacyBookingStatus(db, {
+        bookingId: next.id,
+        status: "confirmed",
+        details: {
+          periodFrom: "2026-09-01",
+          periodTo: "2026-09-02",
+          pickupTime: "09:00",
+          dropoffTime: "17:00",
+          quotedTotalCents: 12_500,
+          assetsByRequestedItem: { [nextItem.id]: assetId },
+          invoiceNumber: "2026-0002",
+        },
+      }),
+    ).toThrow("Format YBR-JJJJ-NNNN");
+    expect(() =>
+      setLegacyBookingStatus(db, {
+        bookingId: next.id,
+        status: "confirmed",
+        details: {
+          periodFrom: "2026-09-01",
+          periodTo: "2026-09-02",
+          pickupTime: "09:00",
+          dropoffTime: "17:00",
+          quotedTotalCents: 12_500,
+          assetsByRequestedItem: { [nextItem.id]: assetId },
+          invoiceNumber: "YBR-2026-0003",
+        },
+      }),
+    ).toThrow("YBR-2026-0002");
   });
 
   it("covers the alternative offer to completed rental lifecycle", () => {

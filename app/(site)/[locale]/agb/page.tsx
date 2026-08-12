@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { AgbPageContent } from "../../../components/agb-page";
+import { AgbPageContent } from "@/components/agb-page";
 
 type PageProps = {
   params: Promise<{ locale: string }>;

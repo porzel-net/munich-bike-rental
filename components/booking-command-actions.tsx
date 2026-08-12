@@ -129,6 +129,11 @@ function ActionItem({
 export function BookingCommandActions({
   bookingId,
   bookingTotalCents,
+  invoiceNumber,
+  periodFrom,
+  periodTo,
+  pickupTime,
+  dropoffTime,
   status,
   customerName,
   senderName,
@@ -142,6 +147,11 @@ export function BookingCommandActions({
 }: {
   bookingId: number;
   bookingTotalCents: number;
+  invoiceNumber: string | null;
+  periodFrom: string;
+  periodTo: string;
+  pickupTime: string;
+  dropoffTime: string;
   status: BookingStatus;
   customerName: string;
   senderName: string;
@@ -173,6 +183,14 @@ export function BookingCommandActions({
   const [personalMessage, setPersonalMessage] = useState("");
   const [customOfferPrice, setCustomOfferPrice] = useState("");
   const [legacyStatus, setLegacyStatus] = useState<BookingStatus>(status);
+  const [legacyPeriodFrom, setLegacyPeriodFrom] = useState(periodFrom);
+  const [legacyPeriodTo, setLegacyPeriodTo] = useState(periodTo);
+  const [legacyPickupTime, setLegacyPickupTime] = useState(pickupTime);
+  const [legacyDropoffTime, setLegacyDropoffTime] = useState(dropoffTime);
+  const [legacyPrice, setLegacyPrice] = useState((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+  const [legacyInvoiceNumber, setLegacyInvoiceNumber] = useState(invoiceNumber ?? "");
+  const [legacyReason, setLegacyReason] = useState("");
+  const [legacyAssetsByRequestedItem, setLegacyAssetsByRequestedItem] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewRequestId = useRef(0);
@@ -262,6 +280,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomRejectionReason("");
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setLegacyStatus(status);
+    setLegacyPeriodFrom(periodFrom);
+    setLegacyPeriodTo(periodTo);
+    setLegacyPickupTime(pickupTime);
+    setLegacyDropoffTime(dropoffTime);
+    setLegacyPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+    setLegacyInvoiceNumber(invoiceNumber ?? "");
+    setLegacyReason("");
+    setLegacyAssetsByRequestedItem({});
     setPreviewError(null);
     setPreviewLoading(false);
     commandIdRef.current = null;
@@ -278,6 +305,19 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomOfferPrice("");
     setPreviewError(null);
     setPreviewLoading(false);
+  };
+
+  const openLegacyStatus = () => {
+    setLegacyStatus(status);
+    setLegacyPeriodFrom(periodFrom);
+    setLegacyPeriodTo(periodTo);
+    setLegacyPickupTime(pickupTime);
+    setLegacyDropoffTime(dropoffTime);
+    setLegacyPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+    setLegacyInvoiceNumber(invoiceNumber ?? "");
+    setLegacyReason("");
+    setLegacyAssetsByRequestedItem({});
+    setActiveAction("status");
   };
 
   const openReject = () => {
@@ -383,7 +423,37 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         });
         toast.success("Anfrage wurde abgelehnt.");
       } else if (activeAction === "status") {
-        await request({ command: "set_legacy_status", status: legacyStatus });
+        const needsBookingDetails = ["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus);
+        const needsAssets = needsBookingDetails;
+        const needsInvoice = ["confirmed", "checked_out", "completed"].includes(legacyStatus);
+        const legacyPriceCents = legacyPrice.trim() ? euroToCents(legacyPrice) : null;
+        if (needsBookingDetails && (!legacyPeriodFrom || !legacyPeriodTo || !legacyPickupTime || !legacyDropoffTime))
+          throw new Error("Bitte vervollständige Zeitraum und Übergabezeiten.");
+        if (needsBookingDetails && (legacyPriceCents === null || legacyPriceCents < 0))
+          throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
+        if (needsAssets && requestedItems.some((item) => !legacyAssetsByRequestedItem[String(item.id)]))
+          throw new Error("Bitte wähle für jedes Fahrrad ein konkretes Fahrrad aus.");
+        if (needsInvoice && !legacyInvoiceNumber.trim()) throw new Error("Bitte gib die Rechnungsnummer ein.");
+        if (["rejected", "cancelled", "expired"].includes(legacyStatus) && !legacyReason.trim())
+          throw new Error("Bitte gib einen Grund für diesen Status an.");
+        await request({
+          command: "set_legacy_status",
+          status: legacyStatus,
+          reason: legacyReason.trim() || undefined,
+          details: needsBookingDetails
+            ? {
+                periodFrom: legacyPeriodFrom,
+                periodTo: legacyPeriodTo,
+                pickupTime: legacyPickupTime,
+                dropoffTime: legacyDropoffTime,
+                quotedTotalCents: legacyPriceCents!,
+                assetsByRequestedItem: Object.fromEntries(
+                  Object.entries(legacyAssetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
+                ),
+                invoiceNumber: needsInvoice ? legacyInvoiceNumber.trim() : undefined,
+              }
+            : undefined,
+        });
         toast.success("Status der importierten Buchung wurde geändert.");
       }
       close();
@@ -496,7 +566,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
   const missingRequiredReason = activeAction === "reject" ? !rejectionReason : requiresReason && !reason.trim();
   const dialogDescription =
     activeAction === "status"
-      ? "Importierte Buchungen dürfen während der Übergangsphase jederzeit manuell umgestellt werden."
+      ? "Der Statuswechsel prüft automatisch, welche Buchungsdaten für den Zielstatus noch benötigt werden."
       : showOfferFields
         ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
         : activeAction === "reject"
@@ -540,8 +610,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             description="Importierte Buchung frei umstellen"
             disabled={actionsLocked}
             onClick={() => {
-              setLegacyStatus(status);
-              setActiveAction("status");
+              openLegacyStatus();
             }}
           />
         )}
@@ -608,24 +677,161 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           </DialogHeader>
           <FieldGroup>
             {activeAction === "status" && (
-              <Field>
-                <FieldLabel htmlFor="legacy-booking-status">Neuer Buchungsstatus</FieldLabel>
-                <Select
-                  value={legacyStatus}
-                  onValueChange={(value) => value && setLegacyStatus(value as BookingStatus)}
-                >
-                  <SelectTrigger id="legacy-booking-status" className="w-full max-w-sm">
-                    <SelectValue>{bookingStatusLabels[legacyStatus]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {bookingStatusLabels[value]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+              <>
+                <Field>
+                  <FieldLabel htmlFor="legacy-booking-status">Neuer Buchungsstatus</FieldLabel>
+                  <Select
+                    value={legacyStatus}
+                    onValueChange={(value) => value && setLegacyStatus(value as BookingStatus)}
+                  >
+                    <SelectTrigger id="legacy-booking-status" className="w-full">
+                      <SelectValue>{bookingStatusLabels[legacyStatus]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {bookingStatusLabels[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    Je nach Zielstatus werden darunter die dafür notwendigen Buchungsdaten eingeblendet.
+                  </FieldDescription>
+                </Field>
+                {["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
+                  <>
+                    <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                      Für „{bookingStatusLabels[legacyStatus]}“ müssen Zeitraum, Übergabezeiten, Preis und konkrete
+                      Fahrräder hinterlegt werden.
+                      {["confirmed", "checked_out", "completed"].includes(legacyStatus)
+                        ? " Zusätzlich ist eine gültige, lückenlose Rechnungsnummer erforderlich."
+                        : ""}
+                    </div>
+                    <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="legacy-period-from">Abholdatum</FieldLabel>
+                        <Input
+                          id="legacy-period-from"
+                          type="date"
+                          value={legacyPeriodFrom}
+                          onChange={(event) => setLegacyPeriodFrom(event.target.value)}
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="legacy-pickup-time">Abholzeit</FieldLabel>
+                        <Input
+                          id="legacy-pickup-time"
+                          type="time"
+                          value={legacyPickupTime}
+                          onChange={(event) => setLegacyPickupTime(event.target.value)}
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="legacy-period-to">Rückgabedatum</FieldLabel>
+                        <Input
+                          id="legacy-period-to"
+                          type="date"
+                          value={legacyPeriodTo}
+                          onChange={(event) => setLegacyPeriodTo(event.target.value)}
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="legacy-dropoff-time">Rückgabezeit</FieldLabel>
+                        <Input
+                          id="legacy-dropoff-time"
+                          type="time"
+                          value={legacyDropoffTime}
+                          onChange={(event) => setLegacyDropoffTime(event.target.value)}
+                          required
+                        />
+                      </Field>
+                    </FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="legacy-price">Gesamtpreis</FieldLabel>
+                      <Input
+                        id="legacy-price"
+                        inputMode="decimal"
+                        value={legacyPrice}
+                        onChange={(event) => setLegacyPrice(event.target.value)}
+                        placeholder="0,00"
+                        required
+                      />
+                    </Field>
+                    {["confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
+                      <Field>
+                        <FieldLabel htmlFor="legacy-invoice-number">Rechnungsnummer</FieldLabel>
+                        <Input
+                          id="legacy-invoice-number"
+                          value={legacyInvoiceNumber}
+                          onChange={(event) => setLegacyInvoiceNumber(event.target.value.toUpperCase())}
+                          placeholder="YBR-2026-0001"
+                          pattern="YBR-[0-9]{4}-[0-9]{4}"
+                          readOnly={Boolean(invoiceNumber)}
+                          required
+                        />
+                        <FieldDescription>
+                          Format: YBR-Jahr-Nummer. Die Nummer muss lückenlos der nächsten freien Nummer entsprechen.
+                        </FieldDescription>
+                      </Field>
+                    ) : null}
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium">Konkrete Fahrräder</p>
+                        <p className="text-sm text-muted-foreground">
+                          Wähle das tatsächlich zugeordnete Fahrrad für jede Anfrage.
+                        </p>
+                      </div>
+                      {requestedItems.map((item) => (
+                        <Field key={item.id}>
+                          <FieldLabel htmlFor={`legacy-asset-${item.id}`}>{item.label}</FieldLabel>
+                          <Select
+                            value={legacyAssetsByRequestedItem[String(item.id)] ?? ""}
+                            onValueChange={(value) =>
+                              setLegacyAssetsByRequestedItem((current) => ({
+                                ...current,
+                                [String(item.id)]: value ?? "",
+                              }))
+                            }
+                          >
+                            <SelectTrigger id={`legacy-asset-${item.id}`} className="w-full">
+                              <SelectValue>
+                                {availableAssets.find(
+                                  (asset) => String(asset.id) === legacyAssetsByRequestedItem[String(item.id)],
+                                )?.label ?? "Fahrrad auswählen"}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {availableAssets.map((asset) => (
+                                  <SelectItem key={asset.id} value={String(asset.id)}>
+                                    {asset.label} · {formatEuro(asset.priceCents)} / Tag
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+                {["rejected", "cancelled", "expired"].includes(legacyStatus) ? (
+                  <Field>
+                    <FieldLabel htmlFor="legacy-status-reason">Begründung</FieldLabel>
+                    <Textarea
+                      id="legacy-status-reason"
+                      value={legacyReason}
+                      onChange={(event) => setLegacyReason(event.target.value)}
+                      placeholder="Warum wurde dieser Status gesetzt?"
+                      required
+                    />
+                  </Field>
+                ) : null}
+              </>
             )}
             {showOfferFields && (
               <>

@@ -132,12 +132,17 @@ describe("historical booking e-mail import", () => {
     const imported = connection.db.select().from(bookings).get();
     expect(connection.db.select().from(communicationMessages).all()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ bookingId: imported?.id, rfcMessageId: "rfc-1", direction: "inbound" }),
+        expect.objectContaining({
+          bookingId: imported?.id,
+          rfcMessageId: "rfc-1",
+          threadMessageId: "rfc-1",
+          direction: "inbound",
+        }),
       ]),
     );
     expect(imported?.status).toBe("rejected");
-    setLegacyBookingStatus(connection.db, { bookingId: imported!.id, status: "confirmed" });
-    expect(connection.db.select().from(bookings).get()?.status).toBe("confirmed");
+    setLegacyBookingStatus(connection.db, { bookingId: imported!.id, status: "inquiry_received" });
+    expect(connection.db.select().from(bookings).get()?.status).toBe("inquiry_received");
     expect((await importLegacyBookingEmails(connection.db)).created).toBe(0);
     const third = await importLegacyBookingEmails(connection.db);
     expect(third.created).toBe(1);

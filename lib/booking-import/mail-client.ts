@@ -170,6 +170,7 @@ export async function loadBookingCandidateMails(): Promise<BookingImportMail[]> 
           const referencesHeader = parsedHeaders.get("references")?.trim() || null;
           const messageId =
             message.envelope?.messageId ?? parsedHeaders.get("message-id") ?? `${mailbox.path}:${message.uid}`;
+          const threadMessageId = referencesHeader?.match(/<[^<>\s]+>/u)?.[0] ?? inReplyTo ?? messageId;
           const internalDate =
             message.internalDate instanceof Date
               ? message.internalDate
@@ -189,7 +190,7 @@ export async function loadBookingCandidateMails(): Promise<BookingImportMail[]> 
             recipients,
             inReplyTo,
             referencesHeader,
-            threadMessageId: inReplyTo ?? messageId,
+            threadMessageId,
           });
         }
       } catch {

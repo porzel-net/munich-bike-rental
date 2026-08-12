@@ -21,6 +21,19 @@ const authDirectory =
   process.env.WHATSAPP_AUTH_DIR?.trim() ||
   (process.env.NODE_ENV === "production" ? "/data/whatsapp-auth" : "./data/whatsapp-auth");
 
+// Baileys' default logger includes WhatsApp JIDs and message metadata. Those
+// values are personal data and must not end up in container logs, which are
+// commonly shipped to third-party log collectors.
+const silentLogger = {
+  level: "silent",
+  child: () => silentLogger,
+  trace: () => undefined,
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
+
 type DisconnectError = {
   message?: string;
   output?: {
@@ -65,8 +78,13 @@ class WhatsAppConnection {
       browser: Browsers.macOS("Munich Bike Rental"),
       version,
       connectTimeoutMs: 60_000,
+      logger: silentLogger,
       printQRInTerminal: false,
       syncFullHistory: false,
+      // Do not process unsolicited history-sync payloads. This is also the
+      // documented mitigation for the message/history spoofing issue in the
+      // 6.x line until the deployment is migrated to Baileys 7.x.
+      shouldSyncHistoryMessage: () => false,
     });
     socket.ev.on("creds.update", saveCreds);
     socket.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {

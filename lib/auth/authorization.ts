@@ -36,6 +36,15 @@ export function canAccessLocation(user: AuthorizedUser, location: RentalLocation
 }
 
 /**
+ * Returns the row-level location scope for aggregate views. Administrators
+ * may see all locations; location users must always be constrained to their
+ * assigned location before a query is built.
+ */
+export function getVisibleLocationScope(user: AuthorizedUser): RentalLocation | null {
+  return isAdmin(user) ? null : getAssignedLocation(user);
+}
+
+/**
  * API access requires the same completed setup as the admin layout. Keeping
  * this check separate from the role check prevents a freshly signed-in user
  * who still has to change the initial password from calling mutation APIs

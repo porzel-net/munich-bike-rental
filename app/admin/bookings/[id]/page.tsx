@@ -30,6 +30,7 @@ import { getLatestEmailActionReview, isEmailActionEligible, reviewQuestions } fr
 import { getLocationInventory } from "@/lib/inventory/repository";
 import { getDailyBikePriceCents } from "@/lib/inventory/pricing";
 import { formatReceivedAt } from "@/lib/bookings/order-number";
+import { allocateInvoiceNumber } from "@/lib/bookings/invoice-number";
 import {
   computerMountTypeLabels,
   pedalTypeLabels,
@@ -191,6 +192,15 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const latestOffer = offers[0];
   const acceptedOffer = offers.find((offer) => offer.status === "accepted");
   const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
+  const suggestedInvoiceNumber =
+    booking.invoiceNumber ??
+    (() => {
+      try {
+        return allocateInvoiceNumber(db);
+      } catch {
+        return null;
+      }
+    })();
   const nextAction =
     nextActionCopy[booking.status] ??
     ({ title: "Buchung prüfen", description: "Wähle die passende Aktion für diese Buchung." } as const);
@@ -233,9 +243,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       }
     >
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Buchung bearbeiten" />
-        <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+        <main className="min-w-0 max-w-full overflow-x-hidden flex flex-1 flex-col gap-6 p-8 lg:p-12">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/admin/bookings" />}>
@@ -538,6 +548,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 <BookingCommandActions
                   bookingId={booking.id}
                   bookingTotalCents={latestOffer?.totalCents ?? booking.quotedTotalCents}
+                  invoiceNumber={suggestedInvoiceNumber}
+                  periodFrom={booking.periodFrom}
+                  periodTo={booking.periodTo}
+                  pickupTime={booking.pickupTime}
+                  dropoffTime={booking.dropoffTime}
                   status={booking.status}
                   customerName={booking.customerName}
                   senderName={session.user.name}

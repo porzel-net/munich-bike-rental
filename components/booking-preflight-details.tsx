@@ -1,5 +1,16 @@
 import { Badge } from "@/components/ui/badge";
+import { bookingPresentation } from "@/lib/bookings/presentation";
 import type { BookingMigrationPreflight } from "@/lib/bookings/preflight";
+import type { BookingStatus } from "@/lib/db/schema";
+import { rentalLocationLabels, type RentalLocation } from "@/lib/inquiries/catalog";
+
+function locationLabel(location: string) {
+  return rentalLocationLabels.de[location as RentalLocation] ?? location;
+}
+
+function statusLabel(status: string) {
+  return bookingPresentation[status as BookingStatus]?.label ?? status;
+}
 
 export function BookingPreflightDetails({ result }: { result: BookingMigrationPreflight }) {
   return (
@@ -10,7 +21,7 @@ export function BookingPreflightDetails({ result }: { result: BookingMigrationPr
           <ul className="mt-3 space-y-2 text-sm">
             {result.unmapped.map((booking) => (
               <li className="rounded-2xl border border-red-600/30 bg-red-600/5 p-3 dark:bg-red-600/10" key={booking.id}>
-                <strong>{booking.orderNumber}</strong> · {booking.location} · {booking.status}
+                <strong>{booking.orderNumber}</strong> · {locationLabel(booking.location)} · {statusLabel(booking.status)}
                 <br />
                 <span className="text-muted-foreground">
                   {booking.allocatedAssets} von {booking.requestedItems} Fahrrädern zugeordnet

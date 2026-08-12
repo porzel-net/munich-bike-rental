@@ -368,103 +368,111 @@ export function ConsentProvider({
         </>
       ) : null}
 
-      {isConsentDialogOpen ? (
-        <div
-          className="cookie-banner"
-          role="dialog"
-          aria-labelledby="cookie-banner-title"
-          onKeyDown={handleDialogKeyDown}
-        >
-          <div className="cookie-banner__panel">
-            <div className="cookie-banner__header">
-              <div>
-                <span className="cookie-banner__eyebrow">{copy.bannerTitle}</span>
-                <h2 className="cookie-banner__title" id="cookie-banner-title">
-                  {copy.bannerTitle}
-                </h2>
+      {!isAdminRoute ? (
+        <div className="site-root-overlays">
+          {isConsentDialogOpen ? (
+            <div
+              className="cookie-banner"
+              role="dialog"
+              aria-labelledby="cookie-banner-title"
+              onKeyDown={handleDialogKeyDown}
+            >
+              <div className="cookie-banner__panel">
+                <div className="cookie-banner__header">
+                  <div>
+                    <span className="cookie-banner__eyebrow">{copy.bannerTitle}</span>
+                    <h2 className="cookie-banner__title" id="cookie-banner-title">
+                      {copy.bannerTitle}
+                    </h2>
+                  </div>
+                  <p className="cookie-banner__intro">{bannerIntro}</p>
+                </div>
+
+                <div className="cookie-banner__choices">
+                  <label className="cookie-banner__choice">
+                    <span className="cookie-banner__choice-copy">
+                      <strong>{copy.necessaryTitle}</strong>
+                      <span>{copy.necessaryText}</span>
+                    </span>
+                    <input type="checkbox" checked={draft.necessary} disabled aria-label={copy.necessaryTitle} />
+                  </label>
+
+                  {hasGoogleAnalyticsTracking ? (
+                    <label className="cookie-banner__choice">
+                      <span className="cookie-banner__choice-copy">
+                        <strong>{copy.analyticsTitle}</strong>
+                        <span>{copy.analyticsText}</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={draft.analytics}
+                        onChange={(event) => setDraft((current) => ({ ...current, analytics: event.target.checked }))}
+                        aria-label={copy.analyticsTitle}
+                      />
+                    </label>
+                  ) : null}
+
+                  {hasGoogleAdsTracking ? (
+                    <label className="cookie-banner__choice">
+                      <span className="cookie-banner__choice-copy">
+                        <strong>{copy.marketingTitle}</strong>
+                        <span>{copy.marketingText}</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={draft.marketing}
+                        onChange={(event) => setDraft((current) => ({ ...current, marketing: event.target.checked }))}
+                        aria-label={copy.marketingTitle}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                <div className="cookie-banner__actions">
+                  <button
+                    type="button"
+                    className="cookie-banner__button cookie-banner__button--ghost"
+                    onClick={saveNecessaryOnly}
+                    ref={initialDialogFocusRef}
+                  >
+                    {copy.acceptNecessary}
+                  </button>
+                  <button
+                    type="button"
+                    className="cookie-banner__button cookie-banner__button--ghost"
+                    onClick={() => saveSelection(draft)}
+                  >
+                    {copy.saveSelection}
+                  </button>
+                  <button
+                    type="button"
+                    className="cookie-banner__button cookie-banner__button--primary"
+                    onClick={saveAll}
+                  >
+                    {copy.acceptAll}
+                  </button>
+                </div>
+
+                <div className="cookie-banner__footer">
+                  <Link href="/datenschutzerklaerung" className="cookie-banner__link">
+                    {copy.privacyLink}
+                  </Link>
+                </div>
               </div>
-              <p className="cookie-banner__intro">{bannerIntro}</p>
             </div>
+          ) : null}
 
-            <div className="cookie-banner__choices">
-              <label className="cookie-banner__choice">
-                <span className="cookie-banner__choice-copy">
-                  <strong>{copy.necessaryTitle}</strong>
-                  <span>{copy.necessaryText}</span>
-                </span>
-                <input type="checkbox" checked={draft.necessary} disabled aria-label={copy.necessaryTitle} />
-              </label>
-
-              {hasGoogleAnalyticsTracking ? (
-                <label className="cookie-banner__choice">
-                  <span className="cookie-banner__choice-copy">
-                    <strong>{copy.analyticsTitle}</strong>
-                    <span>{copy.analyticsText}</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={draft.analytics}
-                    onChange={(event) => setDraft((current) => ({ ...current, analytics: event.target.checked }))}
-                    aria-label={copy.analyticsTitle}
-                  />
-                </label>
-              ) : null}
-
-              {hasGoogleAdsTracking ? (
-                <label className="cookie-banner__choice">
-                  <span className="cookie-banner__choice-copy">
-                    <strong>{copy.marketingTitle}</strong>
-                    <span>{copy.marketingText}</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={draft.marketing}
-                    onChange={(event) => setDraft((current) => ({ ...current, marketing: event.target.checked }))}
-                    aria-label={copy.marketingTitle}
-                  />
-                </label>
-              ) : null}
-            </div>
-
-            <div className="cookie-banner__actions">
-              <button
-                type="button"
-                className="cookie-banner__button cookie-banner__button--ghost"
-                onClick={saveNecessaryOnly}
-                ref={initialDialogFocusRef}
-              >
-                {copy.acceptNecessary}
-              </button>
-              <button
-                type="button"
-                className="cookie-banner__button cookie-banner__button--ghost"
-                onClick={() => saveSelection(draft)}
-              >
-                {copy.saveSelection}
-              </button>
-              <button type="button" className="cookie-banner__button cookie-banner__button--primary" onClick={saveAll}>
-                {copy.acceptAll}
-              </button>
-            </div>
-
-            <div className="cookie-banner__footer">
-              <Link href="/datenschutzerklaerung" className="cookie-banner__link">
-                {copy.privacyLink}
-              </Link>
-            </div>
-          </div>
+          {!panelOpen && consent ? (
+            <button
+              type="button"
+              className="cookie-settings-trigger"
+              onClick={(event) => openSettings(event.currentTarget)}
+              ref={settingsTriggerRef}
+            >
+              {copy.settingsButton}
+            </button>
+          ) : null}
         </div>
-      ) : null}
-
-      {!isAdminRoute && !panelOpen && consent ? (
-        <button
-          type="button"
-          className="cookie-settings-trigger"
-          onClick={(event) => openSettings(event.currentTarget)}
-          ref={settingsTriggerRef}
-        >
-          {copy.settingsButton}
-        </button>
       ) : null}
     </ConsentContext.Provider>
   );

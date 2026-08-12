@@ -23,16 +23,7 @@ const MAX_MAIL_SOURCE_BYTES = 1_000_000;
 const MAX_MAIL_PARSE_DEPTH = 10;
 const MAX_MAIL_PARTS = 100;
 const REJECTED_MAILBOX = "Abgelehnt";
-const TRASH_MAILBOX_FALLBACKS = [
-  "Trash",
-  "Müll",
-  "Muell",
-  "Papierkorb",
-  "Deleted",
-  "Deleted Messages",
-  "[Gmail]/Trash",
-  "[Gmail]/Papierkorb",
-];
+const ORDER_NUMBER_RE = /#?\d{8,}/g;
 
 export type MailboxOperationResult =
   | { configured: false; moved: false; reason: "not_configured" | "not_found" }
@@ -207,11 +198,22 @@ export async function syncBookingMailThread(
   const newMessageIds: number[] = [];
   try {
     await client.connect();
+    const archivedSubjects = db
+      .select({ subject: communicationMessages.subject })
+      .from(communicationMessages)
+      .where(eq(communicationMessages.bookingId, bookingId))
+      .all()
+      .map((message) => message.subject);
+    const searchTerms = uniqueMailboxes([
+      orderNumber,
+      ...archivedSubjects.flatMap((subject) => subject.match(ORDER_NUMBER_RE) ?? []),
+    ]);
     for (const mailbox of await getSearchMailboxes(client)) {
       let lock;
       try {
         lock = await client.getMailboxLock(mailbox, { readOnly: true });
-        const matches = await client.search({ text: orderNumber }, { uid: true });
+        const matchSets = await Promise.all(searchTerms.map((term) => client.search({ text: term }, { uid: true })));
+        const matches = [...new Set(matchSets.flatMap((set) => (set === false ? [] : set)))];
         if (!matches || !matches.length) continue;
         for await (const message of client.fetch(
           matches.slice(-50),
@@ -304,12 +306,10 @@ function mailboxLooksLikeTrash(mailbox: { path: string; name: string; specialUse
 }
 
 function getMailboxPaths(listed: Array<{ path: string; name: string; specialUse?: string }>) {
-  const trashPaths = listed.filter(mailboxLooksLikeTrash).map((mailbox) => mailbox.path);
-  const otherPaths = listed.filter((mailbox) => !mailboxLooksLikeTrash(mailbox)).map((mailbox) => mailbox.path);
-
-  // LIST normally includes every folder. The explicit aliases also cover servers
-  // that expose a localized/special-use trash folder inconsistently.
-  return uniqueMailboxes(["INBOX", ...trashPaths, ...otherPaths, ...TRASH_MAILBOX_FALLBACKS]);
+  // Search every listed mailbox except localized or special-use trash folders.
+  // LIST normally includes INBOX as well; do not add hard-coded aliases because
+  // that would reintroduce Trash/Papierkorb on servers with localized paths.
+  return uniqueMailboxes(listed.filter((mailbox) => !mailboxLooksLikeTrash(mailbox)).map((mailbox) => mailbox.path));
 }
 
 async function getSearchMailboxes(client: ImapFlow) {

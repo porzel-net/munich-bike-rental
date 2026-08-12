@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
-import type { FinancialReviewAccount, FinancialReviewCategory } from "@/components/financial-review-inbox";
+import type {
+  FinancialReviewAccount,
+  FinancialReviewBooking,
+  FinancialReviewCategory,
+} from "@/components/financial-review-inbox";
 import type { EuerRow, EuerSummary } from "@/lib/financial/euer";
 
 function formatAmount(amountCents: number) {
@@ -58,10 +62,12 @@ export function EuerSummary({
   data,
   categories,
   accounts,
+  bookings,
 }: {
   data: EuerSummary;
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
+  bookings: FinancialReviewBooking[];
 }) {
   const router = useRouter();
   const euerRows = data.rows.filter((row) =>
@@ -77,7 +83,7 @@ export function EuerSummary({
             Einnahmen und Ausgaben nach steuerlicher Kategorie. Interne Umbuchungen bleiben ausgeschlossen.
           </p>
         </div>
-        <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} />
+        <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} bookings={bookings} />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <Card className="h-full">

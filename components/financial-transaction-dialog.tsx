@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { ExternalLinkIcon, FileTextIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import type {
   FinancialReviewAccount,
+  FinancialReviewBooking,
   FinancialReviewCategory,
   FinancialReviewTransaction,
 } from "@/components/financial-review-inbox";
@@ -23,7 +24,16 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 type Mode = "bank" | "manual";
@@ -43,6 +53,20 @@ function formatBookedDate(value: string) {
   return `${day}.${month}.${year}`;
 }
 
+function bookingStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    inquiry_received: "Anfrage eingegangen",
+    offer_sent: "Angebot versendet",
+    confirmed: "Bestätigt",
+    checked_out: "Ausgabe erfolgt",
+    completed: "Abgeschlossen",
+    rejected: "Abgelehnt",
+    cancelled: "Storniert",
+    expired: "Abgelaufen",
+  };
+  return labels[status] ?? status;
+}
+
 function categoryDescription(category: FinancialReviewCategory) {
   if (category.euerTreatment === "transfer") return "interne Umbuchung · nicht EÜR-relevant";
   if (category.euerTreatment === "excluded") return "nicht in EÜR";
@@ -51,7 +75,49 @@ function categoryDescription(category: FinancialReviewCategory) {
   if (category.euerTreatment === "output_vat") return "Umsatzsteuer separat";
   if (category.euerTreatment === "tax_payment") return "USt-Zahlung separat";
   if (category.euerTreatment === "needs_review") return "EÜR-Zuordnung offen";
-  return `${category.euerTreatment === "income" ? "Einnahme" : "Betriebsausgabe"} · ${category.euerLine}`;
+  const euerLineLabels: Record<string, string> = {
+    rental_income: "Mietumsatz",
+    other_operating_income: "Sonstige betriebliche Einnahmen",
+    services: "Fremdleistungen und Beratung",
+    wages: "Löhne und Gehälter",
+    depreciation: "Abschreibungen",
+    rent: "Miete und Lager",
+    repairs: "Reparaturen und Instandhaltung",
+    insurance: "Versicherungen",
+    advertising: "Werbung",
+    office: "Büro und Verwaltung",
+    travel: "Fahrt- und Reisekosten",
+    other_operating_expense: "Sonstige betriebliche Ausgaben",
+    vat: "Umsatzsteuer und Vorsteuer",
+    asset_acquisition: "Anschaffung von Anlagegütern",
+    not_applicable: "Nicht zutreffend",
+  };
+  return `${category.euerTreatment === "income" ? "Einnahme" : "Betriebsausgabe"} · ${euerLineLabels[category.euerLine] ?? category.euerLine}`;
+}
+
+function categoryGroups(categories: FinancialReviewCategory[]) {
+  const available = categories.filter((category) => category.euerTreatment !== "needs_review");
+  return [
+    { label: "Einnahmen", categories: available.filter((category) => category.euerTreatment === "income") },
+    {
+      label: "Betriebsausgaben",
+      categories: available.filter((category) => ["expense", "fee"].includes(category.euerTreatment)),
+    },
+    {
+      label: "Steuern und Vorsteuer",
+      categories: available.filter((category) =>
+        ["input_vat", "output_vat", "tax_payment"].includes(category.euerTreatment),
+      ),
+    },
+    {
+      label: "Anlagegüter",
+      categories: available.filter((category) => category.euerTreatment === "asset_acquisition"),
+    },
+    {
+      label: "Umbuchungen und nicht EÜR-relevante Vorgänge",
+      categories: available.filter((category) => ["transfer", "excluded"].includes(category.euerTreatment)),
+    },
+  ].filter((group) => group.categories.length > 0);
 }
 
 function isLikelyStripePayout(row: FinancialReviewTransaction) {
@@ -69,6 +135,7 @@ export function FinancialTransactionDialog({
   onOpenChange,
   categories,
   accounts,
+  bookings,
   bankTransaction,
   onBankCompleted,
   onManualCompleted,
@@ -78,6 +145,7 @@ export function FinancialTransactionDialog({
   onOpenChange: (open: boolean) => void;
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
+  bookings?: FinancialReviewBooking[];
   bankTransaction?: FinancialReviewTransaction | null;
   onBankCompleted?: (result: { transactionId: number; status: "posted" | "ignored"; euerTreatment?: string }) => void;
   onManualCompleted?: (result: { transactionId: number }) => void;
@@ -87,6 +155,7 @@ export function FinancialTransactionDialog({
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [bookingId, setBookingId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [destinationAccountId, setDestinationAccountId] = useState("");
   const [counterpartyName, setCounterpartyName] = useState("");
@@ -108,6 +177,7 @@ export function FinancialTransactionDialog({
   const [error, setError] = useState<string | null>(null);
 
   const selectedCategory = categories.find((category) => String(category.id) === categoryId);
+  const selectedBooking = bookings?.find((booking) => String(booking.id) === bookingId);
   const selectedDestinationAccount = accounts.find((account) => String(account.id) === destinationAccountId);
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
 
@@ -155,7 +225,8 @@ export function FinancialTransactionDialog({
         setSource("cash");
         setDate(today());
         setAmount("");
-        setAccountId("");
+        setAccountId(accounts.find((account) => account.code === "cash_main")?.id.toString() ?? "");
+        setBookingId("");
         setCategoryId("");
         setDestinationAccountId("");
         setCounterpartyName("");
@@ -199,15 +270,23 @@ export function FinancialTransactionDialog({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedCategory || selectedCategory.euerTreatment === "needs_review") {
+    if (!isBank && (!selectedCategory || selectedCategory.euerTreatment === "needs_review")) {
       setError("Bitte wähle eine sachliche Zuordnung mit konkreter EÜR-Zuordnung.");
       return;
     }
-    if ((!isBank && !description.trim()) || !note.trim()) {
+    if (!isBank && selectedCategory?.code === "rental_revenue" && !selectedBooking) {
+      setError("Für Mieterträge muss eine Buchung zugewiesen werden.");
+      return;
+    }
+    if (!isBank && selectedBooking && selectedCategory?.code !== "rental_revenue") {
+      setError("Eine Buchung kann nur der sachlichen Zuordnung „Mieterträge“ zugewiesen werden.");
+      return;
+    }
+    if ((!isBank && !selectedBooking && !description.trim()) || !note.trim()) {
       setError(isBank ? "Bitte gib einen Buchungstext an." : "Bitte gib eine Beschreibung und einen Buchungstext an.");
       return;
     }
-    if (selectedCategory.categoryType === "transfer" && !destinationAccountId) {
+    if (selectedCategory?.categoryType === "transfer" && !destinationAccountId) {
       setError("Für eine Umbuchung musst du das Zielkonto auswählen.");
       return;
     }
@@ -222,7 +301,7 @@ export function FinancialTransactionDialog({
       return;
     }
     if (
-      selectedCategory.code === "business_meal" &&
+      selectedCategory?.code === "business_meal" &&
       (!Number.isSafeInteger(privateShareCents) ||
         privateShareCents < 0 ||
         !Number.isSafeInteger(mealInputVatCents) ||
@@ -262,11 +341,12 @@ export function FinancialTransactionDialog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "post",
-            categoryId: Number(categoryId),
+            categoryId: selectedCategory ? Number(categoryId) : undefined,
+            bookingId: selectedBooking ? Number(bookingId) : undefined,
             destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
             note: note.trim(),
             businessMeal:
-              selectedCategory.code === "business_meal"
+              selectedCategory?.code === "business_meal"
                 ? { privateShareCents, inputVatCents: mealInputVatCents }
                 : undefined,
             asset: isAsset
@@ -288,7 +368,7 @@ export function FinancialTransactionDialog({
         onBankCompleted?.({
           transactionId: bankTransaction.id,
           status: "posted",
-          euerTreatment: selectedCategory.euerTreatment,
+          euerTreatment: selectedCategory?.euerTreatment,
         });
         toast.success("Buchung wurde gespeichert und abgestimmt.");
       } else {
@@ -299,14 +379,15 @@ export function FinancialTransactionDialog({
             source,
             bookedAt: date,
             amountCents,
-            categoryId: Number(categoryId),
+            categoryId: selectedCategory ? Number(categoryId) : undefined,
+            bookingId: selectedBooking ? Number(bookingId) : undefined,
             accountId: accountId ? Number(accountId) : undefined,
             destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
             counterpartyName,
             description,
             note,
             businessMeal:
-              selectedCategory.code === "business_meal"
+              selectedCategory?.code === "business_meal"
                 ? { privateShareCents, inputVatCents: mealInputVatCents }
                 : undefined,
             asset: isAsset
@@ -374,7 +455,7 @@ export function FinancialTransactionDialog({
           <DialogDescription>
             {isBank
               ? `${formatBookedDate(bankTransaction?.bookedAt ?? "")} · ${accountLabel} · ${formatAmount(Math.abs(bankTransaction?.amountCents ?? 0), bankTransaction?.currency)}`
-              : "Bargeld, historische und sonstige manuelle Vorgänge mit derselben Zuordnung wie Banktransaktionen erfassen."}
+              : "Historische Zahlungen, Buchungseingänge und sonstige manuelle Vorgänge auf dem richtigen Finanzkonto erfassen."}
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -454,8 +535,7 @@ export function FinancialTransactionDialog({
                       <SelectTrigger id="financial-account" className="w-full">
                         <SelectValue>
                           {(value) =>
-                            accounts.find((account) => String(account.id) === String(value))?.name ??
-                            "Automatisch: Kasse"
+                            `${accounts.find((account) => String(account.id) === String(value))?.name ?? "Automatisch: Kasse"}${accounts.find((account) => String(account.id) === String(value))?.status === "archived" ? " · archiviert" : ""}`
                           }
                         </SelectValue>
                       </SelectTrigger>
@@ -464,6 +544,7 @@ export function FinancialTransactionDialog({
                           {accounts.map((account) => (
                             <SelectItem key={account.id} value={String(account.id)}>
                               {account.name}
+                              {account.status === "archived" ? " · archiviert" : ""}
                             </SelectItem>
                           ))}
                         </SelectGroup>
@@ -472,12 +553,55 @@ export function FinancialTransactionDialog({
                   </Field>
                 </div>
               )}
+              {!isBank && selectedCategory?.code === "rental_revenue" && bookings?.length ? (
+                <Field>
+                  <FieldLabel htmlFor="financial-booking">Buchung zuweisen</FieldLabel>
+                  <Select
+                    value={bookingId}
+                    onValueChange={(value) => {
+                      const nextBookingId = value === "none" ? "" : value || "";
+                      const nextBooking = bookings.find((booking) => String(booking.id) === nextBookingId);
+                      setBookingId(nextBookingId);
+                      if (nextBooking) {
+                        setDescription(`Zahlung zu ${nextBooking.orderNumber}`);
+                        setNote(`Zahlung zu ${nextBooking.orderNumber}`);
+                      }
+                      setError(null);
+                    }}
+                  >
+                    <SelectTrigger id="financial-booking" className="w-full">
+                      <SelectValue>
+                        {(value) =>
+                          bookings.find((booking) => String(booking.id) === String(value))
+                            ? `${bookings.find((booking) => String(booking.id) === String(value))?.orderNumber} · ${bookings.find((booking) => String(booking.id) === String(value))?.customerName}`
+                            : "Keine Buchung / allgemeine Transaktion"
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="none">Keine Buchung / allgemeine Transaktion</SelectItem>
+                        {bookings.map((booking) => (
+                          <SelectItem key={booking.id} value={String(booking.id)}>
+                            {booking.orderNumber} · {booking.customerName} · {bookingStatusLabel(booking.status)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene
+                    Forderung gebucht.
+                  </FieldDescription>
+                </Field>
+              ) : null}
               <Field>
                 <FieldLabel htmlFor="financial-category">Sachliche Zuordnung</FieldLabel>
                 <Select
                   value={categoryId}
                   onValueChange={(value) => {
                     setCategoryId(value || "");
+                    setBookingId("");
                     setDestinationAccountId("");
                     setError(null);
                   }}
@@ -491,15 +615,19 @@ export function FinancialTransactionDialog({
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectGroup>
-                      {categories
-                        .filter((category) => category.euerTreatment !== "needs_review")
-                        .map((category) => (
-                          <SelectItem key={category.id} value={String(category.id)}>
-                            {category.name} · {categoryDescription(category)}
-                          </SelectItem>
-                        ))}
-                    </SelectGroup>
+                    {categoryGroups(categories).map((group, index) => (
+                      <Fragment key={group.label}>
+                        {index > 0 ? <SelectSeparator /> : null}
+                        <SelectGroup>
+                          <SelectLabel>{group.label}</SelectLabel>
+                          {group.categories.map((category) => (
+                            <SelectItem key={category.id} value={String(category.id)}>
+                              {category.name} · {categoryDescription(category)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </Fragment>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FieldDescription>
@@ -535,7 +663,7 @@ export function FinancialTransactionDialog({
                   <FieldLabel htmlFor="financial-counterparty">Zahlungsempfänger / Zahler</FieldLabel>
                   <Input
                     id="financial-counterparty"
-                    required={!isBank}
+                    required={!isBank && !selectedBooking}
                     readOnly={isBank}
                     value={counterpartyName}
                     onChange={(event) => setCounterpartyName(event.target.value)}
@@ -545,7 +673,7 @@ export function FinancialTransactionDialog({
                   <FieldLabel htmlFor="financial-description">Beschreibung</FieldLabel>
                   <Input
                     id="financial-description"
-                    required
+                    required={!isBank || Boolean(selectedBooking)}
                     value={description}
                     readOnly={isBank}
                     onChange={(event) => setDescription(event.target.value)}

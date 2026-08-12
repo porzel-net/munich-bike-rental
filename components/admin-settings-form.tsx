@@ -8,8 +8,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export function AdminSettingsForm({ initialWhatsappPhone }: { initialWhatsappPhone: string }) {
+export function AdminSettingsForm({
+  initialWhatsappPhone,
+  initialPrivateAddress,
+}: {
+  initialWhatsappPhone: string;
+  initialPrivateAddress: string;
+}) {
   const [whatsappPhone, setWhatsappPhone] = useState(initialWhatsappPhone);
+  const [privateAddress, setPrivateAddress] = useState(initialPrivateAddress);
   const [saving, setSaving] = useState(false);
 
   async function saveSettings() {
@@ -18,11 +25,16 @@ export function AdminSettingsForm({ initialWhatsappPhone }: { initialWhatsappPho
       const response = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsappPhone }),
+        body: JSON.stringify({ whatsappPhone, privateAddress }),
       });
-      const result = (await response.json().catch(() => null)) as { message?: string; whatsappPhone?: string } | null;
+      const result = (await response.json().catch(() => null)) as {
+        message?: string;
+        whatsappPhone?: string;
+        privateAddress?: string;
+      } | null;
       if (!response.ok) throw new Error(result?.message ?? "Einstellungen konnten nicht gespeichert werden.");
       setWhatsappPhone(result?.whatsappPhone ?? whatsappPhone.trim());
+      setPrivateAddress(result?.privateAddress ?? privateAddress.trim());
       toast.success("Einstellungen gespeichert.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Einstellungen konnten nicht gespeichert werden.");
@@ -52,6 +64,21 @@ export function AdminSettingsForm({ initialWhatsappPhone }: { initialWhatsappPho
               disabled={saving}
             />
             <FieldDescription>Am besten im internationalen Format, zum Beispiel +49 170 1234567.</FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="private-address">Private Adresse</FieldLabel>
+            <Input
+              id="private-address"
+              type="text"
+              autoComplete="street-address"
+              placeholder="Straße, Hausnummer, PLZ Ort"
+              value={privateAddress}
+              onChange={(event) => setPrivateAddress(event.target.value)}
+              disabled={saving}
+            />
+            <FieldDescription>
+              Diese Adresse wird als Abholadresse in der Mail für Buchungen verwendet, die dir zugewiesen sind.
+            </FieldDescription>
           </Field>
         </FieldGroup>
       </CardContent>
