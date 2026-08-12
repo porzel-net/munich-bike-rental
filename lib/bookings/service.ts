@@ -176,6 +176,34 @@ function transition(
   event(db, booking.id, type, booking.status, target, actorUserId, reason, payload);
 }
 
+/** Imported historical records remain freely editable during the handover phase. */
+export function setLegacyBookingStatus(
+  db: AppDatabase,
+  input: { bookingId: number; status: BookingStatus; actorUserId?: string | null },
+) {
+  return runInImmediateTransaction(db, () => {
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking) throw new BookingCommandError("Booking not found");
+    if (booking.source !== "legacy")
+      throw new BookingCommandError("Der Status kann hier nur bei importierten Buchungen frei geändert werden");
+    if (booking.status === input.status) return booking;
+    db.update(bookings)
+      .set({ status: input.status, version: booking.version + 1, updatedAt: now() })
+      .where(eq(bookings.id, booking.id))
+      .run();
+    event(
+      db,
+      booking.id,
+      "legacy_booking_status_changed",
+      booking.status,
+      input.status,
+      input.actorUserId,
+      "Status der importierten Buchung manuell geändert",
+    );
+    return { ...booking, status: input.status, version: booking.version + 1 };
+  });
+}
+
 export function assignBooking(
   db: AppDatabase,
   input: { bookingId: number; assigneeUserId: string; actorUserId?: string | null },
@@ -237,7 +265,11 @@ export function assignBooking(
 }
 
 export function createOrderNumberWithoutChangingFormat(insert: (orderNumber: string) => void, start = now()) {
-  for (let second = 0; second < 120; second += 1) {
+  // Imported mail archives can contain many bookings created in a short
+  // period. Two minutes is too small for the timestamp-based legacy format.
+  // Keep the format stable, but search a full week before giving up.
+  const MAX_SECONDS_TO_PROBE = 7 * 24 * 60 * 60;
+  for (let second = 0; second < MAX_SECONDS_TO_PROBE; second += 1) {
     const orderNumber = createOrderNumber(new Date(start.getTime() + second * 1_000));
     try {
       insert(orderNumber);
@@ -247,7 +279,7 @@ export function createOrderNumberWithoutChangingFormat(insert: (orderNumber: str
       if (!message.includes("bookings_order_number_unique") && !message.includes("bookings.order_number")) throw error;
     }
   }
-  throw new BookingCommandError("No free order number was available in the next two minutes");
+  throw new BookingCommandError("No free order number was available in the next seven days");
 }
 
 export type BookingRequestedItemCommand = {
@@ -279,6 +311,9 @@ export type CreateBookingCommand = {
   source: "web" | "manual" | "legacy";
   quotedTotalCents: number;
   requestedItems: BookingRequestedItemCommand[];
+  legacySourceId?: string | null;
+  legacyDedupeKey?: string | null;
+  legacyReceivedAt?: Date | null;
   assignedUserId?: string | null;
   outbox?: { recipient: string; subject: string; plainText: string | ((orderNumber: string) => string); kind: string };
 };
@@ -292,18 +327,28 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
     !isValidTime(input.dropoffTime)
   )
     throw new BookingCommandError("Zeitraum und Uhrzeiten sind ungültig");
-  const createdAt = now();
+  const { legacyReceivedAt } = input;
+  const createdAt = input.source === "legacy" ? (legacyReceivedAt ?? now()) : now();
   let bookingId = 0;
-  const { requestedItems, outbox, ...bookingValues } = input;
+  const { requestedItems, outbox, legacyReceivedAt: _legacyReceivedAt, ...bookingValues } = input;
   const publicLinkToken = bookingValues.source === "web" ? randomBytes(32).toString("hex") : null;
-  const orderNumber = createOrderNumberWithoutChangingFormat((candidate) => {
-    const created = db
-      .insert(bookings)
-      .values({ ...bookingValues, orderNumber: candidate, status: "inquiry_received", createdAt, updatedAt: createdAt })
-      .returning({ id: bookings.id })
-      .get();
-    bookingId = created.id;
-  }, createdAt);
+  const orderNumber = createOrderNumberWithoutChangingFormat(
+    (candidate) => {
+      const created = db
+        .insert(bookings)
+        .values({
+          ...bookingValues,
+          orderNumber: candidate,
+          status: bookingValues.source === "legacy" ? "rejected" : "inquiry_received",
+          createdAt,
+          updatedAt: createdAt,
+        })
+        .returning({ id: bookings.id })
+        .get();
+      bookingId = created.id;
+    },
+    input.source === "legacy" ? (legacyReceivedAt ?? createdAt) : createdAt,
+  );
   db.insert(bookingRequestedItems)
     .values(
       requestedItems.map((item, position) => ({
@@ -410,6 +455,11 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
 
 export function createBooking(db: AppDatabase, input: CreateBookingCommand, actorUserId?: string | null) {
   return runInImmediateTransaction(db, () => createBookingRecord(db, input, actorUserId));
+}
+
+/** Creates a booking inside a caller-owned transaction (used by idempotent imports). */
+export function createBookingInTransaction(db: AppDatabase, input: CreateBookingCommand, actorUserId?: string | null) {
+  return createBookingRecord(db, input, actorUserId);
 }
 
 /** Manual direct bookings are allocated, journaled, and confirmed in one SQLite transaction. */

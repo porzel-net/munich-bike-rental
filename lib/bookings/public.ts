@@ -11,7 +11,7 @@ import {
   bookings,
   rentalAssets,
 } from "../db/schema";
-import { getRentalDays } from "../inventory/pricing";
+import { getDailyBikePriceCents, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
 import type { OfferAccessorySelection, OfferQuote } from "./quotes";
 
@@ -80,11 +80,9 @@ function buildPublicBookingView(
   const snapshot = offer ? (JSON.parse(offer.priceSnapshotJson) as Partial<OfferQuote>) : {};
   const offeredByRequestedId = new Map(offered.map(({ item, asset }) => [item.requestedItemId, { item, asset }]));
   const snapshotByRequestedId = new Map((snapshot.offeredItems ?? []).map((item) => [item.requestedItemId, item]));
-  const inventoryPriceByOption = new Map(
-    getLocationInventory(db, booking.location).bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]),
-  );
+  const locationInventory = getLocationInventory(db, booking.location);
   const priceForRequestedBike = (requestedBike: string) =>
-    inventoryPriceByOption.get(requestedBike) ?? inventoryPriceByOption.get(requestedBike.split(" - ")[0]) ?? 0;
+    getDailyBikePriceCents(locationInventory, requestedBike) ?? 0;
 
   return {
     offerId: offer?.id ?? null,

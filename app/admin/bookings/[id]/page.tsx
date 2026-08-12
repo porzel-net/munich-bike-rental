@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -22,11 +22,14 @@ import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/sessi
 import { hasAssetConflict } from "@/lib/bookings/availability";
 import { getAssignableBookingUsers } from "@/lib/bookings/assignees";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
+import { selectableFinancialAccountCodes } from "@/lib/financial/accounts";
 import { formatEuro } from "@/lib/bookings/money";
 import { bookingPresentation, paymentPresentation } from "@/lib/bookings/presentation";
 import { getDatabase } from "@/lib/db/client";
 import { getLatestEmailActionReview, isEmailActionEligible, reviewQuestions } from "@/lib/inquiries/email-action";
 import { getLocationInventory } from "@/lib/inventory/repository";
+import { getDailyBikePriceCents } from "@/lib/inventory/pricing";
+import { formatReceivedAt } from "@/lib/bookings/order-number";
 import {
   computerMountTypeLabels,
   pedalTypeLabels,
@@ -128,7 +131,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       type: financialAccounts.type,
     })
     .from(financialAccounts)
-    .where(eq(financialAccounts.status, "active"))
+    .where(
+      and(
+        eq(financialAccounts.status, "active"),
+        inArray(financialAccounts.code, selectableFinancialAccountCodes as unknown as string[]),
+      ),
+    )
     .orderBy(financialAccounts.name)
     .all();
   const latestEmailActionReview = getLatestEmailActionReview(db, booking.id);
@@ -179,9 +187,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       const availableQuantity = matchingAssets.filter((asset) => !unavailableAssetIdSet.has(asset.id)).length;
       return availableQuantity < quantity;
     });
-  const requestedDailyPrices = new Map(
-    getLocationInventory(db, booking.location).bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]),
-  );
+  const locationInventory = getLocationInventory(db, booking.location);
   const latestOffer = offers[0];
   const acceptedOffer = offers.find((offer) => offer.status === "accepted");
   const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
@@ -191,6 +197,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const bookingInfoColumns: Array<Array<{ label: string; value: React.ReactNode }>> = [
     [
       { label: "Buchungsnummer", value: <Kbd>{booking.orderNumber}</Kbd> },
+      { label: "Eingang", value: formatReceivedAt(booking.orderNumber) ?? booking.createdAt.toLocaleString("de-DE") },
       { label: "Kunde", value: booking.customerName },
       { label: "E-Mail", value: booking.customerEmail },
       { label: "Telefonnummer", value: booking.customerPhone },
@@ -422,7 +429,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {items.map((item) => {
                     const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
-                    const requestedDailyPriceCents = requestedDailyPrices.get(item.requestedLabel);
+                    const requestedDailyPriceCents = getDailyBikePriceCents(locationInventory, item.requestedLabel);
                     const accessories = [
                       item.needsPedals
                         ? item.pedalType
@@ -535,8 +542,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   customerName={booking.customerName}
                   senderName={session.user.name}
                   paymentAccounts={paymentAccounts}
+                  isLegacy={booking.source === "legacy"}
                   canExecuteActions={
-                    Boolean(assignee) && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
+                    isAdmin(session.user) || Boolean(assignee && booking.assignedUserId === session.user.id)
                   }
                   requestedItems={items.map((item) => ({
                     id: item.id,

@@ -6,7 +6,7 @@ import { AdminDashboardOverview } from "@/components/admin-dashboard-overview";
 import { SiteHeader } from "@/components/site-header";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { getServerSession, isAdmin } from "@/lib/auth/session";
+import { getServerSession, getVisibleLocationScope, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import {
   bookingRequestedItems,
@@ -16,12 +16,26 @@ import {
   rentalAssets,
 } from "@/lib/db/schema";
 import { getRentalDays } from "@/lib/inventory/pricing";
+import { receivedAtFromOrderNumber } from "@/lib/bookings/order-number";
+
+function bookingIncomingAt(booking: { source: string; orderNumber: string; createdAt: Date }) {
+  return booking.source === "legacy"
+    ? (receivedAtFromOrderNumber(booking.orderNumber) ?? booking.createdAt)
+    : booking.createdAt;
+}
 
 export default async function AdminPage() {
   const session = await getServerSession();
   if (!session) return null;
 
   const administrator = isAdmin(session.user);
+  const assignedLocation = getVisibleLocationScope(session.user);
+  // The page layout already rejects users without a valid location. Keep the
+  // scope explicit here as well: dashboard aggregates are sensitive data and
+  // must never silently fall back to the all-locations query for a location
+  // user.
+  const visibleLocation = administrator ? null : assignedLocation;
+  if (!administrator && !visibleLocation) return null;
   const db = getDatabase();
   const bankAccounts = administrator
     ? db
@@ -71,13 +85,23 @@ export default async function AdminPage() {
       id: bookings.id,
       quotedTotalCents: bookings.quotedTotalCents,
       createdAt: bookings.createdAt,
+      source: bookings.source,
+      orderNumber: bookings.orderNumber,
       location: bookings.location,
       periodFrom: bookings.periodFrom,
       periodTo: bookings.periodTo,
     })
     .from(bookings)
-    .where(inArray(bookings.status, ["confirmed", "checked_out", "completed"]))
-    .all();
+    .where(
+      visibleLocation
+        ? and(
+            eq(bookings.location, visibleLocation),
+            inArray(bookings.status, ["confirmed", "checked_out", "completed"]),
+          )
+        : inArray(bookings.status, ["confirmed", "checked_out", "completed"]),
+    )
+    .all()
+    .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   for (const booking of revenueBookings) {
     const bookingYear = Number(
       new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric" }).format(booking.createdAt),
@@ -100,12 +124,20 @@ export default async function AdminPage() {
       id: bookings.id,
       quotedTotalCents: bookings.quotedTotalCents,
       createdAt: bookings.createdAt,
+      source: bookings.source,
+      orderNumber: bookings.orderNumber,
       periodFrom: bookings.periodFrom,
       periodTo: bookings.periodTo,
     })
     .from(bookings)
-    .where(and(eq(bookings.location, "munich"), inArray(bookings.status, ["confirmed", "checked_out", "completed"])))
-    .all();
+    .where(
+      and(
+        eq(bookings.location, visibleLocation ?? "munich"),
+        inArray(bookings.status, ["confirmed", "checked_out", "completed"]),
+      ),
+    )
+    .all()
+    .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   const currentYearBookings = enduraceBookings.filter((booking) => {
     const bookingYear = Number(
       new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric" }).format(booking.createdAt),
@@ -150,7 +182,7 @@ export default async function AdminPage() {
   const munichBikeCount = db
     .select({ id: rentalAssets.id })
     .from(rentalAssets)
-    .where(and(eq(rentalAssets.location, "munich"), eq(rentalAssets.state, "active")))
+    .where(and(eq(rentalAssets.location, visibleLocation ?? "munich"), eq(rentalAssets.state, "active")))
     .all().length;
   const utilizationData = monthLabels.map((month, monthIndex) => {
     const monthStart = `${currentYear}-${String(monthIndex + 1).padStart(2, "0")}-01`;
@@ -199,13 +231,23 @@ export default async function AdminPage() {
       location: bookings.location,
       status: bookings.status,
       createdAt: bookings.createdAt,
+      source: bookings.source,
+      orderNumber: bookings.orderNumber,
       periodFrom: bookings.periodFrom,
       periodTo: bookings.periodTo,
       quotedTotalCents: bookings.quotedTotalCents,
     })
     .from(bookings)
-    .where(inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]))
-    .all();
+    .where(
+      visibleLocation
+        ? and(
+            eq(bookings.location, visibleLocation),
+            inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
+          )
+        : inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
+    )
+    .all()
+    .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   const demandBookingIds = demandBookings.map((booking) => booking.id);
   const demandItems = demandBookingIds.length
     ? db
@@ -259,7 +301,7 @@ export default async function AdminPage() {
   const openMunichStatuses = new Set(["inquiry_received", "offer_sent"]);
   const munichRequestCapacity = demandBookings.reduce(
     (result, booking) => {
-      if (booking.location !== "munich") return result;
+      if (booking.location !== (visibleLocation ?? "munich")) return result;
       result.total += 1;
       if (acceptedMunichStatuses.has(booking.status)) result.accepted += 1;
       if (openMunichStatuses.has(booking.status)) result.open += 1;
@@ -274,9 +316,13 @@ export default async function AdminPage() {
       periodFrom: bookings.periodFrom,
       periodTo: bookings.periodTo,
       quotedTotalCents: bookings.quotedTotalCents,
+      source: bookings.source,
+      orderNumber: bookings.orderNumber,
     })
     .from(bookings)
-    .all();
+    .where(visibleLocation ? eq(bookings.location, visibleLocation) : undefined)
+    .all()
+    .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   const acceptedBookingMetrics = allBookingMetrics.filter((booking) =>
     ["confirmed", "checked_out", "completed"].includes(booking.status),
   );

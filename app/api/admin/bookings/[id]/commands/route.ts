@@ -9,8 +9,8 @@ import {
   cancelBooking,
   correctJournalEntry,
   createOffer,
-  recordPayment,
   recordRefund,
+  setLegacyBookingStatus,
 } from "@/lib/bookings/service";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
@@ -53,17 +53,6 @@ const commandSchema = z.discriminatedUnion("command", [
     dueAt: z.string().datetime().optional(),
   }),
   z.object({
-    command: z.literal("payment"),
-    amountCents: z
-      .number()
-      .int()
-      .refine((value) => value !== 0, "Betrag darf nicht 0 sein"),
-    bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Buchungsdatum"),
-    financialAccountId: z.number().int().positive(),
-    reason,
-    idempotencyKey: z.string().uuid(),
-  }),
-  z.object({
     command: z.literal("refund"),
     amountCents: z.number().int().positive(),
     bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Erstattungsdatum"),
@@ -76,6 +65,19 @@ const commandSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("expire"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("check_out"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("complete"), reason: z.string().trim().max(500).optional() }),
+  z.object({
+    command: z.literal("set_legacy_status"),
+    status: z.enum([
+      "inquiry_received",
+      "offer_sent",
+      "confirmed",
+      "checked_out",
+      "completed",
+      "rejected",
+      "cancelled",
+      "expired",
+    ]),
+  }),
 ]);
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -143,17 +145,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         if (mailId) await dispatchNextOutboxMail(command.db, mailId);
         break;
       }
-      case "payment":
-        recordPayment(command.db, {
-          bookingId: id,
-          amountCents: input.data.amountCents,
-          bookedAt: input.data.bookedAt,
-          financialAccountId: input.data.financialAccountId,
-          reason: input.data.reason,
-          idempotencyKey: input.data.idempotencyKey,
-          actorUserId: command.user.id,
-        });
-        break;
       case "refund":
         recordRefund(command.db, {
           bookingId: id,
@@ -197,6 +188,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "complete":
         advanceBooking(command.db, id, "completed", command.user.id, input.data.reason);
+        break;
+      case "set_legacy_status":
+        setLegacyBookingStatus(command.db, { bookingId: id, status: input.data.status, actorUserId: command.user.id });
         break;
     }
     return NextResponse.json({ ok: true });

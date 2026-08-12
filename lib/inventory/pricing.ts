@@ -17,6 +17,14 @@ export type InquiryPrice = {
   appliedDiscountKeys: string[];
 };
 
+/** Inventory prices are stored by model; historical requests often include a frame size suffix. */
+export function getDailyBikePriceCents(inventory: Pick<LocationInventory, "bikePrices">, requestedBike: string) {
+  const exactPrice = inventory.bikePrices.find((bike) => bike.option === requestedBike)?.dailyPriceCents;
+  if (exactPrice !== undefined) return exactPrice;
+  const model = requestedBike.split(" - ")[0];
+  return inventory.bikePrices.find((bike) => bike.option === model)?.dailyPriceCents;
+}
+
 function applicableDiscounts(inventory: LocationInventory, input: RentalPriceInput, date: Date) {
   const weekday = date.getUTCDay() || 7;
   const applicable = inventory.discounts.filter((discount) => {
@@ -94,15 +102,8 @@ export function getRentalDays(periodFrom: string, periodTo: string) {
 
 export function calculateInquiryPrice(inventory: LocationInventory, payload: ContactInquiry): InquiryPrice {
   const rentalDays = getRentalDays(payload.periodFrom, payload.periodTo);
-  const bikePrices = new Map(inventory.bikePrices.map((bike) => [bike.option, bike.dailyPriceCents]));
   const equipmentPrices = new Map(inventory.equipmentPrices.map((item) => [item.key, item.priceCents]));
-  const priceForRequestedBike = (requestedBike: string) => {
-    const exactPrice = bikePrices.get(requestedBike);
-    if (exactPrice !== undefined) return exactPrice;
-
-    // Keep historical inquiries such as "Endurace CF SL 8 - M" priceable.
-    return bikePrices.get(requestedBike.split(" - ")[0]) ?? 0;
-  };
+  const priceForRequestedBike = (requestedBike: string) => getDailyBikePriceCents(inventory, requestedBike) ?? 0;
   const dailyBikePriceCents = payload.bikes.reduce((total, bike) => total + priceForRequestedBike(bike.bikeSize), 0);
   const equipmentSubtotalCents = payload.bikes.reduce((total, bike) => {
     const pedals = bike.needsPedals ? (equipmentPrices.get(`pedal-${bike.pedalType}`) ?? 0) : 0;

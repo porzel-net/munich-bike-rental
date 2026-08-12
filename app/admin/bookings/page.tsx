@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAiBatchAnalysisButton } from "@/components/booking-ai-batch-analysis-button";
+import { LegacyBookingImportButton } from "@/components/legacy-booking-import-button";
 import { BookingPreflightDialog } from "@/components/booking-preflight-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -133,9 +134,9 @@ export default async function BookingsPage({
         .select()
         .from(bookings)
         .where(and(...bookingConditions))
-        .orderBy(desc(bookings.createdAt))
+        .orderBy(desc(bookings.orderNumber))
         .all()
-    : db.select().from(bookings).orderBy(desc(bookings.createdAt)).all();
+    : db.select().from(bookings).orderBy(desc(bookings.orderNumber)).all();
   const items = queriedRows.length
     ? db
         .select()
@@ -249,6 +250,7 @@ export default async function BookingsPage({
                 </div>
                 <div className="flex gap-2">
                   {administrator && <BookingAiBatchAnalysisButton />}
+                  {administrator && <LegacyBookingImportButton />}
                   {administrator && preflight && <BookingPreflightDialog result={preflight} />}
                   <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
                     Manuelle Buchung

@@ -4,6 +4,7 @@ import type { AppDatabase } from "./db/client";
 import { bookingRequestedItems, bookings } from "./db/schema";
 import { getRentalDays } from "./inventory/pricing";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "./inquiries/catalog";
+import { receivedAtFromOrderNumber } from "./bookings/order-number";
 
 const weekdayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -49,6 +50,8 @@ type InquiryRow = {
     | "cancelled"
     | "expired";
   submittedAt: Date;
+  source: string;
+  orderNumber: string;
 };
 
 type BikeRow = {
@@ -191,9 +194,16 @@ export function getFinancialAnalyticsData(db: AppDatabase): FinancialAnalyticsDa
       totalPriceCents: bookings.quotedTotalCents,
       status: bookings.status,
       submittedAt: bookings.createdAt,
+      source: bookings.source,
+      orderNumber: bookings.orderNumber,
     })
     .from(bookings)
-    .all() as InquiryRow[];
+    .all()
+    .map((row) => ({
+      ...row,
+      submittedAt:
+        row.source === "legacy" ? (receivedAtFromOrderNumber(row.orderNumber) ?? row.submittedAt) : row.submittedAt,
+    })) as InquiryRow[];
 
   const bikeRows = inquiryRows.length
     ? (db

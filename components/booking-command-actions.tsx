@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronRightIcon, CircleDollarSignIcon, RefreshCwIcon, SendIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, RefreshCwIcon, SendIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -54,11 +54,22 @@ type RequestedItem = {
 type Asset = { id: number; label: string; priceCents: number };
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
-type Action = "offer" | "cancel" | "payment" | "refund" | "correct" | "reject";
+type Action = "offer" | "cancel" | "refund" | "correct" | "reject" | "status";
 type ConfirmAction = "check_out" | "complete" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
 type CancellationPeriod = "more_than_7_days" | "between_7_days_and_24_hours" | "less_than_24_hours";
+
+const bookingStatusLabels: Record<BookingStatus, string> = {
+  inquiry_received: "Anfrage eingegangen",
+  offer_sent: "Angebot versendet",
+  confirmed: "Verbindlich gebucht",
+  checked_out: "Fahrrad ausgegeben",
+  completed: "Abgeschlossen",
+  rejected: "Abgelehnt",
+  cancelled: "Storniert",
+  expired: "Angebot abgelaufen",
+};
 
 const cancellationPeriods: Array<{
   value: CancellationPeriod;
@@ -127,6 +138,7 @@ export function BookingCommandActions({
   unavailableAssetIds,
   journalEntries,
   paymentAccounts,
+  isLegacy,
 }: {
   bookingId: number;
   bookingTotalCents: number;
@@ -139,6 +151,7 @@ export function BookingCommandActions({
   unavailableAssetIds: number[];
   journalEntries: Entry[];
   paymentAccounts: PaymentAccount[];
+  isLegacy: boolean;
 }) {
   const router = useRouter();
   const [activeAction, setActiveAction] = useState<Action | null>(null);
@@ -159,6 +172,7 @@ export function BookingCommandActions({
   const [customRejectionReason, setCustomRejectionReason] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
   const [customOfferPrice, setCustomOfferPrice] = useState("");
+  const [legacyStatus, setLegacyStatus] = useState<BookingStatus>(status);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewRequestId = useRef(0);
@@ -229,11 +243,7 @@ Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.
 Liebe Grüße
 ${senderName.trim().split(/\s+/)[0] || senderName}`;
   const requiresReason =
-    activeAction === "cancel" ||
-    activeAction === "payment" ||
-    activeAction === "refund" ||
-    activeAction === "correct" ||
-    activeAction === "reject";
+    activeAction === "cancel" || activeAction === "refund" || activeAction === "correct" || activeAction === "reject";
   const close = () => {
     setActiveAction(null);
     setReason("");
@@ -291,8 +301,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
 
   const request = async (body: object) => {
     const command = (body as { command?: string }).command;
-    const idempotencyKey =
-      command === "payment" || command === "refund" ? (commandIdRef.current ??= crypto.randomUUID()) : undefined;
+    const idempotencyKey = command === "refund" ? (commandIdRef.current ??= crypto.randomUUID()) : undefined;
     const response = await fetch(`/api/admin/bookings/${bookingId}/commands`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -349,14 +358,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           dueAt: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
         });
         toast.success("Buchung wurde storniert.");
-      } else if (activeAction === "payment" || activeAction === "refund") {
+      } else if (activeAction === "refund") {
         const amountCents = euroToCents(amount);
-        if (amountCents === null || (activeAction === "payment" ? amountCents === 0 : amountCents <= 0))
-          throw new Error(
-            activeAction === "payment"
-              ? "Bitte gib einen von 0 € verschiedenen Euro-Betrag ein."
-              : "Bitte gib einen positiven Euro-Betrag ein.",
-          );
+        if (amountCents === null || amountCents <= 0) throw new Error("Bitte gib einen positiven Euro-Betrag ein.");
         if (!financialAccountId) throw new Error("Bitte wähle das Zahlungskonto bzw. die IBAN aus.");
         await request({
           command: activeAction,
@@ -365,7 +369,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           financialAccountId: Number(financialAccountId),
           reason,
         });
-        toast.success(activeAction === "payment" ? "Zahlung wurde erfasst." : "Erstattung wurde erfasst.");
+        toast.success("Erstattung wurde erfasst.");
       } else if (activeAction === "correct") {
         if (!entryId) throw new Error("Bitte wähle eine Journalbuchung aus.");
         await request({ command: "correct_journal", entryId: Number(entryId), reason });
@@ -378,6 +382,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           personalMessage: personalMessage.trim() || undefined,
         });
         toast.success("Anfrage wurde abgelehnt.");
+      } else if (activeAction === "status") {
+        await request({ command: "set_legacy_status", status: legacyStatus });
+        toast.success("Status der importierten Buchung wurde geändert.");
       }
       close();
       router.refresh();
@@ -487,28 +494,29 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
 
   const showOfferFields = activeAction === "offer";
   const missingRequiredReason = activeAction === "reject" ? !rejectionReason : requiresReason && !reason.trim();
-  const dialogDescription = showOfferFields
-    ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
-    : activeAction === "reject"
-      ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
-      : activeAction === "cancel"
-        ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
-        : activeAction === "payment"
-          ? "Gib den Betrag und den Buchungstext ein."
-          : activeAction === "refund"
-            ? "Gib den Betrag und den Buchungstext ein."
-            : activeAction === "correct"
-              ? "Die Korrektur wird im Finanzjournal dokumentiert."
-              : "Die Aktion wird dokumentiert.";
+  const dialogDescription =
+    activeAction === "status"
+      ? "Importierte Buchungen dürfen während der Übergangsphase jederzeit manuell umgestellt werden."
+      : showOfferFields
+        ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
+        : activeAction === "reject"
+          ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
+          : activeAction === "cancel"
+            ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
+            : activeAction === "refund"
+              ? "Gib den Betrag und den Buchungstext ein."
+              : activeAction === "correct"
+                ? "Die Korrektur wird im Finanzjournal dokumentiert."
+                : "Die Aktion wird dokumentiert.";
   const title =
-    activeAction === "offer"
-      ? status === "offer_sent"
-        ? "Angebot überarbeiten"
-        : "Angebot erstellen"
-      : activeAction === "cancel"
-        ? "Buchung stornieren"
-        : activeAction === "payment"
-          ? "Manuelle Zahlung erfassen"
+    activeAction === "status"
+      ? "Buchungsstatus ändern"
+      : activeAction === "offer"
+        ? status === "offer_sent"
+          ? "Angebot überarbeiten"
+          : "Angebot erstellen"
+        : activeAction === "cancel"
+          ? "Buchung stornieren"
           : activeAction === "refund"
             ? "Erstattung erfassen"
             : activeAction === "correct"
@@ -525,6 +533,18 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         </div>
       ) : null}
       <ItemGroup className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {isLegacy && (
+          <ActionItem
+            icon={<SlidersHorizontalIcon />}
+            title="Status ändern"
+            description="Importierte Buchung frei umstellen"
+            disabled={actionsLocked}
+            onClick={() => {
+              setLegacyStatus(status);
+              setActiveAction("status");
+            }}
+          />
+        )}
         {(status === "inquiry_received" || status === "offer_sent" || status === "expired") && (
           <ActionItem
             icon={<SendIcon />}
@@ -572,13 +592,6 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           />
         )}
         <ActionItem
-          icon={<CircleDollarSignIcon />}
-          title="Manuelle Zahlung erfassen"
-          description="Zahlungseingang im Journal verbuchen"
-          disabled={actionsLocked}
-          onClick={() => setActiveAction("payment")}
-        />
-        <ActionItem
           icon={<RefreshCwIcon />}
           title="Erstattung erfassen"
           description="Erstattungsbetrag im Journal dokumentieren"
@@ -594,6 +607,26 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
           <FieldGroup>
+            {activeAction === "status" && (
+              <Field>
+                <FieldLabel htmlFor="legacy-booking-status">Neuer Buchungsstatus</FieldLabel>
+                <Select
+                  value={legacyStatus}
+                  onValueChange={(value) => value && setLegacyStatus(value as BookingStatus)}
+                >
+                  <SelectTrigger id="legacy-booking-status" className="w-full max-w-sm">
+                    <SelectValue>{bookingStatusLabels[legacyStatus]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {bookingStatusLabels[value]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
             {showOfferFields && (
               <>
                 <div className="space-y-4">
@@ -916,7 +949,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 </Field>
               </>
             )}
-            {(activeAction === "payment" || activeAction === "refund") && (
+            {activeAction === "refund" && (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
@@ -928,11 +961,6 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
                     />
-                    {activeAction === "payment" && (
-                      <FieldDescription>
-                        Ein negativer Betrag wird als Erstattung/Stornierung dieser Rechnung erfasst.
-                      </FieldDescription>
-                    )}
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="booked-at">Erfasst am</FieldLabel>
