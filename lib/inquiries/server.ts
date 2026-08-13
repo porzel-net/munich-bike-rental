@@ -461,8 +461,7 @@ export async function sendConfiguredMail({
   // and IMAP Sent copy tied to the same generated MIME message and Message-ID.
   return {
     messageId: sentMessageId,
-    sentMailbox:
-      account === "main" ? await appendToMainSentMailbox(rawMessage, sentAt) : undefined,
+    sentMailbox: account === "main" ? await appendToMainSentMailbox(rawMessage, sentAt) : undefined,
   };
 }
 

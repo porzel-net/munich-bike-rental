@@ -165,7 +165,9 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
           sentMailboxPath: sent.sentMailbox?.mailbox ?? null,
           sentMailboxAt: sent.sentMailbox?.copied ? sentAt : null,
           sentMailboxError:
-            sent.sentMailbox?.configured && !sent.sentMailbox.copied ? (sent.sentMailbox.reason ?? "copy_failed") : null,
+            sent.sentMailbox?.configured && !sent.sentMailbox.copied
+              ? (sent.sentMailbox.reason ?? "copy_failed")
+              : null,
           lastError: null,
         })
         .where(and(eq(mailOutbox.id, job.id), eq(mailOutbox.status, "leased")))
