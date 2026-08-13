@@ -158,7 +158,16 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
     runInImmediateTransaction(db, () => {
       const sentAt = new Date();
       db.update(mailOutbox)
-        .set({ status: "sent", sentAt, providerMessageId: sent.messageId, lastError: null })
+        .set({
+          status: "sent",
+          sentAt,
+          providerMessageId: sent.messageId,
+          sentMailboxPath: sent.sentMailbox?.mailbox ?? null,
+          sentMailboxAt: sent.sentMailbox?.copied ? sentAt : null,
+          sentMailboxError:
+            sent.sentMailbox?.configured && !sent.sentMailbox.copied ? (sent.sentMailbox.reason ?? "copy_failed") : null,
+          lastError: null,
+        })
         .where(and(eq(mailOutbox.id, job.id), eq(mailOutbox.status, "leased")))
         .run();
       if (job.offerId) db.update(bookingOffers).set({ sentAt }).where(eq(bookingOffers.id, job.offerId)).run();

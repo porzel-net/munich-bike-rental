@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
+import MailComposer from "nodemailer/lib/mail-composer";
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 
@@ -296,7 +299,11 @@ export function createOrderNumber(date = new Date()) {
   return `#${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
 }
 
-export type SentMail = { messageId: string | null };
+export type SentMail = { messageId: string | null; sentMailbox?: SentMailboxCopy };
+
+export type SentMailboxCopy =
+  | { configured: false; copied: false; mailbox: null; reason: "not_configured" }
+  | { configured: true; copied: boolean; mailbox: string | null; reason?: "no_sent_mailbox" | "append_failed" };
 
 export type MailAttachment = {
   filename: string;
@@ -325,6 +332,50 @@ function fallbackMailHtml(subject: string, text: string) {
 function inlineLogoReference(html: string, reference: string) {
   const publicLogoUrl = `${siteConfig.url.replace(/\/$/, "")}/favicon.png`;
   return html.replaceAll(`cid:${EMAIL_LOGO_CID}`, reference).replaceAll(publicLogoUrl, reference);
+}
+
+function sentMailboxName(mailbox: { path: string; name: string; specialUse?: string }) {
+  if (mailbox.specialUse?.toLocaleLowerCase() === "\\sent") return 0;
+  return /(?:sent|gesendet|gesendete|ausgang|outbox)/iu.test(`${mailbox.path} ${mailbox.name}`) ? 1 : null;
+}
+
+async function appendToMainSentMailbox(rawMessage: Buffer, sentAt: Date): Promise<SentMailboxCopy> {
+  const host = process.env.IMAP_MAIN_HOST?.trim();
+  const user = process.env.IMAP_MAIN_USER?.trim();
+  const password = (await readSecret(process.env, "IMAP_MAIN_PASSWORD"))?.trim();
+  const port = Number(process.env.IMAP_MAIN_PORT ?? "993");
+  if (!host || !user || !password || !Number.isInteger(port) || port < 1 || port > 65_535) {
+    return { configured: false, copied: false, mailbox: null, reason: "not_configured" };
+  }
+
+  const client = new ImapFlow({
+    host,
+    port,
+    secure: process.env.IMAP_MAIN_SECURE !== "false",
+    auth: { user, pass: password },
+    disableAutoIdle: true,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+
+  try {
+    await client.connect();
+    const mailboxes = await client.list();
+    const target = [...mailboxes]
+      .filter((mailbox) => sentMailboxName(mailbox) !== null)
+      .sort((left, right) => (sentMailboxName(left) ?? 99) - (sentMailboxName(right) ?? 99))[0];
+    if (!target) return { configured: true, copied: false, mailbox: null, reason: "no_sent_mailbox" };
+
+    const result = await client.append(target.path, rawMessage, ["\\Seen"], sentAt);
+    return result
+      ? { configured: true, copied: true, mailbox: target.path }
+      : { configured: true, copied: false, mailbox: target.path, reason: "append_failed" };
+  } catch {
+    return { configured: true, copied: false, mailbox: null, reason: "append_failed" };
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
 }
 
 export async function sendConfiguredMail({
@@ -368,20 +419,9 @@ export async function sendConfiguredMail({
       ]
     : attachments;
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    requireTLS: config.requireTLS,
-    connectionTimeout: config.timeout,
-    greetingTimeout: config.timeout,
-    socketTimeout: config.timeout,
-    disableFileAccess: true,
-    disableUrlAccess: true,
-    auth: { user: config.user, pass: config.password },
-  });
-
-  const result = await transporter.sendMail({
+  const sentAt = new Date();
+  const messageId = `<${randomUUID()}@${config.fromAddress.split("@").at(-1) ?? "munich-bike-rental.de"}>`;
+  const mailOptions = {
     from: `Your Bike Rental <${config.fromAddress}>`,
     // Keep the SMTP envelope sender on the same domain as the visible From:
     // header so SPF can align with DMARC for direct customer mail.
@@ -396,9 +436,34 @@ export async function sendConfiguredMail({
     // predate the shared templates. The plain-text part is always sent too.
     html: mailHtml,
     attachments: mailAttachments,
+    date: sentAt,
+    messageId,
+  } satisfies Parameters<ReturnType<typeof nodemailer.createTransport>["sendMail"]>[0];
+  const rawMessage = await new MailComposer(mailOptions).compile().build();
+
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTLS: config.requireTLS,
+    connectionTimeout: config.timeout,
+    greetingTimeout: config.timeout,
+    socketTimeout: config.timeout,
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    auth: { user: config.user, pass: config.password },
   });
 
-  return { messageId: typeof result.messageId === "string" ? result.messageId : null };
+  const result = await transporter.sendMail(mailOptions);
+
+  const sentMessageId = typeof result.messageId === "string" ? result.messageId : messageId;
+  // Every admin/customer message uses the main account. Keep its SMTP delivery
+  // and IMAP Sent copy tied to the same generated MIME message and Message-ID.
+  return {
+    messageId: sentMessageId,
+    sentMailbox:
+      account === "main" ? await appendToMainSentMailbox(rawMessage, sentAt) : undefined,
+  };
 }
 
 export async function sendInquiryMail({ subject, text, replyTo }: { subject: string; text: string; replyTo: string }) {
