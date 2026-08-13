@@ -284,6 +284,7 @@ export async function runStartupChecks(
   environment: Partial<NodeJS.ProcessEnv> = process.env,
 ): Promise<StartupCheckReport> {
   const checks: StartupCheckResult[] = [];
+  const production = isProduction(environment);
   await runCheck(checks, "configuration", true, () => checkConfiguration(environment));
 
   let db: AppDatabase | null = null;
