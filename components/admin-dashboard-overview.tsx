@@ -5,6 +5,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, Pie, PieChart, XA
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PasskeyPrompt } from "@/components/passkey-prompt";
 import {
   Card,
   CardAction,
@@ -735,6 +736,7 @@ function PotentialRevenue({ data, currency }: { data: Array<{ month: string; amo
 }
 
 export function AdminDashboardOverview({
+  userId,
   bankBalanceCents,
   bankCurrency,
   activityData,
@@ -749,6 +751,7 @@ export function AdminDashboardOverview({
   bookingFunnelSummary,
   potentialRevenueData,
 }: {
+  userId: string;
   bankBalanceCents: number;
   bankCurrency: string;
   activityData: Array<{ month: string; amount: number }>;
@@ -783,6 +786,7 @@ export function AdminDashboardOverview({
     >
       <div className="relative z-10 mx-auto grid min-w-0 max-w-full grid-cols-1 gap-(--gap) md:grid-cols-2 lg:grid-cols-3 xl:max-w-[1600px] 2xl:max-w-[1900px]">
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
+          <PasskeyPrompt userId={userId} />
           <CardOverview
             balanceCents={bankBalanceCents}
             currency={bankCurrency}

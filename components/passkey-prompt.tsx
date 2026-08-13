@@ -5,8 +5,9 @@ import { KeyRound } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
 type PasskeyPromptProps = {
   userId: string;
@@ -76,33 +77,37 @@ export function PasskeyPrompt({ userId }: PasskeyPromptProps) {
   }
 
   return (
-    <Card className="mx-4 lg:mx-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <KeyRound className="size-5" />
-          Mit verifiziertem Passkey schneller anmelden
-        </CardTitle>
-        <CardDescription>
-          Füge einen Passkey hinzu. Für die Anmeldung muss dein Gerät zusätzlich Face ID, Touch ID oder deine Geräte-PIN
-          bestätigen.
-        </CardDescription>
-      </CardHeader>
-      {error ? (
-        <CardContent>
-          <p className="rounded-2xl bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        </CardContent>
-      ) : null}
-      <CardFooter className="gap-2">
-        <Button type="button" onClick={addPasskey} disabled={isAdding}>
-          <KeyRound />
-          {isAdding ? "Wird hinzugefügt …" : "Passkey hinzufügen"}
-        </Button>
-        <Button type="button" variant="ghost" onClick={dismiss} disabled={isAdding}>
-          Später
-        </Button>
-      </CardFooter>
+    <Card>
+      <CardContent className="p-0">
+        <Empty className="items-start gap-4 p-6 text-left">
+          <EmptyMedia variant="icon" className="bg-primary/10 text-primary">
+            <KeyRound aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyHeader className="items-start text-left">
+            <EmptyTitle>Passkey einrichten</EmptyTitle>
+            <EmptyDescription>
+              Sichere deinen Zugang und melde dich schneller an. Bestätige die Einrichtung mit Face ID, Touch ID oder
+              deiner Geräte-PIN.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="max-w-none items-start">
+            {error ? (
+              <p className="w-full rounded-2xl bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={addPasskey} disabled={isAdding}>
+                <KeyRound aria-hidden="true" />
+                {isAdding ? "Wird hinzugefügt …" : "Passkey hinzufügen"}
+              </Button>
+              <Button type="button" variant="ghost" onClick={dismiss} disabled={isAdding}>
+                Später
+              </Button>
+            </div>
+          </EmptyContent>
+        </Empty>
+      </CardContent>
     </Card>
   );
 }
