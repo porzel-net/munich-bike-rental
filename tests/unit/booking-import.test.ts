@@ -92,6 +92,20 @@ describe("historical booking e-mail import", () => {
     expect(inferred.missingFields).toContain("requestedItems[0].heightCm");
   });
 
+  it("normalizes historical Canyon and groupset names to catalog models", () => {
+    const record = parseBookingRequest(
+      mail(
+        "Name: Historical Customer\nE-Mail: historical@example.com\nBike 1\nCanyon Endurace CF-SL-8 Di2 - M\nBike 2\nUltimate CF SL 7 eTap AXS, Größe L\nBike 3\nAeroad CF SL 8 Disc mit Schaltung S",
+        { subject: "Neue Bike-Anfrage (3 Bikes)" },
+      ),
+    );
+    expect(record.requestedItems.map((item) => item.requestedLabel)).toEqual([
+      "Endurace CF SL 8 - M",
+      "Ultimate CF SL 7 - L",
+      "Aeroad CF SL 8 - S",
+    ]);
+  });
+
   it("takes only the first nested request block", () => {
     const record = parseBookingRequest(
       mail(

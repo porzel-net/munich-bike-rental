@@ -60,7 +60,7 @@ const MONTHS: Record<string, number> = {
 
 const BIKE_MODELS = ["Endurace CF SL 8", "Grail CF SL 7", "Ultimate CF SL 7", "Aeroad CF SL 8"] as const;
 const BIKE_RE =
-  /\b(?<model>Endurace\s+CF\s+SL\s+8(?:\s+Di2)?|Grail\s+CF\s+SL\s+7|Ultimate\s+CF\s+SL\s+7|Aeroad\s+CF\s+SL\s+8(?:\s+Disc)?)(?:\s*[-/]?\s*(?<size>XS|S|M|L|XL|XXL))?\b/giu;
+  /\b(?<model>(?:Canyon\s+)?(?:Endurace(?:\s*[-\/.]?\s*CF)?(?:\s*[-\/.]?\s*SL)?\s*[-\/.]?\s*8|Grail(?:\s*[-\/.]?\s*CF)?(?:\s*[-\/.]?\s*SL)?\s*[-\/.]?\s*7|Ultimate(?:\s*[-\/.]?\s*CF)?(?:\s*[-\/.]?\s*SL)?\s*[-\/.]?\s*7|Aeroad(?:\s*[-\/.]?\s*CF)?(?:\s*[-\/.]?\s*SL)?\s*[-\/.]?\s*8))\b/giu;
 const DATE_RE =
   /\b(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}\.?\s+[A-Za-zÄÖÜäöü]+\s+\d{4}|[A-Za-zÄÖÜäöü]+\s+\d{1,2},?\s+\d{4})\b/gu;
 const TIME_RE = /\b\d{1,2}(?:(?::|\.)\d{2}|\s*(?:am|pm|uhr|h))\b/giu;
@@ -411,8 +411,20 @@ function parseDatesAndTimes(text: string, locale: BookingImportLocale) {
 }
 
 function canonicalBikeLabel(model: string, size: string | undefined) {
-  const canonical =
-    BIKE_MODELS.find((candidate) => candidate.toLocaleLowerCase() === model.toLocaleLowerCase()) ?? norm(model);
+  const compact = norm(model)
+    .replace(/^Canyon\s+/iu, "")
+    .replace(/[._/-]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .toLocaleLowerCase();
+  const canonical = compact.startsWith("endurace")
+    ? "Endurace CF SL 8"
+    : compact.startsWith("grail")
+      ? "Grail CF SL 7"
+      : compact.startsWith("ultimate")
+        ? "Ultimate CF SL 7"
+        : compact.startsWith("aeroad")
+          ? "Aeroad CF SL 8"
+          : BIKE_MODELS.find((candidate) => candidate.toLocaleLowerCase() === compact) ?? norm(model);
   return size ? `${canonical} - ${size.toUpperCase()}` : canonical;
 }
 
@@ -428,13 +440,16 @@ function bikeMentions(text: string): BikeMention[] {
   BIKE_RE.lastIndex = 0;
   const mentions: BikeMention[] = [];
   for (const match of text.matchAll(BIKE_RE)) {
-    let size = match.groups?.size;
-    if (!size) {
-      const nearby = text.slice(Math.max(0, (match.index ?? 0) - 100), (match.index ?? 0) + match[0].length + 140);
-      size = nearby.match(
-        /\b(?:frame\s+size|bike\s+size|size|rahmengröße|rahmengroesse|fahrradgröße|fahrradgroesse|größe|groesse)\s*(?:[:=\-]\s*|\s+)(XS|S|M|L|XL|XXL)\b/iu,
-      )?.[1];
-    }
+    const nearby = text.slice(Math.max(0, (match.index ?? 0) - 100), (match.index ?? 0) + match[0].length + 180);
+    const afterModel = text.slice((match.index ?? 0) + match[0].length);
+    const size =
+      afterModel.match(
+        /^\s*(?:(?:[-/,()]?\s*)(?:di2|disc|eTap\s+AXS|mit\s+Schaltung|ohne\s+Schaltung)\b\s*)*[-/,()]?\s*(3XS|2XS|XS|XXL|2XL|XL|S|M|L)\b/iu,
+      )?.[1] ??
+      nearby.match(
+        /\b(?:frame\s+size|bike\s+size|size|rahmengröße|rahmengroesse|fahrradgröße|fahrradgroesse|größe|groesse)\s*(?:[:=\-]\s*|\s+)(3XS|2XS|XS|XXL|2XL|XL|S|M|L)\b/iu,
+      )?.[1] ??
+      undefined;
     const label = canonicalBikeLabel(match.groups?.model ?? match[0], size);
     if (mentions.length && mentions.at(-1)?.label === label && (match.index ?? 0) - mentions.at(-1)!.position < 120)
       continue;
