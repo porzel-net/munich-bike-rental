@@ -19,13 +19,13 @@ import {
   BikeIcon,
   BoxesIcon,
   CalendarDaysIcon,
-  ContactRoundIcon,
   EuroIcon,
   LayoutDashboardIcon,
   ListIcon,
   MessageCircleIcon,
   ScrollTextIcon,
   Settings2Icon,
+  UserIcon,
   UsersIcon,
 } from "lucide-react";
 import { getDatabase } from "@/lib/db/client";
@@ -68,7 +68,7 @@ const data = {
     {
       title: "Kontakte",
       url: "/admin/contacts",
-      icon: <ContactRoundIcon />,
+      icon: <UserIcon />,
     },
     {
       title: "Team",

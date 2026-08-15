@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import { getVisibleContacts, contactToVCard } from "../../lib/contacts/service";
-import { authUser, bookings } from "../../lib/db/schema";
+import { authUser, bookings, carddavSyncJobs } from "../../lib/db/schema";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -52,6 +53,21 @@ function addUser(db: ReturnType<typeof createDatabaseConnection>["db"], values: 
 }
 
 describe("visible contacts", () => {
+  it("queues one coalesced sync event for booking changes", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+
+    const first = addBooking(db, { orderNumber: "#100" });
+    addBooking(db, { orderNumber: "#101" });
+    db.update(bookings).set({ customerName: "Updated Customer" }).where(eq(bookings.id, first!.id)).run();
+    db.delete(bookings).where(eq(bookings.id, first!.id)).run();
+
+    const jobs = db.select().from(carddavSyncJobs).all();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({ jobKey: "contacts", attempts: 0, revision: 4, lastError: null });
+  });
+
   it("deduplicates bookings by email and keeps every visible booking reference", () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);

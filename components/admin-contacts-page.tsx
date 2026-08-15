@@ -14,7 +14,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -65,45 +65,15 @@ type Credentials = {
   password: string;
 };
 
-const locationLabels: Record<string, string> = {
-  munich: "München",
-  regensburg: "Regensburg",
-  lindau: "Lindau",
-  friedrichshafen: "Friedrichshafen",
-  konstanz: "Konstanz",
-};
-
-const statusLabels: Record<string, string> = {
-  inquiry_received: "Anfrage",
-  offer_sent: "Angebot",
-  confirmed: "Bestätigt",
-  checked_out: "Unterwegs",
-  completed: "Abgeschlossen",
-  rejected: "Abgelehnt",
-  cancelled: "Storniert",
-  expired: "Abgelaufen",
-};
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(value));
 }
 
-function formatPeriod(from: string, to: string) {
-  return `${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${from}T12:00:00`))} – ${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${to}T12:00:00`))}`;
-}
-
-function ContactInfo({ contact }: { contact: Contact }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="truncate font-medium">{contact.name}</span>
-      <a className="truncate text-sm text-muted-foreground hover:text-foreground" href={`mailto:${contact.email}`}>
-        {contact.email}
-      </a>
-      <a className="text-sm text-muted-foreground hover:text-foreground" href={`tel:${contact.phone}`}>
-        {contact.phone}
-      </a>
-    </div>
-  );
+function contactInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return Array.from(parts[0]).slice(0, 2).join("").toUpperCase();
+  return `${Array.from(parts[0])[0] ?? ""}${Array.from(parts.at(-1) ?? "")[0] ?? ""}`.toUpperCase();
 }
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -138,7 +108,6 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
         contact.name,
         contact.email,
         contact.phone,
-        ...contact.locations.map((location) => locationLabels[location] ?? location),
         ...contact.bookings.map((booking) => booking.orderNumber),
       ]
         .join(" ")
@@ -215,10 +184,6 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Kontakte</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Kundinnen und Kunden aus den für dich sichtbaren Buchungen. Buchungen und Standorte bleiben durch die
-            bestehenden Berechtigungen geschützt.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" onClick={openCarddavDialog}>
@@ -226,7 +191,7 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
             iPhone verbinden
           </Button>
           {account?.enabled ? (
-            <Button type="button" variant="secondary" onClick={() => void syncContacts()} disabled={busy !== null}>
+            <Button type="button" variant="outline" onClick={() => void syncContacts()} disabled={busy !== null}>
               <RefreshCwIcon className={busy === "sync" ? "animate-spin" : undefined} />
               Kontakte synchronisieren
             </Button>
@@ -235,75 +200,62 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
       </div>
 
       <Card className="rounded-3xl border-border/60 bg-card shadow-sm">
-        <CardHeader className="gap-4 border-b border-border/60 pb-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <CardTitle>{contacts.length} Kontakte</CardTitle>
-            <CardDescription className="mt-1">
-              Nach Name, E-Mail, Telefonnummer oder Buchungsnummer suchen.
-            </CardDescription>
-          </div>
+        <CardHeader className="grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border/60 pb-5">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Kontakte suchen …"
-            className="w-full lg:max-w-xs"
+            className="min-w-0 flex-1 lg:max-w-xs"
           />
+          <CardTitle className="shrink-0 text-right">{contacts.length} Kontakte</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {filteredContacts.length ? (
             <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Kontakt</TableHead>
-                  <TableHead>Standorte</TableHead>
-                  <TableHead>Buchungen</TableHead>
-                  <TableHead>Zuletzt geändert</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>E-Mail</TableHead>
+                  <TableHead>Telefonnummer</TableHead>
+                  <TableHead>Aufträge</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredContacts.map((contact) => (
                   <TableRow key={contact.key}>
-                    <TableCell className="min-w-64">
-                      <div className="flex items-start gap-3">
+                    <TableCell className="min-w-52">
+                      <div className="flex items-center gap-3">
                         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                          <ContactRoundIcon className="size-5 text-muted-foreground" />
+                          <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
+                            {contactInitials(contact.name)}
+                          </span>
                         </div>
-                        <ContactInfo contact={contact} />
+                        <span className="truncate font-medium">{contact.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex max-w-48 flex-wrap gap-1.5">
-                        {contact.locations.map((location) => (
-                          <Badge key={location} variant="secondary">
-                            {locationLabels[location] ?? location}
-                          </Badge>
-                        ))}
-                      </div>
+                    <TableCell className="min-w-56">
+                      <a
+                        className="truncate text-sm text-muted-foreground hover:text-foreground"
+                        href={`mailto:${contact.email}`}
+                      >
+                        {contact.email}
+                      </a>
+                    </TableCell>
+                    <TableCell className="min-w-44">
+                      <a className="text-sm text-muted-foreground hover:text-foreground" href={`tel:${contact.phone}`}>
+                        {contact.phone}
+                      </a>
                     </TableCell>
                     <TableCell className="min-w-64">
-                      <div className="flex flex-col gap-1.5">
-                        {contact.bookings.slice(0, 4).map((booking) => (
-                          <Link
-                            key={booking.id}
-                            href={`/admin/bookings/${booking.id}`}
-                            className="flex items-center gap-2 hover:underline"
-                          >
-                            <span className="font-medium">{booking.orderNumber}</span>
-                            <Badge variant="outline">{statusLabels[booking.status] ?? booking.status}</Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {formatPeriod(booking.periodFrom, booking.periodTo)}
-                            </span>
+                      <div className="flex flex-wrap gap-2">
+                        {contact.bookings.map((booking) => (
+                          <Link key={booking.id} href={`/admin/bookings/${booking.id}`}>
+                            <Badge variant="outline" className="hover:bg-muted">
+                              {booking.orderNumber}
+                            </Badge>
                           </Link>
                         ))}
-                        {contact.bookings.length > 4 ? (
-                          <span className="text-xs text-muted-foreground">
-                            + {contact.bookings.length - 4} weitere Buchungen
-                          </span>
-                        ) : null}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(contact.latestUpdatedAt)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -449,6 +449,13 @@
       "when": 1786752000000,
       "tag": "0064_carddav_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1786755600000,
+      "tag": "0065_carddav_sync_events",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 
 import { parseBasicAuthorization, verifyCarddavPassword } from "@/lib/carddav/auth";
 import { getDatabase } from "@/lib/db/client";
-import { carddavAccounts } from "@/lib/db/schema";
+import { authUser, carddavAccounts } from "@/lib/db/schema";
+import { rentalLocations } from "@/lib/inquiries/catalog";
 
 export const runtime = "nodejs";
 
@@ -25,11 +26,25 @@ export async function GET(request: Request) {
       username: carddavAccounts.username,
       passwordHash: carddavAccounts.passwordHash,
       enabled: carddavAccounts.enabled,
+      banned: authUser.banned,
+      twoFactorEnabled: authUser.twoFactorEnabled,
+      mustChangePassword: authUser.mustChangePassword,
+      role: authUser.role,
+      locationKey: authUser.locationKey,
     })
     .from(carddavAccounts)
+    .innerJoin(authUser, eq(carddavAccounts.userId, authUser.id))
     .where(eq(carddavAccounts.username, credentials.username))
     .get();
-  if (!account || !account.enabled || !(await verifyCarddavPassword(credentials.password, account.passwordHash)))
+  const validLocation =
+    account?.locationKey && rentalLocations.includes(account.locationKey as (typeof rentalLocations)[number]);
+  const eligible =
+    account &&
+    !account.banned &&
+    account.twoFactorEnabled &&
+    !account.mustChangePassword &&
+    (account.role === "admin" || (account.role === "standortuser" && Boolean(validLocation)));
+  if (!eligible || !account.enabled || !(await verifyCarddavPassword(credentials.password, account.passwordHash)))
     return unauthorized();
 
   return new NextResponse(null, {

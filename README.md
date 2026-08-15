@@ -283,6 +283,12 @@ einmalig im Dialog angezeigt. Widerruf und Rotation werden im Audit-Log
 protokolliert. Das Radicale-Volume `radicale-data` muss zusammen mit dem
 `app-data`-Volume in die verschlüsselten Backups aufgenommen werden.
 
+Nach erfolgreichem Erstellen, Ändern oder Löschen einer Buchung legt SQLite
+automatisch ein zusammengefasstes CardDAV-Sync-Event in der Datenbank an. Ein
+interner Worker im laufenden Next.js-Prozess verarbeitet diese Queue innerhalb
+weniger Sekunden; ein Cronjob ist dafür nicht erforderlich. Nicht abgearbeitete
+Events bleiben bei einem Neustart erhalten.
+
 Auf dem iPhone: Einstellungen → Apps → Kontakte → Kontakteaccounts → Account
 hinzufügen → Anderen Account hinzufügen → CardDAV-Account hinzufügen. Server,
 Benutzername und das einmalig angezeigte Passwort aus dem Kontakte-Dialog

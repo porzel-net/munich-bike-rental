@@ -26,6 +26,16 @@ export async function register() {
     const timer = setInterval(sweep, 60_000);
     timer.unref?.();
 
+    const { drainCarddavSyncQueue } = await import("./lib/carddav/queue");
+    const syncCarddav = () => {
+      void drainCarddavSyncQueue().catch((error) => {
+        console.error("Failed to process CardDAV synchronization queue", error);
+      });
+    };
+    syncCarddav();
+    const carddavTimer = setInterval(syncCarddav, 2_000);
+    carddavTimer.unref?.();
+
     let nevloSyncInFlight = false;
     const syncNevlo = async () => {
       if (!isNevloConfigured() || nevloSyncInFlight) return;
