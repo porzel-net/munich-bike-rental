@@ -48,6 +48,7 @@ function getRecipientFirstName(name: string) {
 
 function getText(action: BookingMailAction, booking: BookingMailActionInput) {
   if (action === "confirmation") {
+    const depositTotalEuro = booking.bikes.length * 100;
     return [
       `Hallo ${getRecipientFirstName(booking.name)},`,
       "",
@@ -80,7 +81,7 @@ function getText(action: BookingMailAction, booking: BookingMailActionInput) {
       "",
       "Das Angebot bleibt 24 Stunden für dich reserviert. Schick uns danach bitte die Überweisungsbestätigung per Mail.",
       "",
-      "Bitte bringe zur Abholung außerdem 100 € Kaution pro Bike in bar mit.",
+      `Bitte bringe zur Abholung außerdem 100 € Kaution pro Bike in bar mit (also insgesamt ${depositTotalEuro} €).`,
       "",
       "Wir freuen uns, dich bald auf dem Rad zu sehen!",
       "",
@@ -106,6 +107,7 @@ function getText(action: BookingMailAction, booking: BookingMailActionInput) {
 function getHtml(action: BookingMailAction, booking: BookingMailActionInput) {
   const confirmation = action === "confirmation";
   const firstName = getRecipientFirstName(booking.name);
+  const depositTotalEuro = booking.bikes.length * 100;
   const details = confirmation
     ? emailCard(
         `${emailLabel("Buchungsdetails")}<strong style="display:block;color:#171a1d;font-size:15px">${escapeHtml(booking.bikes.join(" / "))}</strong><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px"><tr><td style="padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Mietdauer")}${escapeHtml(`${booking.rentalDays} ${booking.rentalDays === 1 ? "Tag" : "Tage"}`)}</td><td style="color:#697177;font-size:13px;line-height:1.5">${emailLabel("Gesamtpreis")}${escapeHtml(formatPrice(booking.totalPriceCents))}</td></tr><tr><td style="padding-top:10px;padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Abholung")}${escapeHtml(`${booking.periodFrom} um ${booking.pickupTime} Uhr`)}</td><td style="padding-top:10px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Rückgabe")}${escapeHtml(`${booking.periodTo} um ${booking.dropoffTime} Uhr`)}</td></tr></table>`,
@@ -118,7 +120,7 @@ function getHtml(action: BookingMailAction, booking: BookingMailActionInput) {
   const intro = confirmation
     ? "vielen Dank für deine Anfrage! Gute Nachrichten: Das gewünschte Fahrrad ist für dich verfügbar."
     : "vielen Dank für deine Anfrage.";
-  const content = `${booking.personalMessage?.trim() ? emailCard(emailParagraph(booking.personalMessage), "#eef2ff") : ""}${details}${confirmation ? emailCard(`${emailLabel("Nächster Schritt")}${emailParagraph("Bestätige deine Buchung über den Link und überweise anschließend 50 % des Gesamtpreises. Die restlichen 50 % sind bei der Rückgabe fällig; das Angebot bleibt 24 Stunden reserviert.")}`, "#eef2ff") : emailParagraph("Wir hoffen, dass du noch fündig wirst und wünschen dir eine gute Fahrt.")}`;
+  const content = `${booking.personalMessage?.trim() ? emailCard(emailParagraph(booking.personalMessage), "#eef2ff") : ""}${details}${confirmation ? emailCard(`${emailLabel("Nächster Schritt")}${emailParagraph(`Bestätige deine Buchung über den Link und überweise anschließend 50 % des Gesamtpreises. Die restlichen 50 % sind bei der Rückgabe fällig; das Angebot bleibt 24 Stunden reserviert. Bitte bringe zur Abholung außerdem 100 € Kaution pro Bike in bar mit (also insgesamt ${depositTotalEuro} €).`)}`, "#eef2ff") : emailParagraph("Wir hoffen, dass du noch fündig wirst und wünschen dir eine gute Fahrt.")}`;
   return renderEmailLayout({
     locale: "de",
     preheader: getSubject(action, booking.orderNumber),

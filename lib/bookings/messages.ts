@@ -121,6 +121,7 @@ export function renderOfferMail(input: OfferMailInput) {
       ].join("\n"),
     )
     .join("\n");
+  const depositTotalEuro = offerItems.length * 100;
   const greeting = input.name.trim().split(/\s+/)[0] || input.name;
   const pickupAddress =
     input.pickupAddress?.trim() ||
@@ -163,7 +164,7 @@ export function renderOfferMail(input: OfferMailInput) {
         "",
         "Deine Checkliste für die Abholung:",
         "- Buchungsbestätigung öffnen",
-        "- Kaution von 100 € pro Bike in bar mitbringen",
+        `- Kaution von 100 € pro Bike in bar mitbringen (also insgesamt ${depositTotalEuro} €)`,
         "- Personalausweis mitbringen",
         `- Zur Abholung: ${pickupAddress}`,
         ...(pickupNote ? [`- ${pickupNote}`] : []),
@@ -202,7 +203,7 @@ export function renderOfferMail(input: OfferMailInput) {
         "",
         "Your pickup checklist:",
         "- Open the booking confirmation",
-        "- Bring the €100 deposit per bike in cash",
+        `- Bring the €100 deposit per bike in cash (€${depositTotalEuro} total)`,
         "- Bring your ID card or passport",
         `- Pickup address: ${pickupAddress}`,
         ...(pickupNote ? [`- ${pickupNote}`] : []),
@@ -235,7 +236,7 @@ export function renderOfferMail(input: OfferMailInput) {
   const checklist = de
     ? [
         "Buchungsbestätigung öffnen",
-        "Kaution von 100 € pro Bike in bar mitbringen",
+        `Kaution von 100 € pro Bike in bar mitbringen (also insgesamt ${depositTotalEuro} €)`,
         "Personalausweis mitbringen",
         `Zur Abholung: ${pickupAddress}`,
         ...(pickupNote ? [pickupNote] : []),
@@ -243,7 +244,7 @@ export function renderOfferMail(input: OfferMailInput) {
       ]
     : [
         "Open the booking confirmation",
-        "Bring the €100 deposit per bike in cash",
+        `Bring the €100 deposit per bike in cash (€${depositTotalEuro} total)`,
         "Bring your ID card or passport",
         `Pickup address: ${pickupAddress}`,
         ...(pickupNote ? [pickupNote] : []),
