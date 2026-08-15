@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "@/lib/db/client";
 import { bookings, communicationMessages } from "@/lib/db/schema";
@@ -6,6 +7,7 @@ import { setLegacyBookingStatus } from "@/lib/bookings/service";
 import { importLegacyBookingEmails } from "@/lib/booking-import/service";
 import { loadBookingCandidateMails } from "@/lib/booking-import/mail-client";
 import { isBookingInquiry, isExportableBooking, parseBookingRequest } from "@/lib/booking-import/parser";
+import { seedRentalInventoryIfEmpty } from "@/lib/inventory/seed";
 import type { BookingImportMail } from "@/lib/booking-import/types";
 
 vi.mock("@/lib/booking-import/mail-client", () => ({ loadBookingCandidateMails: vi.fn() }));
@@ -162,6 +164,37 @@ describe("historical booking e-mail import", () => {
     expect(third.created).toBe(1);
     expect(third.skippedExisting).toBe(1);
     expect(connection.db.select().from(bookings).all()).toHaveLength(2);
+    connection.close();
+  });
+
+  it("only repairs a zero legacy value on an already imported booking", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    seedRentalInventoryIfEmpty(connection.db);
+    const source = mail(
+      "Neue Bike-Anfrage\nName: A\nE-Mail: a@example.com\nZeitraum: 2026-08-20 - 2026-08-22\nBike: Canyon Endurace CF-SL-8 Di2 - M",
+      { id: "rfc-zero" },
+    );
+    vi.mocked(loadBookingCandidateMails).mockResolvedValueOnce([source]).mockResolvedValueOnce([source]);
+
+    await importLegacyBookingEmails(connection.db);
+    const imported = connection.db.select().from(bookings).get();
+    expect(imported).toBeDefined();
+
+    connection.db
+      .update(bookings)
+      .set({ quotedTotalCents: 0, customerName: "Manually corrected", status: "confirmed" })
+      .where(eq(bookings.id, imported!.id))
+      .run();
+
+    await importLegacyBookingEmails(connection.db);
+    const repaired = connection.db.select().from(bookings).get();
+    expect(repaired).toMatchObject({
+      id: imported!.id,
+      quotedTotalCents: 14160,
+      customerName: "Manually corrected",
+      status: "confirmed",
+    });
+    expect(connection.db.select().from(bookings).all()).toHaveLength(1);
     connection.close();
   });
 });
