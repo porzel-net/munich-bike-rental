@@ -10,6 +10,7 @@ import { BookingAssigneeCard } from "@/components/booking-assignee-card";
 import { BookingCommandActions } from "@/components/booking-command-actions";
 import { BookingEditDialog } from "@/components/booking-edit-dialog";
 import { BookingMailThreadSync } from "@/components/booking-mail-thread-sync";
+import { RepeatBookingDialog } from "@/components/repeat-booking-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -170,6 +171,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const availableAssets = db
     .select({
       id: rentalAssets.id,
+      location: rentalAssets.location,
       label: rentalAssets.displayName,
       nickname: rentalAssets.nickname,
       modelTitle: bikeModels.title,
@@ -291,6 +293,29 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               {hasAssignedCaseworker && booking.source !== "legacy" && (
                 <BookingAiAnalysisButton bookingId={booking.id} />
               )}
+              {hasAssignedCaseworker ? (
+                <RepeatBookingDialog
+                  assets={availableAssets}
+                  pricingByLocation={{ [booking.location]: locationInventory }}
+                  initialValues={{
+                    name: booking.customerName,
+                    email: booking.customerEmail,
+                    phone: booking.customerPhone,
+                    location: booking.location,
+                    locale: booking.communicationLocale,
+                    items: items.map((item) => ({
+                      requestedLabel: item.requestedLabel,
+                      heightCm: String(item.heightCm),
+                      needsPedals: item.needsPedals,
+                      pedalType: item.pedalType ?? "",
+                      needsComputerMount: item.needsComputerMount,
+                      computerMountType: item.computerMountType ?? "",
+                      needsHelmet: item.needsHelmet,
+                      needsClothing: item.needsClothing,
+                    })),
+                  }}
+                />
+              ) : null}
               {hasAssignedCaseworker && canGenerateInvoice ? (
                 <Button
                   nativeButton={false}

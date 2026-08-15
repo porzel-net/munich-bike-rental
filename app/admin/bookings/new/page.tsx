@@ -5,6 +5,8 @@ import { ManualBookingForm } from "@/components/manual-booking-form";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { bikeModels, bikeVariants, rentalAssets } from "@/lib/db/schema";
+import { getLocationInventory } from "@/lib/inventory/repository";
+import { rentalLocations } from "@/lib/inquiries/catalog";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -15,7 +17,8 @@ export default async function NewBookingPage() {
   const administrator = isAdmin(session.user);
   const assigned = getAssignedLocation(session.user);
   if (!administrator && !assigned) redirect("/admin");
-  const assets = getDatabase()
+  const db = getDatabase();
+  const assets = db
     .select({
       id: rentalAssets.id,
       location: rentalAssets.location,
@@ -32,6 +35,12 @@ export default async function NewBookingPage() {
     .all()
     .filter((asset) => administrator || asset.location === assigned)
     .map((asset) => ({ ...asset, modelLabel: `${asset.modelTitle} - ${asset.size}` }));
+  const pricingByLocation = Object.fromEntries(
+    (administrator ? rentalLocations : [assigned as (typeof rentalLocations)[number]]).map((location) => [
+      location,
+      getLocationInventory(db, location),
+    ]),
+  );
   return (
     <SidebarProvider>
       <AppSidebar user={session.user} isAdmin={administrator} variant="inset" />
@@ -44,7 +53,7 @@ export default async function NewBookingPage() {
               Die Sprache ist Pflicht. Eine Direktbuchung reserviert jedes ausgewählte konkrete Fahrrad atomar.
             </p>
           </div>
-          <ManualBookingForm assets={assets} />
+          <ManualBookingForm assets={assets} pricingByLocation={pricingByLocation} />
         </main>
       </SidebarInset>
     </SidebarProvider>

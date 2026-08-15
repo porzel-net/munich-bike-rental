@@ -66,7 +66,17 @@ export function calculateRentalPrice(inventory: LocationInventory, input: Rental
 
 /** Shared discount calculation for both public estimates and concrete offers. */
 export function calculateBikePriceWithDiscounts(
-  inventory: Pick<LocationInventory, "discounts">,
+  inventory: {
+    discounts: Array<{
+      key: string;
+      percentage: number;
+      weekdayFrom: number | null;
+      weekdayTo: number | null;
+      minimumRentalDays: number | null;
+      requiresStudent: boolean;
+      isStackable: boolean;
+    }>;
+  },
   input: { dailyBikePriceCents: number; periodFrom: string; rentalDays: number; isStudent?: boolean },
 ) {
   const pickupDate = parseCalendarDate(input.periodFrom);

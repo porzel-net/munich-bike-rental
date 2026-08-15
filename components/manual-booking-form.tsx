@@ -7,13 +7,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { euroToCents, formatEuro } from "@/lib/bookings/money";
+import { formatEuro } from "@/lib/bookings/money";
+import { calculateBikePriceWithDiscounts, getDailyBikePriceCents, getRentalDays } from "@/lib/inventory/pricing";
 
-type Asset = {
+export type ManualBookingAsset = {
   id: number;
   location: string;
   label: string;
@@ -21,7 +22,7 @@ type Asset = {
   modelLabel: string;
   priceCents: number;
 };
-type Item = {
+export type ManualBookingItem = {
   key: number;
   requestedLabel: string;
   heightCm: string;
@@ -33,6 +34,19 @@ type Item = {
   needsClothing: boolean;
   assetId: string;
 };
+export type ManualBookingPricing = {
+  bikePrices: Array<{ option: string; dailyPriceCents: number }>;
+  equipmentPrices: Array<{ key: string; priceCents: number }>;
+  discounts: Array<{
+    key: string;
+    percentage: number;
+    weekdayFrom: number | null;
+    weekdayTo: number | null;
+    minimumRentalDays: number | null;
+    requiresStudent: boolean;
+    isStackable: boolean;
+  }>;
+};
 const locations = [
   ["munich", "München"],
   ["regensburg", "Regensburg"],
@@ -40,7 +54,7 @@ const locations = [
   ["friedrichshafen", "Friedrichshafen"],
   ["konstanz", "Konstanz"],
 ] as const;
-const emptyItem = (key: number): Item => ({
+const emptyItem = (key: number): ManualBookingItem => ({
   key,
   requestedLabel: "",
   heightCm: "",
@@ -53,7 +67,7 @@ const emptyItem = (key: number): Item => ({
   assetId: "",
 });
 
-function BikeOptionLabel({ asset }: { asset: Asset }) {
+function BikeOptionLabel({ asset }: { asset: ManualBookingAsset }) {
   return (
     <span>
       {asset.nickname ? <strong>{asset.nickname}</strong> : null}
@@ -63,22 +77,75 @@ function BikeOptionLabel({ asset }: { asset: Asset }) {
   );
 }
 
-export function ManualBookingForm({ assets }: { assets: Asset[] }) {
+export type ManualBookingInitialValues = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  locale?: "de" | "en";
+  periodFrom?: string;
+  periodTo?: string;
+  pickupTime?: string;
+  dropoffTime?: string;
+  message?: string;
+  items?: Array<Partial<Omit<ManualBookingItem, "key">>>;
+};
+
+export function ManualBookingForm({
+  assets,
+  pricingByLocation,
+  initialValues,
+}: {
+  assets: ManualBookingAsset[];
+  pricingByLocation: Record<string, ManualBookingPricing>;
+  initialValues?: ManualBookingInitialValues;
+}) {
   const [mode, setMode] = useState<"inquiry" | "direct">("inquiry");
-  const [location, setLocation] = useState("munich");
-  const [locale, setLocale] = useState<"de" | "en">("de");
-  const [items, setItems] = useState<Item[]>([emptyItem(1)]);
-  const [estimateEuro, setEstimateEuro] = useState("");
+  const [location, setLocation] = useState(initialValues?.location ?? "munich");
+  const [locale, setLocale] = useState<"de" | "en">(initialValues?.locale ?? "de");
+  const [items, setItems] = useState<ManualBookingItem[]>(
+    initialValues?.items?.length
+      ? initialValues.items.map((item, index) => ({ ...emptyItem(index + 1), ...item, key: index + 1 }))
+      : [emptyItem(1)],
+  );
+  const [periodFrom, setPeriodFrom] = useState(initialValues?.periodFrom ?? "");
+  const [periodTo, setPeriodTo] = useState(initialValues?.periodTo ?? "");
   const [busy, setBusy] = useState(false);
   const availableAssets = useMemo(() => assets.filter((asset) => asset.location === location), [assets, location]);
-  const update = (key: number, updateItem: Partial<Item>) =>
+  const calculatedEstimateCents = useMemo(() => {
+    const pricing = pricingByLocation[location];
+    if (!pricing) return 0;
+    if (!periodFrom || !periodTo) return 0;
+    const rentalDays = getRentalDays(periodFrom, periodTo);
+    const pricingDate = periodFrom;
+    const dailyBikePriceCents = items.reduce(
+      (total, item) => total + (getDailyBikePriceCents(pricing, item.requestedLabel) ?? 0),
+      0,
+    );
+    const equipmentPrices = new Map(pricing.equipmentPrices.map((item) => [item.key, item.priceCents]));
+    const equipmentSubtotalCents = items.reduce(
+      (total, item) =>
+        total +
+        (item.needsPedals ? (equipmentPrices.get(`pedal-${item.pedalType}`) ?? 0) : 0) +
+        (item.needsComputerMount ? (equipmentPrices.get(`mount-${item.computerMountType}`) ?? 0) : 0) +
+        (item.needsHelmet ? (equipmentPrices.get("helmet") ?? 0) : 0) +
+        (item.needsClothing ? (equipmentPrices.get("clothing") ?? 0) : 0),
+      0,
+    );
+    const { discountCents } = calculateBikePriceWithDiscounts(pricing, {
+      dailyBikePriceCents,
+      periodFrom: pricingDate,
+      rentalDays,
+    });
+    return dailyBikePriceCents * rentalDays + equipmentSubtotalCents - discountCents;
+  }, [items, location, periodFrom, periodTo, pricingByLocation]);
+  const update = (key: number, updateItem: Partial<ManualBookingItem>) =>
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...updateItem } : item)));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const quotedTotalCents = euroToCents(estimateEuro);
-    if (quotedTotalCents === null) return toast.error("Bitte gib die unverbindliche Schätzung als Euro-Betrag ein.");
+    const quotedTotalCents = calculatedEstimateCents;
     if (items.some((item) => !item.requestedLabel.trim() || !Number.isInteger(Number(item.heightCm))))
       return toast.error("Bitte vervollständige jede Fahrradposition.");
     if (mode === "direct" && items.some((item) => !item.assetId))
@@ -152,15 +219,15 @@ export function ManualBookingForm({ assets }: { assets: Asset[] }) {
           <FieldGroup className="grid gap-4 md:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="name">Name</FieldLabel>
-              <Input id="name" name="name" required />
+              <Input id="name" name="name" defaultValue={initialValues?.name} required />
             </Field>
             <Field>
               <FieldLabel htmlFor="email">E-Mail</FieldLabel>
-              <Input id="email" name="email" type="email" required />
+              <Input id="email" name="email" type="email" defaultValue={initialValues?.email} required />
             </Field>
             <Field>
               <FieldLabel htmlFor="phone">Telefon</FieldLabel>
-              <Input id="phone" name="phone" required />
+              <Input id="phone" name="phone" defaultValue={initialValues?.phone} required />
             </Field>
             <Field>
               <FieldLabel>Kommunikationssprache</FieldLabel>
@@ -196,34 +263,50 @@ export function ManualBookingForm({ assets }: { assets: Asset[] }) {
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="estimate">Unverbindliche Schätzung in Euro</FieldLabel>
+              <FieldLabel htmlFor="estimate">Schätzung in Euro</FieldLabel>
               <Input
                 id="estimate"
                 inputMode="decimal"
-                placeholder="0,00"
-                value={estimateEuro}
-                onChange={(event) => setEstimateEuro(event.target.value)}
-                required
+                value={periodFrom && periodTo ? formatEuro(calculatedEstimateCents) : "—"}
+                readOnly
+                tabIndex={-1}
               />
-              <FieldDescription>
-                Bei einem konkreten Angebot oder einer Direktbuchung wird der Preis serverseitig neu berechnet.
-              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="period-from">Abholung</FieldLabel>
-              <Input id="period-from" name="periodFrom" type="date" required />
+              <Input
+                id="period-from"
+                name="periodFrom"
+                type="date"
+                value={periodFrom}
+                onChange={(event) => setPeriodFrom(event.target.value)}
+                required
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="period-to">Rückgabe</FieldLabel>
-              <Input id="period-to" name="periodTo" type="date" required />
+              <Input
+                id="period-to"
+                name="periodTo"
+                type="date"
+                value={periodTo}
+                onChange={(event) => setPeriodTo(event.target.value)}
+                required
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="pickup-time">Abholzeit</FieldLabel>
-              <Input id="pickup-time" name="pickupTime" type="time" required />
+              <Input id="pickup-time" name="pickupTime" type="time" defaultValue={initialValues?.pickupTime} required />
             </Field>
             <Field>
               <FieldLabel htmlFor="dropoff-time">Rückgabezeit</FieldLabel>
-              <Input id="dropoff-time" name="dropoffTime" type="time" required />
+              <Input
+                id="dropoff-time"
+                name="dropoffTime"
+                type="time"
+                defaultValue={initialValues?.dropoffTime}
+                required
+              />
             </Field>
           </FieldGroup>
         </CardContent>
@@ -345,7 +428,11 @@ export function ManualBookingForm({ assets }: { assets: Asset[] }) {
           <CardTitle>Interne Notiz</CardTitle>
         </CardHeader>
         <CardContent>
-          <Textarea name="message" placeholder="Zusätzliche Hinweise zur Buchung" />
+          <Textarea
+            name="message"
+            defaultValue={initialValues?.message}
+            placeholder="Zusätzliche Hinweise zur Buchung"
+          />
         </CardContent>
       </Card>
       <div className="flex justify-end">
