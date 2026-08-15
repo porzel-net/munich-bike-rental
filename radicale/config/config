@@ -21,7 +21,6 @@ permit_overwrite_collection = false
 [storage]
 type = multifilesystem
 filesystem_folder = /data/collections
-filesystem_fsync = true
 predefined_collections = {"contacts": {"D:displayname": "Kontakte", "tag": "VADDRESSBOOK"}}
 
 [web]

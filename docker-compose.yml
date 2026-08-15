@@ -116,14 +116,18 @@ services:
       - "5232"
     volumes:
       - radicale-data:/data
-      - ./radicale/config:/etc/radicale:ro
+      - ./radicale/config:/config:ro
+    environment:
+      TAKE_FILE_OWNERSHIP: "false"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=32m
     cap_drop:
       - ALL
     cap_add:
-      - CHOWN
+      - SETUID
+      - SETGID
+      - KILL
     security_opt:
       - no-new-privileges:true
     pids_limit: 64
