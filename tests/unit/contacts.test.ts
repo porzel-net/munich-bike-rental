@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { createDatabaseConnection } from "../../lib/db/client";
 import { getVisibleContacts, contactToVCard } from "../../lib/contacts/service";
 import { authUser, bookings, carddavSyncJobs } from "../../lib/db/schema";
+import { enqueueCarddavSync } from "../../lib/carddav/queue";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -66,6 +67,20 @@ describe("visible contacts", () => {
     const jobs = db.select().from(carddavSyncJobs).all();
     expect(jobs).toHaveLength(1);
     expect(jobs[0]).toMatchObject({ jobKey: "contacts", attempts: 0, revision: 4, lastError: null });
+  });
+
+  it("queues an immediate sync when a CardDAV account is created or rotated", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+
+    db.delete(carddavSyncJobs).run();
+    enqueueCarddavSync(db);
+    enqueueCarddavSync(db);
+
+    const jobs = db.select().from(carddavSyncJobs).all();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({ jobKey: "contacts", attempts: 0, revision: 1, lastError: null });
   });
 
   it("deduplicates bookings by email and keeps every visible booking reference", () => {

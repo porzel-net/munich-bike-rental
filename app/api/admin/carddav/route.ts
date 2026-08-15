@@ -8,6 +8,7 @@ import { getCarddavPublicUrl, carddavUsername } from "@/lib/carddav/config";
 import { getDatabase } from "@/lib/db/client";
 import { carddavAccounts } from "@/lib/db/schema";
 import { recordAdminAuditEvent } from "@/lib/auth/audit";
+import { enqueueCarddavSync } from "@/lib/carddav/queue";
 
 export const runtime = "nodejs";
 
@@ -98,6 +99,11 @@ export async function POST(request: Request) {
       })
       .run();
   }
+
+  // A new account may be created after the last booking event was processed.
+  // Queue an immediate full sync so the iPhone does not see an empty address
+  // book until the next booking change.
+  enqueueCarddavSync(db);
 
   recordAdminAuditEvent(db, {
     actorUserId: access.session.user.id,

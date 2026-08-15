@@ -1,4 +1,4 @@
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/lib/db/client";
 import { carddavSyncJobs } from "@/lib/db/schema";
@@ -10,6 +10,30 @@ const RETRY_DELAY_MS = 60_000;
 const MAX_RETRY_DELAY_MS = 5 * 60_000;
 
 let workerInProgress = false;
+
+export function enqueueCarddavSync(db = getDatabase()) {
+  const now = new Date();
+  db.insert(carddavSyncJobs)
+    .values({
+      jobKey: JOB_KEY,
+      requestedAt: now,
+      nextAttemptAt: now,
+      attempts: 0,
+      revision: 0,
+      lastError: null,
+    })
+    .onConflictDoUpdate({
+      target: carddavSyncJobs.jobKey,
+      set: {
+        requestedAt: now,
+        nextAttemptAt: now,
+        attempts: 0,
+        revision: sql`${carddavSyncJobs.revision} + 1`,
+        lastError: null,
+      },
+    })
+    .run();
+}
 
 export async function drainCarddavSyncQueue() {
   if (workerInProgress) return;
