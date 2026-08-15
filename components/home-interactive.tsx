@@ -13,6 +13,7 @@ import { rentalLocations, type RentalLocation } from "../lib/inquiries/catalog";
 import { getRentalDays } from "../lib/inventory/pricing";
 import type { LocationInventory } from "../lib/inventory/repository";
 import { getInquiryError, postInquiry } from "../lib/inquiries/client";
+import { isValidInternationalPhone } from "../lib/inquiries/phone";
 import { defaultRentalLocation, getLocalizedLocationPath, rentalLocationConfigs } from "../lib/rental-locations";
 
 type TopbarTranslations = {
@@ -110,6 +111,7 @@ type FormTranslations = {
     contactRequired: string;
     contactInvalid: string;
     phoneRequired: string;
+    phoneInvalid: string;
     heightRequired: string;
     heightInvalid: string;
     bikeSizeRequired: string;
@@ -334,6 +336,8 @@ function validateContactForm(
 
   if (!phoneValue) {
     fieldErrors.phone = validation.phoneRequired;
+  } else if (!isValidInternationalPhone(phoneValue)) {
+    fieldErrors.phone = validation.phoneInvalid;
   }
 
   const bikeErrors = values.bikes.map((bike) => {
@@ -1289,7 +1293,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
               id="phone"
               name="phone"
               type="tel"
-              placeholder={translations.form.phone}
+              placeholder="+49 151 12345678"
               value={phone}
               aria-invalid={Boolean(fieldErrors.phone)}
               aria-describedby={fieldErrors.phone ? "phone-hint phone-error" : "phone-hint"}

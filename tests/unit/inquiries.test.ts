@@ -80,6 +80,8 @@ describe("inquiry schemas", () => {
     expect(contactInquirySchema.safeParse({ ...validContact, message: "First line\nSecond line" }).success).toBe(true);
     expect(contactInquirySchema.safeParse({ ...validContact, periodFrom: "2026-02-31" }).success).toBe(false);
     expect(contactInquirySchema.safeParse({ ...validContact, name: " " }).success).toBe(false);
+    expect(contactInquirySchema.safeParse({ ...validContact, phone: "0151 12345678" }).success).toBe(false);
+    expect(contactInquirySchema.safeParse({ ...validContact, phone: "+49 151 12345678" }).success).toBe(true);
     expect(
       contactInquirySchema.safeParse({ ...validContact, bikeTitle: "Bike\r\nBcc: spam@example.com" }).success,
     ).toBe(false);

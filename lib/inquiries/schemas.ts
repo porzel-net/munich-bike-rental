@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { rentalLocations } from "./catalog";
+import { isValidInternationalPhone } from "./phone";
 
 const MAX_MESSAGE_LENGTH = 4_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -69,7 +70,7 @@ export const contactInquirySchema = z
   .object({
     name: requiredLine(120),
     contact: requiredLine(254).email(),
-    phone: requiredLine(64),
+    phone: requiredLine(64).refine(isValidInternationalPhone, "Invalid international phone number"),
     location: z.enum(rentalLocations),
     bikes: z.array(bikeInquirySchema).min(1).max(10),
     periodFrom: date,

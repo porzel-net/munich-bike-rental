@@ -25,6 +25,7 @@ export type FormValidationText = {
   contactRequired: string;
   contactInvalid: string;
   phoneRequired: string;
+  phoneInvalid: string;
   heightRequired: string;
   heightInvalid: string;
   bikeSizeRequired: string;
@@ -468,7 +469,7 @@ export const translations = {
       name: "Name",
       contact: "E-Mail-Adresse",
       phone: "Telefonnummer",
-      phoneHint: "Damit wir dich bei kurzfristigen Anfragen schnell anrufen können.",
+      phoneHint: "Bitte im internationalen Format eingeben, z. B. +49 151 12345678.",
       bikeCount: "Anzahl Bikes",
       bike: "Bike",
       height: "Körpergröße in cm",
@@ -536,6 +537,7 @@ export const translations = {
         contactRequired: "Bitte gib deine E-Mail-Adresse an.",
         contactInvalid: "Bitte nutze ein gültiges Format, zum Beispiel name@domain.de.",
         phoneRequired: "Bitte gib deine Telefonnummer an.",
+        phoneInvalid: "Bitte nutze das internationale Format, z. B. +49 151 12345678.",
         heightRequired: "Bitte gib deine Körpergröße an.",
         heightInvalid: "Bitte gib eine Zahl zwischen 100 und 250 cm an.",
         locationRequired: "Bitte wähle einen Standort aus.",
@@ -645,7 +647,7 @@ export const translations = {
       name: "Name",
       contact: "Email address",
       phone: "Phone number",
-      phoneHint: "So we can call you quickly if the request is short notice.",
+      phoneHint: "Please use the international format, e.g. +49 151 12345678.",
       bikeCount: "Number of bikes",
       bike: "Bike",
       height: "Height in cm",
@@ -712,6 +714,7 @@ export const translations = {
         contactRequired: "Please enter your email address.",
         contactInvalid: "Please use a valid format, for example name@domain.com.",
         phoneRequired: "Please enter your phone number.",
+        phoneInvalid: "Please use the international format, e.g. +49 151 12345678.",
         heightRequired: "Please enter your height.",
         heightInvalid: "Please enter a number between 100 and 250 cm.",
         locationRequired: "Please choose a location.",
