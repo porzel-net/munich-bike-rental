@@ -24,6 +24,9 @@ if (isProduction) {
 const noImageIndexHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" }];
 
 const nextConfig = {
+  // A separate build directory makes local production-build verification safe
+  // while a developer's next dev process is using .next/dev.
+  distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   allowedDevOrigins,
   serverExternalPackages: ["@whiskeysockets/baileys"],
   images: {

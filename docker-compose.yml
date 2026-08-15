@@ -21,6 +21,8 @@ services:
     depends_on:
       database-init:
         condition: service_completed_successfully
+      radicale:
+        condition: service_started
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
@@ -31,6 +33,9 @@ services:
       __NEXT_PRIVATE_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN must be set to the public HTTPS origin}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
       DATABASE_URL: /data/bikerental.db
+      CARDDAV_PUBLIC_URL: ${CARDDAV_PUBLIC_URL:?CARDDAV_PUBLIC_URL must be set to the public HTTPS CardDAV origin}
+      CARDDAV_INTERNAL_URL: ${CARDDAV_INTERNAL_URL:-http://radicale:5232}
+      CARDDAV_INTERNAL_ALLOWED_HOSTS: ${CARDDAV_INTERNAL_ALLOWED_HOSTS:-}
       CALENDAR_FEED_TOKEN: ${CALENDAR_FEED_TOKEN:-}
       MAIL_SYNC_TOKEN: ${MAIL_SYNC_TOKEN:-}
       OUTBOX_DISPATCH_TOKEN: ${OUTBOX_DISPATCH_TOKEN:-}
@@ -105,6 +110,30 @@ services:
       retries: 3
       start_period: 20s
 
+  radicale:
+    image: ${RADICALE_IMAGE:-tomsquest/docker-radicale:3.6.1.0}
+    expose:
+      - "5232"
+    volumes:
+      - radicale-data:/data
+      - ./radicale/config:/etc/radicale:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "3"
+    restart: unless-stopped
+
   backup:
     build:
       context: ./backup
@@ -121,6 +150,7 @@ services:
       BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-false}
     volumes:
       - app-data:/source:ro
+      - radicale-data:/radicale-source:ro
       - ${BACKUP_DIR:-./backups}:/backup
     secrets:
       - restic-password
@@ -139,6 +169,7 @@ services:
 
 volumes:
   app-data:
+  radicale-data:
 
 secrets:
   restic-password:

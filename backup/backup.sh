@@ -2,6 +2,7 @@
 set -eu
 
 SOURCE_DIR=${SOURCE_DIR:-/source}
+RADICALE_SOURCE_DIR=${RADICALE_SOURCE_DIR:-/radicale-source}
 BACKUP_DIR=${BACKUP_DIR:-/backup}
 RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-$BACKUP_DIR/restic-repository}
 RESTIC_PASSWORD_FILE=${RESTIC_PASSWORD_FILE:-/run/secrets/restic-password}
@@ -42,6 +43,16 @@ copy_optional_directory() {
   fi
 }
 
+copy_external_directory() {
+  name=$1
+  source_path=$2
+  target_path="$STAGING_DIR/$name"
+  if [ -d "$source_path" ]; then
+    mkdir -p "$target_path"
+    cp -a "$source_path/." "$target_path/"
+  fi
+}
+
 create_manifest() {
   database_sha256=$(sha256sum "$STAGING_DIR/bikerental.db" | awk '{print $1}')
   document_count=0
@@ -51,6 +62,10 @@ create_manifest() {
   fi
   if [ -d "$STAGING_DIR/whatsapp-auth" ]; then
     whatsapp_file_count=$(find "$STAGING_DIR/whatsapp-auth" -type f | wc -l | tr -d ' ')
+  fi
+  radicale_file_count=0
+  if [ -d "$STAGING_DIR/radicale-data" ]; then
+    radicale_file_count=$(find "$STAGING_DIR/radicale-data" -type f | wc -l | tr -d ' ')
   fi
   migration_count=$(sqlite3 "$STAGING_DIR/bikerental.db" \
     "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations';" 2>/dev/null || printf '0')
@@ -62,6 +77,7 @@ create_manifest() {
   "databaseSha256": "$database_sha256",
   "financialDocumentFiles": $document_count,
   "whatsappAuthFiles": $whatsapp_file_count,
+  "radicaleDataFiles": $radicale_file_count,
   "migrationTablePresent": $([ "$migration_count" -gt 0 ] && printf 'true' || printf 'false')
 }
 EOF
@@ -93,6 +109,7 @@ run_backup() {
 
   copy_optional_directory financial-documents
   copy_optional_directory whatsapp-auth
+  copy_external_directory radicale-data "$RADICALE_SOURCE_DIR"
   create_manifest
 
   log "Sichere Datenbank und Dateien verschlüsselt in Restic."

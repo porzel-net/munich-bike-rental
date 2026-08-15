@@ -72,6 +72,7 @@ import { POST as disposalPost } from "../../app/api/admin/financial/assets/dispo
 import {
   authInvitation,
   authUser,
+  carddavAccounts,
   accountingAccounts,
   financialAccounts,
   financialCategories,
@@ -392,6 +393,16 @@ describe("admin users and invitation APIs", () => {
         updatedAt: new Date(),
       })
       .run();
+    db.insert(carddavAccounts)
+      .values({
+        userId: "target",
+        username: "mbr-target",
+        passwordHash: "scrypt-v1$32768$8$1$aaaaaaaaaaaaaaaaaaaaaa$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
 
     const update = await usersPatch(
       request("/api/admin/users", "PATCH", { userId: "target", role: "admin", locationKey: null }),
@@ -401,6 +412,9 @@ describe("admin users and invitation APIs", () => {
     expect(db.select().from(authUser).where(eq(authUser.id, "target")).get()).toMatchObject({
       role: "admin",
       locationKey: null,
+    });
+    expect(db.select().from(carddavAccounts).where(eq(carddavAccounts.userId, "target")).get()).toMatchObject({
+      enabled: false,
     });
 
     expect((await usersDelete(request("/api/admin/users", "DELETE", { userId: "target" })))?.status).toBe(204);

@@ -239,6 +239,56 @@ Zusätzlich sollte der Server so betrieben werden:
 - Updates für Docker, Nginx und Ubuntu regelmäßig einspielen
 - Logs und Container-Status regelmäßig prüfen
 
+## Kontakte und CardDAV
+
+Die Admin-Seite `/admin/contacts` bildet die Kontakte aus den sichtbaren
+Buchungen. Admins sehen alle Standorte; Standortuser sehen ausschließlich ihren
+zugewiesenen Standort. Kontakte werden nach normalisierter E-Mail-Adresse
+zusammengefasst und zeigen die zugehörigen Buchungen.
+
+Für die iPhone-Synchronisierung läuft Radicale als separater, schlanker
+Docker-Service. Radicale ist nicht direkt öffentlich erreichbar: Der
+Produktions-Compose bindet Port 5232 nur an Loopback. Nginx nimmt HTTPS an,
+prüft die individuellen CardDAV-Zugangsdaten über die interne Next.js-
+Auth-Request-Route und reicht nur den geprüften Benutzer an Radicale weiter.
+
+Zusätzlich zu den bestehenden Variablen müssen produktiv nur diese Werte
+gesetzt werden:
+
+```dotenv
+CARDDAV_PUBLIC_URL=https://contacts.deine-domain.tld
+CARDDAV_INTERNAL_URL=http://radicale:5232
+```
+
+`CARDDAV_INTERNAL_URL` kann beim Standard-Compose unverändert bleiben.
+Die Anwendung akzeptiert standardmäßig nur interne Ziele (`radicale`, Loopback).
+Bei einem abweichenden internen Service-Namen muss zusätzlich der Host explizit
+über `CARDDAV_INTERNAL_ALLOWED_HOSTS` freigegeben werden; öffentliche Hosts,
+URL-Credentials und externe Pfade werden abgewiesen.
+`CARDDAV_PUBLIC_URL` muss der HTTPS-Host sein, den Nginx auf Radicale
+weiterleitet. Die Datei `docker/nginx-site.conf.example` enthält dafür einen
+separaten Server-Block. Den Hostnamen und die Zertifikatspfade ersetzen, den
+HTTP-Sicherheitsblock aus `docker/nginx-http-security.conf.example` in den
+Nginx-`http`-Block aufnehmen und anschließend die Konfiguration testen:
+
+```bash
+nginx -t
+docker compose -f docker-compose.yml -f docker-compose.server.yml pull radicale
+docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
+```
+
+Die CardDAV-Passwörter werden ausschließlich als scrypt-Hashes in der
+Anwendungsdatenbank gespeichert. Der Klartext wird beim Erzeugen oder Rotieren
+einmalig im Dialog angezeigt. Widerruf und Rotation werden im Audit-Log
+protokolliert. Das Radicale-Volume `radicale-data` muss zusammen mit dem
+`app-data`-Volume in die verschlüsselten Backups aufgenommen werden.
+
+Auf dem iPhone: Einstellungen → Apps → Kontakte → Kontakteaccounts → Account
+hinzufügen → Anderen Account hinzufügen → CardDAV-Account hinzufügen. Server,
+Benutzername und das einmalig angezeigte Passwort aus dem Kontakte-Dialog
+verwenden. Der Button „Kontakte synchronisieren“ überträgt den für den Nutzer
+sichtbaren Buchungsbestand in sein persönliches Radicale-Adressbuch.
+
 ## Prüfen
 
 Gesundheitscheck auf dem Server:
@@ -284,7 +334,7 @@ Die Datenbank enthält personenbezogene Kontakt- und Mietdaten. Backups gehören
 
 ### Automatische verschlüsselte Vollbackups
 
-Der Compose-Stack enthält einen separaten `backup`-Service. Er erstellt täglich um `02:30` Uhr (Zeitzone `Europe/Rome`) einen konsistenten SQLite-Snapshot und sichert zusätzlich die Verzeichnisse für Finanzbelege und WhatsApp-Authentifizierung. Die Sicherung wird mit Restic komprimiert, verschlüsselt und als vollständiger wiederherstellbarer Snapshot abgelegt.
+Der Compose-Stack enthält einen separaten `backup`-Service. Er erstellt täglich um `02:30` Uhr (Zeitzone `Europe/Rome`) einen konsistenten SQLite-Snapshot und sichert zusätzlich die Verzeichnisse für Finanzbelege, WhatsApp-Authentifizierung und das Radicale-Volume. Die Sicherung wird mit Restic komprimiert, verschlüsselt und als vollständiger wiederherstellbarer Snapshot abgelegt.
 
 Die Aufbewahrung ist fest eingestellt auf:
 
@@ -351,7 +401,7 @@ docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.ym
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.server.yml start app
 ```
 
-Der Live-Restore legt vor dem Ersetzen eine Kopie unter `${BACKUP_DIR}/state/before-restore-*` ab. Wenn möglich, sollte zusätzlich mindestens eine Kopie des verschlüsselten Restic-Repositorys auf einem zweiten Server oder externen Speicher liegen. Die Restic-Passwortdatei muss getrennt vom Repository aufbewahrt werden; ohne sie ist das Backup nicht entschlüsselbar.
+Der Live-Restore legt vor dem Ersetzen eine Kopie unter `${BACKUP_DIR}/state/before-restore-*` ab. Das Radicale-Volume wird bei einem Live-Restore bewusst nicht automatisch überschrieben; stelle die restaurierte `radicale-data`-Directory nach dem Stoppen von App und Radicale kontrolliert in das Named Volume zurück. Wenn möglich, sollte zusätzlich mindestens eine Kopie des verschlüsselten Restic-Repositorys auf einem zweiten Server oder externen Speicher liegen. Die Restic-Passwortdatei muss getrennt vom Repository aufbewahrt werden; ohne sie ist das Backup nicht entschlüsselbar.
 
 ### Buchungs-Umstellung und Outbox
 

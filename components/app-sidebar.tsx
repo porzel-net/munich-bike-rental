@@ -19,6 +19,7 @@ import {
   BikeIcon,
   BoxesIcon,
   CalendarDaysIcon,
+  ContactRoundIcon,
   EuroIcon,
   LayoutDashboardIcon,
   ListIcon,
@@ -63,6 +64,11 @@ const data = {
         { title: "Banktransaktionen", url: "/admin/accounting/transactions" },
         { title: "Anlageverzeichnis", url: "/admin/accounting/assets" },
       ],
+    },
+    {
+      title: "Kontakte",
+      url: "/admin/contacts",
+      icon: <ContactRoundIcon />,
     },
     {
       title: "Team",

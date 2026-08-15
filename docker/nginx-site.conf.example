@@ -54,6 +54,12 @@ server {
     proxy_send_timeout 60s;
   }
 
+  # This path is reserved for the CardDAV auth_request subrequest in the
+  # contacts.* server block. Never expose it through the application host.
+  location = /api/internal/carddav/auth {
+    return 404;
+  }
+
   location ~ ^/api/(booking-confirmation-v2/(checkout|complete)|stripe/webhook)$ {
     client_max_body_size 1m;
     proxy_pass http://127.0.0.1:3000;
@@ -86,4 +92,76 @@ server {
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   add_header Permissions-Policy "camera=(), geolocation=(), microphone=()" always;
   add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+}
+
+# CardDAV is intentionally served from a separate host. The upstream Radicale
+# port is bound to loopback by docker-compose.server.yml and is never public.
+server {
+  listen 80;
+  server_name contacts.example.com;
+  return 308 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name contacts.example.com;
+
+  ssl_certificate /etc/letsencrypt/live/contacts.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/contacts.example.com/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+
+  client_max_body_size 1m;
+  client_header_timeout 10s;
+  client_body_timeout 30s;
+  keepalive_timeout 15s;
+  server_tokens off;
+
+  # Nginx auth_request subrequests are internal and pass the iPhone's Basic
+  # credentials to the Next.js verifier without forwarding the request body.
+  location = /_carddav_auth {
+    internal;
+    limit_req zone=carddav_auth_per_ip burst=30 nodelay;
+    proxy_pass http://127.0.0.1:3000/api/internal/carddav/auth;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Authorization $http_authorization;
+    proxy_set_header X-CardDAV-Proxy "1";
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  # Defense in depth: the verifier is only callable by the auth_request
+  # location above, never as a normal public Next.js endpoint.
+  location = /api/internal/carddav/auth {
+    return 404;
+  }
+
+  # Apple discovers CardDAV through these standard well-known endpoints.
+  location = /.well-known/carddav {
+    return 308 /;
+  }
+  location = /.well-known/caldav {
+    return 308 /;
+  }
+
+  location / {
+    auth_request /_carddav_auth;
+    auth_request_set $carddav_user $upstream_http_x_remote_user;
+    limit_conn connections_per_ip 10;
+
+    proxy_pass http://127.0.0.1:5232;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Remote-User $carddav_user;
+    proxy_set_header Authorization "";
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+  }
+
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy no-referrer always;
 }

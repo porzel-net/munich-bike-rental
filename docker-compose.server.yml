@@ -2,3 +2,7 @@ services:
   app:
     ports:
       - "127.0.0.1:3000:3000"
+
+  radicale:
+    ports:
+      - "127.0.0.1:5232:5232"

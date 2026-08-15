@@ -56,6 +56,7 @@ run_backup() {
     -e RESTIC_PASSWORD_FILE=/run/secrets/restic-password \
     -v "$TEST_ROOT/backup":/backup \
     -v "$TEST_ROOT/source":/source:ro \
+    -v "$TEST_ROOT/radicale":/radicale-source:ro \
     -v "$TEST_ROOT/secrets":/run/secrets:ro \
     "$IMAGE" "$@"
 }
@@ -69,6 +70,7 @@ run_backup_rw() {
     -e ALLOW_LIVE_RESTORE=true \
     -v "$TEST_ROOT/backup":/backup \
     -v "$TEST_ROOT/source":/source \
+    -v "$TEST_ROOT/radicale":/radicale-source \
     -v "$TEST_ROOT/secrets":/run/secrets:ro \
     "$IMAGE" "$@"
 }
@@ -80,6 +82,7 @@ run_without_secret() {
     -e RESTIC_PASSWORD_FILE=/run/secrets/missing \
     -v "$TEST_ROOT/backup":/backup \
     -v "$TEST_ROOT/source":/source:ro \
+    -v "$TEST_ROOT/radicale":/radicale-source:ro \
     "$IMAGE" "$@"
 }
 
@@ -103,10 +106,11 @@ if [ "${BACKUP_TEST_SKIP_BUILD:-false}" != "true" ]; then
   docker build --tag "$IMAGE" "$ROOT_DIR/backup" >/dev/null
 fi
 
-mkdir -p "$TEST_ROOT/source/financial-documents" "$TEST_ROOT/source/whatsapp-auth" "$TEST_ROOT/secrets" "$TEST_ROOT/backup"
+mkdir -p "$TEST_ROOT/source/financial-documents" "$TEST_ROOT/source/whatsapp-auth" "$TEST_ROOT/radicale/collections/mbr-test/contacts" "$TEST_ROOT/secrets" "$TEST_ROOT/backup"
 printf 'correct horse battery staple\n' > "$TEST_ROOT/secrets/restic-password"
 printf 'sensitive receipt contents\n' > "$TEST_ROOT/source/financial-documents/receipt.txt"
 printf 'whatsapp credential contents\n' > "$TEST_ROOT/source/whatsapp-auth/credentials"
+printf 'BEGIN:VCARD\nVERSION:3.0\nFN:Backup Contact\nEND:VCARD\n' > "$TEST_ROOT/radicale/collections/mbr-test/contacts/backup.vcf"
 sqlite3 "$TEST_ROOT/source/bikerental.db" \
   'CREATE TABLE smoke (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO smoke(value) VALUES ("backup-sensitive-value");'
 
@@ -154,8 +158,10 @@ assert_file "$RESTORED_MANIFEST"
 assert_equal 'backup-sensitive-value' "$(sqlite3 "$RESTORED_DB" 'SELECT value FROM smoke;')" 'Datenbankinhalt nach Restore'
 assert_contains "$(cat "$RESTORED_MANIFEST")" 'financialDocumentFiles": 1' 'Manifest enthält Beleganzahl'
 assert_contains "$(cat "$RESTORED_MANIFEST")" 'whatsappAuthFiles": 1' 'Manifest enthält WhatsApp-Dateianzahl'
+assert_contains "$(cat "$RESTORED_MANIFEST")" 'radicaleDataFiles": 1' 'Manifest enthält Radicale-Dateianzahl'
 assert_equal 'sensitive receipt contents' "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name receipt.txt -print -quit)")" 'Beleg nach Restore'
 assert_equal 'whatsapp credential contents' "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name credentials -print -quit)")" 'WhatsApp-Datei nach Restore'
+assert_equal 'BEGIN:VCARD\nVERSION:3.0\nFN:Backup Contact\nEND:VCARD\n' "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name backup.vcf -print -quit)")" 'Radicale-Kontakt nach Restore'
 pass 'Datenbank, Manifest, Belege und WhatsApp-Daten werden restauriert'
 
 sqlite3 "$TEST_ROOT/source/bikerental.db" 'UPDATE smoke SET value = "same-day-update";'

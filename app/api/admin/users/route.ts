@@ -7,6 +7,7 @@ import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApiAsAdmin, getServerSession } from "../../../../lib/auth/session";
 import { getDatabase } from "../../../../lib/db/client";
 import { authInvitation, authUser } from "../../../../lib/db/schema/auth";
+import { carddavAccounts } from "@/lib/db/schema";
 import {
   createInvitationId,
   createInvitationToken,
@@ -114,7 +115,7 @@ export async function PATCH(request: Request) {
 
   const db = getDatabase();
   const target = db
-    .select({ id: authUser.id, role: authUser.role })
+    .select({ id: authUser.id, role: authUser.role, locationKey: authUser.locationKey })
     .from(authUser)
     .where(eq(authUser.id, parsed.data.userId))
     .get();
@@ -133,6 +134,17 @@ export async function PATCH(request: Request) {
     .run();
   if (result.changes === 0) return NextResponse.json({ message: "User not found" }, { status: 404 });
 
+  const accessScopeChanged = target.role !== parsed.data.role || target.locationKey !== parsed.data.locationKey;
+  if (accessScopeChanged) {
+    // A CardDAV account contains a server-side copy of the user's contacts.
+    // Revoke it immediately when the user's visibility scope changes; the
+    // user must explicitly create a new credential after the change.
+    db.update(carddavAccounts)
+      .set({ enabled: false, updatedAt, lastSyncError: null })
+      .where(eq(carddavAccounts.userId, parsed.data.userId))
+      .run();
+  }
+
   recordAdminAuditEvent(db, {
     actorUserId: access.session.user.id,
     action: "user_role_changed",
@@ -142,6 +154,7 @@ export async function PATCH(request: Request) {
       previousRole: target.role,
       nextRole: parsed.data.role,
       nextLocationKey: parsed.data.locationKey,
+      carddavRevoked: accessScopeChanged,
     },
   });
 

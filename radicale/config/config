@@ -1,0 +1,31 @@
+[server]
+hosts = 0.0.0.0:5232
+max_connections = 20
+max_content_length = 1048576
+max_resource_size = 1048576
+timeout = 30
+
+[auth]
+# Nginx authenticates the individual CardDAV credentials against Next.js and
+# forwards only the validated username. The Radicale container is never
+# reachable directly from the Internet.
+type = http_x_remote_user
+delay = 1
+
+[rights]
+# A user may read/write only collections below /USERNAME/.
+type = owner_only
+permit_delete_collection = false
+permit_overwrite_collection = false
+
+[storage]
+type = multifilesystem
+filesystem_folder = /data/collections
+filesystem_fsync = true
+predefined_collections = {"contacts": {"D:displayname": "Kontakte", "tag": "VADDRESSBOOK"}}
+
+[web]
+type = none
+
+[logging]
+level = warning
