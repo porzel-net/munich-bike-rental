@@ -38,7 +38,7 @@ import {
   updateBooking,
   setLegacyBookingStatus,
 } from "../../lib/bookings/service";
-import { renderOfferMail } from "../../lib/bookings/messages";
+import { renderBookingNotice, renderOfferMail } from "../../lib/bookings/messages";
 import { appendJournalEntry } from "../../lib/bookings/ledger";
 import { getPublicFeedbackByToken, submitPublicFeedback } from "../../lib/bookings/feedback";
 
@@ -431,6 +431,25 @@ describe("booking commands", () => {
     expect(db.select().from(bookingEvents).where(eq(bookingEvents.bookingId, booking.id)).all().at(-1)?.reason).toBe(
       "Fahrrad Verfügbarkeit",
     );
+  });
+
+  it("uses the personal rejection message as the complete custom body", () => {
+    const mail = renderBookingNotice({
+      kind: "rejected",
+      locale: "de",
+      name: "Andreas Beispiel",
+      orderNumber: "MBR-2026-0001",
+      senderFirstName: "Julius",
+      personalMessage: "Schade, dass es diesmal nicht klappt. Melde dich gerne für einen anderen Zeitraum.",
+    });
+
+    expect(mail.text).toBe(
+      "Hey Andreas,\n\nSchade, dass es diesmal nicht klappt. Melde dich gerne für einen anderen Zeitraum.\n\nLiebe Grüße\nJulius",
+    );
+    expect(mail.html).toContain("Danke für deine Anfrage");
+    expect(mail.html).toContain("Schade, dass es diesmal nicht klappt.");
+    expect(mail.html).not.toContain("Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten.");
+    expect(mail.html).not.toContain("Wir hoffen, dass du fündig wirst");
   });
 
   it("keeps edited equipment out of the quote and confirmation allocation", () => {

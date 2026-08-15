@@ -310,11 +310,15 @@ export function BookingCommandActions({
           : "Grund auswählen";
   const rejectionMailPreview = `Hey ${customerName.trim().split(/\s+/)[0] || customerName},
 
-${personalMessage.trim() ? `${personalMessage.trim()}\n\n` : ""}vielen Dank für deine Anfrage.
+${
+  personalMessage.trim()
+    ? personalMessage.trim()
+    : `vielen Dank für deine Anfrage.
 
 Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!
 
-Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.
+Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.`
+}
 
 Liebe Grüße
 ${senderName.trim().split(/\s+/)[0] || senderName}`;
@@ -1429,7 +1433,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     maxLength={2000}
                   />
                   <FieldDescription>
-                    Dieser Text wird direkt oben nach der Anrede in die Absage-Mail eingefügt.
+                    Wenn du hier etwas einträgst, ersetzt es den Standardtext der Absage vollständig.
                   </FieldDescription>
                 </div>
                 <div className="rounded-xl border bg-muted/40 p-4">

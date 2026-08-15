@@ -398,6 +398,7 @@ export function renderBookingNotice(input: {
   bikes?: Array<{ name: string; frameNumber?: string | null }>;
 }) {
   const de = input.locale === "de";
+  const personalMessage = input.personalMessage?.trim() ?? "";
   const recipientFirstName = input.name.trim().split(/\s+/)[0] || input.name;
   const senderFirstName = input.senderFirstName ?? "Your Bike Rental";
   const offerLink = input.offerToken ? bookingPageUrl(input.offerToken) : null;
@@ -472,12 +473,15 @@ export function renderBookingNotice(input: {
           ? [
               `Hey ${recipientFirstName},`,
               "",
-              ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
-              "vielen Dank für deine Anfrage.",
-              "",
-              "Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!",
-              "",
-              "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.",
+              ...(personalMessage
+                ? [personalMessage]
+                : [
+                    "vielen Dank für deine Anfrage.",
+                    "",
+                    "Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!",
+                    "",
+                    "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.",
+                  ]),
               "",
               "Liebe Grüße",
               senderFirstName,
@@ -485,12 +489,15 @@ export function renderBookingNotice(input: {
           : [
               `Hello ${recipientFirstName},`,
               "",
-              ...(input.personalMessage?.trim() ? [input.personalMessage.trim(), ""] : []),
-              "thank you for your inquiry.",
-              "",
-              "Unfortunately, we cannot offer you a suitable bike for this period.",
-              "",
-              "We hope you find what you are looking for and wish you a good ride.",
+              ...(personalMessage
+                ? [personalMessage]
+                : [
+                    "thank you for your inquiry.",
+                    "",
+                    "Unfortunately, we cannot offer you a suitable bike for this period.",
+                    "",
+                    "We hope you find what you are looking for and wish you a good ride.",
+                  ]),
               "",
               "Kind regards",
               senderFirstName,
@@ -578,8 +585,8 @@ export function renderBookingNotice(input: {
             ? "Anfrage"
             : "Inquiry",
     title,
-    intro,
-    content: `${input.personalMessage?.trim() ? emailCard(emailParagraph(input.personalMessage), "#eef2ff") : ""}${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" ? emailCard(`${emailLabel(de ? "Deine Ansprechperson" : "Your contact person")}${emailParagraph(contactText)}`, "#eef2ff") : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
+    intro: input.kind === "rejected" && personalMessage ? personalMessage : intro,
+    content: `${noticeDetails.length ? emailCard(noticeDetails.map((detail) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(detail)}</p>`).join("")) : ""}${input.kind === "confirmed" && bikeLines.length ? emailCard(`${emailLabel(de ? "Fahrräder" : "Bikes")}${bikeLines.map((line) => `<p style="margin:0 0 6px;color:#4f5960;font-size:14px;line-height:1.5">${escapeHtml(line)}</p>`).join("")}`) : ""}${input.kind === "confirmed" ? emailCard(`${emailLabel(de ? "Deine Ansprechperson" : "Your contact person")}${emailParagraph(contactText)}`, "#eef2ff") : ""}${input.kind === "confirmed" && offerLink ? emailCard(`${emailLabel(de ? "Deine Buchungsdetails" : "Your booking details")}${emailParagraph(de ? "Alle Informationen zu deiner Buchung findest du auf der Buchungsseite." : "You can find all booking details on the booking page.")}`, "#eef2ff") : ""}${input.kind === "rejected" && !personalMessage ? emailParagraph(de ? "Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt." : "We hope you find what you are looking for and wish you a good ride.") : ""}`,
     cta: offerLink ? { label: de ? "Buchungsdetails öffnen" : "Open booking details", href: offerLink } : undefined,
   });
   return { subject, text, html };
