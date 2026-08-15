@@ -62,6 +62,7 @@ type FormTranslations = {
   periodHint: string;
   pickupTime: string;
   dropoffTime: string;
+  timeHint: string;
   equipment: string;
   pedals: string;
   pedalType: string;
@@ -1685,6 +1686,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
               ) : null}
             </div>
           </div>
+          <span className="contact-form__hint">{translations.form.timeHint}</span>
         </div>
         <textarea
           id="message"
