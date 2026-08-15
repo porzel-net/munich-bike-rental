@@ -424,7 +424,7 @@ function canonicalBikeLabel(model: string, size: string | undefined) {
         ? "Ultimate CF SL 7"
         : compact.startsWith("aeroad")
           ? "Aeroad CF SL 8"
-          : BIKE_MODELS.find((candidate) => candidate.toLocaleLowerCase() === compact) ?? norm(model);
+          : (BIKE_MODELS.find((candidate) => candidate.toLocaleLowerCase() === compact) ?? norm(model));
   return size ? `${canonical} - ${size.toUpperCase()}` : canonical;
 }
 

@@ -483,7 +483,8 @@ export const translations = {
       periodHint: "Bitte wähle den Zeitraum, in dem du das Rad buchen möchtest.",
       pickupTime: "Gewünschte Abholuhrzeit",
       dropoffTime: "Gewünschte Abgabeuhrzeit",
-      timeHint: "Wir arbeiten immer, auch an Wochenenden und Feiertagen, und vereinbaren die Übergabe gerne individuell mit dir.",
+      timeHint:
+        "Wir arbeiten immer, auch an Wochenenden und Feiertagen, und vereinbaren die Übergabe gerne individuell mit dir.",
       equipment: "ICH BRAUCHE FOLGENDE AUSRÜSTUNG:",
       pedals: "Pedale\n(einmalig 5€)",
       pedalType: "Welche Pedale?",
@@ -659,7 +660,8 @@ export const translations = {
       periodHint: "Please choose the period in which you want to book the bike.",
       pickupTime: "Preferred pickup time",
       dropoffTime: "Preferred drop-off time",
-      timeHint: "We are available every day, including weekends and public holidays, and are happy to arrange the handover individually with you.",
+      timeHint:
+        "We are available every day, including weekends and public holidays, and are happy to arrange the handover individually with you.",
       equipment: "THE FOLLOWING EQUIPMENT IS NEEDED:",
       pedals: "Pedals\n(one-time €5)",
       pedalType: "Which pedals?",
