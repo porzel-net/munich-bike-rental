@@ -80,7 +80,7 @@ function getText(action: BookingMailAction, booking: BookingMailActionInput) {
       "",
       "Das Angebot bleibt 24 Stunden für dich reserviert. Schick uns danach bitte die Überweisungsbestätigung per Mail.",
       "",
-      "Bitte bringe zur Abholung außerdem 100 € Kaution in bar mit.",
+      "Bitte bringe zur Abholung außerdem 100 € Kaution pro Bike in bar mit.",
       "",
       "Wir freuen uns, dich bald auf dem Rad zu sehen!",
       "",
