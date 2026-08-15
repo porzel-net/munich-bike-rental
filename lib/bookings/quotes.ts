@@ -1,12 +1,20 @@
 import { and, eq } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
-import { accessoryInventory, bookingRequestedItems, bookings, rentalAssets } from "../db/schema";
+import {
+  accessoryInventory,
+  bikeModels,
+  bikeVariants,
+  bookingRequestedItems,
+  bookings,
+  rentalAssets,
+} from "../db/schema";
 import { calculateBikePriceWithDiscounts, calculateInquiryPrice, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
 import type { ContactInquiry } from "../inquiries/schemas";
 
 import { BookingCommandError } from "./errors";
+import { isAssetSelectableForBooking } from "./historical-availability";
 
 export type OfferQuote = {
   totalCents: number;
@@ -116,25 +124,25 @@ export function buildOfferQuote(
   const offeredItems = requested.map((item) => {
     const assetId = assetsByRequestedItem[item.id];
     const asset = db
-      .select()
+      .select({ asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
       .from(rentalAssets)
-      .where(
-        and(
-          eq(rentalAssets.id, assetId),
-          eq(rentalAssets.location, booking.location),
-          eq(rentalAssets.state, "active"),
-        ),
-      )
+      .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+      .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+      .where(and(eq(rentalAssets.id, assetId), eq(rentalAssets.location, booking.location)))
       .get();
-    if (!asset) throw new BookingCommandError("The selected asset is not active at this location");
+    if (
+      !asset ||
+      !isAssetSelectableForBooking(booking, { ...asset.asset, modelTitle: asset.modelTitle, size: asset.size })
+    )
+      throw new BookingCommandError("The selected asset is not active at this location");
     return {
       requestedItemId: item.id,
       requestedLabel: item.requestedLabel,
       heightCm: item.heightCm,
       assetId,
-      assetName: asset.displayName,
-      frameNumber: asset.frameNumber,
-      dailyPriceCents: asset.dailyPriceCents,
+      assetName: asset.asset.displayName,
+      frameNumber: asset.asset.frameNumber,
+      dailyPriceCents: asset.asset.dailyPriceCents,
       accessories: selectedAccessories(item, accessoriesByRequestedItem[item.id]),
     };
   });

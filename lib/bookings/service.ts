@@ -36,6 +36,7 @@ import { bikeMatchesRequestedLabel } from "../inventory/display-name";
 
 import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
+import { isAssetSelectableForBooking } from "./historical-availability";
 import { appendJournalEntry, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents } from "./money";
 import {
@@ -371,13 +372,23 @@ export function setLegacyBookingStatus(
         throw new BookingCommandError("Für jedes angefragte Fahrrad muss ein konkretes Fahrrad ausgewählt werden");
 
       const selectedAssets = db
-        .select()
+        .select({ asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
         .from(rentalAssets)
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
         .where(inArray(rentalAssets.id, Object.values(assetsByRequestedItem)))
         .all();
       if (
         selectedAssets.length !== itemIds.length ||
-        selectedAssets.some((asset) => asset.location !== booking.location || asset.state !== "active")
+        selectedAssets.some(
+          (asset) =>
+            asset.asset.location !== booking.location ||
+            !isAssetSelectableForBooking(booking, {
+              ...asset.asset,
+              modelTitle: asset.modelTitle,
+              size: asset.size,
+            }),
+        )
       )
         throw new BookingCommandError("Mindestens eines der ausgewählten Fahrräder ist nicht verfügbar");
     }

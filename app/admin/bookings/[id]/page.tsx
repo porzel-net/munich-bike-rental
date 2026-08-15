@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -29,6 +29,10 @@ import { getDatabase } from "@/lib/db/client";
 import { getLatestEmailActionReview, isEmailActionEligible, reviewQuestions } from "@/lib/inquiries/email-action";
 import { getLocationInventory } from "@/lib/inventory/repository";
 import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
+import {
+  isAssetSelectableForBooking,
+  isHistoricalRegensburgEnduraceSAsset,
+} from "@/lib/bookings/historical-availability";
 import { getDailyBikePriceCents } from "@/lib/inventory/pricing";
 import { formatReceivedAt } from "@/lib/bookings/order-number";
 import { allocateInvoiceNumber } from "@/lib/bookings/invoice-number";
@@ -177,12 +181,22 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       modelTitle: bikeModels.title,
       size: bikeVariants.size,
       priceCents: rentalAssets.dailyPriceCents,
+      state: rentalAssets.state,
     })
     .from(rentalAssets)
     .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
     .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
-    .where(and(eq(rentalAssets.location, booking.location), eq(rentalAssets.state, "active")))
+    .where(eq(rentalAssets.location, booking.location))
     .all()
+    .filter((asset) => {
+      const candidate = { ...asset, modelTitle: asset.modelTitle, size: asset.size };
+      // The status dialog can change the period after the asset list is loaded.
+      // Keep this historical asset visible so the entered 26.07.–10.08. period can be saved.
+      return (
+        isAssetSelectableForBooking(booking, candidate) ||
+        (booking.source === "legacy" && isHistoricalRegensburgEnduraceSAsset(candidate))
+      );
+    })
     .map((asset) => ({ ...asset, modelLabel: `${asset.modelTitle} - ${asset.size}` }));
   const unavailableAssetIds = availableAssets
     .filter((asset) => hasAssetConflict(db, booking, asset.id))
