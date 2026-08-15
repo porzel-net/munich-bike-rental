@@ -96,7 +96,9 @@ function categoryDescription(category: FinancialReviewCategory) {
 }
 
 function categoryGroups(categories: FinancialReviewCategory[]) {
-  const available = categories.filter((category) => category.euerTreatment !== "needs_review");
+  const available = categories.filter(
+    (category) => category.euerTreatment !== "needs_review" && category.euerTreatment !== "input_vat",
+  );
   return [
     { label: "Einnahmen", categories: available.filter((category) => category.euerTreatment === "income") },
     {
@@ -105,9 +107,7 @@ function categoryGroups(categories: FinancialReviewCategory[]) {
     },
     {
       label: "Steuern und Vorsteuer",
-      categories: available.filter((category) =>
-        ["input_vat", "output_vat", "tax_payment"].includes(category.euerTreatment),
-      ),
+      categories: available.filter((category) => ["output_vat", "tax_payment"].includes(category.euerTreatment)),
     },
     {
       label: "Anlagegüter",
@@ -165,12 +165,10 @@ export function FinancialTransactionDialog({
   const [assetName, setAssetName] = useState("");
   const [assetType, setAssetType] = useState<"bike" | "equipment" | "other">("bike");
   const [assetCost, setAssetCost] = useState("");
-  const [assetInputVat, setAssetInputVat] = useState("0");
   const [assetInServiceDate, setAssetInServiceDate] = useState(today());
   const [assetUsefulLifeMonths, setAssetUsefulLifeMonths] = useState("84");
   const [assetSerialNumber, setAssetSerialNumber] = useState("");
   const [privateShare, setPrivateShare] = useState("0");
-  const [mealInputVat, setMealInputVat] = useState("0");
   const [file, setFile] = useState<File | null>(null);
   const [documents, setDocuments] = useState<Array<{ id: number; originalFileName: string }>>([]);
   const [busy, setBusy] = useState(false);
@@ -213,12 +211,10 @@ export function FinancialTransactionDialog({
         setIgnoreReason("");
         setAssetName(bankTransaction.description || bankTransaction.counterpartyName || "");
         setAssetCost((Math.abs(bankTransaction.amountCents) / 100).toFixed(2));
-        setAssetInputVat("0");
         setAssetInServiceDate(bankTransaction.bookedAt.slice(0, 10));
         setAssetUsefulLifeMonths("84");
         setAssetSerialNumber("");
         setPrivateShare("0");
-        setMealInputVat("0");
         setFile(null);
         setDocuments(bankTransaction.documents);
       } else if (!isBank) {
@@ -235,12 +231,10 @@ export function FinancialTransactionDialog({
         setIgnoreReason("");
         setAssetName("");
         setAssetCost("");
-        setAssetInputVat("0");
         setAssetInServiceDate(today());
         setAssetUsefulLifeMonths("84");
         setAssetSerialNumber("");
         setPrivateShare("0");
-        setMealInputVat("0");
         setFile(null);
         setDocuments([]);
       }
@@ -292,10 +286,10 @@ export function FinancialTransactionDialog({
     }
     const amountCents = Math.round(Number(amount.replace(",", ".")) * 100);
     const assetCostCents = Math.round(Number(assetCost.replace(",", ".")) * 100);
-    const assetInputVatCents = Math.round(Number(assetInputVat.replace(",", ".")) * 100);
+    const assetInputVatCents = 0;
     const assetLife = Number(assetUsefulLifeMonths);
     const privateShareCents = Math.round(Number(privateShare.replace(",", ".")) * 100);
-    const mealInputVatCents = Math.round(Number(mealInputVat.replace(",", ".")) * 100);
+    const mealInputVatCents = 0;
     if (!isBank && (!Number.isSafeInteger(amountCents) || amountCents <= 0)) {
       setError("Bitte gib einen gültigen Betrag ein.");
       return;
@@ -319,14 +313,14 @@ export function FinancialTransactionDialog({
         !Number.isSafeInteger(assetLife) ||
         assetLife < 1)
     ) {
-      setError("Bitte erfasse Name, Netto-Anschaffungskosten, Vorsteuer und Nutzungsdauer des Anlageguts.");
+      setError("Bitte erfasse Name, Netto-Anschaffungskosten und Nutzungsdauer des Anlageguts.");
       return;
     }
     if (
       isAsset &&
       assetCostCents + assetInputVatCents !== Math.abs(isBank ? (bankTransaction?.amountCents ?? 0) : amountCents)
     ) {
-      setError("Netto-Anschaffungskosten und Vorsteuer müssen dem Transaktionsbetrag entsprechen.");
+      setError("Die Netto-Anschaffungskosten müssen dem Transaktionsbetrag entsprechen.");
       return;
     }
 
@@ -685,7 +679,8 @@ export function FinancialTransactionDialog({
                   <div className="sm:col-span-2">
                     <p className="font-medium">Anlagegut</p>
                     <p className="text-xs text-muted-foreground">
-                      Netto-Anschaffungskosten plus Vorsteuer müssen dem Transaktionsbetrag entsprechen.
+                      Als Kleinunternehmer wird keine Vorsteuer erfasst; der Transaktionsbetrag entspricht den
+                      Anschaffungskosten.
                     </p>
                   </div>
                   <Field>
@@ -732,15 +727,15 @@ export function FinancialTransactionDialog({
                     />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="financial-asset-vat">Vorsteuer</FieldLabel>
-                    <Input
-                      id="financial-asset-vat"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={assetInputVat}
-                      onChange={(event) => setAssetInputVat(event.target.value)}
-                    />
+                    <div title="Als Kleinunternehmer bist du nicht zum Vorsteuerabzug berechtigt. Deshalb kann hier keine Vorsteuer erfasst werden.">
+                      <FieldLabel htmlFor="financial-asset-vat" className="text-muted-foreground">
+                        Vorsteuer (nicht verfügbar)
+                      </FieldLabel>
+                      <Input id="financial-asset-vat" type="number" value="0" disabled />
+                    </div>
+                    <FieldDescription>
+                      Kleinunternehmer: Vorsteuer ist nicht abziehbar und wird deshalb nicht erfasst.
+                    </FieldDescription>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="financial-asset-service-date">Inbetriebnahme</FieldLabel>
@@ -798,17 +793,14 @@ export function FinancialTransactionDialog({
                     </FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="financial-meal-input-vat">Abziehbare Vorsteuer</FieldLabel>
-                    <Input
-                      id="financial-meal-input-vat"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={mealInputVat}
-                      onChange={(event) => setMealInputVat(event.target.value)}
-                    />
+                    <div title="Als Kleinunternehmer bist du nicht zum Vorsteuerabzug berechtigt. Deshalb kann hier keine Vorsteuer erfasst werden.">
+                      <FieldLabel htmlFor="financial-meal-input-vat" className="text-muted-foreground">
+                        Abziehbare Vorsteuer (nicht verfügbar)
+                      </FieldLabel>
+                      <Input id="financial-meal-input-vat" type="number" value="0" disabled />
+                    </div>
                     <FieldDescription>
-                      Nur eintragen, wenn du vorsteuerabzugsberechtigt bist und der Beleg die Umsatzsteuer ausweist.
+                      Kleinunternehmer: Vorsteuer ist nicht abziehbar und wird deshalb nicht erfasst.
                     </FieldDescription>
                   </Field>
                 </div>
