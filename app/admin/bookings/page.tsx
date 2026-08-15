@@ -122,7 +122,7 @@ export default async function BookingsPage({
   const datePeriod = getBookingPeriod(params.period);
   const preflight = administrator ? getBookingMigrationPreflight(db) : null;
   const bookingConditions = [
-    administrator || location === "all" ? null : eq(bookings.location, location),
+    location === "all" ? null : eq(bookings.location, location),
     status ? eq(bookings.status, status) : null,
     datePeriod.from ? gte(bookings.periodTo, datePeriod.from) : null,
     datePeriod.to ? lte(bookings.periodFrom, datePeriod.to) : null,
