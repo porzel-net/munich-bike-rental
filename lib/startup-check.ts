@@ -106,18 +106,6 @@ function checkConfiguration(environment: Partial<NodeJS.ProcessEnv>) {
     errors.push("BETTER_AUTH_SECRET muss mindestens 32 Zeichen enthalten");
   }
 
-  const calendarToken = environment.CALENDAR_FEED_TOKEN?.trim();
-  if (calendarToken && calendarToken.length < 32)
-    errors.push("CALENDAR_FEED_TOKEN muss mindestens 32 Zeichen enthalten");
-
-  const calendarUser = isPresent(environment, "CALENDAR_FEED_USERNAME");
-  const calendarPassword = isPresent(environment, "CALENDAR_FEED_PASSWORD");
-  if (calendarUser !== calendarPassword)
-    errors.push("CALENDAR_FEED_USERNAME und CALENDAR_FEED_PASSWORD müssen gemeinsam gesetzt sein");
-  if (calendarPassword && (environment.CALENDAR_FEED_PASSWORD?.length ?? 0) < 16) {
-    errors.push("CALENDAR_FEED_PASSWORD muss mindestens 16 Zeichen enthalten");
-  }
-
   const nevloNames = ["NEVLO_CLIENT_ID", "NEVLO_ACCESS_TOKEN", "NEVLO_REFRESH_TOKEN"] as const;
   const nevloConfigured = nevloNames.filter((name) => isPresent(environment, name)).length;
   if (nevloConfigured > 0 && nevloConfigured < nevloNames.length) {

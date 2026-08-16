@@ -65,7 +65,6 @@ APP_ORIGIN=https://www.deine-domain.tld
 BETTER_AUTH_URL=https://www.deine-domain.tld
 # Für jedes Token separat mit `openssl rand -base64 48` erzeugen; nie in Git einchecken.
 BETTER_AUTH_SECRET=sehr-langes-zufälliges-geheimnis
-CALENDAR_FEED_TOKEN=separates-langes-zufälliges-feed-token
 MAIL_SYNC_TOKEN=separates-langes-zufälliges-mail-token
 OUTBOX_DISPATCH_TOKEN=separates-langes-zufälliges-outbox-token
 # Der einmalige Bootstrap-Link für den ersten Admin wird beim Serverstart geloggt.
@@ -112,10 +111,10 @@ Wichtig:
 
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL`, `APP_ORIGIN` und `BETTER_AUTH_URL` müssen zur echten HTTPS-Domain passen; Compose verweigert den Start, wenn sie fehlen
-- `BETTER_AUTH_SECRET`, `CALENDAR_FEED_TOKEN`, `MAIL_SYNC_TOKEN` und `OUTBOX_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
+- `BETTER_AUTH_SECRET`, `MAIL_SYNC_TOKEN` und `OUTBOX_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
 - Wenn die Datenbank noch keinen Benutzer enthält, wird der einmalige Ersteinladungslink nach dem Start als `BOOTSTRAP_ADMIN_INVITATION=...` im App-Log ausgegeben. Lies ihn mit `docker compose ... logs app` aus. Der Link ist ein Secret und sollte nicht dauerhaft in zentralen Logs gespeichert oder weitergegeben werden.
-- `CALENDAR_FEED_TOKEN` schützt die abonnierbaren Apple-Kalender-Feeds als zusätzlicher URL-Schlüssel. `CALENDAR_FEED_USERNAME` und `CALENDAR_FEED_PASSWORD` aktivieren HTTP-Basic-Auth; das Passwort muss mindestens 16 Zeichen lang sein. Im Adminbereich unter `Kalender` gibt es pro Standort einen eigenen read-only Feed, der direkt in Apple Kalender geöffnet oder als URL kopiert werden kann. Jeder Feed enthält nur die Status `Anfrage eingegangen`, `Angebot versendet`, `Verbindlich gebucht` und `Abgeschlossen`; bei Änderungen aktualisieren `LAST-MODIFIED`, `SEQUENCE` und ETag den bestehenden Kalendereintrag.
-- Der Kalender-Feed enthält nur die für die Einsatzplanung nötigen Daten (Name, Auftrag, Zeitraum, Standort, Fahrrad-/Ausstattungsdaten und Status). E-Mail, Telefonnummer, Kundennachricht, Rechnungs- und Preisdaten bleiben außerhalb des Bearer-Feeds.
+- Apple-Kalender-Feeds verwenden keine globalen Zugangsdaten aus `.env`. Jeder berechtigte Admin- oder Standortbenutzer kann im Adminbereich unter `Kalender` einen persönlichen read-only-Zugang erzeugen. Der zufällige Benutzername und das Passwort werden nur einmalig angezeigt; in der Datenbank bleibt ausschließlich ein scrypt-Hash. Rotation und Widerruf werden im Audit-Log protokolliert. Administratoren kopieren einen Gesamtlink für alle Standorte; Standortbenutzer erhalten serverseitig nur ihren zugewiesenen Standort. Jeder Feed enthält nur die Status `Anfrage eingegangen`, `Angebot versendet`, `Verbindlich gebucht` und `Abgeschlossen`; bei Änderungen aktualisieren `LAST-MODIFIED`, `SEQUENCE` und ETag den bestehenden Kalendereintrag.
+- Der Kalender-Feed enthält nur die für die Einsatzplanung nötigen Daten (Name, Auftrag, Zeitraum, Standort, Fahrrad-/Ausstattungsdaten und Status). E-Mail, Telefonnummer, Kundennachricht, Rechnungs- und Preisdaten bleiben außerhalb des geschützten Feeds.
 - `__NEXT_PRIVATE_ORIGIN` wird im Compose-Stack aus `APP_ORIGIN` gesetzt. Die Nginx-Vorlage pinnt zusätzlich `Host` und `X-Forwarded-Host` auf den konfigurierten Servernamen; übernimm diese Bindings unverändert in die produktive Konfiguration.
 - SMTP-Daten niemals ins Image bake-en, nur zur Laufzeit setzen
 - Die SQLite-Datei gehört niemals ins Image. Der Compose-Stack verwendet das Named Volume `app-data`; der Einmal-Service `database-init` setzt dessen Eigentümer auf den Non-Root-App-User und die Rechte auf `0700`.

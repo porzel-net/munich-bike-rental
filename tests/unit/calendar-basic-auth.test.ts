@@ -1,41 +1,113 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { hasValidCalendarBasicAuth } from "../../lib/calendar/basic-auth";
+import { authenticateCalendarRequest } from "../../lib/calendar/basic-auth";
+import { calendarUsername } from "../../lib/calendar/account";
+import { generateCarddavPassword, hashCarddavPassword } from "../../lib/carddav/auth";
+import { createDatabaseConnection } from "../../lib/db/client";
+import { authUser, calendarAccounts } from "../../lib/db/schema";
 
-const environment = {
-  CALENDAR_FEED_USERNAME: "calendar-admin",
-  CALENDAR_FEED_PASSWORD: "a-strong-calendar-password",
-};
+const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
-function request(authorization?: string) {
+afterEach(() => {
+  while (connections.length) connections.pop()?.close();
+});
+
+function request(username: string, password: string) {
+  const authorization = Buffer.from(`${username}:${password}`).toString("base64");
   return new Request("https://example.com/api/calendar/feed.ics", {
-    headers: authorization ? { Authorization: authorization } : undefined,
+    headers: { Authorization: `Basic ${authorization}` },
   });
 }
 
-describe("calendar basic auth", () => {
-  it("accepts valid credentials", () => {
-    const credentials = Buffer.from("calendar-admin:a-strong-calendar-password").toString("base64");
+async function setup() {
+  const connection = createDatabaseConnection(":memory:");
+  connections.push(connection);
+  const password = generateCarddavPassword();
+  const userId = "calendar-user";
+  connection.db
+    .insert(authUser)
+    .values({
+      id: userId,
+      name: "Calendar User",
+      email: "calendar@example.com",
+      role: "admin",
+      twoFactorEnabled: true,
+      mustChangePassword: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .run();
+  connection.db
+    .insert(calendarAccounts)
+    .values({
+      userId,
+      username: calendarUsername(userId),
+      passwordHash: await hashCarddavPassword(password),
+      enabled: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .run();
+  return { db: connection.db, username: calendarUsername(userId), password };
+}
 
-    expect(hasValidCalendarBasicAuth(request(`Basic ${credentials}`), environment)).toBe(true);
+describe("calendar Basic Auth", () => {
+  it("accepts generated credentials without using environment passwords", async () => {
+    const setupResult = await setup();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toMatchObject({ id: "calendar-user", role: "admin" });
   });
 
-  it("rejects missing and invalid credentials", () => {
-    const wrongCredentials = Buffer.from("calendar-admin:wrong-password").toString("base64");
+  it("rejects missing and invalid credentials", async () => {
+    const setupResult = await setup();
+    const missing = new Request("https://example.com/api/calendar/feed.ics");
 
-    expect(hasValidCalendarBasicAuth(request(), environment)).toBe(false);
-    expect(hasValidCalendarBasicAuth(request(`Basic ${wrongCredentials}`), environment)).toBe(false);
-    expect(hasValidCalendarBasicAuth(request("Bearer token"), environment)).toBe(false);
+    await expect(authenticateCalendarRequest(missing, setupResult.db)).resolves.toBeNull();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, `${setupResult.password}x`), setupResult.db),
+    ).resolves.toBeNull();
   });
 
-  it("fails closed for weak configured passwords", () => {
-    const credentials = Buffer.from("calendar-admin:short").toString("base64");
+  it("rejects revoked accounts and incomplete admin setup", async () => {
+    const setupResult = await setup();
+    setupResult.db.update(calendarAccounts).set({ enabled: false }).run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toBeNull();
+  });
 
-    expect(
-      hasValidCalendarBasicAuth(request(`Basic ${credentials}`), {
-        ...environment,
-        CALENDAR_FEED_PASSWORD: "short",
-      }),
-    ).toBe(false);
+  it("rejects banned, expired, and setup-incomplete users", async () => {
+    const setupResult = await setup();
+    setupResult.db.update(authUser).set({ banned: true }).run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toBeNull();
+
+    setupResult.db
+      .update(authUser)
+      .set({ banned: false, banExpires: new Date(Date.now() - 1_000) })
+      .run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toBeNull();
+
+    setupResult.db.update(authUser).set({ banExpires: null, twoFactorEnabled: false }).run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toBeNull();
+  });
+
+  it("accepts a location user only with a valid assigned location", async () => {
+    const setupResult = await setup();
+    setupResult.db.update(authUser).set({ role: "standortuser", locationKey: "munich" }).run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toMatchObject({ role: "standortuser", locationKey: "munich" });
+
+    setupResult.db.update(authUser).set({ locationKey: null }).run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toBeNull();
   });
 });

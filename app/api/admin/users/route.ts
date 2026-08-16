@@ -7,7 +7,7 @@ import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApiAsAdmin, getServerSession } from "../../../../lib/auth/session";
 import { getDatabase } from "../../../../lib/db/client";
 import { authInvitation, authUser } from "../../../../lib/db/schema/auth";
-import { carddavAccounts } from "@/lib/db/schema";
+import { calendarAccounts, carddavAccounts } from "@/lib/db/schema";
 import {
   createInvitationId,
   createInvitationToken,
@@ -143,6 +143,10 @@ export async function PATCH(request: Request) {
       .set({ enabled: false, updatedAt, lastSyncError: null })
       .where(eq(carddavAccounts.userId, parsed.data.userId))
       .run();
+    db.update(calendarAccounts)
+      .set({ enabled: false, updatedAt })
+      .where(eq(calendarAccounts.userId, parsed.data.userId))
+      .run();
   }
 
   recordAdminAuditEvent(db, {
@@ -155,6 +159,7 @@ export async function PATCH(request: Request) {
       nextRole: parsed.data.role,
       nextLocationKey: parsed.data.locationKey,
       carddavRevoked: accessScopeChanged,
+      calendarRevoked: accessScopeChanged,
     },
   });
 

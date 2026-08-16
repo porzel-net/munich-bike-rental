@@ -1,5 +1,5 @@
 import { CalendarMonthGrid } from "@/components/admin-calendar/calendar-month-grid";
-import { CalendarSubscription, type CalendarFeedLink } from "@/components/admin-calendar/calendar-subscription";
+import { CalendarSubscription, type CalendarAccountState } from "@/components/admin-calendar/calendar-subscription";
 import { CalendarToolbar } from "@/components/admin-calendar/calendar-toolbar";
 import type { CalendarFilterOption } from "@/components/admin-calendar/calendar-filters";
 import type { CalendarWeek } from "@/lib/calendar/admin-calendar";
@@ -15,7 +15,10 @@ export function AdminCalendarView({
   hasBookings,
   monthName,
   yearLabel,
-  calendarFeeds,
+  calendarAccount,
+  calendarAllLocations,
+  calendarUrl,
+  calendarScopeLabel,
 }: {
   previousMonthHref: string;
   nextMonthHref: string;
@@ -27,7 +30,10 @@ export function AdminCalendarView({
   hasBookings: boolean;
   monthName: string;
   yearLabel: string;
-  calendarFeeds?: CalendarFeedLink[];
+  calendarAccount: CalendarAccountState;
+  calendarAllLocations: boolean;
+  calendarUrl: string;
+  calendarScopeLabel: string;
 }) {
   return (
     <section className="calendar-shell">
@@ -43,7 +49,12 @@ export function AdminCalendarView({
           yearLabel={yearLabel}
         />
 
-        {calendarFeeds?.length ? <CalendarSubscription feeds={calendarFeeds} /> : null}
+        <CalendarSubscription
+          account={calendarAccount}
+          allLocations={calendarAllLocations}
+          calendarUrl={calendarUrl}
+          scopeLabel={calendarScopeLabel}
+        />
 
         {!hasBookings ? (
           <div className="calendar-empty mb-4">Keine Buchungen für die aktuelle Auswahl gefunden.</div>

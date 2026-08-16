@@ -1,8 +1,9 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import { getDatabase } from "../../../../lib/db/client";
+import { getVisibleLocationScope } from "@/lib/auth/authorization";
+import { authenticateCalendarRequest } from "@/lib/calendar/basic-auth";
+import { calendarBookingStatuses, buildBookingCalendarFeed } from "@/lib/calendar/booking-feed";
+import { getDatabase } from "@/lib/db/client";
 import {
   accessoryInventory,
   bookingAccessoryAllocations,
@@ -12,57 +13,34 @@ import {
   bookingRequestedItems,
   bookings,
   rentalAssets,
-} from "../../../../lib/db/schema";
-import { calendarBookingStatuses, buildBookingCalendarFeed } from "../../../../lib/calendar/booking-feed";
-import { hasValidCalendarBasicAuth } from "../../../../lib/calendar/basic-auth";
-import { rentalLocationConfigs } from "../../../../lib/rental-locations";
-import { rentalLocationLabels, rentalLocations, type RentalLocation } from "../../../../lib/inquiries/catalog";
+} from "@/lib/db/schema";
+import { rentalLocationConfigs } from "@/lib/rental-locations";
+import { rentalLocationLabels } from "@/lib/inquiries/catalog";
 
 export const runtime = "nodejs";
 
-function isValidToken(value: string, expected: string) {
-  const actualHash = createHash("sha256").update(value).digest();
-  const expectedHash = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(actualHash, expectedHash);
+function unauthorizedResponse() {
+  return new Response("Authentication required", {
+    status: 401,
+    headers: {
+      "WWW-Authenticate": 'Basic realm="Munich Bike Rental Kalender", charset="UTF-8"',
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
-  const expectedToken = process.env.CALENDAR_FEED_TOKEN?.trim();
-  const routeToken = (await params).token;
-  const token = routeToken.endsWith(".ics") ? routeToken.slice(0, -4) : routeToken;
-  const requestedLocation = new URL(request.url).searchParams.get("location")?.trim() ?? "";
-  const location = rentalLocations.includes(requestedLocation as RentalLocation)
-    ? (requestedLocation as RentalLocation)
-    : null;
-  if (
-    !expectedToken ||
-    expectedToken.length < 32 ||
-    expectedToken === "replace-with-a-long-random-token" ||
-    !isValidToken(token, expectedToken)
-  ) {
-    return new Response("Not found", {
-      status: 404,
-      headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
-    });
-  }
-  if (!hasValidCalendarBasicAuth(request)) {
-    return new Response("Authentication required", {
-      status: 401,
-      headers: {
-        "WWW-Authenticate": 'Basic realm="Munich Bike Rental Kalender", charset="UTF-8"',
-        "Cache-Control": "no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  }
-  if (!location) {
-    return new Response("Not found", {
-      status: 404,
-      headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
-    });
-  }
-
+export async function GET(request: Request) {
   const db = getDatabase();
+  const user = await authenticateCalendarRequest(request, db);
+  if (!user) return unauthorizedResponse();
+
+  const visibleLocation = getVisibleLocationScope(user);
+  const conditions = [
+    inArray(bookings.status, calendarBookingStatuses),
+    visibleLocation ? eq(bookings.location, visibleLocation) : null,
+  ].filter((condition): condition is NonNullable<typeof condition> => condition !== null);
   const bookingsForCalendar = db
     .select({
       id: bookings.id,
@@ -80,7 +58,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       updatedAt: bookings.updatedAt,
     })
     .from(bookings)
-    .where(and(inArray(bookings.status, calendarBookingStatuses), eq(bookings.location, location)))
+    .where(and(...conditions))
     .all();
 
   const bookingIds = bookingsForCalendar.map((booking) => booking.id);
@@ -193,31 +171,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       locationAddress:
         rentalLocationConfigs.find((location) => location.key === booking.location)?.address ?? booking.location,
     })),
-    { calendarName: `Munich Bike Rental – ${rentalLocationLabels.de[location]}` },
+    {
+      calendarName: visibleLocation
+        ? `Munich Bike Rental – ${rentalLocationLabels.de[visibleLocation]}`
+        : "Munich Bike Rental – Alle Standorte",
+    },
   );
 
-  if (request.headers.get("if-none-match") === feed.etag) {
-    return new Response(null, {
-      status: 304,
-      headers: {
-        "Cache-Control": "private, max-age=300, must-revalidate",
-        "Referrer-Policy": "no-referrer",
-        "X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet",
-        "X-Content-Type-Options": "nosniff",
-        ETag: feed.etag,
-      },
-    });
-  }
+  const commonHeaders = {
+    "Cache-Control": "private, no-cache, must-revalidate",
+    "Referrer-Policy": "no-referrer",
+    Vary: "Authorization",
+    "X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet",
+    "X-Content-Type-Options": "nosniff",
+    ETag: feed.etag,
+  };
+  if (request.headers.get("if-none-match") === feed.etag)
+    return new Response(null, { status: 304, headers: commonHeaders });
 
   return new Response(feed.body, {
     headers: {
+      ...commonHeaders,
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": "inline; filename=munich-bike-rental.ics",
-      "Cache-Control": "private, max-age=300, must-revalidate",
-      "Referrer-Policy": "no-referrer",
-      "X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet",
-      "X-Content-Type-Options": "nosniff",
-      ETag: feed.etag,
     },
   });
 }

@@ -1,9 +1,10 @@
-import { and, desc, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CSSProperties } from "react";
 import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "date-fns";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import type { CalendarAccountState } from "@/components/admin-calendar/calendar-subscription";
 import type { CalendarFilterOption } from "@/components/admin-calendar/calendar-filters";
 import { AdminCalendarView } from "@/components/admin-calendar/admin-calendar-view";
 import { SiteHeader } from "@/components/site-header";
@@ -25,6 +26,7 @@ import {
   bookingRequestedItems,
   bookings,
   bookingStatuses,
+  calendarAccounts,
   rentalAssets,
   type BookingStatus,
 } from "@/lib/db/schema";
@@ -206,27 +208,30 @@ export default async function CalendarPage({
   }));
   const queryLocation = location === "all" ? "all" : location;
   const queryStatus = statuses.join(",");
-  const calendarFeedToken = process.env.CALENDAR_FEED_TOKEN?.trim();
   const calendarBaseUrl = process.env.NODE_ENV === "development" ? "http://localhost:3000" : siteConfig.url;
-  const subscriptionLocations = ["munich", "regensburg"] as const;
-  const feedLocations = administrator
-    ? subscriptionLocations
-    : assignedLocation && subscriptionLocations.includes(assignedLocation as (typeof subscriptionLocations)[number])
-      ? [assignedLocation as (typeof subscriptionLocations)[number]]
-      : [];
-  const calendarFeeds =
-    calendarFeedToken && calendarFeedToken.length >= 32
-      ? feedLocations.map((feedLocation) => {
-          const calendarUrl = new URL(`/api/calendar/${encodeURIComponent(calendarFeedToken)}.ics`, calendarBaseUrl);
-          calendarUrl.searchParams.set("location", feedLocation);
-          const calendarUrlString = calendarUrl.toString();
-          return {
-            location: feedLocation,
-            label: rentalLocationLabels.de[feedLocation],
-            calendarUrl: calendarUrlString,
-          };
-        })
-      : [];
+  const calendarUrl = new URL("/api/calendar/feed.ics", calendarBaseUrl).toString();
+  const calendarAccountRow = db
+    .select({
+      username: calendarAccounts.username,
+      enabled: calendarAccounts.enabled,
+      createdAt: calendarAccounts.createdAt,
+      updatedAt: calendarAccounts.updatedAt,
+    })
+    .from(calendarAccounts)
+    .where(eq(calendarAccounts.userId, session.user.id))
+    .get();
+  const calendarAccount: CalendarAccountState = calendarAccountRow
+    ? {
+        ...calendarAccountRow,
+        createdAt: calendarAccountRow.createdAt.toISOString(),
+        updatedAt: calendarAccountRow.updatedAt.toISOString(),
+      }
+    : null;
+  const calendarScopeLabel = administrator
+    ? "alle Standorte"
+    : assignedLocation
+      ? rentalLocationLabels.de[assignedLocation]
+      : "den zugewiesenen Standort";
   return (
     <SidebarProvider
       style={
@@ -260,7 +265,10 @@ export default async function CalendarPage({
               statusValue={queryStatus}
               yearLabel={getCalendarYearLabel(month)}
               weeks={weeks}
-              calendarFeeds={calendarFeeds}
+              calendarAccount={calendarAccount}
+              calendarAllLocations={administrator}
+              calendarUrl={calendarUrl}
+              calendarScopeLabel={calendarScopeLabel}
             />
           </main>
           <div className="pointer-events-none absolute inset-x-0 top-0 z-1 h-48 bg-linear-to-b from-background via-muted to-transparent dark:hidden" />

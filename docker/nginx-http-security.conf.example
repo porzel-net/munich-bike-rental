@@ -2,4 +2,5 @@
 # It limits public requests before they reach the application container.
 limit_req_zone $binary_remote_addr zone=inquiry_per_ip:10m rate=6r/m;
 limit_req_zone $binary_remote_addr zone=carddav_auth_per_ip:10m rate=120r/m;
+limit_req_zone $binary_remote_addr zone=calendar_auth_per_ip:10m rate=60r/m;
 limit_conn_zone $binary_remote_addr zone=connections_per_ip:10m;

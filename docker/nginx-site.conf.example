@@ -73,6 +73,22 @@ server {
     proxy_send_timeout 60s;
   }
 
+  # Calendar credentials are individually generated, but the public endpoint
+  # is still rate-limited before it reaches the password verifier.
+  location = /api/calendar/feed.ics {
+    limit_req zone=calendar_auth_per_ip burst=20 nodelay;
+    limit_conn connections_per_ip 10;
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $server_name;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $server_name;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+  }
+
   location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_http_version 1.1;
