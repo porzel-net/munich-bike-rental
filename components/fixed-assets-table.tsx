@@ -63,7 +63,6 @@ export function FixedAssetsTable({
         <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
           <TableHeader>
             <TableRow>
-              <TableHead>Inventarnummer</TableHead>
               <TableHead>Anlagegut</TableHead>
               <TableHead>Anschaffung</TableHead>
               <TableHead>Nutzungsdauer</TableHead>
@@ -77,7 +76,6 @@ export function FixedAssetsTable({
             {rows.length ? (
               rows.map((asset) => (
                 <TableRow key={asset.id}>
-                  <TableCell className="font-mono text-xs">{asset.assetNumber}</TableCell>
                   <TableCell>
                     <div className="font-medium">{asset.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -102,7 +100,7 @@ export function FixedAssetsTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   Noch keine Anlagegüter erfasst.
                 </TableCell>
               </TableRow>
