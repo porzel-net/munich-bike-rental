@@ -290,44 +290,52 @@ function SavingsTargets({
   activityData,
   currency,
   currentMonthIndex,
+  initialRevenueGoals,
 }: {
   activityData: Array<{ month: string; amount: number }>;
   currency: string;
   currentMonthIndex: number;
+  initialRevenueGoals: { annualGoalCents: number; monthlyGoalCents: number };
 }) {
-  const storageKey = "munich-bike-rental:revenue-goals";
   const revenueFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency });
   const annualRevenue = activityData.reduce((total, point) => total + point.amount, 0);
   const currentMonthRevenue = activityData[currentMonthIndex]?.amount ?? 0;
-  const [goals, setGoals] = React.useState({ annualCents: 0, monthlyCents: 0 });
+  const [goals, setGoals] = React.useState(initialRevenueGoals);
   const [draft, setDraft] = React.useState({ annual: "", monthly: "" });
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      try {
-        const stored = window.localStorage.getItem(storageKey);
-        if (!stored) return;
-        const parsed = JSON.parse(stored) as { annualCents?: unknown; monthlyCents?: unknown };
-        if (typeof parsed.annualCents === "number" && typeof parsed.monthlyCents === "number") {
-          setGoals({ annualCents: parsed.annualCents, monthlyCents: parsed.monthlyCents });
-        }
-      } catch {
-        // Ignore unavailable or malformed local storage data.
+    let active = true;
+    async function refreshGoals() {
+      const response = await fetch("/api/admin/dashboard/revenue-goals", { cache: "no-store" }).catch(() => null);
+      if (!active || !response?.ok) return;
+      const result = (await response.json().catch(() => null)) as {
+        annualGoalCents?: unknown;
+        monthlyGoalCents?: unknown;
+      } | null;
+      if (typeof result?.annualGoalCents === "number" && typeof result.monthlyGoalCents === "number" && active) {
+        setGoals({ annualGoalCents: result.annualGoalCents, monthlyGoalCents: result.monthlyGoalCents });
       }
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
+    }
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refreshGoals();
+    };
+    void refreshGoals();
+    const intervalId = window.setInterval(refreshGoals, 30_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, []);
 
-  React.useEffect(() => {
-    if (goals.annualCents > 0 || goals.monthlyCents > 0) {
-      window.localStorage.setItem(storageKey, JSON.stringify(goals));
-    }
-  }, [goals]);
-
-  const annualGoal = goals.annualCents / 100;
-  const monthlyGoal = goals.monthlyCents / 100;
+  const annualGoal = goals.annualGoalCents / 100;
+  const monthlyGoal = goals.monthlyGoalCents / 100;
   const annualProgress = annualGoal > 0 ? Math.min(100, Math.round((annualRevenue / annualGoal) * 100)) : 0;
   const monthlyProgress = monthlyGoal > 0 ? Math.min(100, Math.round((currentMonthRevenue / monthlyGoal) * 100)) : 0;
 
@@ -340,7 +348,7 @@ function SavingsTargets({
     setDialogOpen(true);
   }
 
-  function saveGoals(event: React.FormEvent<HTMLFormElement>) {
+  async function saveGoals(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const annualCents = Math.round(Number(draft.annual.trim().replace(/\./g, "").replace(",", ".")) * 100);
     const monthlyCents = Math.round(Number(draft.monthly.trim().replace(/\./g, "").replace(",", ".")) * 100);
@@ -353,8 +361,29 @@ function SavingsTargets({
       setError("Bitte gib für beide Zeiträume ein gültiges Ziel größer als 0 € ein.");
       return;
     }
-    setGoals({ annualCents, monthlyCents });
-    setDialogOpen(false);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/dashboard/revenue-goals", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ annualGoalCents: annualCents, monthlyGoalCents: monthlyCents }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        annualGoalCents?: number;
+        monthlyGoalCents?: number;
+        message?: string;
+      } | null;
+      if (!response.ok || typeof result?.annualGoalCents !== "number" || typeof result.monthlyGoalCents !== "number") {
+        throw new Error(result?.message ?? "Umsatzziele konnten nicht gespeichert werden.");
+      }
+      setGoals({ annualGoalCents: result.annualGoalCents, monthlyGoalCents: result.monthlyGoalCents });
+      setDialogOpen(false);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Umsatzziele konnten nicht gespeichert werden.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -362,10 +391,10 @@ function SavingsTargets({
       <Card>
         <CardHeader>
           <CardTitle>Umsatzziele</CardTitle>
-          <CardDescription>Buchungserlöse im Überblick</CardDescription>
+          <CardDescription>Gemeinsame Ziele für diese Dashboard-Ansicht</CardDescription>
           <CardAction>
             <Button variant="outline" size="sm" onClick={openGoalDialog}>
-              New Goal
+              Ziele bearbeiten
             </Button>
           </CardAction>
         </CardHeader>
@@ -444,7 +473,9 @@ function SavingsTargets({
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <DialogFooter>
               <DialogClose render={<Button type="button" variant="outline" />}>Abbrechen</DialogClose>
-              <Button type="submit">Ziele speichern</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Speichern …" : "Ziele speichern"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -741,6 +772,7 @@ export function AdminDashboardOverview({
   bankCurrency,
   activityData,
   currentMonthIndex,
+  initialRevenueGoals,
   revenueBySize,
   utilizationData,
   bookingDaysByLocation,
@@ -756,6 +788,7 @@ export function AdminDashboardOverview({
   bankCurrency: string;
   activityData: Array<{ month: string; amount: number }>;
   currentMonthIndex: number;
+  initialRevenueGoals: { annualGoalCents: number; monthlyGoalCents: number };
   revenueBySize: Array<{
     size: string;
     amountCents: number;
@@ -798,7 +831,12 @@ export function AdminDashboardOverview({
           <MunichRequestCapacity requestCapacity={munichRequestCapacity} />
         </div>
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
-          <SavingsTargets activityData={activityData} currency={bankCurrency} currentMonthIndex={currentMonthIndex} />
+          <SavingsTargets
+            activityData={activityData}
+            currency={bankCurrency}
+            currentMonthIndex={currentMonthIndex}
+            initialRevenueGoals={initialRevenueGoals}
+          />
           <PowerUsage utilizationData={utilizationData} />
           <TrafficChannels rentalDaysByLocation={rentalDaysByLocation} />
         </div>

@@ -456,6 +456,13 @@
       "when": 1786755600000,
       "tag": "0065_carddav_sync_events",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1786900000000,
+      "tag": "0067_shared_dashboard_revenue_goals",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import { getDatabase } from "@/lib/db/client";
 import {
   bookingRequestedItems,
   bookings,
+  dashboardRevenueGoals,
   financialAccounts,
   financialTransactions,
   rentalAssets,
@@ -78,6 +79,19 @@ export default async function AdminPage() {
   );
   const currentMonthIndex =
     Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", month: "2-digit" }).format(new Date())) - 1;
+  const revenueGoals = db
+    .select({
+      annualGoalCents: dashboardRevenueGoals.annualGoalCents,
+      monthlyGoalCents: dashboardRevenueGoals.monthlyGoalCents,
+    })
+    .from(dashboardRevenueGoals)
+    .where(
+      and(
+        eq(dashboardRevenueGoals.scopeKey, visibleLocation ?? "all"),
+        eq(dashboardRevenueGoals.goalYear, currentYear),
+      ),
+    )
+    .get();
   const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const activityData = monthLabels.map((month) => ({ month, amount: 0 }));
   const revenueBookings = db
@@ -436,6 +450,7 @@ export default async function AdminPage() {
               bankCurrency={bankCurrency}
               activityData={activityData}
               currentMonthIndex={currentMonthIndex}
+              initialRevenueGoals={revenueGoals ?? { annualGoalCents: 0, monthlyGoalCents: 0 }}
               revenueBySize={revenueBySize}
               utilizationData={utilizationData}
               bookingDaysByLocation={bookingDaysByLocation}
