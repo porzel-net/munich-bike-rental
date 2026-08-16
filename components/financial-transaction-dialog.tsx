@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getBankTransactionSaveMode } from "@/lib/financial/transaction-save-mode";
 
 type Mode = "bank" | "manual";
 
@@ -152,6 +153,8 @@ export function FinancialTransactionDialog({
 }) {
   const isBank = mode === "bank";
   const isPosted = isBank && bankTransaction?.status === "posted";
+  const saveMode = isBank && bankTransaction ? getBankTransactionSaveMode(bankTransaction) : "post";
+  const isDocumentOnlyUpdate = saveMode === "document_only";
   const [source, setSource] = useState<"cash" | "manual">("cash");
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
@@ -265,6 +268,10 @@ export function FinancialTransactionDialog({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isDocumentOnlyUpdate && !file) {
+      setError("Bitte wähle einen Beleg aus.");
+      return;
+    }
     if (!isBank && (!selectedCategory || selectedCategory.euerTreatment === "needs_review")) {
       setError("Bitte wähle eine sachliche Zuordnung mit konkreter EÜR-Zuordnung.");
       return;
@@ -331,6 +338,11 @@ export function FinancialTransactionDialog({
       if (isBank) {
         if (!bankTransaction) throw new Error("Keine Banktransaktion ausgewählt.");
         await uploadDocument(bankTransaction.id);
+        if (isDocumentOnlyUpdate) {
+          toast.success("Beleg wurde gespeichert.");
+          onOpenChange(false);
+          return;
+        }
         const response = await fetch(`/api/admin/financial/transactions/${bankTransaction.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -600,6 +612,7 @@ export function FinancialTransactionDialog({
                 <FieldLabel htmlFor="financial-category">Sachliche Zuordnung</FieldLabel>
                 <Select
                   value={categoryId}
+                  disabled={isDocumentOnlyUpdate}
                   onValueChange={(value) => {
                     setCategoryId(value || "");
                     setBookingId("");
@@ -884,11 +897,13 @@ export function FinancialTransactionDialog({
             <Button type="submit" form="financial-transaction-form" disabled={busy}>
               {busy
                 ? "Wird gespeichert…"
-                : isPosted
-                  ? "Änderung speichern"
-                  : isBank
-                    ? "Buchen & abstimmen"
-                    : "Transaktion speichern"}
+                : isDocumentOnlyUpdate
+                  ? "Beleg speichern"
+                  : isPosted
+                    ? "Änderung speichern"
+                    : isBank
+                      ? "Buchen & abstimmen"
+                      : "Transaktion speichern"}
             </Button>
           </div>
         </DialogFooter>
