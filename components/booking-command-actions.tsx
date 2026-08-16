@@ -908,9 +908,6 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           readOnly={Boolean(invoiceNumber)}
                           required
                         />
-                        <FieldDescription>
-                          Format: YBR-Jahr-Nummer. Die Nummer muss lückenlos der nächsten freien Nummer entsprechen.
-                        </FieldDescription>
                       </Field>
                     ) : null}
                     <div className="space-y-3">
