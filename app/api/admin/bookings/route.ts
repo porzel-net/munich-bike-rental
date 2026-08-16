@@ -1,9 +1,12 @@
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessLocation, canUseAdminApi, getServerSession } from "../../../../lib/auth/session";
 import { BookingCommandError, createBooking, createDirectBooking } from "../../../../lib/bookings/service";
+import { dispatchNextOutboxMail } from "../../../../lib/bookings/outbox";
+import { mailOutbox } from "../../../../lib/db/schema";
 import { isValidIsoDate, isValidTime } from "../../../../lib/bookings/validation";
 import { getDatabase } from "../../../../lib/db/client";
 import { rentalLocations, type RentalLocation } from "../../../../lib/inquiries/catalog";
@@ -86,14 +89,38 @@ export async function POST(request: Request) {
     requestedItems: input.data.requestedItems,
   };
   try {
+    const database = getDatabase();
     const created =
       input.data.mode === "direct"
-        ? createDirectBooking(getDatabase(), {
+        ? createDirectBooking(database, {
             ...common,
             assetsByPosition: input.data.assetsByPosition,
             actorUserId: session.user.id,
           })
-        : createBooking(getDatabase(), common, session.user.id);
+        : createBooking(database, common, session.user.id);
+
+    if (input.data.mode === "direct") {
+      const confirmationMailId = database
+        .select({ id: mailOutbox.id })
+        .from(mailOutbox)
+        .where(
+          and(
+            eq(mailOutbox.bookingId, created.id),
+            eq(mailOutbox.kind, "booking_confirmed"),
+            eq(mailOutbox.status, "queued"),
+          ),
+        )
+        .get()?.id;
+      const mailResult = confirmationMailId ? await dispatchNextOutboxMail(database, confirmationMailId) : null;
+      if (mailResult?.status === "failed") {
+        return NextResponse.json(
+          { message: "Die Direktbuchung wurde angelegt, aber die Bestätigungsmail konnte nicht versendet werden." },
+          { status: 502 },
+        );
+      }
+      return NextResponse.json({ ok: true, ...created, mailStatus: mailResult?.status ?? "queued" }, { status: 201 });
+    }
+
     return NextResponse.json({ ok: true, ...created }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

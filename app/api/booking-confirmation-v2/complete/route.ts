@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       offerId: offer.offerId,
       amountCents: session.amount_total,
       sessionId: session.id,
+      offerToken: input.data.token,
     });
     await importStripeCheckoutPayment(database, { sessionId: session.id, bookingId: result.bookingId });
 
