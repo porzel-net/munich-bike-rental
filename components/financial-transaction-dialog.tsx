@@ -151,6 +151,7 @@ export function FinancialTransactionDialog({
   onManualCompleted?: (result: { transactionId: number }) => void;
 }) {
   const isBank = mode === "bank";
+  const isPosted = isBank && bankTransaction?.status === "posted";
   const [source, setSource] = useState<"cash" | "manual">("cash");
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
@@ -364,7 +365,7 @@ export function FinancialTransactionDialog({
           status: "posted",
           euerTreatment: selectedCategory?.euerTreatment,
         });
-        toast.success("Buchung wurde gespeichert und abgestimmt.");
+        toast.success(isPosted ? "Änderung wurde gespeichert." : "Buchung wurde gespeichert und abgestimmt.");
       } else {
         const response = await fetch("/api/admin/financial/transactions/manual", {
           method: "POST",
@@ -445,7 +446,13 @@ export function FinancialTransactionDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{isBank ? "Kontobewegung prüfen" : "Manuelle Transaktion erfassen"}</DialogTitle>
+          <DialogTitle>
+            {isBank
+              ? isPosted
+                ? "Gebuchte Transaktion bearbeiten"
+                : "Kontobewegung prüfen"
+              : "Manuelle Transaktion erfassen"}
+          </DialogTitle>
           <DialogDescription>
             {isBank
               ? `${formatBookedDate(bankTransaction?.bookedAt ?? "")} · ${accountLabel} · ${formatAmount(Math.abs(bankTransaction?.amountCents ?? 0), bankTransaction?.currency)}`
@@ -861,7 +868,7 @@ export function FinancialTransactionDialog({
         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between">
           <div>
             {isBank ? (
-              <Button type="button" variant="destructive" disabled={busy} onClick={ignore}>
+              <Button type="button" variant="destructive" disabled={busy || isPosted} onClick={ignore}>
                 Ignorieren
               </Button>
             ) : null}
@@ -875,7 +882,13 @@ export function FinancialTransactionDialog({
               }
             />
             <Button type="submit" form="financial-transaction-form" disabled={busy}>
-              {busy ? "Wird gespeichert…" : isBank ? "Buchen & abstimmen" : "Transaktion speichern"}
+              {busy
+                ? "Wird gespeichert…"
+                : isPosted
+                  ? "Änderung speichern"
+                  : isBank
+                    ? "Buchen & abstimmen"
+                    : "Transaktion speichern"}
             </Button>
           </div>
         </DialogFooter>

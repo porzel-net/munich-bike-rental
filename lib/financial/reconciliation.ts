@@ -257,10 +257,16 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   const isEuerReclassification =
     transaction.status === "posted" &&
     existingAllocations.length === 1 &&
-    existingCategory?.euerTreatment === "needs_review" &&
-    Boolean(existingAllocation);
+    Boolean(existingAllocation?.categoryId) &&
+    Boolean(existingCategory) &&
+    !existingAllocation?.bookingId &&
+    !existingAllocation?.fixedAssetId;
   if (transaction.status === "posted" && !isEuerReclassification)
-    throw new BookingCommandError("Diese Transaktion ist bereits vollständig gebucht.");
+    throw new BookingCommandError(
+      existingAllocations.length > 1
+        ? "Eine Transaktion mit mehreren Zuordnungen kann nicht direkt geändert werden. Bitte korrigiere die einzelnen Teilbuchungen separat."
+        : "Diese Transaktion kann nicht direkt geändert werden.",
+    );
   const isNevloBankTransaction = transaction.source === "bank" && transaction.provider === "nevlo";
   const note = isNevloBankTransaction
     ? transaction.description.trim() || transaction.counterpartyNameSnapshot?.trim() || "Nevlo-Banktransaktion"
@@ -289,7 +295,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   if (input.destinationAccountId && category.categoryType !== "transfer")
     throw new BookingCommandError("Ein Zielkonto darf nur bei internen Umbuchungen angegeben werden.");
   if (isEuerReclassification && category.euerTreatment === "asset_acquisition")
-    throw new BookingCommandError("Ein bestehender Umsatz kann nicht nachträglich als Anlagegut erfasst werden.");
+    throw new BookingCommandError("Eine bestehende Buchung kann nicht nachträglich als Anlagegut erfasst werden.");
   if (isEuerReclassification && (input.asset || input.businessMeal))
     throw new BookingCommandError(
       "Eine bestehende EÜR-Zuordnung kann nicht in einen Spezialvorgang umgewandelt werden.",

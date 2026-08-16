@@ -220,6 +220,25 @@ describe("financial edge cases", () => {
     expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 1_250, profitCents: -1_250, unresolvedCents: 0 });
   });
 
+  it("allows correcting the category of an already posted simple transaction", () => {
+    const { db, bank, category } = setup();
+    const tx = transaction(db, bank.id, -1_250);
+
+    post(db, tx.id, category("maintenance").id, "Ursprüngliche Zuordnung");
+    post(db, tx.id, category("bank_fee").id, "Nachträglich korrigiert");
+
+    const allocation = db
+      .select()
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.transactionId, tx.id))
+      .get()!;
+    expect(allocation).toMatchObject({ categoryId: category("bank_fee").id, amountCents: -1_250 });
+    expect(db.select().from(journalEntries).where(eq(journalEntries.financialTransactionId, tx.id)).all()).toHaveLength(
+      2,
+    );
+    expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 1_250, profitCents: -1_250, unresolvedCents: 0 });
+  });
+
   it("keeps year boundaries and non-posted transactions out of the wrong EÜR", () => {
     const { db, bank, category } = setup();
     post(db, transaction(db, bank.id, 2_000, "2025-12-31").id, category("rental_revenue").id);
