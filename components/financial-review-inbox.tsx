@@ -201,7 +201,7 @@ export function FinancialReviewInbox({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex max-w-md flex-col">
+                    <div className="flex max-w-xs flex-col">
                       <span className="truncate font-medium">{row.counterpartyName || "Unbekannte Gegenpartei"}</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {row.description || row.reference || "Kein Verwendungszweck"}
