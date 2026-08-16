@@ -15,6 +15,7 @@ import {
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { formatBikeDisplayName } from "@/lib/inventory/display-name";
+import { createBikeKey, getBikeKeyForUpdate } from "@/lib/inventory/bike-key";
 
 export const runtime = "nodejs";
 
@@ -72,10 +73,6 @@ function equipmentKey(category: z.infer<typeof equipmentSchema>["category"], lab
   return `${category === "computer-mount" ? "mount" : "pedal"}-${slug(label)}`;
 }
 
-function bikeKey(title: string, size: string) {
-  return `${slug(title)}-${slug(size)}`;
-}
-
 function defaultBikeContent(title: string) {
   return {
     descriptionDe: title,
@@ -118,7 +115,7 @@ export async function POST(request: Request) {
           .insert(rentalLocationBikes)
           .values({
             location: input.data.location,
-            bikeKey: bikeKey(input.data.title, input.data.size),
+            bikeKey: createBikeKey(input.data.title, input.data.size),
             title: input.data.title,
             nickname: input.data.nickname?.trim() || null,
             frameNumber: input.data.frameNumber?.trim() || null,
@@ -135,7 +132,7 @@ export async function POST(request: Request) {
           .values({ locationBikeId: inserted.id, size: input.data.size, isAvailable: true })
           .run();
         return NextResponse.json(
-          { item: { ...input.data, id: inserted.id, bikeKey: bikeKey(input.data.title, input.data.size) } },
+          { item: { ...input.data, id: inserted.id, bikeKey: createBikeKey(input.data.title, input.data.size) } },
           { status: 201 },
         );
       }
@@ -186,6 +183,7 @@ export async function PATCH(request: Request) {
         .select({
           id: rentalLocationBikes.id,
           bikeKey: rentalLocationBikes.bikeKey,
+          title: rentalLocationBikes.title,
           nickname: rentalLocationBikes.nickname,
           discountTextDe: rentalLocationBikes.discountTextDe,
           discountTextEn: rentalLocationBikes.discountTextEn,
@@ -194,14 +192,28 @@ export async function PATCH(request: Request) {
         .where(and(eq(rentalLocationBikes.id, bikeInput.id), eq(rentalLocationBikes.location, bikeInput.location)))
         .get();
       if (!bike) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
+      const currentSize = db
+        .select({ size: rentalLocationBikeSizes.size })
+        .from(rentalLocationBikeSizes)
+        .where(eq(rentalLocationBikeSizes.locationBikeId, bikeInput.id))
+        .get()?.size;
+      const title = bikeInput.title.trim();
+      const size = bikeInput.size.trim();
+      const nextBikeKey = getBikeKeyForUpdate({
+        existingBikeKey: bike.bikeKey,
+        existingTitle: bike.title,
+        existingSize: currentSize ?? null,
+        nextTitle: title,
+        nextSize: size,
+      });
       const nickname = bikeInput.nickname === undefined ? bike.nickname : bikeInput.nickname?.trim() || null;
 
       db.transaction((transaction) => {
         transaction
           .update(rentalLocationBikes)
           .set({
-            bikeKey: bikeKey(bikeInput.title, bikeInput.size),
-            title: bikeInput.title,
+            bikeKey: nextBikeKey,
+            title,
             nickname,
             frameNumber: bikeInput.frameNumber?.trim() || null,
             priceCentsPerDay: bikeInput.priceCents,
@@ -217,7 +229,7 @@ export async function PATCH(request: Request) {
           .run();
         transaction
           .insert(rentalLocationBikeSizes)
-          .values({ locationBikeId: bikeInput.id, size: bikeInput.size, isAvailable: true })
+          .values({ locationBikeId: bikeInput.id, size, isAvailable: true })
           .run();
       });
       const linkedAsset = db
