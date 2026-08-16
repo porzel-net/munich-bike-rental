@@ -170,6 +170,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const paymentView = paymentPresentation(payment.status, payment.openCents);
   const statusView = bookingPresentation[booking.status];
   const commercialEditingAllowed = booking.status === "inquiry_received" || booking.status === "offer_sent";
+  const importedPriceEditingAllowed =
+    booking.source === "legacy" && ["confirmed", "completed"].includes(booking.status);
   const locationLabel =
     rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
   const availableAssets = db
@@ -341,7 +343,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
               ) : null}
               {hasAssignedCaseworker ? (
                 <>
-                  {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ? (
+                  {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ||
+                  importedPriceEditingAllowed ? (
                     <BookingEditDialog
                       bookingId={booking.id}
                       expectedVersion={booking.version}
@@ -356,6 +359,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       communicationLocale={booking.communicationLocale}
                       requestedItems={items}
                       commercialEditingAllowed={commercialEditingAllowed}
+                      priceEditingAllowed={importedPriceEditingAllowed}
+                      quotedTotalCents={importedPriceEditingAllowed ? booking.quotedTotalCents : undefined}
                     />
                   ) : null}
                 </>

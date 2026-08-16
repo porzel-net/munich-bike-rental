@@ -18,6 +18,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { euroToCents } from "@/lib/bookings/money";
 
 export type EditableItem = {
   id: number;
@@ -48,11 +49,13 @@ type BookingEditValues = {
   customerMessage: string;
   communicationLocale: "de" | "en";
   requestedItems: EditableItem[];
+  quotedTotalCents?: number;
 };
 
 type BookingEditDialogProps = BookingEditValues & {
   bookingId: number;
   commercialEditingAllowed: boolean;
+  priceEditingAllowed?: boolean;
   notifyCustomer?: boolean;
   trigger?: (open: () => void) => ReactNode;
 };
@@ -60,6 +63,7 @@ type BookingEditDialogProps = BookingEditValues & {
 export function BookingEditDialog({
   bookingId,
   commercialEditingAllowed,
+  priceEditingAllowed = false,
   notifyCustomer = false,
   trigger,
   ...initialValues
@@ -68,6 +72,11 @@ export function BookingEditDialog({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [values, setValues] = useState<BookingEditValues>(initialValues);
+  const [quotedTotal, setQuotedTotal] = useState(
+    initialValues.quotedTotalCents === undefined
+      ? ""
+      : (initialValues.quotedTotalCents / 100).toFixed(2).replace(".", ","),
+  );
 
   const update = (patch: Partial<BookingEditValues>) => setValues((current) => ({ ...current, ...patch }));
   const updateItem = (id: number, patch: Partial<EditableItem>) =>
@@ -80,11 +89,15 @@ export function BookingEditDialog({
     event.preventDefault();
     try {
       setBusy(true);
+      const quotedTotalCents = priceEditingAllowed ? euroToCents(quotedTotal) : undefined;
+      if (priceEditingAllowed && (quotedTotalCents === null || quotedTotalCents === undefined || quotedTotalCents < 0))
+        throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...values,
+          ...(priceEditingAllowed ? { quotedTotalCents } : {}),
           notifyCustomer,
           requestedItems: values.requestedItems.map((item) => ({
             ...item,
@@ -129,7 +142,7 @@ export function BookingEditDialog({
           <DialogDescription>
             {notifyCustomer
               ? "Ändere die Buchungsdaten. Danach erhält die Kundin oder der Kunde eine Änderungsmail; alle geänderten Angaben werden darin fett markiert."
-              : `Kontaktdaten und interne Nachricht können jederzeit angepasst werden.${commercialEditingAllowed ? " Zeitraum, Fahrradwünsche und Zubehör sind in diesem Buchungsstatus ebenfalls editierbar." : " Zeitraum, Fahrräder und Zubehör sind nach der Bestätigung gesperrt."}`}
+              : `Kontaktdaten und interne Nachricht können jederzeit angepasst werden.${commercialEditingAllowed ? " Zeitraum, Fahrradwünsche und Zubehör sind in diesem Buchungsstatus ebenfalls editierbar." : " Zeitraum, Fahrräder und Zubehör sind nach der Bestätigung gesperrt."}${priceEditingAllowed ? " Der Mietbetrag kann bei importierten Buchungen weiterhin angepasst werden." : ""}`}
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-6" onSubmit={submit}>
@@ -188,6 +201,21 @@ export function BookingEditDialog({
               />
             </Field>
           </FieldGroup>
+
+          {priceEditingAllowed ? (
+            <Field>
+              <FieldLabel htmlFor="edit-quoted-total">Mietbetrag gesamt</FieldLabel>
+              <Input
+                id="edit-quoted-total"
+                inputMode="decimal"
+                value={quotedTotal}
+                onChange={(event) => setQuotedTotal(event.target.value)}
+                placeholder="0,00"
+                required
+              />
+              <FieldDescription>Der Gesamtbetrag, für den das Fahrrad vermietet wird.</FieldDescription>
+            </Field>
+          ) : null}
 
           <fieldset disabled={!commercialEditingAllowed} className="space-y-4">
             <legend className="text-sm font-medium">Zeitraum</legend>

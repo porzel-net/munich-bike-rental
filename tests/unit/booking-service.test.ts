@@ -866,6 +866,80 @@ describe("booking commands", () => {
     expect(mail?.plainText).toContain("Bikes and equipment: NEW Test Bike - L");
   });
 
+  it("allows imported binding and completed bookings to update the rental amount", () => {
+    for (const status of ["confirmed", "completed"] as const) {
+      const { db, assetId } = setup();
+      const created = createBooking(db, {
+        customerName: "Ada Lovelace",
+        customerEmail: "ada@example.com",
+        customerPhone: "+49",
+        location: "munich",
+        periodFrom: "2026-07-20",
+        periodTo: "2026-07-21",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        customerMessage: "",
+        communicationLocale: "de",
+        source: "legacy",
+        quotedTotalCents: 12_500,
+        requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+      });
+      const item = db
+        .select()
+        .from(bookingRequestedItems)
+        .where(eq(bookingRequestedItems.bookingId, created.id))
+        .get()!;
+
+      setLegacyBookingStatus(db, {
+        bookingId: created.id,
+        status,
+        details: {
+          periodFrom: "2026-07-20",
+          periodTo: "2026-07-21",
+          pickupTime: "10:00",
+          dropoffTime: "10:00",
+          quotedTotalCents: 12_500,
+          assetsByRequestedItem: { [item.id]: assetId },
+          invoiceNumber: "YBR-2026-0001",
+        },
+      });
+
+      const current = db.select().from(bookings).where(eq(bookings.id, created.id)).get()!;
+      updateBooking(db, {
+        bookingId: created.id,
+        expectedVersion: current.version,
+        actorUserId: "admin",
+        customerName: current.customerName,
+        customerEmail: current.customerEmail,
+        customerPhone: current.customerPhone,
+        periodFrom: current.periodFrom,
+        periodTo: current.periodTo,
+        pickupTime: current.pickupTime,
+        dropoffTime: current.dropoffTime,
+        customerMessage: current.customerMessage,
+        communicationLocale: current.communicationLocale,
+        requestedItems: [item],
+        quotedTotalCents: 14_000,
+      });
+
+      expect(
+        db
+          .select({ quotedTotalCents: bookings.quotedTotalCents })
+          .from(bookings)
+          .where(eq(bookings.id, created.id))
+          .get(),
+      ).toEqual({ quotedTotalCents: 14_000 });
+      expect(getBookingPaymentStatus(db, created.id)).toEqual({ openCents: 14_000, status: "open" });
+      expect(
+        db
+          .select({ totalCents: bookingOffers.totalCents })
+          .from(bookingOffers)
+          .where(eq(bookingOffers.bookingId, created.id))
+          .get(),
+      ).toEqual({ totalCents: 14_000 });
+    }
+  });
+
   it("covers the alternative offer to completed rental lifecycle", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");

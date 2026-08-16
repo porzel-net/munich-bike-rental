@@ -38,7 +38,7 @@ import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
 import { isAssetSelectableForBooking } from "./historical-availability";
 import { appendJournalEntry, getReceivableStatus } from "./ledger";
-import { confirmedBookingChargeCents } from "./money";
+import { confirmedBookingChargeCents, formatEuro } from "./money";
 import {
   renderBookingInformationChangedMail,
   renderBookingNotice,
@@ -1230,6 +1230,7 @@ export type UpdateBookingCommand = {
   customerMessage: string;
   communicationLocale: "de" | "en";
   requestedItems: Array<BookingRequestedItemCommand & { id: number }>;
+  quotedTotalCents?: number;
   notifyCustomer?: boolean;
 };
 
@@ -1242,7 +1243,16 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       throw new BookingCommandError("Eine Änderungsmail kann nur für verbindlich gebuchte Buchungen versendet werden");
     if (booking.version !== input.expectedVersion)
       throw new BookingCommandError("Die Buchung wurde zwischenzeitlich geändert. Bitte lade sie neu.");
-    if (["completed", "rejected", "cancelled", "expired"].includes(booking.status))
+    const importedPriceEditingAllowed =
+      booking.source === "legacy" && ["confirmed", "completed"].includes(booking.status);
+    if (input.quotedTotalCents !== undefined && !importedPriceEditingAllowed)
+      throw new BookingCommandError("Der Mietbetrag kann hier nur bei importierten Buchungen geändert werden");
+    if (
+      input.quotedTotalCents !== undefined &&
+      (!Number.isSafeInteger(input.quotedTotalCents) || input.quotedTotalCents < 0)
+    )
+      throw new BookingCommandError("Der Mietbetrag ist ungültig");
+    if (["completed", "rejected", "cancelled", "expired"].includes(booking.status) && !importedPriceEditingAllowed)
       throw new BookingCommandError("Eine abgeschlossene Buchung kann nicht mehr bearbeitet werden");
     if (
       !isValidIsoDate(input.periodFrom) ||
@@ -1289,6 +1299,8 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       booking.pickupTime !== input.pickupTime ||
       booking.dropoffTime !== input.dropoffTime ||
       bikeDetailsChanged;
+    const quotedTotalChanged =
+      input.quotedTotalCents !== undefined && input.quotedTotalCents !== booking.quotedTotalCents;
     if (commercialChanged && !["inquiry_received", "offer_sent"].includes(booking.status) && !input.notifyCustomer)
       throw new BookingCommandError(
         "Fahrrad- und Zeitraumdaten können nach der Bestätigung nicht mehr geändert werden",
@@ -1313,6 +1325,13 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     addMailChange("Name", "Name", booking.customerName, input.customerName);
     addMailChange("E-Mail", "Email", booking.customerEmail, input.customerEmail);
     addMailChange("Telefon", "Phone", booking.customerPhone, input.customerPhone);
+    if (quotedTotalChanged)
+      addMailChange(
+        "Mietbetrag",
+        "Rental amount",
+        formatEuro(booking.quotedTotalCents),
+        formatEuro(input.quotedTotalCents!),
+      );
     addMailChange("Abholdatum", "Pickup date", booking.periodFrom, input.periodFrom);
     addMailChange("Rückgabedatum", "Return date", booking.periodTo, input.periodTo);
     addMailChange("Abholzeit", "Pickup time", booking.pickupTime, input.pickupTime);
@@ -1346,6 +1365,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       ...(booking.customerMessage !== input.customerMessage ? ["customerMessage"] : []),
       ...(booking.communicationLocale !== input.communicationLocale ? ["communicationLocale"] : []),
       ...(commercialChanged ? ["requestedItems"] : []),
+      ...(quotedTotalChanged ? ["quotedTotalCents"] : []),
     ];
     let queuedMailId: number | null = null;
     if (confirmedPeriodChanged) {
@@ -1406,6 +1426,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         periodTo: input.periodTo,
         pickupTime: input.pickupTime,
         dropoffTime: input.dropoffTime,
+        quotedTotalCents: input.quotedTotalCents ?? booking.quotedTotalCents,
         customerMessage: input.customerMessage,
         communicationLocale: input.communicationLocale,
         version: booking.version + 1,
@@ -1413,6 +1434,47 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       })
       .where(eq(bookings.id, booking.id))
       .run();
+
+    if (quotedTotalChanged) {
+      const amountDifference = input.quotedTotalCents! - booking.quotedTotalCents;
+      if (amountDifference !== 0) {
+        appendJournalEntry(db, {
+          bookingId: booking.id,
+          kind: "rental_charge",
+          actorUserId: input.actorUserId,
+          idempotencyKey: "legacy_booking_price_change:" + booking.id + ":" + (booking.version + 1),
+          reason: "Mietbetrag der importierten Buchung angepasst",
+          lines: [
+            { account: "accounts_receivable", amountCents: amountDifference },
+            { account: "rental_revenue", amountCents: -amountDifference },
+          ],
+        });
+      }
+
+      const latestOffer = db
+        .select()
+        .from(bookingOffers)
+        .where(eq(bookingOffers.bookingId, booking.id))
+        .all()
+        .sort((left, right) => right.offerNumber - left.offerNumber)[0];
+      if (latestOffer) {
+        let priceSnapshot: Record<string, unknown> = {};
+        try {
+          const parsed = JSON.parse(latestOffer.priceSnapshotJson) as unknown;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+            priceSnapshot = parsed as Record<string, unknown>;
+        } catch {
+          // Keep the snapshot valid even if an old imported record contains malformed JSON.
+        }
+        db.update(bookingOffers)
+          .set({
+            totalCents: input.quotedTotalCents!,
+            priceSnapshotJson: JSON.stringify({ ...priceSnapshot, totalCents: input.quotedTotalCents }),
+          })
+          .where(eq(bookingOffers.id, latestOffer.id))
+          .run();
+      }
+    }
 
     for (const item of input.requestedItems) {
       db.update(bookingRequestedItems)

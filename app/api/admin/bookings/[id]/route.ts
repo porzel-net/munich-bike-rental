@@ -37,6 +37,7 @@ const schema = z.object({
   customerMessage: z.string().trim().max(5000),
   communicationLocale: z.enum(["de", "en"]),
   requestedItems: z.array(requestedItem).min(1).max(10),
+  quotedTotalCents: z.number().int().min(0).optional(),
   notifyCustomer: z.boolean().optional(),
 });
 
