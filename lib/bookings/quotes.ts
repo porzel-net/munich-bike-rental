@@ -12,9 +12,10 @@ import {
 import { calculateBikePriceWithDiscounts, calculateInquiryPrice, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
 import type { ContactInquiry } from "../inquiries/schemas";
+import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
 
 import { BookingCommandError } from "./errors";
-import { isAssetSelectableForBooking } from "./historical-availability";
+import { isHistoricalAssetSelectableForBooking } from "./historical-availability";
 
 export type OfferQuote = {
   totalCents: number;
@@ -85,10 +86,12 @@ function selectedAccessories(
 ): OfferAccessorySelection {
   return {
     needsPedals: override?.needsPedals ?? item.needsPedals,
-    pedalType: override?.needsPedals === false ? null : (override?.pedalType ?? item.pedalType),
+    pedalType: override?.needsPedals === false ? null : normalizePedalType(override?.pedalType ?? item.pedalType),
     needsComputerMount: override?.needsComputerMount ?? item.needsComputerMount,
     computerMountType:
-      override?.needsComputerMount === false ? null : (override?.computerMountType ?? item.computerMountType),
+      override?.needsComputerMount === false
+        ? null
+        : normalizeComputerMountType(override?.computerMountType ?? item.computerMountType),
     needsHelmet: override?.needsHelmet ?? item.needsHelmet,
     needsClothing: override?.needsClothing ?? item.needsClothing,
     needsBikepackingBag: override?.needsBikepackingBag ?? item.needsBikepackingBag,
@@ -132,7 +135,11 @@ export function buildOfferQuote(
       .get();
     if (
       !asset ||
-      !isAssetSelectableForBooking(booking, { ...asset.asset, modelTitle: asset.modelTitle, size: asset.size })
+      !isHistoricalAssetSelectableForBooking(booking, {
+        ...asset.asset,
+        modelTitle: asset.modelTitle,
+        size: asset.size,
+      })
     )
       throw new BookingCommandError("The selected asset is not active at this location");
     return {

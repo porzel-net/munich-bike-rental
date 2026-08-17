@@ -31,7 +31,12 @@ import {
   type BookingStatus,
 } from "../db/schema";
 import { createOrderNumber } from "../inquiries/server";
-import { getComputerMountTypeLabel, getPedalTypeLabel } from "../inquiries/catalog";
+import {
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
+  normalizeComputerMountType,
+  normalizePedalType,
+} from "../inquiries/catalog";
 import { bikeMatchesRequestedLabel } from "../inventory/display-name";
 
 import { BookingCommandError } from "./errors";
@@ -735,9 +740,9 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
         requestedLabel: item.requestedLabel,
         heightCm: item.heightCm,
         needsPedals: item.needsPedals ?? false,
-        pedalType: item.pedalType ?? null,
+        pedalType: item.needsPedals ? normalizePedalType(item.pedalType) : null,
         needsComputerMount: item.needsComputerMount ?? false,
-        computerMountType: item.computerMountType ?? null,
+        computerMountType: item.needsComputerMount ? normalizeComputerMountType(item.computerMountType) : null,
         needsHelmet: item.needsHelmet ?? false,
         needsClothing: item.needsClothing ?? false,
         needsBikepackingBag: item.needsBikepackingBag ?? false,
@@ -1307,9 +1312,14 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       input.requestedItems.some((item) => !currentIds.has(item.id))
     )
       throw new BookingCommandError("Die Anzahl der Fahrräder kann hier nicht geändert werden");
+    const normalizedRequestedItems = input.requestedItems.map((item) => ({
+      ...item,
+      pedalType: item.needsPedals ? normalizePedalType(item.pedalType) : null,
+      computerMountType: item.needsComputerMount ? normalizeComputerMountType(item.computerMountType) : null,
+    }));
 
     const bikeDetailsChanged = currentItems.some((current) => {
-      const next = input.requestedItems.find((item) => item.id === current.id);
+      const next = normalizedRequestedItems.find((item) => item.id === current.id);
       return (
         !next ||
         current.requestedLabel !== next.requestedLabel ||
@@ -1378,7 +1388,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     const formatRequestedItem = (item: BookingRequestedItemCommand) =>
       `${item.requestedLabel} (${item.heightCm} cm${item.needsHelmet ? ", Helm" : ""}${item.needsClothing ? ", Kleidung" : ""}${item.needsPedals ? `, Pedale${item.pedalType ? `: ${getPedalTypeLabel(item.pedalType, "de")}` : ""}` : ""}${item.needsComputerMount ? `, Computerhalterung${item.computerMountType ? `: ${getComputerMountTypeLabel(item.computerMountType, "de")}` : ""}` : ""}${item.needsBikepackingBag ? ", Bikepackingtasche" : ""}${item.needsGlasses ? ", Rennradbrille" : ""})`;
     const currentItemsSummary = currentItems.map(formatRequestedItem).join(", ");
-    const nextItemsSummary = input.requestedItems.map(formatRequestedItem).join(", ");
+    const nextItemsSummary = normalizedRequestedItems.map(formatRequestedItem).join(", ");
     addMailChange("Fahrräder und Ausstattung", "Bikes and equipment", currentItemsSummary, nextItemsSummary);
     const confirmedPeriodChanged =
       booking.status === "confirmed" &&
@@ -1509,7 +1519,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       }
     }
 
-    for (const item of input.requestedItems) {
+    for (const item of normalizedRequestedItems) {
       db.update(bookingRequestedItems)
         .set({
           requestedLabel: item.requestedLabel,
@@ -1546,7 +1556,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         periodTo: input.periodTo,
         pickupTime: input.pickupTime,
         dropoffTime: input.dropoffTime,
-        bikes: input.requestedItems.map((item) => item.requestedLabel),
+        bikes: normalizedRequestedItems.map((item) => item.requestedLabel),
         changes: mailChanges,
       });
       queuedMailId = queueCustomerMail(

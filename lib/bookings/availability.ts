@@ -9,6 +9,7 @@ import {
   bookings,
 } from "../db/schema";
 import type { OfferAccessorySelection } from "./quotes";
+import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
 
 import { BookingCommandError } from "./errors";
 
@@ -54,9 +55,14 @@ export function allocateRequestedAccessories(
   };
   for (const item of requested) {
     const accessories = accessoriesByRequestedItem[item.id] ?? item;
-    if (accessories.needsPedals) add(accessories.pedalType ? `pedal-${accessories.pedalType}` : null);
-    if (accessories.needsComputerMount)
-      add(accessories.computerMountType ? `mount-${accessories.computerMountType}` : null);
+    if (accessories.needsPedals) {
+      const pedalType = normalizePedalType(accessories.pedalType);
+      add(pedalType ? `pedal-${pedalType}` : null);
+    }
+    if (accessories.needsComputerMount) {
+      const computerMountType = normalizeComputerMountType(accessories.computerMountType);
+      add(computerMountType ? `mount-${computerMountType}` : null);
+    }
     if (accessories.needsHelmet) add("helmet");
     if (accessories.needsClothing) add("clothing");
     if (accessories.needsBikepackingBag) add("bikepacking-bag");

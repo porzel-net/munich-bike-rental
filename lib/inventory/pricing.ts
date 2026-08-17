@@ -1,5 +1,6 @@
 import type { LocationInventory } from "./repository";
 import type { ContactInquiry } from "../inquiries/schemas";
+import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
 
 export type RentalPriceInput = {
   dailyPriceCents: number;
@@ -116,8 +117,11 @@ export function calculateInquiryPrice(inventory: LocationInventory, payload: Con
   const priceForRequestedBike = (requestedBike: string) => getDailyBikePriceCents(inventory, requestedBike) ?? 0;
   const dailyBikePriceCents = payload.bikes.reduce((total, bike) => total + priceForRequestedBike(bike.bikeSize), 0);
   const equipmentSubtotalCents = payload.bikes.reduce((total, bike) => {
-    const pedals = bike.needsPedals ? (equipmentPrices.get(`pedal-${bike.pedalType}`) ?? 0) : 0;
-    const mount = bike.needsComputerMount ? (equipmentPrices.get(`mount-${bike.computerMountType}`) ?? 0) : 0;
+    const pedalType = normalizePedalType(bike.pedalType);
+    const computerMountType = normalizeComputerMountType(bike.computerMountType);
+    const pedals = pedalType && bike.needsPedals ? (equipmentPrices.get(`pedal-${pedalType}`) ?? 0) : 0;
+    const mount =
+      computerMountType && bike.needsComputerMount ? (equipmentPrices.get(`mount-${computerMountType}`) ?? 0) : 0;
     const helmet = bike.needsHelmet ? (equipmentPrices.get("helmet") ?? 0) : 0;
     const clothing = bike.needsClothing ? (equipmentPrices.get("clothing") ?? 0) : 0;
     const bikepackingBag = bike.needsBikepackingBag ? (equipmentPrices.get("bikepacking-bag") ?? 0) : 0;

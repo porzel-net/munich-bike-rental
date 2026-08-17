@@ -108,14 +108,28 @@ const computerMountTypeAliases: Record<string, keyof typeof computerMountTypeLab
   unknown: "other",
 };
 
+/** Converts legacy/imported pedal values to the inventory's canonical keys. */
+export function normalizePedalType(value: string | null | undefined) {
+  if (!value?.trim()) return null;
+  return pedalTypeAliases[value.trim().toLowerCase()] ?? value.trim();
+}
+
+/** Converts legacy/imported computer mount values to the inventory's canonical keys. */
+export function normalizeComputerMountType(value: string | null | undefined) {
+  if (!value?.trim()) return null;
+  return computerMountTypeAliases[value.trim().toLowerCase()] ?? value.trim();
+}
+
 export function getPedalTypeLabel(value: string | null | undefined, locale: Locale) {
   if (!value) return "";
-  const key = pedalTypeAliases[value.trim().toLowerCase()] ?? "other";
+  const normalized = normalizePedalType(value);
+  const key = normalized && normalized in pedalTypeLabels[locale] ? normalized : "other";
   return pedalTypeLabels[locale][key];
 }
 
 export function getComputerMountTypeLabel(value: string | null | undefined, locale: Locale) {
   if (!value) return "";
-  const key = computerMountTypeAliases[value.trim().toLowerCase()] ?? "other";
+  const normalized = normalizeComputerMountType(value);
+  const key = normalized && normalized in computerMountTypeLabels[locale] ? normalized : "other";
   return computerMountTypeLabels[locale][key];
 }

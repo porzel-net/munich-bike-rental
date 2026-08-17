@@ -8,6 +8,7 @@ import {
   rentalLocationEquipment,
 } from "../db/schema";
 import type { Locale, PortfolioItem } from "../home-content";
+import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
 
 export type LocationInventory = {
   portfolioItems: PortfolioItem[];
@@ -231,8 +232,8 @@ export function isRequestAvailable(
     (bike) =>
       (inventory.bikeOptions.includes(bike.bikeSize) ||
         inventory.bikeOptions.some((option) => bike.bikeSize.startsWith(option + " - "))) &&
-      (!bike.needsPedals || pedals.has(bike.pedalType)) &&
-      (!bike.needsComputerMount || mounts.has(bike.computerMountType)) &&
+      (!bike.needsPedals || pedals.has(normalizePedalType(bike.pedalType) ?? "")) &&
+      (!bike.needsComputerMount || mounts.has(normalizeComputerMountType(bike.computerMountType) ?? "")) &&
       (!bike.needsHelmet || inventory.helmetAvailable) &&
       (!bike.needsClothing || inventory.clothingAvailable),
   );

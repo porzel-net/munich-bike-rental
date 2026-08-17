@@ -5,6 +5,7 @@ import type {
   BookingRequestImport,
   RequestedBikeImport,
 } from "./types";
+import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
 
 const DEFAULT_EMAIL = "unknown@example.invalid";
 const DEFAULTS = {
@@ -529,9 +530,9 @@ function addonItem(block: string, index: number): { item: RequestedBikeImport; m
   ];
   const values: Partial<RequestedBikeImport> = {
     needsPedals,
-    pedalType,
+    pedalType: normalizePedalType(pedalType),
     needsComputerMount,
-    computerMountType,
+    computerMountType: normalizeComputerMountType(computerMountType),
     bottleHolderIncluded: true,
     repairKitIncluded: true,
   };

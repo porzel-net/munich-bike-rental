@@ -81,6 +81,55 @@ describe("location inventory", () => {
     expect(isRequestAvailable(db, "regensburg", [{ ...bike, pedalType: "nonexistent" }])).toBe(false);
   });
 
+  it("normalizes legacy accessory aliases for availability and pricing", () => {
+    const db = createTestDatabase();
+    const inventory = getLocationInventory(db, "munich");
+    const bike = {
+      bikeSize: "Endurace CF SL 8",
+      needsPedals: true,
+      pedalType: "flat",
+      needsComputerMount: true,
+      computerMountType: "unknown",
+      needsHelmet: false,
+      needsClothing: false,
+    };
+
+    expect(isRequestAvailable(db, "munich", [bike])).toBe(true);
+    expect(
+      calculateInquiryPrice(inventory, {
+        name: "Max Mustermann",
+        contact: "max@example.com",
+        phone: "+49 123456789",
+        location: "munich",
+        periodFrom: "2026-07-20",
+        periodTo: "2026-07-20",
+        pickupTime: "10:00",
+        dropoffTime: "16:00",
+        message: "",
+        bikeTitle: "",
+        affiliateKey: "",
+        locale: "de",
+        website: "",
+        bikes: [
+          {
+            height: "180",
+            bikeSize: bike.bikeSize,
+            needsPedals: bike.needsPedals,
+            pedalType: bike.pedalType,
+            needsComputerMount: bike.needsComputerMount,
+            computerMountType: bike.computerMountType,
+            needsHelmet: bike.needsHelmet,
+            needsClothing: bike.needsClothing,
+            needsBikepackingBag: false,
+            needsGlasses: false,
+            bottleHolderIncluded: true,
+            repairKitIncluded: true,
+          },
+        ],
+      }),
+    ).toMatchObject({ equipmentSubtotalCents: 1_000 });
+  });
+
   it("uses the configured location discounts for future rental calculations", () => {
     const db = createTestDatabase();
     const inventory = getLocationInventory(db, "munich");

@@ -104,6 +104,32 @@ function setup() {
       updatedAt: new Date(),
     })
     .run();
+  db.insert(accessoryInventory)
+    .values({
+      location: "munich",
+      accessoryKey: "pedal-platform",
+      category: "pedal",
+      labelDe: "Plattformpedale",
+      labelEn: "Platform pedals",
+      priceCents: 500,
+      availableQuantity: 2,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .run();
+  db.insert(accessoryInventory)
+    .values({
+      location: "munich",
+      accessoryKey: "mount-other",
+      category: "computer-mount",
+      labelDe: "Andere Halterung",
+      labelEn: "Other mount",
+      priceCents: 500,
+      availableQuantity: 2,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .run();
   return { db, assetId: asset.id };
 }
 
@@ -329,6 +355,80 @@ describe("booking commands", () => {
       status: "accepted",
     });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+  });
+
+  it("maps the legacy flat pedal value when confirming an expired paid offer", () => {
+    const { db, assetId } = setup();
+    const created = createBooking(db, {
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-08-20",
+      periodTo: "2026-08-21",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      customerMessage: "",
+      communicationLocale: "en",
+      source: "manual",
+      quotedTotalCents: 0,
+      requestedItems: [
+        {
+          requestedLabel: "Test Bike - M",
+          heightCm: 170,
+          needsPedals: true,
+          pedalType: "flat",
+          needsComputerMount: true,
+          computerMountType: "unknown",
+        },
+      ],
+    });
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, created.id)).get()!;
+    assignAdminBooking(db, created.id);
+    const offer = createOffer(db, { bookingId: created.id, assetsByRequestedItem: { [item.id]: assetId } });
+    const legacySnapshot = JSON.parse(
+      db
+        .select({ priceSnapshotJson: bookingOffers.priceSnapshotJson })
+        .from(bookingOffers)
+        .where(eq(bookingOffers.id, offer.offerId))
+        .get()!.priceSnapshotJson,
+    ) as {
+      offeredItems: Array<{ accessories: { pedalType: string | null; computerMountType: string | null } }>;
+    };
+    legacySnapshot.offeredItems[0].accessories.pedalType = "flat";
+    legacySnapshot.offeredItems[0].accessories.computerMountType = "unknown";
+    db.update(bookingOffers)
+      .set({ expiresAt: new Date(Date.now() - 1_000), priceSnapshotJson: JSON.stringify(legacySnapshot) })
+      .where(eq(bookingOffers.id, offer.offerId))
+      .run();
+    expect(expireDueOffers(db)).toBe(1);
+
+    expect(
+      assignStripePaymentToBooking(db, {
+        bookingId: created.id,
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_legacy_flat_pedal_123",
+        actorUserId: "admin",
+      }),
+    ).toEqual({ bookingId: created.id, alreadyConfirmed: false });
+    const allocations = db
+      .select({ accessoryId: bookingAccessoryAllocations.accessoryId })
+      .from(bookingAccessoryAllocations)
+      .where(eq(bookingAccessoryAllocations.bookingId, created.id))
+      .all();
+    expect(
+      allocations
+        .map(
+          ({ accessoryId }) =>
+            db
+              .select({ accessoryKey: accessoryInventory.accessoryKey })
+              .from(accessoryInventory)
+              .where(eq(accessoryInventory.id, accessoryId))
+              .get()!.accessoryKey,
+        )
+        .sort(),
+    ).toEqual(["mount-other", "pedal-platform"]);
   });
 
   it("binds journal corrections to the booking they came from", () => {
