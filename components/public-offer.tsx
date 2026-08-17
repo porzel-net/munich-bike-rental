@@ -235,6 +235,16 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
     let active = true;
     let retryTimer: number | undefined;
 
+    const refreshOffer = async () => {
+      const response = await fetch(`/api/booking-confirmation-v2?token=${encodeURIComponent(token)}`, {
+        cache: "no-store",
+      });
+      const result = (await response.json().catch(() => null)) as { offer?: PublicOffer } | null;
+      if (!active || !response.ok || !result?.offer) return null;
+      setCurrentOffer(result.offer);
+      return result.offer;
+    };
+
     const completePayment = async (attempt = 0): Promise<void> => {
       const response = await fetch("/api/booking-confirmation-v2/complete", {
         method: "POST",
@@ -244,10 +254,21 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
       const result = (await response.json().catch(() => null)) as { message?: string; offer?: PublicOffer } | null;
       if (!active) return;
       if (!response.ok) {
-        // Stripe may still be finalizing an Apple Pay payment while the
-        // success redirect is already being opened. Give the webhook/session
-        // a short window to become authoritative before showing an error.
-        if (response.status === 409 && attempt < 5) {
+        // Stripe may still be finalizing the payment, or its webhook may be
+        // confirming the booking at the same time as this success redirect.
+        // Keep the customer on a neutral processing state while both paths
+        // converge instead of exposing a transient 409/502 as a failure.
+        const refreshedOffer = await refreshOffer();
+        if (
+          refreshedOffer?.booking.status === "confirmed" ||
+          refreshedOffer?.booking.status === "checked_out" ||
+          refreshedOffer?.booking.status === "completed"
+        ) {
+          window.history.replaceState(null, "", window.location.pathname);
+          window.location.reload();
+          return;
+        }
+        if ((response.status === 409 || response.status === 502 || response.status === 503) && attempt < 12) {
           retryTimer = window.setTimeout(() => void completePayment(attempt + 1), 1_500);
           return;
         }
