@@ -18,7 +18,12 @@ function bookingIdFromMetadata(metadataJson: string) {
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
-  const command = await getBookingAdminContext(request, id, { requireAssignee: true });
+  // This is a read-only browser fetch. Same-origin GET requests commonly omit
+  // the Origin header; session, location and assignment checks still apply.
+  const command = await getBookingAdminContext(request, id, {
+    requireAssignee: true,
+    requireTrustedOrigin: false,
+  });
   if (!command) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   try {
