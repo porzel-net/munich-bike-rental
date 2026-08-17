@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
-import mainImage from "@/main.png";
+import mainImage from "@/main.webp";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
 import {
@@ -215,8 +215,9 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
                 }
                 className="hero-frame__image"
                 fill
-                priority
-                unoptimized
+                preload
+                fetchPriority="high"
+                quality={72}
                 sizes="(max-width: 540px) 340px, (max-width: 1100px) 420px, 470px"
               />
               <span className="hero-frame__shape" aria-hidden="true" />

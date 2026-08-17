@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import mainImage from "./main.png";
+import mainImage from "./main.webp";
 
 const noImageIndexValue = "noindex, noimageindex, nofollow";
 

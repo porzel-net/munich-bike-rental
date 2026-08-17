@@ -474,6 +474,8 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
                 src={photo.src}
                 alt=""
                 fill
+                loading="lazy"
+                fetchPriority="low"
                 sizes="(max-width: 1100px) calc(100vw - 48px), 460px"
                 placeholder="empty"
                 className={imageClassName}
@@ -529,6 +531,8 @@ export function LocationShowcase({
             src={mapImage}
             alt={`Google Maps Standort für ${address}`}
             fill
+            loading="lazy"
+            fetchPriority="low"
             sizes="(max-width: 1100px) 100vw, 560px"
             quality={72}
             className="location-map__image"
@@ -1014,6 +1018,8 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                   src={item.image}
                   alt={`${item.title} bei Munich Rental`}
                   fill
+                  loading="lazy"
+                  fetchPriority="low"
                   placeholder="empty"
                   sizes="(max-width: 780px) calc(100vw - 32px), (max-width: 1100px) calc((100vw - 64px) / 2), 384px"
                   className="portfolio-card__image"
