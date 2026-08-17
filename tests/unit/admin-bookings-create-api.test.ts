@@ -162,7 +162,6 @@ describe("admin booking creation API", () => {
         message: "Nachgetragen",
         locale: "de",
         quotedTotalCents: 12_500,
-        invoiceNumber: "YBR-2026-0001",
         requestedItems: [{ requestedLabel: "Endurace - M", heightCm: 175 }],
         assetsByPosition: { "1": 12 },
       }),
@@ -174,7 +173,6 @@ describe("admin booking creation API", () => {
       expect.objectContaining({
         periodFrom: "2026-08-01",
         quotedTotalCents: 12_500,
-        invoiceNumber: "YBR-2026-0001",
         assetsByPosition: { 1: 12 },
       }),
     );

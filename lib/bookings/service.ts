@@ -854,12 +854,12 @@ export function createHistoricalBooking(
   db: AppDatabase,
   input: Omit<CreateBookingCommand, "outbox" | "source"> & {
     assetsByPosition: Record<number, number>;
-    invoiceNumber: string;
     actorUserId: string;
     reason?: string;
   },
 ) {
   return runInImmediateTransaction(db, () => {
+    const invoiceNumber = allocateInvoiceNumber(db);
     const created = createBookingRecord(
       db,
       { ...input, source: "legacy", assignedUserId: input.actorUserId },
@@ -887,7 +887,7 @@ export function createHistoricalBooking(
         dropoffTime: input.dropoffTime,
         quotedTotalCents: input.quotedTotalCents,
         assetsByRequestedItem,
-        invoiceNumber: input.invoiceNumber,
+        invoiceNumber,
         reason: input.reason,
       },
     });

@@ -175,7 +175,6 @@ describe("booking commands", () => {
       quotedTotalCents: 12_500,
       requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
       assetsByPosition: { 1: assetId },
-      invoiceNumber: "YBR-2026-0001",
       actorUserId: "admin",
     });
 
@@ -183,13 +182,46 @@ describe("booking commands", () => {
       source: "legacy",
       status: "completed",
       quotedTotalCents: 12_500,
-      invoiceNumber: "YBR-2026-0001",
+      invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/),
     });
     expect(
       db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, created.id)).all(),
     ).toHaveLength(1);
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, created.id)).all()).toHaveLength(0);
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, created.id)).all()).toHaveLength(1);
+  });
+
+  it("allocates the next free invoice number for a historical booking", () => {
+    const { db, assetId } = setup();
+    const existing = inquiry(db, "2026-07-20", "2026-07-21");
+    const year = new Date().getFullYear();
+    db.update(bookings)
+      .set({ invoiceNumber: `YBR-${year}-0001`, invoiceIssuedAt: new Date() })
+      .where(eq(bookings.id, existing.id))
+      .run();
+
+    const created = createHistoricalBooking(db, {
+      customerName: "Grace Hopper",
+      customerEmail: "grace@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-08-01",
+      periodTo: "2026-08-03",
+      pickupTime: "10:00",
+      dropoffTime: "17:00",
+      customerMessage: "Nachgetragen",
+      communicationLocale: "de",
+      quotedTotalCents: 12_500,
+      requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+      assetsByPosition: { 1: assetId },
+      actorUserId: "admin",
+    });
+
+    expect(
+      db.select({ invoiceNumber: bookings.invoiceNumber }).from(bookings).where(eq(bookings.id, created.id)).get(),
+    ).toEqual({
+      invoiceNumber: `YBR-${year}-0002`,
+    });
   });
 
   it("deletes an unbooked duplicate inquiry and its child records", () => {

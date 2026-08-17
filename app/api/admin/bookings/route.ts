@@ -78,7 +78,6 @@ const schema = z.discriminatedUnion("mode", [
     message: z.string().trim().max(5000).default(""),
     locale: z.enum(["de", "en"]),
     quotedTotalCents: z.number().int().min(0),
-    invoiceNumber: z.string().trim().min(1).max(32),
     requestedItems: z.array(item).min(1).max(10),
     assetsByPosition: z.record(z.string(), z.number().int().positive()),
   }),
@@ -118,7 +117,6 @@ export async function POST(request: Request) {
             assetsByPosition: Object.fromEntries(
               Object.entries(input.data.assetsByPosition).map(([position, assetId]) => [Number(position), assetId]),
             ),
-            invoiceNumber: input.data.invoiceNumber,
             actorUserId: session.user.id,
           })
         : input.data.mode === "direct"

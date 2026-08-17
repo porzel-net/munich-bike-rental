@@ -113,7 +113,6 @@ export function ManualBookingForm({
   const [periodFrom, setPeriodFrom] = useState(initialValues?.periodFrom ?? "");
   const [periodTo, setPeriodTo] = useState(initialValues?.periodTo ?? "");
   const [historicalTotal, setHistoricalTotal] = useState("");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [busy, setBusy] = useState(false);
   const availableAssets = useMemo(
     () => assets.filter((asset) => asset.location === location && (mode === "historical" || asset.state === "active")),
@@ -159,7 +158,6 @@ export function ManualBookingForm({
       return toast.error("Bitte vervollständige jede Fahrradposition.");
     if ((mode === "direct" || mode === "historical") && items.some((item) => !item.assetId))
       return toast.error("Für diesen Modus muss jedes Fahrrad konkret ausgewählt sein.");
-    if (mode === "historical" && !invoiceNumber.trim()) return toast.error("Bitte gib die Rechnungsnummer ein.");
     const payload = {
       mode,
       name: form.get("name"),
@@ -190,7 +188,6 @@ export function ManualBookingForm({
         : {}),
       ...(mode === "historical"
         ? {
-            invoiceNumber: invoiceNumber.trim(),
             assetsByPosition: Object.fromEntries(items.map((item, index) => [String(index + 1), Number(item.assetId)])),
           }
         : {}),
@@ -235,7 +232,7 @@ export function ManualBookingForm({
           {mode === "historical" ? (
             <FieldDescription className="basis-full">
               Für eine bereits durchgeführte Buchung werden die ursprünglichen Daten, das tatsächlich vermietete Fahrrad
-              und die zugehörige Rechnungsnummer gespeichert. Es wird keine Kund:innen-Mail versendet.
+              und eine automatisch vergebene Rechnungsnummer gespeichert. Es wird keine Kund:innen-Mail versendet.
             </FieldDescription>
           ) : null}
         </CardContent>
@@ -473,27 +470,6 @@ export function ManualBookingForm({
           </Button>
         </CardContent>
       </Card>
-      {mode === "historical" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Rechnungsdaten</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Field>
-              <FieldLabel htmlFor="invoice-number">Rechnungsnummer</FieldLabel>
-              <Input
-                id="invoice-number"
-                value={invoiceNumber}
-                onChange={(event) => setInvoiceNumber(event.target.value.toUpperCase())}
-                placeholder="YBR-2026-0001"
-                pattern="YBR-[0-9]{4}-[0-9]{4}"
-                required
-              />
-              <FieldDescription>Die Nummer muss der nächsten freien Rechnungsnummer entsprechen.</FieldDescription>
-            </Field>
-          </CardContent>
-        </Card>
-      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>Interne Notiz</CardTitle>
