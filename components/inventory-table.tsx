@@ -71,10 +71,26 @@ export function InventoryTable({
       ? allLocationsItem.label
       : locations.find((location) => location.key === locationFilter)?.label;
 
-  const visibleBikes = useMemo(
-    () => (locationFilter === "all" ? bikes : bikes.filter((bike) => bike.location === locationFilter)),
-    [bikes, locationFilter],
-  );
+  const visibleBikes = useMemo(() => {
+    const filtered = locationFilter === "all" ? bikes : bikes.filter((bike) => bike.location === locationFilter);
+    return [...filtered].sort((left, right) => {
+      const locationComparison = left.location.localeCompare(right.location, "de", {
+        sensitivity: "base",
+      });
+      if (locationComparison !== 0) return locationComparison;
+
+      const displayNameComparison = (left.nickname || left.title).localeCompare(right.nickname || right.title, "de", {
+        numeric: true,
+        sensitivity: "base",
+      });
+      if (displayNameComparison !== 0) return displayNameComparison;
+
+      const typeComparison = left.title.localeCompare(right.title, "de", { numeric: true, sensitivity: "base" });
+      if (typeComparison !== 0) return typeComparison;
+
+      return left.size.localeCompare(right.size, "de", { numeric: true, sensitivity: "base" });
+    });
+  }, [bikes, locationFilter]);
   const visibleEquipment = useMemo(
     () => (locationFilter === "all" ? equipment : equipment.filter((item) => item.location === locationFilter)),
     [equipment, locationFilter],
