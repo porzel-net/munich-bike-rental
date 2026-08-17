@@ -1088,6 +1088,8 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [rentalDaysWarningOpen, setRentalDaysWarningOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const submissionIdRef = useRef<string | null>(null);
+  const submissionInFlightRef = useRef(false);
   const confirmRentalDaysRef = useRef(false);
   const affiliateKey = getAffiliateKey(searchParams);
   const bikeOptions = inventory.requestBikeOptions;
@@ -1135,6 +1137,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
 
   const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submissionInFlightRef.current) return;
 
     const validation = validateContactForm(translations, {
       location,
@@ -1183,6 +1186,8 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
     const message = String(formData.get("message") ?? "").trim();
 
     setContactStatus("sending");
+    submissionInFlightRef.current = true;
+    submissionIdRef.current ??= globalThis.crypto.randomUUID();
     setFieldErrors({});
     setSubmitError(null);
     setOrderNumber(null);
@@ -1199,6 +1204,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
         pickupTime: pickupTimeValue,
         dropoffTime: dropoffTimeValue,
         message,
+        submissionId: submissionIdRef.current,
         locale: lang,
         affiliateKey: affiliateKey || undefined,
         website: String(formData.get("website") ?? ""),
@@ -1231,9 +1237,12 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
         language: lang,
         contactMethod: "email",
       });
+      submissionIdRef.current = null;
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : translations.form.validation.submitFailed);
       setContactStatus("error");
+    } finally {
+      submissionInFlightRef.current = false;
     }
   };
 

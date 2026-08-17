@@ -677,6 +677,7 @@ export type CreateBookingCommand = {
   source: "web" | "manual" | "legacy";
   quotedTotalCents: number;
   requestedItems: BookingRequestedItemCommand[];
+  submissionId?: string | null;
   legacySourceId?: string | null;
   legacyDedupeKey?: string | null;
   legacyReceivedAt?: Date | null;
@@ -693,6 +694,14 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
     !isValidTime(input.dropoffTime)
   )
     throw new BookingCommandError("Zeitraum und Uhrzeiten sind ungültig");
+  if (input.submissionId) {
+    const existing = db
+      .select({ id: bookings.id, orderNumber: bookings.orderNumber })
+      .from(bookings)
+      .where(eq(bookings.submissionId, input.submissionId))
+      .get();
+    if (existing) return existing;
+  }
   const { legacyReceivedAt } = input;
   const createdAt = input.source === "legacy" ? (legacyReceivedAt ?? now()) : now();
   let bookingId = 0;
@@ -753,8 +762,11 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
         kind: outbox.kind,
         locale: bookingValues.communicationLocale,
         recipient: outbox.recipient,
-        subject: outbox.subject.replace("{{orderNumber}}", orderNumber),
-        plainText: typeof outbox.plainText === "function" ? outbox.plainText(orderNumber) : outbox.plainText,
+        subject: outbox.subject.replaceAll("{{orderNumber}}", orderNumber),
+        plainText:
+          typeof outbox.plainText === "function"
+            ? outbox.plainText(orderNumber)
+            : outbox.plainText.replaceAll("{{orderNumber}}", orderNumber),
         status: "queued",
         attempts: 0,
         nextAttemptAt: createdAt,

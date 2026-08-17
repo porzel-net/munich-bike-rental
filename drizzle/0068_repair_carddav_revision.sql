@@ -1,5 +1,3 @@
-ALTER TABLE `carddav_sync_jobs` ADD `revision` integer DEFAULT 0 NOT NULL;
---> statement-breakpoint
 DROP TRIGGER IF EXISTS `carddav_sync_on_booking_insert`;
 --> statement-breakpoint
 DROP TRIGGER IF EXISTS `carddav_sync_on_booking_update`;

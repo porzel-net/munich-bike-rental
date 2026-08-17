@@ -135,6 +135,8 @@ export const bookings = sqliteTable(
     /** Stable identifiers used by the repeatable historical e-mail import. */
     legacySourceId: text("legacy_source_id"),
     legacyDedupeKey: text("legacy_dedupe_key"),
+    /** Client-generated key that makes a retried public inquiry return the same booking. */
+    submissionId: text("submission_id"),
     orderNumber: text("order_number").notNull(),
     assignedUserId: text("assigned_user_id").references(() => authUser.id, { onDelete: "set null" }),
     customerName: text("customer_name").notNull(),
@@ -160,6 +162,7 @@ export const bookings = sqliteTable(
     uniqueIndex("bookings_order_number_unique").on(table.orderNumber),
     uniqueIndex("bookings_legacy_source_id_unique").on(table.legacySourceId),
     uniqueIndex("bookings_legacy_dedupe_key_unique").on(table.legacyDedupeKey),
+    uniqueIndex("bookings_submission_id_unique").on(table.submissionId),
     uniqueIndex("bookings_invoice_number_unique").on(table.invoiceNumber),
     index("bookings_assigned_user_idx").on(table.assignedUserId),
     index("bookings_location_status_idx").on(table.location, table.status),

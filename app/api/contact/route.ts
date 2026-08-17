@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       customerMessage: parsed.data.message,
       communicationLocale: locale,
       source: "web",
+      submissionId: parsed.data.submissionId,
       quotedTotalCents: totalPriceCents,
       requestedItems: bikes.map((bike) => ({
         requestedLabel: bike.bikeSize,

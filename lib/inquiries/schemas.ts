@@ -78,6 +78,7 @@ export const contactInquirySchema = z
     pickupTime: time,
     dropoffTime: time,
     message,
+    submissionId: z.string().uuid().optional(),
     bikeTitle: optionalLine(120),
     locale,
     affiliateKey: optionalLine(120),

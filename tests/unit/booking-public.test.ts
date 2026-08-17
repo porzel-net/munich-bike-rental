@@ -49,6 +49,7 @@ describe("public booking link", () => {
     });
 
     const confirmation = connection.db.select().from(mailOutbox).where(eq(mailOutbox.kind, "inquiry_received")).get();
+    const internalInquiry = connection.db.select().from(mailOutbox).where(eq(mailOutbox.kind, "new_inquiry")).get();
     const token = confirmation?.plainText.match(/\/angebot\/([A-Za-z0-9]+)/)?.[1];
 
     expect(confirmation?.recipient).toBe("test@example.com, hallo@munich-bike-rental.de");
@@ -57,6 +58,8 @@ describe("public booking link", () => {
     expect(confirmation?.plainText).toContain("Rennradbrille: Ja");
     expect(confirmation?.plainText).toContain("Flaschenhalter: Inklusive");
     expect(confirmation?.plainText).toContain("Reparaturset: Inklusive");
+    expect(internalInquiry?.subject).toBe(`Neue Bike-Anfrage ${created.orderNumber}`);
+    expect(internalInquiry?.plainText).toBe(`Neue Anfrage ${created.orderNumber}`);
     expect(
       connection.db.select().from(communicationMessages).where(eq(communicationMessages.bookingId, created.id)).all(),
     ).toHaveLength(0);
