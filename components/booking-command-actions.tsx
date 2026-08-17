@@ -261,6 +261,8 @@ export function BookingCommandActions({
   const [customRejectionReason, setCustomRejectionReason] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
   const [customOfferPrice, setCustomOfferPrice] = useState("");
+  const [offerPeriodFrom, setOfferPeriodFrom] = useState(periodFrom);
+  const [offerPeriodTo, setOfferPeriodTo] = useState(periodTo);
   const [offerPickupTime, setOfferPickupTime] = useState(pickupTime);
   const [offerDropoffTime, setOfferDropoffTime] = useState(dropoffTime);
   const [isStudent, setIsStudent] = useState(false);
@@ -295,7 +297,11 @@ export function BookingCommandActions({
     () => new Set(Object.values(assetsByRequestedItem).filter(Boolean)),
     [assetsByRequestedItem],
   );
-  const unavailableAssetIdSet = useMemo(() => new Set(unavailableAssetIds), [unavailableAssetIds]);
+  const offerDateRangeChanged = offerPeriodFrom !== periodFrom || offerPeriodTo !== periodTo;
+  const unavailableAssetIdSet = useMemo(
+    () => new Set(offerDateRangeChanged ? [] : unavailableAssetIds),
+    [offerDateRangeChanged, unavailableAssetIds],
+  );
   const isAlternativeOffer = requestedItems.some((item) => {
     const selectedAsset = availableAssets.find((asset) => String(asset.id) === assetsByRequestedItem[String(item.id)]);
     return Boolean(selectedAsset && !bikeMatchesRequestedLabel(selectedAsset, item.requestedLabel));
@@ -370,6 +376,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomRejectionReason("");
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setOfferPeriodFrom(periodFrom);
+    setOfferPeriodTo(periodTo);
     setOfferPickupTime(pickupTime);
     setOfferDropoffTime(dropoffTime);
     setIsStudent(false);
@@ -396,6 +404,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreview(null);
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setOfferPeriodFrom(periodFrom);
+    setOfferPeriodTo(periodTo);
     setOfferPickupTime(pickupTime);
     setOfferDropoffTime(dropoffTime);
     setIsStudent(false);
@@ -491,7 +501,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         const customTotalCents = customOfferPrice.trim() ? euroToCents(customOfferPrice) : undefined;
         if (customOfferPrice.trim() && customTotalCents === null)
           throw new Error("Bitte gib den individuellen Gesamtpreis als gültigen Euro-Betrag ein.");
-        if (!offerPickupTime || !offerDropoffTime) throw new Error("Bitte gib beide Übergabezeiten an.");
+        if (!offerPeriodFrom || !offerPeriodTo || !offerPickupTime || !offerDropoffTime)
+          throw new Error("Bitte vervollständige Zeitraum und Übergabezeiten.");
+        if (offerPeriodFrom > offerPeriodTo)
+          throw new Error("Das Rückgabedatum muss am oder nach dem Abholdatum liegen.");
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes Asset.");
         if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
@@ -511,6 +524,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
           personalMessage: personalMessage.trim() || undefined,
           customTotalCents,
+          periodFrom: offerPeriodFrom,
+          periodTo: offerPeriodTo,
           pickupTime: offerPickupTime,
           dropoffTime: offerDropoffTime,
         });
@@ -647,6 +662,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
             personalMessage: personalMessage.trim() || undefined,
             customTotalCents,
+            periodFrom: offerPeriodFrom,
+            periodTo: offerPeriodTo,
             pickupTime: offerPickupTime,
             dropoffTime: offerDropoffTime,
           }),
@@ -672,6 +689,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       personalMessage,
       customOfferPrice,
       isStudent,
+      offerPeriodFrom,
+      offerPeriodTo,
       offerPickupTime,
       offerDropoffTime,
       requestedItems,
@@ -691,6 +710,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     personalMessage,
     customOfferPrice,
     isStudent,
+    offerPeriodFrom,
+    offerPeriodTo,
     offerPickupTime,
     offerDropoffTime,
   });
@@ -1144,6 +1165,20 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               <>
                 <FieldGroup className="grid gap-4 sm:grid-cols-2">
                   <Field>
+                    <FieldLabel htmlFor="offer-period-from">Abholdatum im Angebot</FieldLabel>
+                    <Input
+                      id="offer-period-from"
+                      type="date"
+                      value={offerPeriodFrom}
+                      onChange={(event) => {
+                        setOfferPeriodFrom(event.target.value);
+                        setPreview(null);
+                        setPreviewError(null);
+                      }}
+                      required
+                    />
+                  </Field>
+                  <Field>
                     <FieldLabel htmlFor="offer-pickup-time">Abholzeit im Angebot</FieldLabel>
                     <Input
                       id="offer-pickup-time"
@@ -1152,6 +1187,20 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       onChange={(event) => {
                         setOfferPickupTime(event.target.value);
                         setPreview(null);
+                      }}
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="offer-period-to">Rückgabedatum im Angebot</FieldLabel>
+                    <Input
+                      id="offer-period-to"
+                      type="date"
+                      value={offerPeriodTo}
+                      onChange={(event) => {
+                        setOfferPeriodTo(event.target.value);
+                        setPreview(null);
+                        setPreviewError(null);
                       }}
                       required
                     />

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import QRCode from "qrcode";
 
@@ -16,7 +15,6 @@ function failureMessage() {
 }
 
 export default function TwoFactorPage() {
-  const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -30,10 +28,9 @@ export default function TwoFactorPage() {
 
   useEffect(() => {
     if (session?.user.twoFactorEnabled) {
-      router.replace("/admin/bookings");
-      router.refresh();
+      window.location.assign("/admin/bookings");
     }
-  }, [router, session?.user.twoFactorEnabled]);
+  }, [session?.user.twoFactorEnabled]);
 
   useEffect(() => {
     if (!totpURI) return;
@@ -77,8 +74,7 @@ export default function TwoFactorPage() {
       return;
     }
 
-    router.replace("/admin/bookings");
-    router.refresh();
+    window.location.assign("/admin/bookings");
   }
 
   if (isPending) {

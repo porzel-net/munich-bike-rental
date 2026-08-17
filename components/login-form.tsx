@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { KeyRound } from "lucide-react";
 
@@ -12,7 +11,6 @@ import { Field, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 
 export function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,13 +49,12 @@ export function LoginForm() {
       }
 
       if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
-        router.replace("/admin/two-factor");
+        window.location.assign("/admin/two-factor");
         return;
       }
 
       if (data) {
-        router.replace("/admin/bookings");
-        router.refresh();
+        window.location.assign("/admin/bookings");
         return;
       }
 
@@ -73,17 +70,20 @@ export function LoginForm() {
     setIsSubmitting(true);
     setError(null);
 
-    const { data, error: passkeyError } = await authClient.signIn.passkey({ autoFill: false });
+    try {
+      const { data, error: passkeyError } = await authClient.signIn.passkey({ autoFill: false });
 
-    setIsSubmitting(false);
+      if (passkeyError || !data) {
+        setError("Passkey-Anmeldung nicht möglich. Bitte entsperre deinen Passkey und versuche es erneut.");
+        return;
+      }
 
-    if (passkeyError || !data) {
+      window.location.assign("/admin/bookings");
+    } catch {
       setError("Passkey-Anmeldung nicht möglich. Bitte entsperre deinen Passkey und versuche es erneut.");
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.replace("/admin/bookings");
-    router.refresh();
   }
 
   return (

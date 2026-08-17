@@ -921,6 +921,33 @@ describe("booking commands", () => {
     expect(db.select().from(bookingOffers).where(eq(bookingOffers.bookingId, booking.id)).all()).toHaveLength(0);
   });
 
+  it("uses alternative offer dates for the booking, quote and customer mail", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+
+    const offer = createOffer(db, {
+      bookingId: booking.id,
+      assetsByRequestedItem: { [booking.itemId]: assetId },
+      periodFrom: "2026-07-22",
+      periodTo: "2026-07-24",
+      pickupTime: "11:30",
+      dropoffTime: "16:30",
+    });
+
+    expect(offer.quote).toMatchObject({ rentalDays: 3, bikeSubtotalCents: 15_000, totalCents: 15_000 });
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toMatchObject({
+      periodFrom: "2026-07-22",
+      periodTo: "2026-07-24",
+      pickupTime: "11:30",
+      dropoffTime: "16:30",
+      quotedTotalCents: 15_000,
+    });
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.offerId, offer.offerId)).get()?.plainText).toContain(
+      "Rental period: 2026-07-22 11:30 – 2026-07-24 16:30",
+    );
+  });
+
   it("updates requested accessories and revokes an outdated open offer", () => {
     const { db, assetId } = setup();
     const created = createBooking(db, {

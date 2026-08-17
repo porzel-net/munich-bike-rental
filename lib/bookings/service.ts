@@ -1030,6 +1030,8 @@ export function createOffer(
     alternativeReason?: string;
     personalMessage?: string;
     customTotalCents?: number;
+    periodFrom?: string;
+    periodTo?: string;
     pickupTime?: string;
     dropoffTime?: string;
     sendMail?: boolean;
@@ -1041,13 +1043,30 @@ export function createOffer(
     assertBookingHasAssignee(db, booking);
     if (booking.status !== "inquiry_received" && booking.status !== "offer_sent" && booking.status !== "expired")
       throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
+    const offerPeriodFrom = input.periodFrom ?? booking.periodFrom;
+    const offerPeriodTo = input.periodTo ?? booking.periodTo;
     const offerPickupTime = input.pickupTime ?? booking.pickupTime;
     const offerDropoffTime = input.dropoffTime ?? booking.dropoffTime;
-    if (!isValidTime(offerPickupTime) || !isValidTime(offerDropoffTime))
-      throw new BookingCommandError("Die Übergabezeiten sind ungültig");
-    const offerBooking = { ...booking, pickupTime: offerPickupTime, dropoffTime: offerDropoffTime };
+    if (
+      !isValidIsoDate(offerPeriodFrom) ||
+      !isValidIsoDate(offerPeriodTo) ||
+      offerPeriodFrom > offerPeriodTo ||
+      !isValidTime(offerPickupTime) ||
+      !isValidTime(offerDropoffTime)
+    )
+      throw new BookingCommandError("Zeitraum und Übergabezeiten sind ungültig");
+    const offerBooking = {
+      ...booking,
+      periodFrom: offerPeriodFrom,
+      periodTo: offerPeriodTo,
+      pickupTime: offerPickupTime,
+      dropoffTime: offerDropoffTime,
+    };
     const quote = applyCustomOfferPrice(
-      buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent),
+      buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent, {
+        periodFrom: offerPeriodFrom,
+        periodTo: offerPeriodTo,
+      }),
       input.customTotalCents,
     );
     const alternative =
@@ -1112,6 +1131,8 @@ export function createOffer(
     db.update(bookings)
       .set({
         quotedTotalCents: quote.totalCents,
+        periodFrom: offerPeriodFrom,
+        periodTo: offerPeriodTo,
         pickupTime: offerPickupTime,
         dropoffTime: offerDropoffTime,
         version: booking.version + 1,
@@ -1132,8 +1153,8 @@ export function createOffer(
       requested: quote.offeredItems,
       totalCents: quote.totalCents,
       calculatedTotalCents: quote.calculatedTotalCents,
-      periodFrom: booking.periodFrom,
-      periodTo: booking.periodTo,
+      periodFrom: offerPeriodFrom,
+      periodTo: offerPeriodTo,
       pickupTime: offerPickupTime,
       dropoffTime: offerDropoffTime,
       location: booking.location,
@@ -1238,6 +1259,8 @@ export function previewOffer(
     alternativeReason?: string;
     personalMessage?: string;
     customTotalCents?: number;
+    periodFrom?: string;
+    periodTo?: string;
     pickupTime?: string;
     dropoffTime?: string;
     actorUserId?: string | null;
@@ -1250,12 +1273,23 @@ export function previewOffer(
   )
     throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
   assertBookingHasAssignee(db, booking);
+  const offerPeriodFrom = input.periodFrom ?? booking.periodFrom;
+  const offerPeriodTo = input.periodTo ?? booking.periodTo;
   const offerPickupTime = input.pickupTime ?? booking.pickupTime;
   const offerDropoffTime = input.dropoffTime ?? booking.dropoffTime;
-  if (!isValidTime(offerPickupTime) || !isValidTime(offerDropoffTime))
-    throw new BookingCommandError("Die Übergabezeiten sind ungültig");
+  if (
+    !isValidIsoDate(offerPeriodFrom) ||
+    !isValidIsoDate(offerPeriodTo) ||
+    offerPeriodFrom > offerPeriodTo ||
+    !isValidTime(offerPickupTime) ||
+    !isValidTime(offerDropoffTime)
+  )
+    throw new BookingCommandError("Zeitraum und Übergabezeiten sind ungültig");
   const quote = applyCustomOfferPrice(
-    buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent),
+    buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent, {
+      periodFrom: offerPeriodFrom,
+      periodTo: offerPeriodTo,
+    }),
     input.customTotalCents,
   );
   const alternative =
@@ -1272,6 +1306,17 @@ export function previewOffer(
     });
   if (alternative && !input.alternativeReason?.trim())
     throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
+  const offerBooking = {
+    ...booking,
+    periodFrom: offerPeriodFrom,
+    periodTo: offerPeriodTo,
+    pickupTime: offerPickupTime,
+    dropoffTime: offerDropoffTime,
+  };
+  for (const item of quote.offeredItems) {
+    if (hasAssetConflict(db, offerBooking, item.assetId))
+      throw new BookingCommandError("The selected asset is already booked for this period");
+  }
   const mail = renderOfferMail({
     locale: booking.communicationLocale,
     alternative,
@@ -1285,8 +1330,8 @@ export function previewOffer(
     requested: quote.offeredItems,
     totalCents: quote.totalCents,
     calculatedTotalCents: quote.calculatedTotalCents,
-    periodFrom: booking.periodFrom,
-    periodTo: booking.periodTo,
+    periodFrom: offerPeriodFrom,
+    periodTo: offerPeriodTo,
     pickupTime: offerPickupTime,
     dropoffTime: offerDropoffTime,
     location: booking.location,
