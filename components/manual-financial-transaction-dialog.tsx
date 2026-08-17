@@ -14,10 +14,12 @@ export function ManualFinancialTransactionLauncher({
   categories,
   accounts,
   bookings,
+  onCompleted,
 }: {
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
   bookings: FinancialReviewBooking[];
+  onCompleted?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -32,6 +34,7 @@ export function ManualFinancialTransactionLauncher({
         categories={categories}
         accounts={accounts}
         bookings={bookings}
+        onManualCompleted={() => onCompleted?.()}
       />
     </>
   );

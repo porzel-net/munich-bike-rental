@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDownLeftIcon, ArrowUpRightIcon, FileTextIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -110,6 +111,7 @@ export function FinancialReviewInbox({
   initialTransactionId?: number;
   title?: string;
 }) {
+  const router = useRouter();
   const [rows, setRows] = useState(transactions);
   const [selected, setSelected] = useState<FinancialReviewTransaction | null>(null);
   const initialReviewOpened = useRef(false);
@@ -134,6 +136,7 @@ export function FinancialReviewInbox({
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) throw new Error(result?.message ?? "Auftrag konnte nicht zugewiesen werden.");
       setRows((current) => current.map((item) => (item.id === row.id ? { ...item, status: "posted" } : item)));
+      router.refresh();
       const booking = bookings.find((item) => item.id === bookingId);
       toast.success(`Auftrag ${booking?.orderNumber ?? bookingId} wurde zugewiesen.`);
       setAssignmentRow(null);
@@ -164,7 +167,12 @@ export function FinancialReviewInbox({
           <h2 className="text-lg font-semibold">{title}</h2>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} bookings={bookings} />
+          <ManualFinancialTransactionLauncher
+            categories={categories}
+            accounts={accounts}
+            bookings={bookings}
+            onCompleted={() => router.refresh()}
+          />
           <NevloSyncButton />
           <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
         </div>
@@ -350,6 +358,7 @@ export function FinancialReviewInbox({
               row.id === transactionId ? { ...row, status, euerTreatment: euerTreatment ?? row.euerTreatment } : row,
             ),
           );
+          router.refresh();
           setSelected(null);
         }}
       />
