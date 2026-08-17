@@ -5,6 +5,7 @@ import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { previewOffer } from "@/lib/bookings/service";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { isValidTime } from "@/lib/bookings/validation";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,8 @@ const schema = z.object({
   alternativeReason: z.string().trim().max(1000).optional(),
   personalMessage: z.string().trim().max(2000).optional(),
   customTotalCents: z.number().int().min(0).optional(),
+  pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit").optional(),
+  dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit").optional(),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -56,6 +59,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         alternativeReason: input.data.alternativeReason,
         personalMessage: input.data.personalMessage,
         customTotalCents: input.data.customTotalCents,
+        pickupTime: input.data.pickupTime,
+        dropoffTime: input.data.dropoffTime,
         actorUserId: command.user.id,
       }),
     );

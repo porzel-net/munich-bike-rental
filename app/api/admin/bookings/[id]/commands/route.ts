@@ -50,6 +50,8 @@ const commandSchema = z.discriminatedUnion("command", [
     alternativeReason: z.string().trim().max(1000).optional(),
     personalMessage: z.string().trim().max(2000).optional(),
     customTotalCents: z.number().int().min(0).optional(),
+    pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit").optional(),
+    dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit").optional(),
   }),
   z.object({
     command: z.literal("cancel"),
@@ -136,6 +138,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           alternativeReason: input.data.alternativeReason,
           personalMessage: input.data.personalMessage,
           customTotalCents: input.data.customTotalCents,
+          pickupTime: input.data.pickupTime,
+          dropoffTime: input.data.dropoffTime,
           actorUserId: command.user.id,
         });
         const mailId = command.db

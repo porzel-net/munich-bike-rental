@@ -261,6 +261,8 @@ export function BookingCommandActions({
   const [customRejectionReason, setCustomRejectionReason] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
   const [customOfferPrice, setCustomOfferPrice] = useState("");
+  const [offerPickupTime, setOfferPickupTime] = useState(pickupTime);
+  const [offerDropoffTime, setOfferDropoffTime] = useState(dropoffTime);
   const [isStudent, setIsStudent] = useState(false);
   const [legacyStatus, setLegacyStatus] = useState<BookingStatus>(status);
   const [legacyPeriodFrom, setLegacyPeriodFrom] = useState(periodFrom);
@@ -368,6 +370,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setCustomRejectionReason("");
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setOfferPickupTime(pickupTime);
+    setOfferDropoffTime(dropoffTime);
     setIsStudent(false);
     setLegacyStatus(status);
     setLegacyPeriodFrom(periodFrom);
@@ -392,6 +396,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreview(null);
     setPersonalMessage("");
     setCustomOfferPrice("");
+    setOfferPickupTime(pickupTime);
+    setOfferDropoffTime(dropoffTime);
     setIsStudent(false);
     setPreviewError(null);
     setPreviewLoading(false);
@@ -485,6 +491,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         const customTotalCents = customOfferPrice.trim() ? euroToCents(customOfferPrice) : undefined;
         if (customOfferPrice.trim() && customTotalCents === null)
           throw new Error("Bitte gib den individuellen Gesamtpreis als gültigen Euro-Betrag ein.");
+        if (!offerPickupTime || !offerDropoffTime) throw new Error("Bitte gib beide Übergabezeiten an.");
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes Asset.");
         if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
@@ -504,6 +511,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
           personalMessage: personalMessage.trim() || undefined,
           customTotalCents,
+          pickupTime: offerPickupTime,
+          dropoffTime: offerDropoffTime,
         });
         toast.success(
           result?.mailStatus === "sent"
@@ -638,6 +647,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
             personalMessage: personalMessage.trim() || undefined,
             customTotalCents,
+            pickupTime: offerPickupTime,
+            dropoffTime: offerDropoffTime,
           }),
         });
         const result = (await response.json().catch(() => null)) as typeof preview & { message?: string };
@@ -661,6 +672,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       personalMessage,
       customOfferPrice,
       isStudent,
+      offerPickupTime,
+      offerDropoffTime,
       requestedItems,
       unavailableAssetIdSet,
     ],
@@ -678,6 +691,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     personalMessage,
     customOfferPrice,
     isStudent,
+    offerPickupTime,
+    offerDropoffTime,
   });
 
   useEffect(() => {
@@ -1127,6 +1142,37 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             )}
             {showOfferFields && (
               <>
+                <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="offer-pickup-time">Abholzeit im Angebot</FieldLabel>
+                    <Input
+                      id="offer-pickup-time"
+                      type="time"
+                      value={offerPickupTime}
+                      onChange={(event) => {
+                        setOfferPickupTime(event.target.value);
+                        setPreview(null);
+                      }}
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="offer-dropoff-time">Rückgabezeit im Angebot</FieldLabel>
+                    <Input
+                      id="offer-dropoff-time"
+                      type="time"
+                      value={offerDropoffTime}
+                      onChange={(event) => {
+                        setOfferDropoffTime(event.target.value);
+                        setPreview(null);
+                      }}
+                      required
+                    />
+                  </Field>
+                  <FieldDescription className="sm:col-span-2">
+                    Diese Zeiten werden in der Angebots-Mail und auf der Buchungsseite verwendet.
+                  </FieldDescription>
+                </FieldGroup>
                 <div className="space-y-4">
                   <label className="flex items-start gap-3 rounded-xl border bg-muted/30 p-4 text-sm">
                     <Checkbox

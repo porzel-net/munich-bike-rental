@@ -976,6 +976,8 @@ export function createOffer(
     alternativeReason?: string;
     personalMessage?: string;
     customTotalCents?: number;
+    pickupTime?: string;
+    dropoffTime?: string;
     sendMail?: boolean;
   },
 ) {
@@ -985,6 +987,11 @@ export function createOffer(
     assertBookingHasAssignee(db, booking);
     if (booking.status !== "inquiry_received" && booking.status !== "offer_sent" && booking.status !== "expired")
       throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
+    const offerPickupTime = input.pickupTime ?? booking.pickupTime;
+    const offerDropoffTime = input.dropoffTime ?? booking.dropoffTime;
+    if (!isValidTime(offerPickupTime) || !isValidTime(offerDropoffTime))
+      throw new BookingCommandError("Die Übergabezeiten sind ungültig");
+    const offerBooking = { ...booking, pickupTime: offerPickupTime, dropoffTime: offerDropoffTime };
     const quote = applyCustomOfferPrice(
       buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent),
       input.customTotalCents,
@@ -1004,7 +1011,7 @@ export function createOffer(
     if (alternative && !input.alternativeReason?.trim())
       throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
     for (const item of quote.offeredItems) {
-      if (hasAssetConflict(db, booking, item.assetId))
+      if (hasAssetConflict(db, offerBooking, item.assetId))
         throw new BookingCommandError("The selected asset is already booked for this period");
     }
     const previous = db
@@ -1049,7 +1056,13 @@ export function createOffer(
       )
       .run();
     db.update(bookings)
-      .set({ quotedTotalCents: quote.totalCents, version: booking.version + 1, updatedAt: now() })
+      .set({
+        quotedTotalCents: quote.totalCents,
+        pickupTime: offerPickupTime,
+        dropoffTime: offerDropoffTime,
+        version: booking.version + 1,
+        updatedAt: now(),
+      })
       .where(eq(bookings.id, booking.id))
       .run();
     const content = renderOfferMail({
@@ -1067,8 +1080,8 @@ export function createOffer(
       calculatedTotalCents: quote.calculatedTotalCents,
       periodFrom: booking.periodFrom,
       periodTo: booking.periodTo,
-      pickupTime: booking.pickupTime,
-      dropoffTime: booking.dropoffTime,
+      pickupTime: offerPickupTime,
+      dropoffTime: offerDropoffTime,
       location: booking.location,
       pickupAddress: getBookingPickupAddress(db, booking),
       token,
@@ -1171,6 +1184,8 @@ export function previewOffer(
     alternativeReason?: string;
     personalMessage?: string;
     customTotalCents?: number;
+    pickupTime?: string;
+    dropoffTime?: string;
     actorUserId?: string | null;
   },
 ) {
@@ -1181,6 +1196,10 @@ export function previewOffer(
   )
     throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
   assertBookingHasAssignee(db, booking);
+  const offerPickupTime = input.pickupTime ?? booking.pickupTime;
+  const offerDropoffTime = input.dropoffTime ?? booking.dropoffTime;
+  if (!isValidTime(offerPickupTime) || !isValidTime(offerDropoffTime))
+    throw new BookingCommandError("Die Übergabezeiten sind ungültig");
   const quote = applyCustomOfferPrice(
     buildOfferQuote(db, booking.id, input.assetsByRequestedItem, input.accessoriesByRequestedItem, input.isStudent),
     input.customTotalCents,
@@ -1214,8 +1233,8 @@ export function previewOffer(
     calculatedTotalCents: quote.calculatedTotalCents,
     periodFrom: booking.periodFrom,
     periodTo: booking.periodTo,
-    pickupTime: booking.pickupTime,
-    dropoffTime: booking.dropoffTime,
+    pickupTime: offerPickupTime,
+    dropoffTime: offerDropoffTime,
     location: booking.location,
     pickupAddress: getBookingPickupAddress(db, booking),
     token: "VORSCHAU",
