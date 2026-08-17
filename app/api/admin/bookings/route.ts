@@ -4,7 +4,12 @@ import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessLocation, canUseAdminApi, getServerSession } from "../../../../lib/auth/session";
-import { BookingCommandError, createBooking, createDirectBooking } from "../../../../lib/bookings/service";
+import {
+  BookingCommandError,
+  createBooking,
+  createDirectBooking,
+  createHistoricalBooking,
+} from "../../../../lib/bookings/service";
 import { dispatchNextOutboxMail } from "../../../../lib/bookings/outbox";
 import { mailOutbox } from "../../../../lib/db/schema";
 import { isValidIsoDate, isValidTime } from "../../../../lib/bookings/validation";
@@ -60,6 +65,23 @@ const schema = z.discriminatedUnion("mode", [
     requestedItems: z.array(item).min(1).max(10),
     assetsByPosition: z.record(z.string(), z.number().int().positive()),
   }),
+  z.object({
+    mode: z.literal("historical"),
+    name: z.string().trim().min(1).max(120),
+    email: z.string().trim().email(),
+    phone: z.string().trim().min(1).max(64),
+    location: z.enum(rentalLocations),
+    periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
+    periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
+    pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
+    dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
+    message: z.string().trim().max(5000).default(""),
+    locale: z.enum(["de", "en"]),
+    quotedTotalCents: z.number().int().min(0),
+    invoiceNumber: z.string().trim().min(1).max(32),
+    requestedItems: z.array(item).min(1).max(10),
+    assetsByPosition: z.record(z.string(), z.number().int().positive()),
+  }),
 ]);
 
 export async function POST(request: Request) {
@@ -84,20 +106,29 @@ export async function POST(request: Request) {
     dropoffTime: input.data.dropoffTime,
     customerMessage: input.data.message,
     communicationLocale: input.data.locale,
-    source: "manual" as const,
     quotedTotalCents: input.data.quotedTotalCents,
     requestedItems: input.data.requestedItems,
   };
   try {
     const database = getDatabase();
     const created =
-      input.data.mode === "direct"
-        ? createDirectBooking(database, {
+      input.data.mode === "historical"
+        ? createHistoricalBooking(database, {
             ...common,
-            assetsByPosition: input.data.assetsByPosition,
+            assetsByPosition: Object.fromEntries(
+              Object.entries(input.data.assetsByPosition).map(([position, assetId]) => [Number(position), assetId]),
+            ),
+            invoiceNumber: input.data.invoiceNumber,
             actorUserId: session.user.id,
           })
-        : createBooking(database, common, session.user.id);
+        : input.data.mode === "direct"
+          ? createDirectBooking(database, {
+              ...common,
+              source: "manual",
+              assetsByPosition: input.data.assetsByPosition,
+              actorUserId: session.user.id,
+            })
+          : createBooking(database, { ...common, source: "manual" }, session.user.id);
 
     if (input.data.mode === "direct") {
       const confirmationMailId = database

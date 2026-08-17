@@ -8,6 +8,7 @@ const routeMocks = vi.hoisted(() => ({
   canAccessLocation: vi.fn(),
   createBooking: vi.fn(),
   createDirectBooking: vi.fn(),
+  createHistoricalBooking: vi.fn(),
   dispatchNextOutboxMail: vi.fn(),
 }));
 
@@ -27,6 +28,7 @@ vi.mock("../../lib/bookings/service", async (importOriginal) => {
     ...actual,
     createBooking: routeMocks.createBooking,
     createDirectBooking: routeMocks.createDirectBooking,
+    createHistoricalBooking: routeMocks.createHistoricalBooking,
   };
 });
 vi.mock("../../lib/bookings/outbox", async (importOriginal) => {
@@ -68,6 +70,7 @@ describe("admin booking creation API", () => {
     routeMocks.canAccessLocation.mockReturnValue(true);
     routeMocks.createBooking.mockReset();
     routeMocks.createDirectBooking.mockReset();
+    routeMocks.createHistoricalBooking.mockReset();
     routeMocks.dispatchNextOutboxMail.mockReset();
     routeMocks.dispatchNextOutboxMail.mockResolvedValue({ status: "sent" });
 
@@ -140,6 +143,42 @@ describe("admin booking creation API", () => {
     expect(body.mailStatus).toBe("sent");
     const mail = connectionMailOutbox(routeMocks.getDatabase());
     expect(routeMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(routeMocks.getDatabase(), mail.id);
+  });
+
+  it("routes a historical booking to the completed-booking command without sending mail", async () => {
+    routeMocks.createHistoricalBooking.mockReturnValue({ id: 7, orderNumber: "#20260816170001" });
+
+    const response = await POST(
+      request({
+        mode: "historical",
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        phone: "+491701234567",
+        location: "munich",
+        periodFrom: "2026-08-01",
+        periodTo: "2026-08-03",
+        pickupTime: "10:00",
+        dropoffTime: "17:00",
+        message: "Nachgetragen",
+        locale: "de",
+        quotedTotalCents: 12_500,
+        invoiceNumber: "YBR-2026-0001",
+        requestedItems: [{ requestedLabel: "Endurace - M", heightCm: 175 }],
+        assetsByPosition: { "1": 12 },
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(routeMocks.createHistoricalBooking).toHaveBeenCalledWith(
+      routeMocks.getDatabase(),
+      expect.objectContaining({
+        periodFrom: "2026-08-01",
+        quotedTotalCents: 12_500,
+        invoiceNumber: "YBR-2026-0001",
+        assetsByPosition: { 1: 12 },
+      }),
+    );
+    expect(routeMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
   });
 });
 

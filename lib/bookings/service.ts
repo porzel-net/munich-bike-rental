@@ -41,7 +41,7 @@ import { bikeMatchesRequestedLabel } from "../inventory/display-name";
 
 import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
-import { isAssetSelectableForBooking } from "./historical-availability";
+import { isHistoricalAssetSelectableForBooking } from "./historical-availability";
 import { appendJournalEntry, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents, formatEuro } from "./money";
 import {
@@ -294,6 +294,14 @@ export type LegacyStatusDetails = {
   reason?: string;
 };
 
+type SetLegacyBookingStatusInput = {
+  bookingId: number;
+  status: BookingStatus;
+  details?: LegacyStatusDetails;
+  reason?: string;
+  actorUserId?: string | null;
+};
+
 const legacyStatusesRequiringBookingDetails = new Set<BookingStatus>([
   "offer_sent",
   "confirmed",
@@ -304,258 +312,137 @@ const legacyStatusesRequiringAssets = new Set<BookingStatus>(["offer_sent", "con
 const legacyStatusesRequiringInvoice = new Set<BookingStatus>(["confirmed", "checked_out", "completed"]);
 
 /** Imported historical records can be moved between states, but each state must have coherent data. */
-export function setLegacyBookingStatus(
-  db: AppDatabase,
-  input: {
-    bookingId: number;
-    status: BookingStatus;
-    details?: LegacyStatusDetails;
-    reason?: string;
-    actorUserId?: string | null;
-  },
-) {
-  return runInImmediateTransaction(db, () => {
-    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
-    if (booking.source !== "legacy")
-      throw new BookingCommandError("Der Status kann hier nur bei importierten Buchungen frei geändert werden");
-    if (booking.status === input.status && !input.details) return booking;
+function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBookingStatusInput) {
+  const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+  if (!booking) throw new BookingCommandError("Booking not found");
+  if (booking.source !== "legacy")
+    throw new BookingCommandError("Der Status kann hier nur bei importierten Buchungen frei geändert werden");
+  if (booking.status === input.status && !input.details) return booking;
 
-    const requiresDetails = legacyStatusesRequiringBookingDetails.has(input.status);
-    const requiresAssets = legacyStatusesRequiringAssets.has(input.status);
-    const requiresInvoice = legacyStatusesRequiringInvoice.has(input.status);
-    const details = input.details;
-    const stamp = now();
-    if (
-      requiresDetails &&
-      (!details ||
-        !isValidIsoDate(details.periodFrom) ||
-        !isValidIsoDate(details.periodTo) ||
-        details.periodFrom > details.periodTo ||
-        !isValidTime(details.pickupTime) ||
-        !isValidTime(details.dropoffTime) ||
-        !Number.isInteger(details.quotedTotalCents) ||
-        details.quotedTotalCents < 0)
-    )
-      throw new BookingCommandError(
-        "Für diesen Status müssen Zeitraum, Uhrzeiten und Preis vollständig angegeben werden",
-      );
+  const requiresDetails = legacyStatusesRequiringBookingDetails.has(input.status);
+  const requiresAssets = legacyStatusesRequiringAssets.has(input.status);
+  const requiresInvoice = legacyStatusesRequiringInvoice.has(input.status);
+  const details = input.details;
+  const stamp = now();
+  if (
+    requiresDetails &&
+    (!details ||
+      !isValidIsoDate(details.periodFrom) ||
+      !isValidIsoDate(details.periodTo) ||
+      details.periodFrom > details.periodTo ||
+      !isValidTime(details.pickupTime) ||
+      !isValidTime(details.dropoffTime) ||
+      !Number.isInteger(details.quotedTotalCents) ||
+      details.quotedTotalCents < 0)
+  )
+    throw new BookingCommandError(
+      "Für diesen Status müssen Zeitraum, Uhrzeiten und Preis vollständig angegeben werden",
+    );
 
-    if (requiresInvoice) {
-      const invoiceNumber = details?.invoiceNumber?.trim() ?? "";
-      if (!invoiceNumberPattern.test(invoiceNumber))
-        throw new BookingCommandError("Die Rechnungsnummer muss dem Format YBR-JJJJ-NNNN entsprechen");
-      if (booking.invoiceNumber) {
-        if (invoiceNumber !== booking.invoiceNumber)
-          throw new BookingCommandError("Die bereits vergebene Rechnungsnummer darf nicht geändert werden");
-      } else {
-        let expectedInvoiceNumber: string;
-        try {
-          expectedInvoiceNumber = allocateInvoiceNumber(db, stamp);
-        } catch (error) {
-          throw new BookingCommandError(error instanceof Error ? error.message : "Rechnungsnummern sind ungültig");
-        }
-        if (invoiceNumber !== expectedInvoiceNumber)
-          throw new BookingCommandError(`Die nächste zulässige Rechnungsnummer ist ${expectedInvoiceNumber}`);
+  if (requiresInvoice) {
+    const invoiceNumber = details?.invoiceNumber?.trim() ?? "";
+    if (!invoiceNumberPattern.test(invoiceNumber))
+      throw new BookingCommandError("Die Rechnungsnummer muss dem Format YBR-JJJJ-NNNN entsprechen");
+    if (booking.invoiceNumber) {
+      if (invoiceNumber !== booking.invoiceNumber)
+        throw new BookingCommandError("Die bereits vergebene Rechnungsnummer darf nicht geändert werden");
+    } else {
+      let expectedInvoiceNumber: string;
+      try {
+        expectedInvoiceNumber = allocateInvoiceNumber(db, stamp);
+      } catch (error) {
+        throw new BookingCommandError(error instanceof Error ? error.message : "Rechnungsnummern sind ungültig");
       }
+      if (invoiceNumber !== expectedInvoiceNumber)
+        throw new BookingCommandError(`Die nächste zulässige Rechnungsnummer ist ${expectedInvoiceNumber}`);
     }
+  }
 
-    const currentItems = db
-      .select()
-      .from(bookingRequestedItems)
-      .where(eq(bookingRequestedItems.bookingId, booking.id))
+  const currentItems = db
+    .select()
+    .from(bookingRequestedItems)
+    .where(eq(bookingRequestedItems.bookingId, booking.id))
+    .all();
+  if (requiresAssets) {
+    const assetsByRequestedItem = details?.assetsByRequestedItem ?? {};
+    const itemIds = currentItems.map((item) => item.id);
+    const selectedItemIds = Object.keys(assetsByRequestedItem).map(Number);
+    if (
+      selectedItemIds.length !== itemIds.length ||
+      itemIds.some((itemId) => !selectedItemIds.includes(itemId)) ||
+      new Set(Object.values(assetsByRequestedItem)).size !== itemIds.length
+    )
+      throw new BookingCommandError("Für jedes angefragte Fahrrad muss ein konkretes Fahrrad ausgewählt werden");
+
+    const selectedAssets = db
+      .select({ asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
+      .from(rentalAssets)
+      .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+      .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+      .where(inArray(rentalAssets.id, Object.values(assetsByRequestedItem)))
       .all();
-    if (requiresAssets) {
-      const assetsByRequestedItem = details?.assetsByRequestedItem ?? {};
-      const itemIds = currentItems.map((item) => item.id);
-      const selectedItemIds = Object.keys(assetsByRequestedItem).map(Number);
-      if (
-        selectedItemIds.length !== itemIds.length ||
-        itemIds.some((itemId) => !selectedItemIds.includes(itemId)) ||
-        new Set(Object.values(assetsByRequestedItem)).size !== itemIds.length
+    if (
+      selectedAssets.length !== itemIds.length ||
+      selectedAssets.some(
+        (asset) =>
+          asset.asset.location !== booking.location ||
+          !isHistoricalAssetSelectableForBooking(booking, {
+            ...asset.asset,
+            modelTitle: asset.modelTitle,
+            size: asset.size,
+          }),
       )
-        throw new BookingCommandError("Für jedes angefragte Fahrrad muss ein konkretes Fahrrad ausgewählt werden");
+    )
+      throw new BookingCommandError("Mindestens eines der ausgewählten Fahrräder ist nicht verfügbar");
+  }
 
-      const selectedAssets = db
-        .select({ asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
-        .from(rentalAssets)
-        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
-        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
-        .where(inArray(rentalAssets.id, Object.values(assetsByRequestedItem)))
-        .all();
-      if (
-        selectedAssets.length !== itemIds.length ||
-        selectedAssets.some(
-          (asset) =>
-            asset.asset.location !== booking.location ||
-            !isAssetSelectableForBooking(booking, {
-              ...asset.asset,
-              modelTitle: asset.modelTitle,
-              size: asset.size,
-            }),
-        )
-      )
-        throw new BookingCommandError("Mindestens eines der ausgewählten Fahrräder ist nicht verfügbar");
-    }
+  const nextBooking = {
+    ...booking,
+    ...(details
+      ? {
+          periodFrom: details.periodFrom,
+          periodTo: details.periodTo,
+          pickupTime: details.pickupTime,
+          dropoffTime: details.dropoffTime,
+          quotedTotalCents: details.quotedTotalCents,
+        }
+      : {}),
+  };
 
-    const nextBooking = {
-      ...booking,
-      ...(details
-        ? {
-            periodFrom: details.periodFrom,
-            periodTo: details.periodTo,
-            pickupTime: details.pickupTime,
-            dropoffTime: details.dropoffTime,
-            quotedTotalCents: details.quotedTotalCents,
-          }
-        : {}),
-    };
+  db.update(bookingAssetAllocations)
+    .set({ releasedAt: stamp })
+    .where(and(eq(bookingAssetAllocations.bookingId, booking.id), sql`${bookingAssetAllocations.releasedAt} is null`))
+    .run();
+  db.update(bookingAccessoryAllocations)
+    .set({ releasedAt: stamp })
+    .where(
+      and(
+        eq(bookingAccessoryAllocations.bookingId, booking.id),
+        sql`${bookingAccessoryAllocations.releasedAt} is null`,
+      ),
+    )
+    .run();
 
-    db.update(bookingAssetAllocations)
-      .set({ releasedAt: stamp })
-      .where(and(eq(bookingAssetAllocations.bookingId, booking.id), sql`${bookingAssetAllocations.releasedAt} is null`))
-      .run();
-    db.update(bookingAccessoryAllocations)
-      .set({ releasedAt: stamp })
-      .where(
-        and(
-          eq(bookingAccessoryAllocations.bookingId, booking.id),
-          sql`${bookingAccessoryAllocations.releasedAt} is null`,
-        ),
-      )
-      .run();
-
-    let quote: ReturnType<typeof buildOfferQuote> | null = null;
-    if (requiresAssets) {
-      const assetsByRequestedItem = details!.assetsByRequestedItem;
-      db.update(bookings)
-        .set({
-          periodFrom: nextBooking.periodFrom,
-          periodTo: nextBooking.periodTo,
-          pickupTime: nextBooking.pickupTime,
-          dropoffTime: nextBooking.dropoffTime,
-          quotedTotalCents: nextBooking.quotedTotalCents,
-        })
-        .where(eq(bookings.id, booking.id))
-        .run();
-      if (Object.values(assetsByRequestedItem).some((assetId) => hasAssetConflict(db, nextBooking, assetId)))
-        throw new BookingCommandError("Mindestens eines der ausgewählten Fahrräder ist im Zeitraum bereits belegt");
-      quote = applyCustomOfferPrice(buildOfferQuote(db, booking.id, assetsByRequestedItem), details!.quotedTotalCents);
-    }
-
+  let quote: ReturnType<typeof buildOfferQuote> | null = null;
+  if (requiresAssets) {
+    const assetsByRequestedItem = details!.assetsByRequestedItem;
     db.update(bookings)
       .set({
-        status: input.status,
-        ...(details
-          ? {
-              periodFrom: details.periodFrom,
-              periodTo: details.periodTo,
-              pickupTime: details.pickupTime,
-              dropoffTime: details.dropoffTime,
-              quotedTotalCents: details.quotedTotalCents,
-            }
-          : {}),
-        ...(requiresInvoice && details
-          ? {
-              invoiceNumber: details.invoiceNumber!.trim(),
-              invoiceIssuedAt: booking.invoiceNumber ? booking.invoiceIssuedAt : stamp,
-            }
-          : {}),
-        version: booking.version + 1,
-        updatedAt: stamp,
+        periodFrom: nextBooking.periodFrom,
+        periodTo: nextBooking.periodTo,
+        pickupTime: nextBooking.pickupTime,
+        dropoffTime: nextBooking.dropoffTime,
+        quotedTotalCents: nextBooking.quotedTotalCents,
       })
       .where(eq(bookings.id, booking.id))
       .run();
+    if (Object.values(assetsByRequestedItem).some((assetId) => hasAssetConflict(db, nextBooking, assetId)))
+      throw new BookingCommandError("Mindestens eines der ausgewählten Fahrräder ist im Zeitraum bereits belegt");
+    quote = applyCustomOfferPrice(buildOfferQuote(db, booking.id, assetsByRequestedItem), details!.quotedTotalCents);
+  }
 
-    if (quote) {
-      const offer = db
-        .insert(bookingOffers)
-        .values({
-          bookingId: booking.id,
-          offerNumber:
-            (db
-              .select({ number: sql<number>`coalesce(max(${bookingOffers.offerNumber}), 0)` })
-              .from(bookingOffers)
-              .where(eq(bookingOffers.bookingId, booking.id))
-              .get()?.number ?? 0) + 1,
-          status: input.status === "offer_sent" ? "sent" : "accepted",
-          tokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
-          expiresAt: input.status === "offer_sent" ? new Date(stamp.getTime() + 36 * 60 * 60 * 1_000) : stamp,
-          sentAt: input.status === "offer_sent" ? stamp : null,
-          acceptedAt: input.status === "offer_sent" ? null : stamp,
-          totalCents: quote.totalCents,
-          priceSnapshotJson: JSON.stringify(quote),
-          createdBy: input.actorUserId ?? null,
-          createdAt: stamp,
-        })
-        .returning({ id: bookingOffers.id })
-        .get();
-      db.insert(bookingOfferItems)
-        .values(
-          quote.offeredItems.map((item) => ({
-            offerId: offer.id,
-            requestedItemId: item.requestedItemId,
-            assetId: item.assetId,
-            itemPriceCents: item.dailyPriceCents,
-          })),
-        )
-        .run();
-      if (input.status !== "offer_sent")
-        db.insert(bookingAssetAllocations)
-          .values(
-            quote.offeredItems.map((item) => ({
-              bookingId: booking.id,
-              offerId: offer.id,
-              assetId: item.assetId,
-              periodFrom: nextBooking.periodFrom,
-              periodTo: nextBooking.periodTo,
-              pickupTime: nextBooking.pickupTime,
-              dropoffTime: nextBooking.dropoffTime,
-              createdAt: stamp,
-            })),
-          )
-          .run();
-    }
-
-    // Imported bookings may already have payments or a previous rental charge
-    // when their status is corrected. Bring the receivable to the selected
-    // total by posting only the difference; never duplicate or remove payments.
-    if (["confirmed", "checked_out", "completed"].includes(input.status) && details) {
-      const recognizedRentalCents = recognizedRentalChargeCents(db, booking.id);
-      const rentalChargeDelta = details.quotedTotalCents - recognizedRentalCents;
-      if (rentalChargeDelta !== 0)
-        appendJournalEntry(db, {
-          bookingId: booking.id,
-          kind: "rental_charge",
-          actorUserId: input.actorUserId,
-          idempotencyKey: `legacy_booking_charge_adjustment:${booking.id}:${booking.version + 1}`,
-          reason: "Mietpreis der importierten Buchung angepasst",
-          lines: [
-            { account: "accounts_receivable", amountCents: rentalChargeDelta },
-            { account: "rental_revenue", amountCents: -rentalChargeDelta },
-          ],
-        });
-    }
-
-    event(
-      db,
-      booking.id,
-      "legacy_booking_status_changed",
-      booking.status,
-      input.status,
-      input.actorUserId,
-      "Status der importierten Buchung manuell geändert",
-      {
-        reason: details?.reason ?? input.reason ?? "",
-        requiresBookingDetails: requiresDetails,
-        invoiceNumber: requiresInvoice
-          ? (details?.invoiceNumber?.trim() ?? booking.invoiceNumber)
-          : booking.invoiceNumber,
-        assignedAssets: quote?.offeredItems.map((item) => item.assetName) ?? [],
-      },
-    );
-    return {
-      ...booking,
+  db.update(bookings)
+    .set({
       status: input.status,
       ...(details
         ? {
@@ -573,8 +460,122 @@ export function setLegacyBookingStatus(
           }
         : {}),
       version: booking.version + 1,
-    };
-  });
+      updatedAt: stamp,
+    })
+    .where(eq(bookings.id, booking.id))
+    .run();
+
+  if (quote) {
+    const offer = db
+      .insert(bookingOffers)
+      .values({
+        bookingId: booking.id,
+        offerNumber:
+          (db
+            .select({ number: sql<number>`coalesce(max(${bookingOffers.offerNumber}), 0)` })
+            .from(bookingOffers)
+            .where(eq(bookingOffers.bookingId, booking.id))
+            .get()?.number ?? 0) + 1,
+        status: input.status === "offer_sent" ? "sent" : "accepted",
+        tokenHash: createHash("sha256").update(randomUUID()).digest("hex"),
+        expiresAt: input.status === "offer_sent" ? new Date(stamp.getTime() + 36 * 60 * 60 * 1_000) : stamp,
+        sentAt: input.status === "offer_sent" ? stamp : null,
+        acceptedAt: input.status === "offer_sent" ? null : stamp,
+        totalCents: quote.totalCents,
+        priceSnapshotJson: JSON.stringify(quote),
+        createdBy: input.actorUserId ?? null,
+        createdAt: stamp,
+      })
+      .returning({ id: bookingOffers.id })
+      .get();
+    db.insert(bookingOfferItems)
+      .values(
+        quote.offeredItems.map((item) => ({
+          offerId: offer.id,
+          requestedItemId: item.requestedItemId,
+          assetId: item.assetId,
+          itemPriceCents: item.dailyPriceCents,
+        })),
+      )
+      .run();
+    if (input.status !== "offer_sent")
+      db.insert(bookingAssetAllocations)
+        .values(
+          quote.offeredItems.map((item) => ({
+            bookingId: booking.id,
+            offerId: offer.id,
+            assetId: item.assetId,
+            periodFrom: nextBooking.periodFrom,
+            periodTo: nextBooking.periodTo,
+            pickupTime: nextBooking.pickupTime,
+            dropoffTime: nextBooking.dropoffTime,
+            createdAt: stamp,
+          })),
+        )
+        .run();
+  }
+
+  // Imported bookings may already have payments or a previous rental charge
+  // when their status is corrected. Bring the receivable to the selected
+  // total by posting only the difference; never duplicate or remove payments.
+  if (["confirmed", "checked_out", "completed"].includes(input.status) && details) {
+    const recognizedRentalCents = recognizedRentalChargeCents(db, booking.id);
+    const rentalChargeDelta = details.quotedTotalCents - recognizedRentalCents;
+    if (rentalChargeDelta !== 0)
+      appendJournalEntry(db, {
+        bookingId: booking.id,
+        kind: "rental_charge",
+        actorUserId: input.actorUserId,
+        idempotencyKey: `legacy_booking_charge_adjustment:${booking.id}:${booking.version + 1}`,
+        reason: "Mietpreis der importierten Buchung angepasst",
+        lines: [
+          { account: "accounts_receivable", amountCents: rentalChargeDelta },
+          { account: "rental_revenue", amountCents: -rentalChargeDelta },
+        ],
+      });
+  }
+
+  event(
+    db,
+    booking.id,
+    "legacy_booking_status_changed",
+    booking.status,
+    input.status,
+    input.actorUserId,
+    "Status der importierten Buchung manuell geändert",
+    {
+      reason: details?.reason ?? input.reason ?? "",
+      requiresBookingDetails: requiresDetails,
+      invoiceNumber: requiresInvoice
+        ? (details?.invoiceNumber?.trim() ?? booking.invoiceNumber)
+        : booking.invoiceNumber,
+      assignedAssets: quote?.offeredItems.map((item) => item.assetName) ?? [],
+    },
+  );
+  return {
+    ...booking,
+    status: input.status,
+    ...(details
+      ? {
+          periodFrom: details.periodFrom,
+          periodTo: details.periodTo,
+          pickupTime: details.pickupTime,
+          dropoffTime: details.dropoffTime,
+          quotedTotalCents: details.quotedTotalCents,
+        }
+      : {}),
+    ...(requiresInvoice && details
+      ? {
+          invoiceNumber: details.invoiceNumber!.trim(),
+          invoiceIssuedAt: booking.invoiceNumber ? booking.invoiceIssuedAt : stamp,
+        }
+      : {}),
+    version: booking.version + 1,
+  };
+}
+
+export function setLegacyBookingStatus(db: AppDatabase, input: SetLegacyBookingStatusInput) {
+  return runInImmediateTransaction(db, () => setLegacyBookingStatusInTransaction(db, input));
 }
 
 export function assignBooking(
@@ -846,6 +847,52 @@ export function createBooking(db: AppDatabase, input: CreateBookingCommand, acto
 /** Creates a booking inside a caller-owned transaction (used by idempotent imports). */
 export function createBookingInTransaction(db: AppDatabase, input: CreateBookingCommand, actorUserId?: string | null) {
   return createBookingRecord(db, input, actorUserId);
+}
+
+/** Creates a completed historical booking, including its asset allocation and accounting entry. */
+export function createHistoricalBooking(
+  db: AppDatabase,
+  input: Omit<CreateBookingCommand, "outbox" | "source"> & {
+    assetsByPosition: Record<number, number>;
+    invoiceNumber: string;
+    actorUserId: string;
+    reason?: string;
+  },
+) {
+  return runInImmediateTransaction(db, () => {
+    const created = createBookingRecord(
+      db,
+      { ...input, source: "legacy", assignedUserId: input.actorUserId },
+      input.actorUserId,
+    );
+    const requested = db
+      .select()
+      .from(bookingRequestedItems)
+      .where(eq(bookingRequestedItems.bookingId, created.id))
+      .all();
+    const assetsByRequestedItem = Object.fromEntries(
+      requested.map((item) => [item.id, input.assetsByPosition[item.position]]),
+    ) as Record<number, number>;
+    if (Object.values(assetsByRequestedItem).some((assetId) => !Number.isInteger(assetId) || assetId <= 0))
+      throw new BookingCommandError("Für jedes Fahrrad muss ein konkretes Fahrrad ausgewählt werden");
+    setLegacyBookingStatusInTransaction(db, {
+      bookingId: created.id,
+      status: "completed",
+      actorUserId: input.actorUserId,
+      reason: input.reason,
+      details: {
+        periodFrom: input.periodFrom,
+        periodTo: input.periodTo,
+        pickupTime: input.pickupTime,
+        dropoffTime: input.dropoffTime,
+        quotedTotalCents: input.quotedTotalCents,
+        assetsByRequestedItem,
+        invoiceNumber: input.invoiceNumber,
+        reason: input.reason,
+      },
+    });
+    return created;
+  });
 }
 
 /** Manual direct bookings are allocated, journaled, and confirmed in one SQLite transaction. */

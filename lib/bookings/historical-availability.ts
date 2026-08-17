@@ -36,3 +36,8 @@ export function isHistoricalRegensburgEnduraceSException(booking: BookingLike, a
 export function isAssetSelectableForBooking(booking: BookingLike, asset: AssetLike) {
   return asset.state === "active" || isHistoricalRegensburgEnduraceSException(booking, asset);
 }
+
+/** Historical records may reference a bike which is no longer in the active fleet. */
+export function isHistoricalAssetSelectableForBooking(booking: BookingLike, asset: AssetLike) {
+  return booking.source === "legacy" || isAssetSelectableForBooking(booking, asset);
+}

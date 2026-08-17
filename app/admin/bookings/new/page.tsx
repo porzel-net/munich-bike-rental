@@ -27,11 +27,11 @@ export default async function NewBookingPage() {
       modelTitle: bikeModels.title,
       size: bikeVariants.size,
       priceCents: rentalAssets.dailyPriceCents,
+      state: rentalAssets.state,
     })
     .from(rentalAssets)
     .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
     .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
-    .where(eq(rentalAssets.state, "active"))
     .all()
     .filter((asset) => administrator || asset.location === assigned)
     .map((asset) => ({ ...asset, modelLabel: `${asset.modelTitle} - ${asset.size}` }));

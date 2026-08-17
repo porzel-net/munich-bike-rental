@@ -33,6 +33,7 @@ import {
   correctJournalEntry,
   createBooking,
   createDirectBooking,
+  createHistoricalBooking,
   createOffer,
   deleteBookingPermanently,
   expireDueOffers,
@@ -158,6 +159,39 @@ function assignAdminBooking(db: ReturnType<typeof setup>["db"], bookingId: numbe
 }
 
 describe("booking commands", () => {
+  it("creates a completed historical booking without sending customer mail", () => {
+    const { db, assetId } = setup();
+    const created = createHistoricalBooking(db, {
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-08-01",
+      periodTo: "2026-08-03",
+      pickupTime: "10:00",
+      dropoffTime: "17:00",
+      customerMessage: "Nachgetragen",
+      communicationLocale: "de",
+      quotedTotalCents: 12_500,
+      requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+      assetsByPosition: { 1: assetId },
+      invoiceNumber: "YBR-2026-0001",
+      actorUserId: "admin",
+    });
+
+    expect(db.select().from(bookings).where(eq(bookings.id, created.id)).get()).toMatchObject({
+      source: "legacy",
+      status: "completed",
+      quotedTotalCents: 12_500,
+      invoiceNumber: "YBR-2026-0001",
+    });
+    expect(
+      db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, created.id)).all(),
+    ).toHaveLength(1);
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, created.id)).all()).toHaveLength(0);
+    expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, created.id)).all()).toHaveLength(1);
+  });
+
   it("deletes an unbooked duplicate inquiry and its child records", () => {
     const { db } = setup();
     const booking = inquiry(db, "2026-08-20", "2026-08-21");

@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatEuro } from "@/lib/bookings/money";
+import { euroToCents, formatEuro } from "@/lib/bookings/money";
 import { calculateBikePriceWithDiscounts, getDailyBikePriceCents, getRentalDays } from "@/lib/inventory/pricing";
 
 export type ManualBookingAsset = {
@@ -21,6 +21,7 @@ export type ManualBookingAsset = {
   nickname: string | null;
   modelLabel: string;
   priceCents: number;
+  state: "active" | "maintenance" | "retired";
 };
 export type ManualBookingItem = {
   key: number;
@@ -73,6 +74,7 @@ function BikeOptionLabel({ asset }: { asset: ManualBookingAsset }) {
       {asset.nickname ? <strong>{asset.nickname}</strong> : null}
       {asset.nickname ? " · " : null}
       <span>{asset.modelLabel}</span> · {formatEuro(asset.priceCents)} / Tag
+      {asset.state !== "active" ? ` · ${asset.state === "retired" ? "ausgemustert" : "Wartung"}` : ""}
     </span>
   );
 }
@@ -100,7 +102,7 @@ export function ManualBookingForm({
   pricingByLocation: Record<string, ManualBookingPricing>;
   initialValues?: ManualBookingInitialValues;
 }) {
-  const [mode, setMode] = useState<"inquiry" | "direct">("inquiry");
+  const [mode, setMode] = useState<"inquiry" | "direct" | "historical">("inquiry");
   const [location, setLocation] = useState(initialValues?.location ?? "munich");
   const [locale, setLocale] = useState<"de" | "en">(initialValues?.locale ?? "de");
   const [items, setItems] = useState<ManualBookingItem[]>(
@@ -110,8 +112,13 @@ export function ManualBookingForm({
   );
   const [periodFrom, setPeriodFrom] = useState(initialValues?.periodFrom ?? "");
   const [periodTo, setPeriodTo] = useState(initialValues?.periodTo ?? "");
+  const [historicalTotal, setHistoricalTotal] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [busy, setBusy] = useState(false);
-  const availableAssets = useMemo(() => assets.filter((asset) => asset.location === location), [assets, location]);
+  const availableAssets = useMemo(
+    () => assets.filter((asset) => asset.location === location && (mode === "historical" || asset.state === "active")),
+    [assets, location, mode],
+  );
   const calculatedEstimateCents = useMemo(() => {
     const pricing = pricingByLocation[location];
     if (!pricing) return 0;
@@ -145,11 +152,14 @@ export function ManualBookingForm({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const quotedTotalCents = calculatedEstimateCents;
+    const quotedTotalCents = mode === "historical" ? euroToCents(historicalTotal) : calculatedEstimateCents;
+    if (quotedTotalCents === null || quotedTotalCents === undefined)
+      return toast.error("Bitte gib einen gültigen Gesamtpreis ein.");
     if (items.some((item) => !item.requestedLabel.trim() || !Number.isInteger(Number(item.heightCm))))
       return toast.error("Bitte vervollständige jede Fahrradposition.");
-    if (mode === "direct" && items.some((item) => !item.assetId))
-      return toast.error("Für eine Direktbuchung muss jedes Fahrrad konkret ausgewählt sein.");
+    if ((mode === "direct" || mode === "historical") && items.some((item) => !item.assetId))
+      return toast.error("Für diesen Modus muss jedes Fahrrad konkret ausgewählt sein.");
+    if (mode === "historical" && !invoiceNumber.trim()) return toast.error("Bitte gib die Rechnungsnummer ein.");
     const payload = {
       mode,
       name: form.get("name"),
@@ -175,6 +185,12 @@ export function ManualBookingForm({
       })),
       ...(mode === "direct"
         ? {
+            assetsByPosition: Object.fromEntries(items.map((item, index) => [String(index + 1), Number(item.assetId)])),
+          }
+        : {}),
+      ...(mode === "historical"
+        ? {
+            invoiceNumber: invoiceNumber.trim(),
             assetsByPosition: Object.fromEntries(items.map((item, index) => [String(index + 1), Number(item.assetId)])),
           }
         : {}),
@@ -209,6 +225,19 @@ export function ManualBookingForm({
           <Button type="button" variant={mode === "direct" ? "default" : "outline"} onClick={() => setMode("direct")}>
             Direkt verbindlich buchen
           </Button>
+          <Button
+            type="button"
+            variant={mode === "historical" ? "default" : "outline"}
+            onClick={() => setMode("historical")}
+          >
+            Abgeschlossene Buchung nachtragen
+          </Button>
+          {mode === "historical" ? (
+            <FieldDescription className="basis-full">
+              Für eine bereits durchgeführte Buchung werden die ursprünglichen Daten, das tatsächlich vermietete Fahrrad
+              und die zugehörige Rechnungsnummer gespeichert. Es wird keine Kund:innen-Mail versendet.
+            </FieldDescription>
+          ) : null}
         </CardContent>
       </Card>
       <Card>
@@ -263,14 +292,27 @@ export function ManualBookingForm({
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="estimate">Schätzung in Euro</FieldLabel>
-              <Input
-                id="estimate"
-                inputMode="decimal"
-                value={periodFrom && periodTo ? formatEuro(calculatedEstimateCents) : "—"}
-                readOnly
-                tabIndex={-1}
-              />
+              <FieldLabel htmlFor={mode === "historical" ? "historical-total" : "estimate"}>
+                {mode === "historical" ? "Tatsächlicher Gesamtpreis in Euro" : "Schätzung in Euro"}
+              </FieldLabel>
+              {mode === "historical" ? (
+                <Input
+                  id="historical-total"
+                  inputMode="decimal"
+                  value={historicalTotal}
+                  onChange={(event) => setHistoricalTotal(event.target.value)}
+                  placeholder="z. B. 120,00"
+                  required
+                />
+              ) : (
+                <Input
+                  id="estimate"
+                  inputMode="decimal"
+                  value={periodFrom && periodTo ? formatEuro(calculatedEstimateCents) : "—"}
+                  readOnly
+                  tabIndex={-1}
+                />
+              )}
             </Field>
             <Field>
               <FieldLabel htmlFor="period-from">Abholung</FieldLabel>
@@ -351,15 +393,23 @@ export function ManualBookingForm({
                     required
                   />
                 </Field>
-                {mode === "direct" && (
+                {(mode === "direct" || mode === "historical") && (
                   <Field className="md:col-span-2">
-                    <FieldLabel>Konkretes Fahrrad</FieldLabel>
+                    <FieldLabel>
+                      {mode === "historical" ? "Tatsächlich vermietetes Fahrrad" : "Konkretes Fahrrad"}
+                    </FieldLabel>
                     <Select value={item.assetId} onValueChange={(value) => update(item.key, { assetId: value ?? "" })}>
                       <SelectTrigger className="w-full">
                         <SelectValue>
                           {(() => {
                             const asset = availableAssets.find((candidate) => String(candidate.id) === item.assetId);
-                            return asset ? <BikeOptionLabel asset={asset} /> : "Aktives Asset auswählen";
+                            return asset ? (
+                              <BikeOptionLabel asset={asset} />
+                            ) : mode === "historical" ? (
+                              "Fahrrad auswählen"
+                            ) : (
+                              "Aktives Fahrrad auswählen"
+                            );
                           })()}
                         </SelectValue>
                       </SelectTrigger>
@@ -423,6 +473,27 @@ export function ManualBookingForm({
           </Button>
         </CardContent>
       </Card>
+      {mode === "historical" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rechnungsdaten</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Field>
+              <FieldLabel htmlFor="invoice-number">Rechnungsnummer</FieldLabel>
+              <Input
+                id="invoice-number"
+                value={invoiceNumber}
+                onChange={(event) => setInvoiceNumber(event.target.value.toUpperCase())}
+                placeholder="YBR-2026-0001"
+                pattern="YBR-[0-9]{4}-[0-9]{4}"
+                required
+              />
+              <FieldDescription>Die Nummer muss der nächsten freien Rechnungsnummer entsprechen.</FieldDescription>
+            </Field>
+          </CardContent>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>Interne Notiz</CardTitle>
@@ -437,7 +508,13 @@ export function ManualBookingForm({
       </Card>
       <div className="flex justify-end">
         <Button disabled={busy} type="submit">
-          {busy ? "Wird angelegt…" : mode === "direct" ? "Verbindlich buchen" : "Anfrage anlegen"}
+          {busy
+            ? "Wird angelegt…"
+            : mode === "direct"
+              ? "Verbindlich buchen"
+              : mode === "historical"
+                ? "Abgeschlossene Buchung speichern"
+                : "Anfrage anlegen"}
         </Button>
       </div>
     </form>
