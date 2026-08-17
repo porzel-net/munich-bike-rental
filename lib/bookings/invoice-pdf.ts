@@ -145,7 +145,11 @@ export async function renderInvoicePdf(input: InvoiceInput) {
         env: { ...process.env, TEXMFVAR: join(directory, "texmf-var") },
       },
     );
-    return await readFile(join(directory, "invoice.pdf"));
+    const pdf = await readFile(join(directory, "invoice.pdf"));
+    if (pdf.length === 0 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      throw new Error("xelatex hat keine gültige Rechnung-PDF erzeugt.");
+    }
+    return pdf;
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

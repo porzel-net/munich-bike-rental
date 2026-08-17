@@ -66,9 +66,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     paidAmountCents: quote.totalCents - payment.openCents,
   });
 
-  return new NextResponse(pdf, {
+  // Use a plain Uint8Array for the binary body. This avoids Buffer-specific
+  // body handling differences between local Node and the standalone runtime.
+  return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
+      "Content-Length": String(pdf.byteLength),
       "Content-Disposition": `inline; filename="${booking.invoiceNumber}.pdf"`,
       "Cache-Control": "private, no-store",
     },
