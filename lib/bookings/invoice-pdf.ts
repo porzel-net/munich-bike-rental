@@ -78,8 +78,7 @@ function renderTex(input: InvoiceInput) {
 \usepackage{tabularx}
 \usepackage{array}
 \usepackage{hhline}
-\usepackage[colorlinks]{hyperref}
-\hypersetup{urlcolor=blue}
+\usepackage[hidelinks]{hyperref}
 \newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
 \begin{document}
 \thispagestyle{empty}

@@ -37,9 +37,14 @@ LABEL org.opencontainers.image.description="BikeRental Next.js application"
 RUN groupadd --gid 1001 nodejs \
   && useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nextjs
 
+# XeTeX/fontconfig must be able to create caches when the app runs as the
+# unprivileged runtime user. Without this, production renders can fail before
+# a PDF is written.
+RUN install -d -o nextjs -g nodejs /home/nextjs/.cache/fontconfig /home/nextjs/texmf-var
+
 # Invoice PDFs are rendered on demand from LaTeX.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-xetex \
+  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-xetex \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
@@ -48,6 +53,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 
 USER nextjs
+
+ENV XDG_CACHE_HOME=/home/nextjs/.cache
+ENV TEXMFVAR=/home/nextjs/texmf-var
 
 EXPOSE 3000
 
