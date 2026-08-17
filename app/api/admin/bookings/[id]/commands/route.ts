@@ -224,12 +224,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "assign_stripe_payment": {
         const session = await getStripeCheckoutSession(input.data.sessionId);
-        if (session.payment_status !== "paid" || !Number.isSafeInteger(session.amount_total))
+        const amountCents = session.amount_total;
+        if (session.payment_status !== "paid" || amountCents === null || !Number.isSafeInteger(amountCents))
           throw new BookingCommandError("Die ausgewählte Stripe-Zahlung ist noch nicht als bezahlt bestätigt.");
         const result = assignStripePaymentToBooking(command.db, {
           bookingId: id,
           offerId: input.data.offerId,
-          amountCents: session.amount_total,
+          amountCents,
           sessionId: session.id,
           actorUserId: command.user.id,
         });
@@ -237,8 +238,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         try {
           await importStripeCheckoutPayment(command.db, { sessionId: session.id, bookingId: id });
         } catch (error) {
-          accountingWarning = error instanceof Error ? error.message : "Die Finanzbuchung konnte nicht importiert werden.";
-          console.error("Manual Stripe payment accounting import failed", { bookingId: id, sessionId: session.id, error });
+          accountingWarning =
+            error instanceof Error ? error.message : "Die Finanzbuchung konnte nicht importiert werden.";
+          console.error("Manual Stripe payment accounting import failed", {
+            bookingId: id,
+            sessionId: session.id,
+            error,
+          });
         }
         return NextResponse.json({ ok: true, ...result, accountingWarning });
       }

@@ -229,7 +229,10 @@ export function FinancialReviewInbox({
                           <FileTextIcon className="size-3" /> Beleg hinterlegt
                         </span>
                       ) : null}
-                      {row.source === "bank" && row.amountCents > 0 && row.status !== "posted" && row.status !== "ignored" ? (
+                      {row.source === "bank" &&
+                      row.amountCents > 0 &&
+                      row.status !== "posted" &&
+                      row.status !== "ignored" ? (
                         <Button
                           type="button"
                           variant="link"
@@ -311,14 +314,20 @@ export function FinancialReviewInbox({
             </FieldDescription>
           </Field>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAssignmentRow(null)} disabled={Boolean(assigningId)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAssignmentRow(null)}
+              disabled={Boolean(assigningId)}
+            >
               Abbrechen
             </Button>
             <Button
               type="button"
               disabled={!assignmentRow || !assignmentBookingId || Boolean(assigningId)}
               onClick={() => {
-                if (assignmentRow && assignmentBookingId) void assignBooking(assignmentRow, Number(assignmentBookingId));
+                if (assignmentRow && assignmentBookingId)
+                  void assignBooking(assignmentRow, Number(assignmentBookingId));
               }}
             >
               {assigningId ? "Wird zugewiesen …" : "Zahlung zuweisen"}

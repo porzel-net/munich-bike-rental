@@ -139,7 +139,7 @@ const transitions: Record<BookingStatus, readonly BookingStatus[]> = {
   completed: [],
   rejected: [],
   cancelled: [],
-  expired: ["offer_sent"],
+  expired: ["offer_sent", "confirmed"],
 };
 
 export function canTransition(from: BookingStatus, to: BookingStatus) {
@@ -1592,7 +1592,11 @@ function confirmOfferRecord(
 ) {
   if (offer.status === "accepted") return { bookingId: offer.bookingId, alreadyConfirmed: true };
   const offerExpired = offer.status === "expired" || offer.expiresAt.getTime() <= Date.now();
-  if (options.allowExpired ? (offer.status !== "sent" && offer.status !== "expired") : offer.status !== "sent" || offerExpired)
+  if (
+    options.allowExpired
+      ? offer.status !== "sent" && offer.status !== "expired"
+      : offer.status !== "sent" || offerExpired
+  )
     throw new BookingCommandError("This offer is no longer available");
   if (payment && (payment.amountCents !== offer.totalCents || !Number.isSafeInteger(payment.amountCents)))
     throw new BookingCommandError("The Stripe payment amount does not match the offer");

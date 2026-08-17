@@ -31,9 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const linkedStripeTransactions = command.db
       .select({ reference: financialTransactions.reference, metadataJson: financialTransactions.metadataJson })
       .from(financialTransactions)
-      .where(
-        and(eq(financialTransactions.source, "stripe"), eq(financialTransactions.provider, "stripe")),
-      )
+      .where(and(eq(financialTransactions.source, "stripe"), eq(financialTransactions.provider, "stripe")))
       .all();
     const linkedSessions = new Map(
       linkedStripeTransactions

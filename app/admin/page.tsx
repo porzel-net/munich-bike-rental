@@ -92,7 +92,7 @@ export default async function AdminPage() {
       ),
     )
     .get();
-  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthLabels = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
   const activityData = monthLabels.map((month) => ({ month, amount: 0 }));
   const revenueBookings = db
     .select({
@@ -117,13 +117,9 @@ export default async function AdminPage() {
     .all()
     .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   for (const booking of revenueBookings) {
-    const bookingYear = Number(
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric" }).format(booking.createdAt),
-    );
+    const bookingYear = Number(booking.periodFrom.slice(0, 4));
     if (bookingYear !== currentYear) continue;
-    const bookingMonth = Number(
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", month: "2-digit" }).format(booking.createdAt),
-    );
+    const bookingMonth = Number(booking.periodFrom.slice(5, 7));
     if (bookingMonth >= 1 && bookingMonth <= 12) {
       activityData[bookingMonth - 1].amount += booking.quotedTotalCents / 100;
     }
@@ -153,9 +149,7 @@ export default async function AdminPage() {
     .all()
     .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   const currentYearBookings = enduraceBookings.filter((booking) => {
-    const bookingYear = Number(
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric" }).format(booking.createdAt),
-    );
+    const bookingYear = Number(booking.periodFrom.slice(0, 4));
     return bookingYear === currentYear;
   });
   const bookingIds = currentYearBookings.map((booking) => booking.id);
@@ -180,9 +174,7 @@ export default async function AdminPage() {
       const size = item.requestedLabel.match(/^Endurace CF SL 8\s*-\s*(XS|S|M|L)$/i)?.[1]?.toUpperCase();
       if (!size) continue;
       enduraceRevenueBySize.set(size, (enduraceRevenueBySize.get(size) ?? 0) + revenuePerItem);
-      const bookingMonth = Number(
-        new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", month: "2-digit" }).format(booking.createdAt),
-      );
+      const bookingMonth = Number(booking.periodFrom.slice(5, 7));
       if (bookingMonth >= 1 && bookingMonth <= 12) {
         monthlyEnduraceRevenueBySize.get(size)![bookingMonth - 1].amount += revenuePerItem / 100;
       }

@@ -252,7 +252,9 @@ describe("booking commands", () => {
       .returning({ id: financialTransactions.id })
       .get();
 
-    expect(assignNevloTransactionToBooking(db, { transactionId: transfer.id, bookingId: booking.id, actorUserId: "admin" })).toEqual({
+    expect(
+      assignNevloTransactionToBooking(db, { transactionId: transfer.id, bookingId: booking.id, actorUserId: "admin" }),
+    ).toEqual({
       transactionId: transfer.id,
       bookingId: booking.id,
       orderNumber: booking.orderNumber,
@@ -287,7 +289,13 @@ describe("booking commands", () => {
       { account: "test_transfer_bank", amountCents: 70_000 },
       { account: "rental_revenue", amountCents: -70_000 },
     ]);
-    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, transfer.id)).get()).toEqual({
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, transfer.id))
+        .get(),
+    ).toEqual({
       status: "posted",
     });
   });
@@ -297,7 +305,10 @@ describe("booking commands", () => {
     const booking = inquiry(db, "2026-08-20", "2026-08-21");
     assignAdminBooking(db, booking.id);
     const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
-    db.update(bookingOffers).set({ expiresAt: new Date(Date.now() - 1_000) }).where(eq(bookingOffers.id, offer.offerId)).run();
+    db.update(bookingOffers)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(bookingOffers.id, offer.offerId))
+      .run();
     expect(expireDueOffers(db)).toBe(1);
 
     expect(
@@ -312,7 +323,9 @@ describe("booking commands", () => {
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
       status: "confirmed",
     });
-    expect(db.select({ status: bookingOffers.status }).from(bookingOffers).where(eq(bookingOffers.id, offer.offerId)).get()).toEqual({
+    expect(
+      db.select({ status: bookingOffers.status }).from(bookingOffers).where(eq(bookingOffers.id, offer.offerId)).get(),
+    ).toEqual({
       status: "accepted",
     });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });

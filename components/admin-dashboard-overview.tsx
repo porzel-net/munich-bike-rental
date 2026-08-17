@@ -632,7 +632,7 @@ function CardOverview({
       <Card className="col-span-2">
         <CardContent className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <CardDescription>Yearly Activity</CardDescription>
+            <CardDescription>Jahresaktivität</CardDescription>
             <Badge variant="secondary">Buchungsumsatz {formattedAnnualRevenue}</Badge>
           </div>
           <ChartContainer config={activityChartConfig} className="h-20 w-full">

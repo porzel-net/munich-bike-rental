@@ -78,7 +78,12 @@ type ConfirmAction = "check_out" | "complete" | "delete_permanently" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
 type CancellationPeriod = "more_than_7_days" | "between_7_days_and_24_hours" | "less_than_24_hours";
-type OfferOption = { id: number; label: string; status: "sent" | "expired" | "accepted" | "revoked"; totalCents: number };
+type OfferOption = {
+  id: number;
+  label: string;
+  status: "sent" | "expired" | "accepted" | "revoked";
+  totalCents: number;
+};
 type StripePayment = {
   id: string;
   amountCents: number;
@@ -396,6 +401,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setStripeOfferId(String(offers.find((offer) => offer.status === "sent" || offer.status === "expired")?.id ?? ""));
     setStripeSessionId("");
     setStripePayments([]);
+    setStripePaymentsLoading(true);
     setStripePaymentsError(null);
     setActiveAction("stripe_payment");
   };
@@ -435,8 +441,6 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
   useEffect(() => {
     if (activeAction !== "stripe_payment") return;
     let cancelled = false;
-    setStripePaymentsLoading(true);
-    setStripePaymentsError(null);
     void fetch(`/api/admin/bookings/${bookingId}/stripe-payments`)
       .then(async (response) => {
         const result = (await response.json().catch(() => null)) as {
@@ -800,7 +804,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             onClick={openOffer}
           />
         )}
-        {(["offer_sent", "expired"] as BookingStatus[]).includes(status) && offers.some((offer) => offer.status === "sent" || offer.status === "expired") ? (
+        {(["offer_sent", "expired"] as BookingStatus[]).includes(status) &&
+        offers.some((offer) => offer.status === "sent" || offer.status === "expired") ? (
           <ActionItem
             icon={<CheckIcon />}
             title="Stripe-Zahlung manuell zuordnen"

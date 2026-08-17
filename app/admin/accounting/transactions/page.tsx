@@ -137,7 +137,7 @@ export default async function BankTransactionsPage({
       ...row,
       matchedBooking:
         matchedBooking && matchedBooking.status !== "rejected" && matchedBooking.status !== "cancelled"
-          ? matchedBooking
+          ? { id: matchedBooking.id, orderNumber: matchedBooking.orderNumber }
           : null,
       documentCount: documents.length,
       documents,

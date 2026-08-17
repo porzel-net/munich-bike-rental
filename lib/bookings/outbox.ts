@@ -227,11 +227,7 @@ export async function dispatchOutboxForBooking(db: AppDatabase, bookingId: numbe
     // An idempotent retry can find a mail that the original request already
     // sent. Report that durable state so the retry still receives a success
     // response and never attempts a second delivery.
-    const current = db
-      .select({ status: mailOutbox.status })
-      .from(mailOutbox)
-      .where(eq(mailOutbox.id, job.id))
-      .get();
+    const current = db.select({ status: mailOutbox.status }).from(mailOutbox).where(eq(mailOutbox.id, job.id)).get();
     if (current?.status === "sent" || current?.status === "failed") {
       results.push({ id: job.id, status: current.status });
     }
