@@ -64,13 +64,18 @@ function setup() {
   return { connection, db, bank, income, travel, transfer, cash };
 }
 
-function transaction(db: ReturnType<typeof setup>["db"], financialAccountId: number, amountCents: number) {
+function transaction(
+  db: ReturnType<typeof setup>["db"],
+  financialAccountId: number,
+  amountCents: number,
+  provider = "test",
+) {
   return db
     .insert(financialTransactions)
     .values({
       financialAccountId,
       source: "bank",
-      provider: "test",
+      provider,
       externalId: `tx-${Math.random()}`,
       kind: amountCents > 0 ? "income" : "expense",
       status: "needs_review",
@@ -117,6 +122,59 @@ describe("financial reconciliation", () => {
       profitCents: 12_500,
       excludedInternalCents: 0,
     });
+  });
+
+  it("uses the explicitly selected booking for an imported payment", () => {
+    const { db, bank, income } = setup();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260808000001",
+        customerName: "Ausgewählte Buchung",
+        customerEmail: "booking@example.com",
+        customerPhone: "0123",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        source: "legacy",
+        status: "completed",
+        quotedTotalCents: 12_500,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+      .get();
+    appendJournalEntry(db, {
+      bookingId: booking.id,
+      kind: "rental_charge",
+      actorUserId: "admin",
+      reason: "Historischer Auftragswert",
+      lines: [
+        { account: "accounts_receivable", amountCents: 12_500 },
+        { account: "rental_revenue", amountCents: -12_500 },
+      ],
+    });
+    const imported = transaction(db, bank.id, 12_500, "nevlo");
+
+    const result = postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      bookingId: booking.id,
+      note: "Manuell geprüfte Buchung",
+      actorUserId: "admin",
+    });
+
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, imported.id))
+        .get(),
+    ).toMatchObject({ bookingId: booking.id, allocationKind: "booking_payment", matchMethod: "manual" });
+    expect(result.bookingId).toBe(booking.id);
+    expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
   });
 
   it("records a cash withdrawal as a transfer and keeps ignored movements in the bank balance", () => {

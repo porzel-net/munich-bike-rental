@@ -197,6 +197,7 @@ export function FinancialTransactionDialog({
         setDate(bankTransaction.bookedAt.slice(0, 10));
         setAmount((Math.abs(bankTransaction.amountCents) / 100).toFixed(2));
         setAccountId(String(bankTransaction.financialAccountId));
+        setBookingId(bankTransaction.matchedBooking ? String(bankTransaction.matchedBooking.id) : "");
         setCategoryId(
           existingCategory ? String(existingCategory.id) : suggestedCategory ? String(suggestedCategory.id) : "",
         );
@@ -564,16 +565,22 @@ export function FinancialTransactionDialog({
                   </Field>
                 </div>
               )}
-              {!isBank && selectedCategory?.code === "rental_revenue" && bookings?.length ? (
+              {((!isBank && selectedCategory?.code === "rental_revenue") ||
+                (isBank && bankTransaction?.amountCents && bankTransaction.amountCents > 0)) &&
+              bookings?.length ? (
                 <Field>
-                  <FieldLabel htmlFor="financial-booking">Buchung zuweisen</FieldLabel>
+                  <FieldLabel htmlFor="financial-booking">
+                    {isBank ? "Buchung / Auftragsnummer" : "Buchung zuweisen"}
+                  </FieldLabel>
                   <Select
                     value={bookingId}
                     onValueChange={(value) => {
                       const nextBookingId = value === "none" ? "" : value || "";
                       const nextBooking = bookings.find((booking) => String(booking.id) === nextBookingId);
                       setBookingId(nextBookingId);
-                      if (nextBooking) {
+                      const rentalCategory = categories.find((category) => category.code === "rental_revenue");
+                      if (nextBooking && rentalCategory) setCategoryId(String(rentalCategory.id));
+                      if (!isBank && nextBooking) {
                         setDescription(`Zahlung zu ${nextBooking.orderNumber}`);
                         setNote(`Zahlung zu ${nextBooking.orderNumber}`);
                       }
@@ -592,17 +599,20 @@ export function FinancialTransactionDialog({
                     <SelectContent>
                       <SelectGroup>
                         <SelectItem value="none">Keine Buchung / allgemeine Transaktion</SelectItem>
-                        {bookings.map((booking) => (
-                          <SelectItem key={booking.id} value={String(booking.id)}>
-                            {booking.orderNumber} · {booking.customerName} · {bookingStatusLabel(booking.status)}
-                          </SelectItem>
-                        ))}
+                        {bookings
+                          .filter((booking) => booking.status !== "rejected" && booking.status !== "cancelled")
+                          .map((booking) => (
+                            <SelectItem key={booking.id} value={String(booking.id)}>
+                              {booking.orderNumber} · {booking.customerName} · {bookingStatusLabel(booking.status)}
+                            </SelectItem>
+                          ))}
                       </SelectGroup>
                     </SelectContent>
                   </Select>
                   <FieldDescription>
-                    Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene
-                    Forderung gebucht.
+                    {isBank
+                      ? "Prüfe die automatisch vorgeschlagene Auftragsnummer und wähle bei Bedarf den richtigen Auftrag manuell aus."
+                      : "Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene Forderung gebucht."}
                   </FieldDescription>
                 </Field>
               ) : null}

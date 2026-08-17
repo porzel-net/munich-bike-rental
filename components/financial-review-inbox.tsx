@@ -351,6 +351,7 @@ export function FinancialReviewInbox({
         }}
         categories={categories}
         accounts={accounts}
+        bookings={bookings}
         bankTransaction={selected}
         onBankCompleted={({ transactionId, status, euerTreatment }) => {
           setRows((current) =>

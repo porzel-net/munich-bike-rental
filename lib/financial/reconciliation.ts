@@ -134,6 +134,7 @@ function assertAllocationTotal(
 export type FinancialTransactionPostingInput = {
   transactionId: number;
   categoryId?: number;
+  bookingId?: number;
   destinationAccountId?: number;
   note: string;
   actorUserId: string;
@@ -155,7 +156,17 @@ export type FinancialTransactionPostingInput = {
   };
 };
 
-export function postFinancialTransaction(db: AppDatabase, input: FinancialTransactionPostingInput) {
+type FinancialTransactionPostingResult = {
+  transactionId: number;
+  journalEntryId: number;
+  bookingId?: number;
+  orderNumber?: string;
+};
+
+export function postFinancialTransaction(
+  db: AppDatabase,
+  input: FinancialTransactionPostingInput,
+): FinancialTransactionPostingResult {
   return runInImmediateTransaction(db, () => postFinancialTransactionInTransaction(db, input));
 }
 
@@ -164,68 +175,119 @@ export function assignNevloTransactionToBooking(
   input: { transactionId: number; bookingId: number; actorUserId: string },
 ) {
   return runInImmediateTransaction(db, () => {
-    const transaction = db
-      .select()
-      .from(financialTransactions)
-      .where(eq(financialTransactions.id, input.transactionId))
-      .get();
-    if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
-    if (transaction.source !== "bank" || transaction.provider !== "nevlo")
-      throw new BookingCommandError(
-        "Nur importierte Nevlo-Überweisungen können direkt einem Auftrag zugewiesen werden.",
-      );
-    if (transaction.status === "ignored")
-      throw new BookingCommandError("Eine ignorierte Transaktion kann nicht zugewiesen werden.");
-    if (transaction.amountCents <= 0)
-      throw new BookingCommandError("Nur Zahlungseingänge können einem Auftrag zugewiesen werden.");
-    if (
-      db
-        .select({ id: financialTransactionAllocations.id })
-        .from(financialTransactionAllocations)
-        .where(eq(financialTransactionAllocations.transactionId, transaction.id))
-        .get()
-    )
-      throw new BookingCommandError("Diese Transaktion ist bereits zugewiesen.");
+    const result = assignNevloTransactionToBookingInTransaction(db, input);
+    return { transactionId: result.transactionId, bookingId: result.bookingId, orderNumber: result.orderNumber };
+  });
+}
 
-    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Auftrag nicht gefunden.");
-    if (booking.status === "rejected" || booking.status === "cancelled")
-      throw new BookingCommandError("Dieser Auftrag ist nicht mehr in einem sinnvollen Zahlungsstatus.");
-    const receivable = getReceivableStatus(db, booking.id);
-    if (receivable.openCents < 0)
-      throw new BookingCommandError("Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung.");
-    if (receivable.openCents > 0 && transaction.amountCents > receivable.openCents)
-      throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
+function assignNevloTransactionToBookingInTransaction(
+  db: AppDatabase,
+  input: {
+    transactionId: number;
+    bookingId: number;
+    actorUserId: string;
+    matchMethod?: "automatic" | "manual";
+    allowExistingCategoryAllocation?: boolean;
+  },
+) {
+  const transaction = db
+    .select()
+    .from(financialTransactions)
+    .where(eq(financialTransactions.id, input.transactionId))
+    .get();
+  if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
+  if (transaction.source !== "bank" || transaction.provider !== "nevlo")
+    throw new BookingCommandError("Nur importierte Nevlo-Überweisungen können direkt einem Auftrag zugewiesen werden.");
+  if (transaction.status === "ignored")
+    throw new BookingCommandError("Eine ignorierte Transaktion kann nicht zugewiesen werden.");
+  if (transaction.amountCents <= 0)
+    throw new BookingCommandError("Nur Zahlungseingänge können einem Auftrag zugewiesen werden.");
+  const existingAllocation = db
+    .select()
+    .from(financialTransactionAllocations)
+    .where(eq(financialTransactionAllocations.transactionId, transaction.id))
+    .get();
+  const existingCategory = existingAllocation?.categoryId
+    ? db.select().from(financialCategories).where(eq(financialCategories.id, existingAllocation.categoryId)).get()
+    : undefined;
+  const canConvertExistingCategoryAllocation =
+    input.allowExistingCategoryAllocation &&
+    transaction.status === "posted" &&
+    existingAllocation &&
+    !existingAllocation.bookingId &&
+    !existingAllocation.fixedAssetId &&
+    existingCategory?.code === "rental_revenue";
+  if (existingAllocation && !canConvertExistingCategoryAllocation)
+    throw new BookingCommandError("Diese Transaktion ist bereits zugewiesen.");
 
-    const sourceAccount = db
-      .select()
-      .from(financialAccounts)
-      .where(eq(financialAccounts.id, transaction.financialAccountId))
-      .get();
-    if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
-    const journalEntryId = appendJournalEntry(db, {
-      bookingId: booking.id,
-      financialTransactionId: transaction.id,
-      actorUserId: input.actorUserId,
-      kind: "payment_received",
-      reason: `Nevlo-Überweisung ${booking.orderNumber}`,
-      lines: [
-        { account: sourceAccount.code, amountCents: transaction.amountCents },
-        // An inquiry/offer without a posted charge has no receivable to clear;
-        // in that case the bank receipt is recognized directly as rental revenue.
-        {
-          account: receivable.openCents > 0 ? "accounts_receivable" : "rental_revenue",
-          amountCents: -transaction.amountCents,
-        },
-      ],
-    });
-    const now = new Date();
+  const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+  if (!booking) throw new BookingCommandError("Auftrag nicht gefunden.");
+  if (booking.status === "rejected" || booking.status === "cancelled")
+    throw new BookingCommandError("Dieser Auftrag ist nicht mehr in einem sinnvollen Zahlungsstatus.");
+  const receivable = getReceivableStatus(db, booking.id);
+  if (receivable.openCents < 0)
+    throw new BookingCommandError("Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung.");
+  if (receivable.openCents > 0 && transaction.amountCents > receivable.openCents)
+    throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
+
+  const sourceAccount = db
+    .select()
+    .from(financialAccounts)
+    .where(eq(financialAccounts.id, transaction.financialAccountId))
+    .get();
+  if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
+  const journalEntryId = canConvertExistingCategoryAllocation
+    ? appendJournalEntry(db, {
+        bookingId: booking.id,
+        financialTransactionId: transaction.id,
+        actorUserId: input.actorUserId,
+        kind: "correction",
+        reason: `Buchung nachträglich zugeordnet: ${booking.orderNumber}`,
+        lines: [
+          { account: "rental_revenue", amountCents: transaction.amountCents },
+          { account: "accounts_receivable", amountCents: -transaction.amountCents },
+        ],
+      })
+    : appendJournalEntry(db, {
+        bookingId: booking.id,
+        financialTransactionId: transaction.id,
+        actorUserId: input.actorUserId,
+        kind: "payment_received",
+        reason: `Nevlo-Überweisung ${booking.orderNumber}`,
+        lines: [
+          { account: sourceAccount.code, amountCents: transaction.amountCents },
+          // An inquiry/offer without a posted charge has no receivable to clear;
+          // in that case the bank receipt is recognized directly as rental revenue.
+          {
+            account: receivable.openCents > 0 ? "accounts_receivable" : "rental_revenue",
+            amountCents: -transaction.amountCents,
+          },
+        ],
+      });
+  const now = new Date();
+  if (existingAllocation) {
+    db.update(financialTransactionAllocations)
+      .set({
+        bookingId: booking.id,
+        categoryId: null,
+        allocationKind: "booking_payment",
+        matchMethod: input.matchMethod ?? "automatic",
+        matchScore: 100,
+        journalEntryId,
+        note: `Auftrag ${booking.orderNumber}`,
+        matchedByUserId: input.actorUserId,
+        matchedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(financialTransactionAllocations.id, existingAllocation.id))
+      .run();
+  } else {
     db.insert(financialTransactionAllocations)
       .values({
         transactionId: transaction.id,
         bookingId: booking.id,
         allocationKind: "booking_payment",
-        matchMethod: "automatic",
+        matchMethod: input.matchMethod ?? "automatic",
         matchScore: 100,
         amountCents: transaction.amountCents,
         journalEntryId,
@@ -236,12 +298,12 @@ export function assignNevloTransactionToBooking(
         updatedAt: now,
       })
       .run();
-    db.update(financialTransactions)
-      .set({ status: "posted", reconciledAt: now, reconciledByUserId: input.actorUserId, updatedAt: now })
-      .where(eq(financialTransactions.id, transaction.id))
-      .run();
-    return { transactionId: transaction.id, bookingId: booking.id, orderNumber: booking.orderNumber };
-  });
+  }
+  db.update(financialTransactions)
+    .set({ status: "posted", reconciledAt: now, reconciledByUserId: input.actorUserId, updatedAt: now })
+    .where(eq(financialTransactions.id, transaction.id))
+    .run();
+  return { journalEntryId, transactionId: transaction.id, bookingId: booking.id, orderNumber: booking.orderNumber };
 }
 
 export function postFinancialTransactionInTransaction(db: AppDatabase, input: FinancialTransactionPostingInput) {
@@ -253,6 +315,20 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
   if (transaction.status === "ignored")
     throw new BookingCommandError("Eine ignorierte Transaktion kann nicht gebucht werden.");
+  if (input.bookingId) {
+    const category = input.categoryId
+      ? db.select().from(financialCategories).where(eq(financialCategories.id, input.categoryId)).get()
+      : undefined;
+    if (category?.code !== "rental_revenue")
+      throw new BookingCommandError("Eine Buchung kann nur der sachlichen Zuordnung „Mieterträge“ zugewiesen werden.");
+    return assignNevloTransactionToBookingInTransaction(db, {
+      transactionId: input.transactionId,
+      bookingId: input.bookingId,
+      actorUserId: input.actorUserId,
+      matchMethod: "manual",
+      allowExistingCategoryAllocation: true,
+    });
+  }
   const existingAllocations = db
     .select()
     .from(financialTransactionAllocations)

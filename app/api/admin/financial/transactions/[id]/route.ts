@@ -18,6 +18,7 @@ const schema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("post"),
     categoryId: z.number().int().positive(),
+    bookingId: z.number().int().positive().optional(),
     destinationAccountId: z.number().int().positive().optional(),
     note: z.string().trim().min(1).max(1000),
     businessMeal: z

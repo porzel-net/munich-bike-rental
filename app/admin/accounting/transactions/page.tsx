@@ -85,6 +85,7 @@ export default async function BankTransactionsPage({
       euerTreatment: financialCategories.euerTreatment,
       categoryId: financialTransactionAllocations.categoryId,
       destinationAccountId: financialTransactionAllocations.destinationAccountId,
+      bookingId: financialTransactionAllocations.bookingId,
       amountCents: financialTransactions.amountCents,
       currency: financialTransactions.currency,
       bookedAt: financialTransactions.bookedAt,
@@ -129,8 +130,9 @@ export default async function BankTransactionsPage({
     }, new Map<number, Array<{ id: number; originalFileName: string }>>());
   const reviewTransactionsForClient: FinancialReviewTransaction[] = reviewTransactions.map((row) => {
     const documents = documentCounts.get(row.id) ?? [];
-    const matchedBooking =
-      row.source === "bank" && row.provider === "nevlo"
+    const matchedBooking = row.bookingId
+      ? (bookingReferences.find((booking) => booking.id === row.bookingId) ?? null)
+      : row.source === "bank" && row.provider === "nevlo"
         ? findBookingOrderNumber([row.reference, row.description], bookingReferences)
         : null;
     return {
