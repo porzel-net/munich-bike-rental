@@ -27,6 +27,10 @@ describe("location inventory", () => {
     const regensburg = getLocationInventory(db, "regensburg");
 
     expect(munich.portfolioItems).toHaveLength(4);
+    expect(munich.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")?.subtitle).toEqual({
+      de: "XS / S / M / L",
+      en: "XS / S / M / L",
+    });
     expect(munich.bikeOptions).toHaveLength(4);
     expect(munich.bikeOptions).toContain("Aeroad CF SL 8");
     expect(munich.requestBikeOptions).toEqual(munich.bikeOptions);

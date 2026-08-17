@@ -178,10 +178,12 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
         de: bikeVariantOptions
           .filter((option) => option.startsWith(bike.title + " - "))
           .map((option) => option.slice(bike.title.length + 3))
+          .filter((size, index, sizes) => sizes.indexOf(size) === index)
           .join(" / "),
         en: bikeVariantOptions
           .filter((option) => option.startsWith(bike.title + " - "))
           .map((option) => option.slice(bike.title.length + 3))
+          .filter((size, index, sizes) => sizes.indexOf(size) === index)
           .join(" / "),
       },
       price: {
