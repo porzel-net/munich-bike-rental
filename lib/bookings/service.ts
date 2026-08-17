@@ -512,22 +512,24 @@ export function setLegacyBookingStatus(
           .run();
     }
 
-    // Imported bookings have no historical offer/payment journal entries. Once
-    // they become binding, create the receivable so "settled" does not mean
-    // "no accounting data exists". The idempotency key prevents duplicates
-    // when the booking later moves from confirmed to completed.
-    if (["confirmed", "checked_out", "completed"].includes(input.status) && details && details.quotedTotalCents > 0) {
-      appendJournalEntry(db, {
-        bookingId: booking.id,
-        kind: "rental_charge",
-        actorUserId: input.actorUserId,
-        idempotencyKey: `legacy_booking_charge:${booking.id}`,
-        reason: "Offener Mietpreis der importierten Buchung",
-        lines: [
-          { account: "accounts_receivable", amountCents: details.quotedTotalCents },
-          { account: "rental_revenue", amountCents: -details.quotedTotalCents },
-        ],
-      });
+    // Imported bookings may already have payments or a previous rental charge
+    // when their status is corrected. Bring the receivable to the selected
+    // total by posting only the difference; never duplicate or remove payments.
+    if (["confirmed", "checked_out", "completed"].includes(input.status) && details) {
+      const recognizedRentalCents = recognizedRentalChargeCents(db, booking.id);
+      const rentalChargeDelta = details.quotedTotalCents - recognizedRentalCents;
+      if (rentalChargeDelta !== 0)
+        appendJournalEntry(db, {
+          bookingId: booking.id,
+          kind: "rental_charge",
+          actorUserId: input.actorUserId,
+          idempotencyKey: `legacy_booking_charge_adjustment:${booking.id}:${booking.version + 1}`,
+          reason: "Mietpreis der importierten Buchung angepasst",
+          lines: [
+            { account: "accounts_receivable", amountCents: rentalChargeDelta },
+            { account: "rental_revenue", amountCents: -rentalChargeDelta },
+          ],
+        });
     }
 
     event(

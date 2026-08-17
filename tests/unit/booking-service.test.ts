@@ -1062,6 +1062,50 @@ describe("booking commands", () => {
     }
   });
 
+  it("reconciles an imported rental charge when a completed booking is corrected after payment", () => {
+    const { db, assetId } = setup();
+    const created = createBooking(db, {
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-07-20",
+      periodTo: "2026-07-21",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      customerMessage: "",
+      communicationLocale: "de",
+      source: "legacy",
+      quotedTotalCents: 11_760,
+      requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+    });
+    assignAdminBooking(db, created.id);
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, created.id)).get()!;
+    const details = {
+      periodFrom: "2026-07-20",
+      periodTo: "2026-07-21",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      quotedTotalCents: 11_760,
+      assetsByRequestedItem: { [item.id]: assetId },
+      invoiceNumber: "YBR-2026-0001",
+    };
+
+    setLegacyBookingStatus(db, { bookingId: created.id, status: "completed", details });
+    recordPayment(db, { bookingId: created.id, amountCents: 7_200, reason: "Zahlungseingang" });
+    setLegacyBookingStatus(db, { bookingId: created.id, status: "rejected", reason: "Fehlstatus" });
+    setLegacyBookingStatus(db, {
+      bookingId: created.id,
+      status: "completed",
+      details: { ...details, quotedTotalCents: 12_000 },
+    });
+
+    expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, created.id)).get()).toEqual({
+      status: "completed",
+    });
+    expect(getBookingPaymentStatus(db, created.id)).toEqual({ openCents: 4_800, status: "open" });
+  });
+
   it("covers the alternative offer to completed rental lifecycle", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");

@@ -191,9 +191,7 @@ export function FinancialTransactionDialog({
           ? categories.find((category) => category.code === "internal_transfer")
           : undefined;
         const existingCategory = bankTransaction.categoryId
-          ? categories.find(
-              (category) => category.id === bankTransaction.categoryId && category.euerTreatment !== "needs_review",
-            )
+          ? categories.find((category) => category.id === bankTransaction.categoryId)
           : undefined;
         const stripeAccount = accounts.find((account) => account.code === "stripe_main");
         setDate(bankTransaction.bookedAt.slice(0, 10));
