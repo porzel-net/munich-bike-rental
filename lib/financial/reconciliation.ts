@@ -266,39 +266,28 @@ function assignNevloTransactionToBookingInTransaction(
       });
   const now = new Date();
   if (existingAllocation) {
-    db.update(financialTransactionAllocations)
-      .set({
-        bookingId: booking.id,
-        categoryId: null,
-        allocationKind: "booking_payment",
-        matchMethod: input.matchMethod ?? "automatic",
-        matchScore: 100,
-        journalEntryId,
-        note: `Auftrag ${booking.orderNumber}`,
-        matchedByUserId: input.actorUserId,
-        matchedAt: now,
-        updatedAt: now,
-      })
+    // Allocation identity is immutable. Replace the old category allocation
+    // with the booking-payment allocation after the correction journal entry.
+    db.delete(financialTransactionAllocations)
       .where(eq(financialTransactionAllocations.id, existingAllocation.id))
       .run();
-  } else {
-    db.insert(financialTransactionAllocations)
-      .values({
-        transactionId: transaction.id,
-        bookingId: booking.id,
-        allocationKind: "booking_payment",
-        matchMethod: input.matchMethod ?? "automatic",
-        matchScore: 100,
-        amountCents: transaction.amountCents,
-        journalEntryId,
-        note: `Auftrag ${booking.orderNumber}`,
-        matchedByUserId: input.actorUserId,
-        matchedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
   }
+  db.insert(financialTransactionAllocations)
+    .values({
+      transactionId: transaction.id,
+      bookingId: booking.id,
+      allocationKind: "booking_payment",
+      matchMethod: input.matchMethod ?? "automatic",
+      matchScore: 100,
+      amountCents: transaction.amountCents,
+      journalEntryId,
+      note: `Auftrag ${booking.orderNumber}`,
+      matchedByUserId: input.actorUserId,
+      matchedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
   db.update(financialTransactions)
     .set({ status: "posted", reconciledAt: now, reconciledByUserId: input.actorUserId, updatedAt: now })
     .where(eq(financialTransactions.id, transaction.id))

@@ -1169,9 +1169,6 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       required
                     />
                   </Field>
-                  <FieldDescription className="sm:col-span-2">
-                    Diese Zeiten werden in der Angebots-Mail und auf der Buchungsseite verwendet.
-                  </FieldDescription>
                 </FieldGroup>
                 <div className="space-y-4">
                   <label className="flex items-start gap-3 rounded-xl border bg-muted/30 p-4 text-sm">

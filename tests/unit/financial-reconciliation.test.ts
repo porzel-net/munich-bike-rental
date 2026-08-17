@@ -91,6 +91,45 @@ function transaction(
     .get();
 }
 
+function bookingWithReceivable(
+  db: ReturnType<typeof setup>["db"],
+  amountCents: number,
+  orderNumber: string,
+  status: "confirmed" | "completed" = "completed",
+) {
+  const booking = db
+    .insert(bookings)
+    .values({
+      orderNumber,
+      customerName: "Testkunde",
+      customerEmail: "booking@example.com",
+      customerPhone: "0123",
+      location: "munich",
+      periodFrom: "2026-08-10",
+      periodTo: "2026-08-11",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      source: "legacy",
+      status,
+      quotedTotalCents: amountCents,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning()
+    .get();
+  appendJournalEntry(db, {
+    bookingId: booking.id,
+    kind: "rental_charge",
+    actorUserId: "admin",
+    reason: "Testforderung",
+    lines: [
+      { account: "accounts_receivable", amountCents },
+      { account: "rental_revenue", amountCents: -amountCents },
+    ],
+  });
+  return booking;
+}
+
 describe("financial reconciliation", () => {
   it("posts an incoming transaction with balanced journal lines", () => {
     const { db, bank, income } = setup();
@@ -175,6 +214,241 @@ describe("financial reconciliation", () => {
     ).toMatchObject({ bookingId: booking.id, allocationKind: "booking_payment", matchMethod: "manual" });
     expect(result.bookingId).toBe(booking.id);
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
+  });
+
+  it("reconciles a previously posted rental income allocation with the selected booking", () => {
+    const { db, bank, income } = setup();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260808000002",
+        customerName: "Nachträglich zugeordnete Buchung",
+        customerEmail: "booking@example.com",
+        customerPhone: "0123",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        source: "legacy",
+        status: "completed",
+        quotedTotalCents: 7_500,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+      .get();
+    appendJournalEntry(db, {
+      bookingId: booking.id,
+      kind: "rental_charge",
+      actorUserId: "admin",
+      reason: "Historischer Auftragswert",
+      lines: [
+        { account: "accounts_receivable", amountCents: 7_500 },
+        { account: "rental_revenue", amountCents: -7_500 },
+      ],
+    });
+    const imported = transaction(db, bank.id, 7_500, "nevlo");
+
+    postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      note: "Mietzahlung",
+      actorUserId: "admin",
+    });
+    expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 7_500, status: "open" });
+
+    postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      bookingId: booking.id,
+      note: "Auftrag nachträglich zugeordnet",
+      actorUserId: "admin",
+    });
+
+    expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, imported.id))
+        .get(),
+    ).toMatchObject({ bookingId: booking.id, allocationKind: "booking_payment" });
+  });
+
+  it("leaves the remaining receivable open after a partial payment", () => {
+    const { db, bank, income } = setup();
+    const booking = bookingWithReceivable(db, 12_500, "#20260808000003");
+    const imported = transaction(db, bank.id, 5_000, "nevlo");
+
+    const result = postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      bookingId: booking.id,
+      note: "Teilzahlung",
+      actorUserId: "admin",
+    });
+
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 7_500, status: "open" });
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get(),
+    ).toMatchObject({
+      status: "posted",
+      reconciledByUserId: "admin",
+    });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, imported.id))
+        .get(),
+    ).toMatchObject({
+      bookingId: booking.id,
+      amountCents: 5_000,
+      allocationKind: "booking_payment",
+      journalEntryId: result.journalEntryId,
+    });
+    expect(
+      db
+        .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+        .from(journalLines)
+        .where(eq(journalLines.entryId, result.journalEntryId))
+        .all(),
+    ).toEqual(
+      expect.arrayContaining([
+        { account: "test_bank", amountCents: 5_000 },
+        { account: "accounts_receivable", amountCents: -5_000 },
+      ]),
+    );
+  });
+
+  it("settles a booking through two separate incoming payments", () => {
+    const { db, bank, income } = setup();
+    const booking = bookingWithReceivable(db, 12_500, "#20260808000004");
+    const firstPayment = transaction(db, bank.id, 5_000, "nevlo");
+    const secondPayment = transaction(db, bank.id, 7_500, "nevlo");
+
+    for (const [payment, note] of [
+      [firstPayment, "Erste Teilzahlung"],
+      [secondPayment, "Zweite Teilzahlung"],
+    ] as const) {
+      postFinancialTransaction(db, {
+        transactionId: payment.id,
+        categoryId: income.id,
+        bookingId: booking.id,
+        note,
+        actorUserId: "admin",
+      });
+    }
+
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.bookingId, booking.id))
+        .all(),
+    ).toHaveLength(2);
+  });
+
+  it("rejects an incoming payment that exceeds the remaining booking amount", () => {
+    const { db, bank, income } = setup();
+    const booking = bookingWithReceivable(db, 7_500, "#20260808000005");
+    const imported = transaction(db, bank.id, 7_501, "nevlo");
+
+    expect(() =>
+      postFinancialTransaction(db, {
+        transactionId: imported.id,
+        categoryId: income.id,
+        bookingId: booking.id,
+        note: "Überzahlung",
+        actorUserId: "admin",
+      }),
+    ).toThrow("höher als der noch offene Auftragsbetrag");
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 7_500, status: "open" });
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get(),
+    ).toMatchObject({
+      status: "needs_review",
+    });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, imported.id))
+        .all(),
+    ).toHaveLength(0);
+  });
+
+  it("rejects assigning a booking with a non-income category", () => {
+    const { db, bank, travel } = setup();
+    const booking = bookingWithReceivable(db, 7_500, "#20260808000006");
+    const imported = transaction(db, bank.id, 7_500, "nevlo");
+
+    expect(() =>
+      postFinancialTransaction(db, {
+        transactionId: imported.id,
+        categoryId: travel.id,
+        bookingId: booking.id,
+        note: "Falsche Kategorie",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Eine Buchung kann nur der sachlichen Zuordnung „Mieterträge“ zugewiesen werden.");
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 7_500, status: "open" });
+  });
+
+  it("rejects expenses and non-Nevlo payments as booking payments", () => {
+    const { db, bank, income } = setup();
+    const booking = bookingWithReceivable(db, 7_500, "#20260808000007");
+    const expense = transaction(db, bank.id, -2_500, "nevlo");
+    const otherBankPayment = transaction(db, bank.id, 7_500, "test");
+
+    expect(() =>
+      postFinancialTransaction(db, {
+        transactionId: expense.id,
+        categoryId: income.id,
+        bookingId: booking.id,
+        note: "Ausgang statt Eingang",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Nur Zahlungseingänge können einem Auftrag zugewiesen werden.");
+    expect(() =>
+      postFinancialTransaction(db, {
+        transactionId: otherBankPayment.id,
+        categoryId: income.id,
+        bookingId: booking.id,
+        note: "Falscher Bankimport",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Nur importierte Nevlo-Überweisungen können direkt einem Auftrag zugewiesen werden.");
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 7_500, status: "open" });
+  });
+
+  it("does not allow a posted payment to be reassigned to another booking", () => {
+    const { db, bank, income } = setup();
+    const firstBooking = bookingWithReceivable(db, 7_500, "#20260808000008");
+    const secondBooking = bookingWithReceivable(db, 7_500, "#20260808000009");
+    const imported = transaction(db, bank.id, 7_500, "nevlo");
+
+    postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      bookingId: firstBooking.id,
+      note: "Erste Zuordnung",
+      actorUserId: "admin",
+    });
+
+    expect(() =>
+      postFinancialTransaction(db, {
+        transactionId: imported.id,
+        categoryId: income.id,
+        bookingId: secondBooking.id,
+        note: "Zweite Zuordnung",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Diese Transaktion ist bereits zugewiesen.");
+    expect(getReceivableStatus(db, firstBooking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(getReceivableStatus(db, secondBooking.id)).toEqual({ openCents: 7_500, status: "open" });
   });
 
   it("records a cash withdrawal as a transfer and keeps ignored movements in the bank balance", () => {

@@ -9,6 +9,19 @@ describe("financial bank transaction save mode", () => {
     );
   });
 
+  it("keeps the posting flow when a booking is selected for reconciliation", () => {
+    expect(
+      getBankTransactionSaveMode({ status: "posted", categoryId: 7, euerTreatment: "income", bookingId: 42 }),
+    ).toBe("post");
+  });
+
+  it.each([
+    { status: "posted", categoryId: 7, euerTreatment: "income", bookingId: 42 },
+    { status: "posted", categoryId: 7, euerTreatment: "expense", bookingId: 42 },
+  ])("keeps the posting flow for a selected booking: %s", (state) => {
+    expect(getBankTransactionSaveMode(state)).toBe("post");
+  });
+
   it.each([
     { status: "posted", categoryId: 7, euerTreatment: "needs_review" },
     { status: "posted", categoryId: null, euerTreatment: null },

@@ -153,8 +153,6 @@ export function FinancialTransactionDialog({
 }) {
   const isBank = mode === "bank";
   const isPosted = isBank && bankTransaction?.status === "posted";
-  const saveMode = isBank && bankTransaction ? getBankTransactionSaveMode(bankTransaction) : "post";
-  const isDocumentOnlyUpdate = saveMode === "document_only";
   const [source, setSource] = useState<"cash" | "manual">("cash");
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
@@ -181,6 +179,11 @@ export function FinancialTransactionDialog({
   const selectedCategory = categories.find((category) => String(category.id) === categoryId);
   const selectedBooking = bookings?.find((booking) => String(booking.id) === bookingId);
   const selectedDestinationAccount = accounts.find((account) => String(account.id) === destinationAccountId);
+  const saveMode =
+    isBank && bankTransaction
+      ? getBankTransactionSaveMode({ ...bankTransaction, bookingId: selectedBooking?.id ?? null })
+      : "post";
+  const isDocumentOnlyUpdate = saveMode === "document_only";
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
 
   useEffect(() => {
