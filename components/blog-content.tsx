@@ -71,6 +71,9 @@ export function BlogPreviewCard({
           src={post.previewImage}
           alt={post.previewAlt[lang]}
           fill
+          loading="lazy"
+          fetchPriority="low"
+          quality={60}
           sizes="(max-width: 900px) calc(100vw - 32px), 420px"
           className="blog-preview-card__image"
         />
@@ -100,7 +103,9 @@ export function BlogArticle({ post, lang }: { post: BlogPost; lang: Locale }) {
           src={post.heroImage}
           alt={post.heroAlt[lang]}
           fill
-          priority
+          preload
+          fetchPriority="high"
+          quality={72}
           sizes="(max-width: 900px) calc(100vw - 32px), 1200px"
           className="blog-article__hero-image"
         />

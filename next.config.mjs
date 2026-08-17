@@ -31,8 +31,12 @@ const nextConfig = {
   serverExternalPackages: ["@whiskeysockets/baileys"],
   images: {
     formats: ["image/avif", "image/webp"],
+    // Cap high-DPR requests at 1920px. The old Next.js default allowed 3840px
+    // variants for a 1200px blog hero, which wasted bandwidth without a
+    // meaningful visual benefit on this site.
+    deviceSizes: [480, 640, 750, 828, 1080, 1200, 1440, 1600, 1920],
     imageSizes: [32, 48, 64, 96, 128, 160, 192, 256, 320, 384],
-    qualities: [72, 75],
+    qualities: [60, 72, 75],
   },
   output: "standalone",
   // Never copy local data, secrets, tests, or VCS metadata into standalone

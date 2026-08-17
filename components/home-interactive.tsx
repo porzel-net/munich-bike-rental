@@ -430,21 +430,21 @@ export function AboutImageStack({ lang }: AboutImageStackProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const photos = [
     {
-      src: "/assets/img/about/about-3.png",
+      src: "/assets/img/about/about-3.webp",
       alt: {
         de: "Munich Rental auf der Rennradausfahrt",
         en: "Munich Rental on a road bike ride",
       },
     },
     {
-      src: "/assets/img/about/about-2.png",
+      src: "/assets/img/about/about-2.webp",
       alt: {
         de: "Munich Rental beim gemeinsamen Abend",
         en: "Munich Rental at a shared evening event",
       },
     },
     {
-      src: "/assets/img/about/about-1.png",
+      src: "/assets/img/about/about-1.webp",
       alt: {
         de: "Zwei Gründer mit Rädern vor dem Haus",
         en: "Two founders with bikes in front of the house",
@@ -1576,7 +1576,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
                           <ImageIcon aria-hidden="true" size={17} />
                           <span className="contact-form__equipment-tooltip" role="tooltip">
                             <Image
-                              src="/assets/img/accessories/road-bike-glasses.jpg"
+                              src="/assets/img/accessories/road-bike-glasses.webp"
                               alt={translations.form.glassesPreview}
                               width={240}
                               height={180}

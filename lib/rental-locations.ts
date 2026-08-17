@@ -31,7 +31,7 @@ export const rentalLocationConfigs = [
     address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
     streetAddress: "Gabelsbergerstraße 79a",
     postalCode: "80333",
-    mapImage: "/assets/img/location/munich-maps.png",
+    mapImage: "/assets/img/location/munich-maps.webp",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Gabelsbergerstra%C3%9Fe+79a%2C+80333+M%C3%BCnchen",
     pickupNote: { de: "Danach bei +49 152 51330962 anrufen.", en: "Then call +49 152 51330962." },
   },
@@ -47,7 +47,7 @@ export const rentalLocationConfigs = [
     address: "Rote Hahnen Gasse 12, 93047 Regensburg, Altstadt",
     streetAddress: "Rote Hahnen Gasse 12",
     postalCode: "93047",
-    mapImage: "/assets/img/location/regensburg-maps.png",
+    mapImage: "/assets/img/location/regensburg-maps.webp",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Rote+Hahnen+Gasse+12%2C+93047+Regensburg",
     pickupNote: {
       de: "Danach bei Baiersdorfer/Reitinger klingeln und unten warten.",
@@ -66,7 +66,7 @@ export const rentalLocationConfigs = [
     address: "Lärchenweg 3a, 88131 Lindau Bodensee-Aeschach",
     streetAddress: "Lärchenweg 3a",
     postalCode: "88131",
-    mapImage: "/assets/img/location/lindau-maps.png",
+    mapImage: "/assets/img/location/lindau-maps.webp",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=L%C3%A4rchenweg+3a%2C+88131+Lindau",
   },
   {
@@ -81,7 +81,7 @@ export const rentalLocationConfigs = [
     address: "Katharinenstraße 2/3, 88045 Friedrichshafen",
     streetAddress: "Katharinenstraße 2/3",
     postalCode: "88045",
-    mapImage: "/assets/img/location/friedrichshafen-maps.png",
+    mapImage: "/assets/img/location/friedrichshafen-maps.webp",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Katharinenstra%C3%9Fe+2%2F3%2C+88045+Friedrichshafen",
   },
   {
@@ -96,7 +96,7 @@ export const rentalLocationConfigs = [
     address: "Wessenbergstraße 12, 78462 Konstanz-Altstadt",
     streetAddress: "Wessenbergstraße 12",
     postalCode: "78462",
-    mapImage: "/assets/img/location/konstanz-maps.png",
+    mapImage: "/assets/img/location/konstanz-maps.webp",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Wessenbergstra%C3%9Fe+12%2C+78462+Konstanz",
   },
 ] as const satisfies readonly RentalLocationConfig[];

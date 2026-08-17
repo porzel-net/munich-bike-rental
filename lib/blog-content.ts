@@ -72,12 +72,12 @@ export const blogPosts: BlogPost[] = [
       de: "6 Min. Lesezeit",
       en: "6 min read",
     },
-    heroImage: "/assets/img/blog/your-bike-rental-story-v3.png",
+    heroImage: "/assets/img/blog/your-bike-rental-story-v3.webp",
     heroAlt: {
       de: "Julius und Justus, die Gründer von Your Bike Rental, bei einem gemeinsamen Abend",
       en: "Julius and Justus, the founders of Your Bike Rental, enjoying an evening together",
     },
-    previewImage: "/assets/img/blog/your-bike-rental-story-v3.png",
+    previewImage: "/assets/img/blog/your-bike-rental-story-v3.webp",
     previewAlt: {
       de: "Julius und Justus als Vorschaubild für die Geschichte von Your Bike Rental",
       en: "Julius and Justus as a preview image for the story of Your Bike Rental",
@@ -223,12 +223,12 @@ export const blogPosts: BlogPost[] = [
       de: "9 Min. Lesezeit",
       en: "9 min read",
     },
-    heroImage: "/assets/img/blog/munich-blog-cover.jpg",
+    heroImage: "/assets/img/blog/munich-blog-cover.webp",
     heroAlt: {
       de: "Editoriales Rennradbild als Auftakt für den Beitrag über Touren rund um München",
       en: "Editorial road bike image introducing the routes around Munich",
     },
-    previewImage: "/assets/img/blog/munich-blog-cover.jpg",
+    previewImage: "/assets/img/blog/munich-blog-cover.webp",
     previewAlt: {
       de: "Vorschaubild zum Beitrag über Rennradtouren rund um München",
       en: "Preview image for the Munich road bike route article",

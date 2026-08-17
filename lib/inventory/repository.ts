@@ -58,6 +58,25 @@ function parseGallery(value: string) {
   }
 }
 
+const optimizedBikeMedia: Record<string, string> = {
+  "/bikes/aeroad-cf-sl-8-disc/preview.png": "/bikes/aeroad-cf-sl-8-disc/preview.webp",
+  "/bikes/aeroad-cf-sl-8-disc/real1.png": "/bikes/aeroad-cf-sl-8-disc/real1.webp",
+  "/bikes/aeroad-cf-sl-8-disc/real2.png": "/bikes/aeroad-cf-sl-8-disc/real2.webp",
+  "/bikes/aeroad-cf-sl-8-disc/real3.png": "/bikes/aeroad-cf-sl-8-disc/real3.webp",
+  "/bikes/aeroad-cf-sl-8-disc/real4.png": "/bikes/aeroad-cf-sl-8-disc/real4.webp",
+  "/bikes/endurace-cf-sl-8-di2/preview.png": "/bikes/endurace-cf-sl-8-di2/preview.webp",
+  "/bikes/endurace-cf-sl-8-di2/real1.png": "/bikes/endurace-cf-sl-8-di2/real1.webp",
+  "/bikes/endurace-cf-sl-8-di2/real2.png": "/bikes/endurace-cf-sl-8-di2/real2.webp",
+  "/bikes/ultimate-cf-sl-7eTap-axs/preview.png": "/bikes/ultimate-cf-sl-7eTap-axs/preview.webp",
+  "/bikes/ultimate-cf-sl-7eTap-axs/real1.png": "/bikes/ultimate-cf-sl-7eTap-axs/real1.webp",
+  "/bikes/ultimate-cf-sl-7eTap-axs/real2.png": "/bikes/ultimate-cf-sl-7eTap-axs/real2.webp",
+  "/bikes/ultimate-cf-sl-7eTap-axs/real3.png": "/bikes/ultimate-cf-sl-7eTap-axs/real3.webp",
+};
+
+function optimizeBikeMediaPath(path: string) {
+  return optimizedBikeMedia[path] ?? path;
+}
+
 function parseFacts(value: string): PortfolioItem["facts"] {
   try {
     const parsed: unknown = JSON.parse(value);
@@ -178,8 +197,8 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
             ?.discountTextEn ?? "",
       },
       description: { de: bike.descriptionDe, en: bike.descriptionEn },
-      image: bike.image,
-      gallery: parseGallery(bike.galleryJson),
+      image: optimizeBikeMediaPath(bike.image),
+      gallery: parseGallery(bike.galleryJson).map(optimizeBikeMediaPath),
       facts: parseFacts(bike.factsJson),
       equipment: parseEquipment(bike.equipmentJson),
     })),
