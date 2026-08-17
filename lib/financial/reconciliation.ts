@@ -189,9 +189,12 @@ export function assignNevloTransactionToBooking(
 
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
     if (!booking) throw new BookingCommandError("Auftrag nicht gefunden.");
+    if (booking.status === "rejected" || booking.status === "cancelled")
+      throw new BookingCommandError("Dieser Auftrag ist nicht mehr in einem sinnvollen Zahlungsstatus.");
     const receivable = getReceivableStatus(db, booking.id);
-    if (receivable.openCents <= 0) throw new BookingCommandError("Dieser Auftrag hat keine offene Forderung mehr.");
-    if (transaction.amountCents > receivable.openCents)
+    if (receivable.openCents < 0)
+      throw new BookingCommandError("Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung.");
+    if (receivable.openCents > 0 && transaction.amountCents > receivable.openCents)
       throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
 
     const sourceAccount = db
@@ -208,7 +211,12 @@ export function assignNevloTransactionToBooking(
       reason: `Nevlo-Überweisung ${booking.orderNumber}`,
       lines: [
         { account: sourceAccount.code, amountCents: transaction.amountCents },
-        { account: "accounts_receivable", amountCents: -transaction.amountCents },
+        // An inquiry/offer without a posted charge has no receivable to clear;
+        // in that case the bank receipt is recognized directly as rental revenue.
+        {
+          account: receivable.openCents > 0 ? "accounts_receivable" : "rental_revenue",
+          amountCents: -transaction.amountCents,
+        },
       ],
     });
     const now = new Date();

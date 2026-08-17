@@ -14,13 +14,18 @@ import {
   bookingOffers,
   bookingRequestedItems,
   bookings,
+  financialAccounts,
+  financialTransactionAllocations,
+  financialTransactions,
   journalEntries,
+  journalLines,
   mailOutbox,
   rentalAssets,
 } from "../../lib/db/schema";
 import {
   BookingCommandError,
   advanceBooking,
+  assignStripePaymentToBooking,
   assignBooking,
   cancelBooking,
   confirmOffer,
@@ -40,6 +45,7 @@ import {
 } from "../../lib/bookings/service";
 import { renderBookingNotice, renderOfferMail } from "../../lib/bookings/messages";
 import { appendJournalEntry } from "../../lib/bookings/ledger";
+import { assignNevloTransactionToBooking } from "../../lib/financial/reconciliation";
 import { getPublicFeedbackByToken, submitPublicFeedback } from "../../lib/bookings/feedback";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -207,6 +213,109 @@ describe("booking commands", () => {
       }),
     ).toBeTypeOf("number");
     expect(db.select({ kind: journalEntries.kind }).from(journalEntries).all().at(-1)?.kind).toBe("refund_issued");
+  });
+
+  it("assigns a Nevlo bank transfer to an existing booking without requiring an offer", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+
+    const bank = db
+      .insert(financialAccounts)
+      .values({
+        code: "test_transfer_bank",
+        name: "Testüberweisungskonto",
+        type: "bank",
+        provider: "nevlo",
+        currency: "EUR",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: financialAccounts.id })
+      .get();
+    const transfer = db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: bank.id,
+        source: "bank",
+        provider: "nevlo",
+        kind: "income",
+        status: "needs_review",
+        amountCents: 70_000,
+        currency: "EUR",
+        bookedAt: "2026-08-18",
+        reference: booking.orderNumber,
+        description: `Überweisung ${booking.orderNumber}`,
+        importedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: financialTransactions.id })
+      .get();
+
+    expect(assignNevloTransactionToBooking(db, { transactionId: transfer.id, bookingId: booking.id, actorUserId: "admin" })).toEqual({
+      transactionId: transfer.id,
+      bookingId: booking.id,
+      orderNumber: booking.orderNumber,
+    });
+    expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
+      status: "inquiry_received",
+    });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(
+      db
+        .select({
+          allocationKind: financialTransactionAllocations.allocationKind,
+          bookingId: financialTransactionAllocations.bookingId,
+          journalEntryId: financialTransactionAllocations.journalEntryId,
+        })
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, transfer.id))
+        .get(),
+    ).toMatchObject({ allocationKind: "booking_payment", bookingId: booking.id });
+    const allocation = db
+      .select({ journalEntryId: financialTransactionAllocations.journalEntryId })
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.transactionId, transfer.id))
+      .get();
+    expect(
+      db
+        .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+        .from(journalLines)
+        .where(eq(journalLines.entryId, allocation?.journalEntryId ?? -1))
+        .all(),
+    ).toEqual([
+      { account: "test_transfer_bank", amountCents: 70_000 },
+      { account: "rental_revenue", amountCents: -70_000 },
+    ]);
+    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, transfer.id)).get()).toEqual({
+      status: "posted",
+    });
+  });
+
+  it("confirms an expired offer when a paid Stripe session is assigned manually", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    db.update(bookingOffers).set({ expiresAt: new Date(Date.now() - 1_000) }).where(eq(bookingOffers.id, offer.offerId)).run();
+    expect(expireDueOffers(db)).toBe(1);
+
+    expect(
+      assignStripePaymentToBooking(db, {
+        bookingId: booking.id,
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_manual_assignment_123",
+        actorUserId: "admin",
+      }),
+    ).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
+    expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
+      status: "confirmed",
+    });
+    expect(db.select({ status: bookingOffers.status }).from(bookingOffers).where(eq(bookingOffers.id, offer.offerId)).get()).toEqual({
+      status: "accepted",
+    });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
   });
 
   it("binds journal corrections to the booking they came from", () => {

@@ -11,6 +11,16 @@ import { ManualFinancialTransactionLauncher } from "@/components/manual-financia
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FinancialTransactionDialog } from "@/components/financial-transaction-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type FinancialReviewCategory = {
   id: number;
@@ -105,20 +115,28 @@ export function FinancialReviewInbox({
   const initialReviewOpened = useRef(false);
   const openCount = rows.filter((row) => row.status !== "posted" && row.status !== "ignored").length;
   const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
+  const [assignmentBookingId, setAssignmentBookingId] = useState("");
 
-  async function assignBooking(row: FinancialReviewTransaction) {
-    if (!row.matchedBooking) return;
+  function openBookingAssignment(row: FinancialReviewTransaction) {
+    setAssignmentRow(row);
+    setAssignmentBookingId(row.matchedBooking ? String(row.matchedBooking.id) : "");
+  }
+
+  async function assignBooking(row: FinancialReviewTransaction, bookingId: number) {
     setAssigningId(row.id);
     try {
       const response = await fetch(`/api/admin/financial/transactions/${row.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "assign_booking", bookingId: row.matchedBooking.id }),
+        body: JSON.stringify({ action: "assign_booking", bookingId }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) throw new Error(result?.message ?? "Auftrag konnte nicht zugewiesen werden.");
       setRows((current) => current.map((item) => (item.id === row.id ? { ...item, status: "posted" } : item)));
-      toast.success(`Auftrag ${row.matchedBooking.orderNumber} wurde zugewiesen.`);
+      const booking = bookings.find((item) => item.id === bookingId);
+      toast.success(`Auftrag ${booking?.orderNumber ?? bookingId} wurde zugewiesen.`);
+      setAssignmentRow(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Auftrag konnte nicht zugewiesen werden.");
     } finally {
@@ -211,7 +229,7 @@ export function FinancialReviewInbox({
                           <FileTextIcon className="size-3" /> Beleg hinterlegt
                         </span>
                       ) : null}
-                      {row.matchedBooking && row.status !== "posted" && row.status !== "ignored" ? (
+                      {row.source === "bank" && row.amountCents > 0 && row.status !== "posted" && row.status !== "ignored" ? (
                         <Button
                           type="button"
                           variant="link"
@@ -219,12 +237,15 @@ export function FinancialReviewInbox({
                           disabled={assigningId === row.id}
                           onClick={(event) => {
                             event.stopPropagation();
-                            void assignBooking(row);
+                            if (row.matchedBooking) void assignBooking(row, row.matchedBooking.id);
+                            else openBookingAssignment(row);
                           }}
                         >
                           {assigningId === row.id
                             ? "Wird zugewiesen …"
-                            : `Auftrag ${row.matchedBooking.orderNumber} zuweisen`}
+                            : row.matchedBooking
+                              ? `Auftrag ${row.matchedBooking.orderNumber} zuweisen`
+                              : "Auftrag zuweisen"}
                         </Button>
                       ) : null}
                     </div>
@@ -254,6 +275,57 @@ export function FinancialReviewInbox({
           </TableBody>
         </Table>
       </Card>
+      <Dialog
+        open={Boolean(assignmentRow)}
+        onOpenChange={(open) => {
+          if (!open && !assigningId) setAssignmentRow(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bankzahlung einem Auftrag zuweisen</DialogTitle>
+            <DialogDescription>
+              Der Betrag wird dem ausgewählten Auftrag zugeordnet. Das Angebot oder der Buchungsstatus wird dabei nicht
+              automatisch geändert.
+            </DialogDescription>
+          </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor="financial-assignment-booking">Auftrag</FieldLabel>
+            <Select value={assignmentBookingId} onValueChange={(value) => setAssignmentBookingId(value ?? "")}>
+              <SelectTrigger id="financial-assignment-booking" className="w-full">
+                <SelectValue placeholder="Auftrag auswählen" />
+              </SelectTrigger>
+              <SelectContent>
+                {bookings
+                  .filter((booking) => booking.status !== "rejected" && booking.status !== "cancelled")
+                  .map((booking) => (
+                    <SelectItem key={booking.id} value={String(booking.id)}>
+                      {booking.orderNumber} · {booking.customerName} · {booking.status}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              Zulässig sind bestehende Aufträge in einem sinnvollen Zahlungsstatus, unabhängig davon, ob ein Angebot
+              existiert oder bereits abgelaufen ist.
+            </FieldDescription>
+          </Field>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAssignmentRow(null)} disabled={Boolean(assigningId)}>
+              Abbrechen
+            </Button>
+            <Button
+              type="button"
+              disabled={!assignmentRow || !assignmentBookingId || Boolean(assigningId)}
+              onClick={() => {
+                if (assignmentRow && assignmentBookingId) void assignBooking(assignmentRow, Number(assignmentBookingId));
+              }}
+            >
+              {assigningId ? "Wird zugewiesen …" : "Zahlung zuweisen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <FinancialTransactionDialog
         mode="bank"
         open={Boolean(selected)}

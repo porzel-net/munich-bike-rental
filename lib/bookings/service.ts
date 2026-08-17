@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, like, ne, sql } from "drizzle-orm";
 
 import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import {
@@ -1588,16 +1588,23 @@ function confirmOfferRecord(
   actorUserId?: string | null,
   payment?: StripeOfferPayment,
   offerToken?: string,
+  options: { allowExpired?: boolean; initialChargeCents?: number; confirmationReason?: string } = {},
 ) {
   if (offer.status === "accepted") return { bookingId: offer.bookingId, alreadyConfirmed: true };
-  if (offer.status !== "sent" || offer.expiresAt.getTime() <= Date.now())
+  const offerExpired = offer.status === "expired" || offer.expiresAt.getTime() <= Date.now();
+  if (options.allowExpired ? (offer.status !== "sent" && offer.status !== "expired") : offer.status !== "sent" || offerExpired)
     throw new BookingCommandError("This offer is no longer available");
   if (payment && (payment.amountCents !== offer.totalCents || !Number.isSafeInteger(payment.amountCents)))
     throw new BookingCommandError("The Stripe payment amount does not match the offer");
 
   const booking = db.select().from(bookings).where(eq(bookings.id, offer.bookingId)).get();
   if (!booking) throw new BookingCommandError("Booking not found");
-  assertTransition(booking.status, "confirmed");
+  if (options.allowExpired) {
+    if (booking.status !== "offer_sent" && booking.status !== "expired")
+      throw new BookingCommandError("Dieser Auftrag kann nicht mehr über dieses Angebot bestätigt werden.");
+  } else {
+    assertTransition(booking.status, "confirmed");
+  }
   if (!booking.invoiceNumber) {
     const invoiceIssuedAt = now();
     db.update(bookings)
@@ -1635,12 +1642,22 @@ function confirmOfferRecord(
   );
   allocateRequestedAccessories(db, booking, accessoriesByRequestedItem);
   db.update(bookingOffers).set({ status: "accepted", acceptedAt: now() }).where(eq(bookingOffers.id, offer.id)).run();
-  transition(db, booking, "confirmed", "offer_confirmed", actorUserId, "", {
-    offerId: offer.id,
-    ...(payment ? { stripeSessionId: payment.sessionId, paidAmountCents: payment.amountCents } : {}),
-  });
+  transition(
+    db,
+    booking,
+    "confirmed",
+    "offer_confirmed",
+    actorUserId,
+    options.confirmationReason ?? (options.allowExpired ? "Bestätigung durch Stripe-Zahlung" : ""),
+    {
+      offerId: offer.id,
+      ...(payment ? { stripeSessionId: payment.sessionId, paidAmountCents: payment.amountCents } : {}),
+    },
+  );
 
-  const chargeCents = payment ? offer.totalCents : confirmedBookingChargeCents(booking.quotedTotalCents);
+  const chargeCents = payment
+    ? offer.totalCents
+    : (options.initialChargeCents ?? confirmedBookingChargeCents(booking.quotedTotalCents));
   appendJournalEntry(db, {
     bookingId: booking.id,
     kind: "rental_charge",
@@ -1708,6 +1725,75 @@ export function confirmOfferWithStripePayment(
       null,
       { amountCents: input.amountCents, sessionId: input.sessionId },
       input.offerToken,
+    );
+  });
+}
+
+/**
+ * Manually links a successfully paid Stripe Checkout Session to an offer.
+ *
+ * This is intentionally separate from the public checkout confirmation: an
+ * administrator may use it when the webhook was missed or the offer expired
+ * before Stripe's payment could be reconciled.
+ */
+export function assignStripePaymentToBooking(
+  db: AppDatabase,
+  input: { bookingId: number; offerId: number; amountCents: number; sessionId: string; actorUserId: string },
+) {
+  return runInImmediateTransaction(db, () => {
+    const offer = db.select().from(bookingOffers).where(eq(bookingOffers.id, input.offerId)).get();
+    if (!offer || offer.bookingId !== input.bookingId)
+      throw new BookingCommandError("Das ausgewählte Angebot gehört nicht zu dieser Buchung.");
+    if (!Number.isSafeInteger(input.amountCents) || input.amountCents !== offer.totalCents)
+      throw new BookingCommandError("Der Stripe-Betrag stimmt nicht mit dem ausgewählten Angebot überein.");
+    if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(input.sessionId))
+      throw new BookingCommandError("Die Stripe-Zahlungsreferenz ist ungültig.");
+
+    const existingTransaction = db
+      .select({ metadataJson: financialTransactions.metadataJson })
+      .from(financialTransactions)
+      .where(
+        and(
+          eq(financialTransactions.source, "stripe"),
+          eq(financialTransactions.provider, "stripe"),
+          eq(financialTransactions.reference, input.sessionId),
+        ),
+      )
+      .get();
+    if (existingTransaction) {
+      try {
+        const metadata = JSON.parse(existingTransaction.metadataJson) as { bookingId?: number };
+        if (metadata.bookingId && metadata.bookingId !== input.bookingId)
+          throw new BookingCommandError("Diese Stripe-Zahlung ist bereits einer anderen Buchung zugeordnet.");
+      } catch (error) {
+        if (error instanceof BookingCommandError) throw error;
+      }
+    }
+    const existingConfirmation = db
+      .select({ bookingId: bookingEvents.bookingId })
+      .from(bookingEvents)
+      .where(
+        and(
+          eq(bookingEvents.eventType, "offer_confirmed"),
+          like(bookingEvents.payloadJson, `%"stripeSessionId":"${input.sessionId}"%`),
+        ),
+      )
+      .get();
+    if (existingConfirmation && existingConfirmation.bookingId !== input.bookingId)
+      throw new BookingCommandError("Diese Stripe-Zahlung ist bereits einer anderen Buchung zugeordnet.");
+
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking) throw new BookingCommandError("Buchung nicht gefunden.");
+    if (booking.status !== "offer_sent" && booking.status !== "expired")
+      throw new BookingCommandError("Nur offene oder abgelaufene Angebote können manuell bestätigt werden.");
+
+    return confirmOfferRecord(
+      db,
+      offer,
+      input.actorUserId,
+      { amountCents: input.amountCents, sessionId: input.sessionId },
+      undefined,
+      { allowExpired: true, confirmationReason: "Manuelle Zuordnung einer Stripe-Zahlung" },
     );
   });
 }

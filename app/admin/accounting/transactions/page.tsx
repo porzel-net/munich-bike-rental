@@ -129,11 +129,15 @@ export default async function BankTransactionsPage({
     }, new Map<number, Array<{ id: number; originalFileName: string }>>());
   const reviewTransactionsForClient: FinancialReviewTransaction[] = reviewTransactions.map((row) => {
     const documents = documentCounts.get(row.id) ?? [];
+    const matchedBooking =
+      row.source === "bank" && row.provider === "nevlo"
+        ? findBookingOrderNumber([row.reference, row.description], bookingReferences)
+        : null;
     return {
       ...row,
       matchedBooking:
-        row.source === "bank" && row.provider === "nevlo"
-          ? findBookingOrderNumber([row.reference, row.description], bookingReferences)
+        matchedBooking && matchedBooking.status !== "rejected" && matchedBooking.status !== "cancelled"
+          ? matchedBooking
           : null,
       documentCount: documents.length,
       documents,

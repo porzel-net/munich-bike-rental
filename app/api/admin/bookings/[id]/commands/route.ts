@@ -6,6 +6,7 @@ import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { isAdmin } from "@/lib/auth/session";
 import {
   advanceBooking,
+  assignStripePaymentToBooking,
   cancelBooking,
   correctJournalEntry,
   createOffer,
@@ -19,6 +20,8 @@ import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { mailOutbox } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
+import { getStripeCheckoutSession } from "@/lib/stripe";
+import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
 
 export const runtime = "nodejs";
 
@@ -70,6 +73,11 @@ const commandSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("revoke_offer"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("check_out"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("complete"), reason: z.string().trim().max(500).optional() }),
+  z.object({
+    command: z.literal("assign_stripe_payment"),
+    offerId: z.number().int().positive(),
+    sessionId: z.string().trim().min(10).max(200),
+  }),
   z.object({
     command: z.literal("set_legacy_status"),
     status: z.enum([
@@ -214,6 +222,26 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       case "complete":
         advanceBooking(command.db, id, "completed", command.user.id, input.data.reason);
         break;
+      case "assign_stripe_payment": {
+        const session = await getStripeCheckoutSession(input.data.sessionId);
+        if (session.payment_status !== "paid" || !Number.isSafeInteger(session.amount_total))
+          throw new BookingCommandError("Die ausgewählte Stripe-Zahlung ist noch nicht als bezahlt bestätigt.");
+        const result = assignStripePaymentToBooking(command.db, {
+          bookingId: id,
+          offerId: input.data.offerId,
+          amountCents: session.amount_total,
+          sessionId: session.id,
+          actorUserId: command.user.id,
+        });
+        let accountingWarning: string | null = null;
+        try {
+          await importStripeCheckoutPayment(command.db, { sessionId: session.id, bookingId: id });
+        } catch (error) {
+          accountingWarning = error instanceof Error ? error.message : "Die Finanzbuchung konnte nicht importiert werden.";
+          console.error("Manual Stripe payment accounting import failed", { bookingId: id, sessionId: session.id, error });
+        }
+        return NextResponse.json({ ok: true, ...result, accountingWarning });
+      }
       case "set_legacy_status":
         setLegacyBookingStatus(command.db, {
           bookingId: id,

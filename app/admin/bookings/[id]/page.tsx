@@ -616,6 +616,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   }
                   isAdmin={isAdmin(session.user)}
                   hasActiveOffer={hasActiveOffer}
+                  offers={offers.map((offer) => ({
+                    id: offer.id,
+                    label: `Angebot #${offer.offerNumber} · ${offer.status === "sent" ? "versendet" : offer.status === "expired" ? "abgelaufen" : offer.status === "accepted" ? "bestätigt" : "zurückgezogen"}`,
+                    status: offer.status,
+                    totalCents: offer.totalCents,
+                  }))}
                   confirmedBookingEdit={
                     hasAssignedCaseworker && booking.status === "confirmed"
                       ? {

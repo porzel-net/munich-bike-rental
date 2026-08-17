@@ -11,6 +11,7 @@ type StripeErrorResponse = {
 
 export type StripeCheckoutSession = {
   id: string;
+  created?: number;
   url: string | null;
   payment_status: string;
   amount_total: number | null;

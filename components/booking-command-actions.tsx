@@ -73,11 +73,21 @@ type Asset = {
 };
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
-type Action = "offer" | "revoke_offer" | "cancel" | "refund" | "correct" | "reject" | "status";
+type Action = "offer" | "stripe_payment" | "revoke_offer" | "cancel" | "refund" | "correct" | "reject" | "status";
 type ConfirmAction = "check_out" | "complete" | "delete_permanently" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
 type CancellationPeriod = "more_than_7_days" | "between_7_days_and_24_hours" | "less_than_24_hours";
+type OfferOption = { id: number; label: string; status: "sent" | "expired" | "accepted" | "revoked"; totalCents: number };
+type StripePayment = {
+  id: string;
+  amountCents: number;
+  createdAt: number | null;
+  customerEmail: string | null;
+  offerId: number | null;
+  offerMatchesBooking: boolean;
+  assignedBookingId: number | null;
+};
 
 const bookingStatusLabels: Record<BookingStatus, string> = {
   inquiry_received: "Anfrage eingegangen",
@@ -179,6 +189,7 @@ export function BookingCommandActions({
   canExecuteActions,
   isAdmin,
   hasActiveOffer,
+  offers,
   requestedItems,
   availableAssets,
   unavailableAssetIds,
@@ -200,6 +211,7 @@ export function BookingCommandActions({
   canExecuteActions: boolean;
   isAdmin: boolean;
   hasActiveOffer: boolean;
+  offers: OfferOption[];
   requestedItems: RequestedItem[];
   availableAssets: Asset[];
   unavailableAssetIds: number[];
@@ -231,6 +243,11 @@ export function BookingCommandActions({
   const [dueDate, setDueDate] = useState("");
   const [cancellationPeriod, setCancellationPeriod] = useState<CancellationPeriod | "">("");
   const [entryId, setEntryId] = useState("");
+  const [stripeSessionId, setStripeSessionId] = useState("");
+  const [stripeOfferId, setStripeOfferId] = useState("");
+  const [stripePayments, setStripePayments] = useState<StripePayment[]>([]);
+  const [stripePaymentsLoading, setStripePaymentsLoading] = useState(false);
+  const [stripePaymentsError, setStripePaymentsError] = useState<string | null>(null);
   const [assetsByRequestedItem, setAssetsByRequestedItem] = useState<Record<string, string>>({});
   const [offerAccessories, setOfferAccessories] = useState<Record<string, OfferAccessorySelection>>({});
   const [alternativeReasonType, setAlternativeReasonType] = useState<AlternativeReasonType>("");
@@ -333,6 +350,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setDueDate("");
     setCancellationPeriod("");
     setEntryId("");
+    setStripeSessionId("");
+    setStripeOfferId("");
+    setStripePayments([]);
+    setStripePaymentsError(null);
     setPreview(null);
     setAssetsByRequestedItem({});
     setOfferAccessories({});
@@ -371,6 +392,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreviewLoading(false);
   };
 
+  const openStripePayment = () => {
+    setStripeOfferId(String(offers.find((offer) => offer.status === "sent" || offer.status === "expired")?.id ?? ""));
+    setStripeSessionId("");
+    setStripePayments([]);
+    setStripePaymentsError(null);
+    setActiveAction("stripe_payment");
+  };
+
   const openLegacyStatus = () => {
     setLegacyStatus(status);
     setLegacyPeriodFrom(periodFrom);
@@ -403,6 +432,31 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreviewLoading(false);
   };
 
+  useEffect(() => {
+    if (activeAction !== "stripe_payment") return;
+    let cancelled = false;
+    setStripePaymentsLoading(true);
+    setStripePaymentsError(null);
+    void fetch(`/api/admin/bookings/${bookingId}/stripe-payments`)
+      .then(async (response) => {
+        const result = (await response.json().catch(() => null)) as {
+          payments?: StripePayment[];
+          message?: string;
+        } | null;
+        if (!response.ok) throw new Error(result?.message ?? "Stripe-Zahlungen konnten nicht geladen werden.");
+        if (!cancelled) setStripePayments(result?.payments ?? []);
+      })
+      .catch((error) => {
+        if (!cancelled) setStripePaymentsError(errorMessage(error));
+      })
+      .finally(() => {
+        if (!cancelled) setStripePaymentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAction, bookingId]);
+
   const request = async (body: object) => {
     const command = (body as { command?: string }).command;
     const idempotencyKey = command === "refund" ? (commandIdRef.current ??= crypto.randomUUID()) : undefined;
@@ -411,7 +465,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       headers: { "content-type": "application/json" },
       body: JSON.stringify(idempotencyKey ? { ...body, idempotencyKey } : body),
     });
-    const result = (await response.json().catch(() => null)) as { message?: string; mailStatus?: string } | null;
+    const result = (await response.json().catch(() => null)) as {
+      message?: string;
+      mailStatus?: string;
+      accountingWarning?: string | null;
+    } | null;
     if (!response.ok) throw new Error(result?.message ?? "Aktion fehlgeschlagen");
     return result;
   };
@@ -482,6 +540,19 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         if (!entryId) throw new Error("Bitte wähle eine Journalbuchung aus.");
         await request({ command: "correct_journal", entryId: Number(entryId), reason });
         toast.success("Korrekturbuchung wurde angelegt.");
+      } else if (activeAction === "stripe_payment") {
+        if (!stripeOfferId) throw new Error("Bitte wähle das Angebot aus, zu dem die Zahlung gehört.");
+        if (!stripeSessionId) throw new Error("Bitte wähle eine Stripe-Zahlung aus.");
+        const result = await request({
+          command: "assign_stripe_payment",
+          offerId: Number(stripeOfferId),
+          sessionId: stripeSessionId,
+        });
+        toast.success(
+          result?.accountingWarning
+            ? `Zahlung zugeordnet. Hinweis: ${result.accountingWarning}`
+            : "Stripe-Zahlung wurde zugeordnet und die Buchung bestätigt.",
+        );
       } else if (activeAction === "reject") {
         if (!rejectionReason) throw new Error("Bitte wähle einen Grund für die Absage aus.");
         await request({
@@ -639,7 +710,12 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
   };
 
   const showOfferFields = activeAction === "offer";
-  const missingRequiredReason = activeAction === "reject" ? !rejectionReason : requiresReason && !reason.trim();
+  const missingRequiredReason =
+    activeAction === "reject"
+      ? !rejectionReason
+      : activeAction === "stripe_payment"
+        ? !stripeOfferId || !stripeSessionId || stripePaymentsLoading
+        : requiresReason && !reason.trim();
   const dialogDescription =
     activeAction === "status"
       ? "Der Statuswechsel prüft automatisch, welche Buchungsdaten für den Zielstatus noch benötigt werden."
@@ -647,15 +723,17 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
         : activeAction === "revoke_offer"
           ? "Das Angebot wird sofort ungültig. Es wird keine neue E-Mail versendet; die Angebotsseite zeigt den Hinweis online an."
-          : activeAction === "reject"
-            ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
-            : activeAction === "cancel"
-              ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
-              : activeAction === "refund"
-                ? "Gib den Betrag und den Buchungstext ein."
-                : activeAction === "correct"
-                  ? "Die Korrektur wird im Finanzjournal dokumentiert."
-                  : "Die Aktion wird dokumentiert.";
+          : activeAction === "stripe_payment"
+            ? "Wähle eine in Stripe als bezahlt ausgewiesene Zahlung aus. Das Angebot darf bereits abgelaufen sein; die Auswahl wird zusätzlich serverseitig geprüft."
+            : activeAction === "reject"
+              ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
+              : activeAction === "cancel"
+                ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
+                : activeAction === "refund"
+                  ? "Gib den Betrag und den Buchungstext ein."
+                  : activeAction === "correct"
+                    ? "Die Korrektur wird im Finanzjournal dokumentiert."
+                    : "Die Aktion wird dokumentiert.";
   const title =
     activeAction === "status"
       ? "Buchungsstatus ändern"
@@ -665,13 +743,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           : "Angebot erstellen"
         : activeAction === "revoke_offer"
           ? "Angebot zurückziehen"
-          : activeAction === "cancel"
-            ? "Buchung stornieren"
-            : activeAction === "refund"
-              ? "Erstattung erfassen"
-              : activeAction === "correct"
-                ? "Journal korrigieren"
-                : "Anfrage ablehnen";
+          : activeAction === "stripe_payment"
+            ? "Stripe-Zahlung manuell zuordnen"
+            : activeAction === "cancel"
+              ? "Buchung stornieren"
+              : activeAction === "refund"
+                ? "Erstattung erfassen"
+                : activeAction === "correct"
+                  ? "Journal korrigieren"
+                  : "Anfrage ablehnen";
   const actionsLocked = !canExecuteActions;
 
   return (
@@ -720,6 +800,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             onClick={openOffer}
           />
         )}
+        {(["offer_sent", "expired"] as BookingStatus[]).includes(status) && offers.some((offer) => offer.status === "sent" || offer.status === "expired") ? (
+          <ActionItem
+            icon={<CheckIcon />}
+            title="Stripe-Zahlung manuell zuordnen"
+            description="Bezahlte Stripe-Zahlung auswählen und Buchung bestätigen"
+            disabled={actionsLocked}
+            onClick={openStripePayment}
+          />
+        ) : null}
         {status === "offer_sent" && hasActiveOffer && (
           <ActionItem
             icon={<XIcon />}
@@ -810,6 +899,68 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   Der Grund wird nur intern im Buchungsverlauf gespeichert und nicht per E-Mail versendet.
                 </FieldDescription>
               </Field>
+            )}
+            {activeAction === "stripe_payment" && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="stripe-offer">Angebot dieser Buchung</FieldLabel>
+                  <Select value={stripeOfferId} onValueChange={(value) => setStripeOfferId(value ?? "")}>
+                    <SelectTrigger id="stripe-offer" className="w-full">
+                      <SelectValue>
+                        {offers.find((offer) => String(offer.id) === stripeOfferId)?.label ?? "Angebot auswählen"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {offers
+                        .filter((offer) => offer.status === "sent" || offer.status === "expired")
+                        .map((offer) => (
+                          <SelectItem key={offer.id} value={String(offer.id)}>
+                            {offer.label} · {formatEuro(offer.totalCents)}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="stripe-payment">Bezahlte Stripe-Zahlung</FieldLabel>
+                  {stripePaymentsLoading ? <FieldDescription>Stripe-Zahlungen werden geladen…</FieldDescription> : null}
+                  {stripePaymentsError ? <p className="text-sm text-destructive">{stripePaymentsError}</p> : null}
+                  {!stripePaymentsLoading && !stripePaymentsError && stripePayments.length === 0 ? (
+                    <FieldDescription>
+                      Keine bezahlte Checkout-Zahlung aus dem letzten Jahr gefunden. Prüfe, ob die Zahlung in Stripe
+                      wirklich den Status „Bezahlt“ hat.
+                    </FieldDescription>
+                  ) : null}
+                  {stripePayments.length > 0 ? (
+                    <Select value={stripeSessionId} onValueChange={(value) => setStripeSessionId(value ?? "")}>
+                      <SelectTrigger id="stripe-payment" className="w-full">
+                        <SelectValue>
+                          {stripePayments.find((payment) => payment.id === stripeSessionId)?.id ??
+                            "Stripe-Zahlung auswählen"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {stripePayments.map((payment) => (
+                            <SelectItem key={payment.id} value={payment.id}>
+                              {payment.id} · {formatEuro(payment.amountCents)}
+                              {payment.createdAt
+                                ? ` · ${new Date(payment.createdAt * 1_000).toLocaleString("de-DE")}`
+                                : ""}
+                              {payment.customerEmail ? ` · ${payment.customerEmail}` : ""}
+                              {payment.offerMatchesBooking ? " · Angebot passt" : " · manuell prüfen"}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  ) : null}
+                  <FieldDescription>
+                    Nur Zahlungen, die Stripe als bezahlt meldet, können ausgewählt werden. Betrag und Zahlung werden
+                    beim Speichern nochmals geprüft.
+                  </FieldDescription>
+                </Field>
+              </>
             )}
             {activeAction === "status" && (
               <>
@@ -1453,9 +1604,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   ? "Angebot versenden"
                   : activeAction === "revoke_offer"
                     ? "Angebot zurückziehen"
-                    : activeAction === "reject"
-                      ? "Ablehnung schicken"
-                      : "Aktion speichern"}
+                    : activeAction === "stripe_payment"
+                      ? "Zahlung zuordnen"
+                      : activeAction === "reject"
+                        ? "Ablehnung schicken"
+                        : "Aktion speichern"}
             </Button>
           </DialogFooter>
         </DialogContent>
