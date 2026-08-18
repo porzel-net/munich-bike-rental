@@ -246,6 +246,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const concreteAvailableAssets = availableAssets.filter(
     (asset) => selectedConcreteAssetIds.has(asset.id) || !hasAssetConflict(db, booking, asset.id),
   );
+  const requestedBikeOptions = [...new Set(availableAssets.map((asset) => asset.modelLabel))];
   const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
   const suggestedInvoiceNumber =
     booking.invoiceNumber ??
@@ -282,9 +283,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const displayOffer = acceptedOffer ?? latestOffer;
   const offered = displayOffer
     ? db
-        .select({ item: bookingOfferItems, asset: rentalAssets })
+        .select({ item: bookingOfferItems, asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
         .from(bookingOfferItems)
         .innerJoin(rentalAssets, eq(bookingOfferItems.assetId, rentalAssets.id))
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
         .where(eq(bookingOfferItems.offerId, displayOffer.id))
         .all()
     : [];
@@ -387,6 +390,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       customerMessage={booking.customerMessage}
                       communicationLocale={booking.communicationLocale}
                       requestedItems={items}
+                      requestedBikeOptions={requestedBikeOptions}
                       commercialEditingAllowed={commercialEditingAllowed}
                       priceEditingAllowed={importedPriceEditingAllowed}
                       quotedTotalCents={importedPriceEditingAllowed ? booking.quotedTotalCents : undefined}
@@ -553,7 +557,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       item.repairKitIncluded ? "Reparaturset inklusive" : null,
                     ].filter((value): value is string => Boolean(value));
                     const priceCents = match?.item.itemPriceCents ?? requestedDailyPriceCents;
-                    const concreteBikeDiffers = match && match.asset.displayName !== item.requestedLabel;
+                    const concreteBikeDiffers = Boolean(match);
 
                     return (
                       <div className="h-full rounded-xl border p-4" key={item.id}>
@@ -575,9 +579,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                             </p>
                           </div>
                         </div>
-                        {concreteBikeDiffers ? (
+                        {concreteBikeDiffers && match ? (
                           <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-                            <span className="text-muted-foreground">Konkretes Fahrrad:</span> {match.asset.displayName}
+                            <span className="text-muted-foreground">Konkretes Fahrrad:</span>{" "}
+                            {match.asset.nickname ? `${match.asset.nickname} · ` : ""}
+                            {match.modelTitle} · {match.size}
                           </p>
                         ) : null}
                         {!match && latestOffer ? (
@@ -676,6 +682,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                           communicationLocale: booking.communicationLocale,
                           requestedItems: items,
                           availableAssets: concreteAvailableAssets,
+                          requestedBikeOptions,
                           selectedAssetsByRequestedItem,
                           concreteBikeEditingAllowed: Boolean(acceptedOffer),
                         }

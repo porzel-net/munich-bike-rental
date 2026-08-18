@@ -245,6 +245,7 @@ export function BookingCommandActions({
     communicationLocale: "de" | "en";
     requestedItems: EditableItem[];
     availableAssets: Asset[];
+    requestedBikeOptions: string[];
     selectedAssetsByRequestedItem: Record<number, number>;
     concreteBikeEditingAllowed: boolean;
   };
@@ -858,6 +859,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             commercialEditingAllowed
             notifyCustomer
             availableAssets={confirmedBookingEdit.availableAssets}
+            requestedBikeOptions={confirmedBookingEdit.requestedBikeOptions}
             selectedAssetsByRequestedItem={confirmedBookingEdit.selectedAssetsByRequestedItem}
             concreteBikeEditingAllowed={confirmedBookingEdit.concreteBikeEditingAllowed}
             trigger={(open) => (

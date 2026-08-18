@@ -1603,24 +1603,30 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     const currentConcreteNamesByRequestedItem = new Map<number, string>();
     for (const offerItem of acceptedOfferItems) {
       const asset = db
-        .select({ displayName: rentalAssets.displayName })
+        .select({ modelTitle: bikeModels.title, size: bikeVariants.size })
         .from(rentalAssets)
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
         .where(eq(rentalAssets.id, offerItem.assetId))
         .get();
-      if (asset) currentConcreteNamesByRequestedItem.set(offerItem.requestedItemId, asset.displayName);
+      if (asset)
+        currentConcreteNamesByRequestedItem.set(offerItem.requestedItemId, `${asset.modelTitle} - ${asset.size}`);
     }
     if (concreteBikeChanged) {
       const currentConcreteSummary = currentItems
         .map((item) => currentConcreteNamesByRequestedItem.get(item.id) ?? item.requestedLabel)
         .join(", ");
       const nextConcreteSummary = normalizedRequestedItems
-        .map(
-          (item) =>
-            selectedConcreteAssets.find((selected) => selected.asset.id === input.assetsByRequestedItem![item.id])
-              ?.asset.displayName ?? item.requestedLabel,
+        .map((item) =>
+          (() => {
+            const selected = selectedConcreteAssets.find(
+              (candidate) => candidate.asset.id === input.assetsByRequestedItem![item.id],
+            );
+            return selected ? `${selected.modelTitle} - ${selected.size}` : item.requestedLabel;
+          })(),
         )
         .join(", ");
-      addMailChange("Konkrete Fahrräder", "Assigned bikes", currentConcreteSummary, nextConcreteSummary);
+      addMailChange("Konkrete Fahrräder", "Bikes", currentConcreteSummary, nextConcreteSummary);
     }
     const confirmedPeriodChanged =
       booking.status === "confirmed" &&
@@ -1862,13 +1868,15 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         periodTo: input.periodTo,
         pickupTime: input.pickupTime,
         dropoffTime: input.dropoffTime,
-        bikes: normalizedRequestedItems.map(
-          (item) =>
-            (input.assetsByRequestedItem
-              ? selectedConcreteAssets.find((selected) => selected.asset.id === input.assetsByRequestedItem![item.id])
-                  ?.asset.displayName
-              : undefined) ?? item.requestedLabel,
-        ),
+        bikes: normalizedRequestedItems.map((item) => {
+          if (!input.assetsByRequestedItem) return item.requestedLabel;
+          const selected = selectedConcreteAssets.find(
+            (candidate) => candidate.asset.id === input.assetsByRequestedItem![item.id],
+          );
+          return selected
+            ? `${selected.modelTitle} - ${selected.size}`
+            : (currentConcreteNamesByRequestedItem.get(item.id) ?? item.requestedLabel);
+        }),
         changes: mailChanges,
       });
       queuedMailId = queueCustomerMail(

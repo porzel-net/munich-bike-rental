@@ -18,6 +18,14 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  computerMountTypes,
+  getComputerMountTypeLabel,
+  getPedalTypeLabel,
+  normalizeComputerMountType,
+  normalizePedalType,
+  pedalTypes,
+} from "@/lib/inquiries/catalog";
 import { euroToCents } from "@/lib/bookings/money";
 
 export type EditableItem = {
@@ -70,6 +78,7 @@ type BookingEditDialogProps = BookingEditValues & {
   priceEditingAllowed?: boolean;
   notifyCustomer?: boolean;
   availableAssets?: BookingEditAsset[];
+  requestedBikeOptions?: string[];
   selectedAssetsByRequestedItem?: Record<number, number>;
   concreteBikeEditingAllowed?: boolean;
   trigger?: (open: () => void) => ReactNode;
@@ -81,6 +90,7 @@ export function BookingEditDialog({
   priceEditingAllowed = false,
   notifyCustomer = false,
   availableAssets = [],
+  requestedBikeOptions = [],
   selectedAssetsByRequestedItem = {},
   concreteBikeEditingAllowed = false,
   trigger,
@@ -96,6 +106,7 @@ export function BookingEditDialog({
       : (initialValues.quotedTotalCents / 100).toFixed(2).replace(".", ","),
   );
   const [selectedAssets, setSelectedAssets] = useState<Record<number, number>>(selectedAssetsByRequestedItem);
+  const bikeOptions = [...new Set([...requestedBikeOptions, ...availableAssets.map((asset) => asset.modelLabel)])];
 
   const update = (patch: Partial<BookingEditValues>) => setValues((current) => ({ ...current, ...patch }));
   const updateItem = (id: number, patch: Partial<EditableItem>) =>
@@ -298,12 +309,21 @@ export function BookingEditDialog({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor={`edit-item-label-${item.id}`}>Modell / Größe</FieldLabel>
-                    <Input
-                      id={`edit-item-label-${item.id}`}
+                    <Select
                       value={item.requestedLabel}
-                      onChange={(event) => updateItem(item.id, { requestedLabel: event.target.value })}
-                      required
-                    />
+                      onValueChange={(value) => updateItem(item.id, { requestedLabel: value ?? item.requestedLabel })}
+                    >
+                      <SelectTrigger id={`edit-item-label-${item.id}`} className="w-full">
+                        <SelectValue>{item.requestedLabel}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[...new Set([item.requestedLabel, ...bikeOptions])].map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor={`edit-item-height-${item.id}`}>Körpergröße in cm</FieldLabel>
@@ -350,22 +370,46 @@ export function BookingEditDialog({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
-                    <FieldLabel htmlFor={`edit-item-pedals-${item.id}`}>Pedaltyp (optional)</FieldLabel>
-                    <Input
-                      id={`edit-item-pedals-${item.id}`}
-                      value={item.pedalType ?? ""}
-                      onChange={(event) => updateItem(item.id, { pedalType: event.target.value })}
+                    <FieldLabel htmlFor={`edit-item-pedals-${item.id}`}>Pedaltyp</FieldLabel>
+                    <Select
+                      value={normalizePedalType(item.pedalType) ?? undefined}
+                      onValueChange={(value) => updateItem(item.id, { pedalType: value ?? null })}
                       disabled={!item.needsPedals}
-                    />
+                    >
+                      <SelectTrigger id={`edit-item-pedals-${item.id}`} className="w-full">
+                        <SelectValue placeholder="Pedaltyp auswählen">
+                          {item.pedalType ? getPedalTypeLabel(item.pedalType, "de") : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pedalTypes.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {getPedalTypeLabel(value, "de")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor={`edit-item-mount-${item.id}`}>Halterungstyp (optional)</FieldLabel>
-                    <Input
-                      id={`edit-item-mount-${item.id}`}
-                      value={item.computerMountType ?? ""}
-                      onChange={(event) => updateItem(item.id, { computerMountType: event.target.value })}
+                    <FieldLabel htmlFor={`edit-item-mount-${item.id}`}>Halterungstyp</FieldLabel>
+                    <Select
+                      value={normalizeComputerMountType(item.computerMountType) ?? undefined}
+                      onValueChange={(value) => updateItem(item.id, { computerMountType: value ?? null })}
                       disabled={!item.needsComputerMount}
-                    />
+                    >
+                      <SelectTrigger id={`edit-item-mount-${item.id}`} className="w-full">
+                        <SelectValue placeholder="Halterungstyp auswählen">
+                          {item.computerMountType ? getComputerMountTypeLabel(item.computerMountType, "de") : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {computerMountTypes.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {getComputerMountTypeLabel(value, "de")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                 </div>
               </div>

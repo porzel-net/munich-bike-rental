@@ -597,12 +597,14 @@ describe("booking commands", () => {
 
   it("queues a localized offer and atomically reserves the chosen asset only on confirmation", () => {
     const { db, assetId } = setup();
+    db.update(rentalAssets).set({ nickname: "Interner Spitzname" }).where(eq(rentalAssets.id, assetId)).run();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");
     assignAdminBooking(db, booking.id);
     const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
     const outbox = db.select().from(mailOutbox).get()!;
     expect(outbox.locale).toBe("en");
     expect(outbox.plainText).toContain("remains reserved for you for 36 hours");
+    expect(outbox.plainText).not.toContain("Interner Spitzname");
     expect(outbox.html).toContain("Your Bike Rental");
     expect(outbox.html).toContain("Open offer");
     expect(confirmOffer(db, offer.confirmationToken)).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
@@ -638,6 +640,8 @@ describe("booking commands", () => {
     const confirmationMail = bookingMails.find((mail) => mail.kind === "booking_confirmed");
     expect(confirmationMail?.plainText).toContain("+49 170 1234567");
     expect(confirmationMail?.html).toContain("+49 170 1234567");
+    expect(confirmationMail?.plainText).not.toContain("Interner Spitzname");
+    expect(confirmationMail?.html).not.toContain("Interner Spitzname");
     expect(
       db
         .select({ kind: journalEntries.kind })
@@ -1284,14 +1288,25 @@ describe("booking commands", () => {
   });
 
   it("changes the concrete bike of a confirmed booking and updates its allocation and offer snapshot", () => {
-    const { db, assetId, variantId } = setup();
+    const { db, assetId } = setup();
+    const replacementModel = db
+      .insert(bikeModels)
+      .values({ location: "munich", modelKey: "replacement", title: "Replacement Bike", createdAt: new Date() })
+      .returning({ id: bikeModels.id })
+      .get();
+    const replacementVariant = db
+      .insert(bikeVariants)
+      .values({ modelId: replacementModel.id, size: "M", createdAt: new Date() })
+      .returning({ id: bikeVariants.id })
+      .get();
     const replacement = db
       .insert(rentalAssets)
       .values({
-        variantId,
+        variantId: replacementVariant.id,
         location: "munich",
         assetCode: "TEST-2",
         displayName: "Test Bike - M 2",
+        nickname: "Bike 2",
         dailyPriceCents: 5_500,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -1340,7 +1355,8 @@ describe("booking commands", () => {
       discountCents: 1_000,
     });
     const mail = db.select().from(mailOutbox).where(eq(mailOutbox.id, result.mailId!)).get();
-    expect(mail?.plainText).toContain("Assigned bikes: NEW Test Bike - M 2");
+    expect(mail?.plainText).toContain("Bikes: NEW Replacement Bike - M");
+    expect(mail?.plainText).not.toContain("Bike 2");
   });
 
   it("rejects a concrete bike change when the replacement is already booked", () => {
