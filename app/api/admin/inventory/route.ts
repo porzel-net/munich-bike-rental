@@ -16,6 +16,7 @@ import { rentalLocations } from "../../../../lib/inquiries/catalog";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { formatBikeDisplayName } from "@/lib/inventory/display-name";
 import { createBikeKey, getBikeKeyForUpdate } from "@/lib/inventory/bike-key";
+import { syncLegacyEquipmentToAccessoryInventory } from "@/lib/inventory/accessory-sync";
 
 export const runtime = "nodejs";
 
@@ -158,6 +159,12 @@ export async function POST(request: Request) {
         })
         .returning({ id: rentalLocationEquipment.id })
         .get();
+      const createdEquipment = db
+        .select()
+        .from(rentalLocationEquipment)
+        .where(eq(rentalLocationEquipment.id, inserted.id))
+        .get();
+      if (createdEquipment) syncLegacyEquipmentToAccessoryInventory(db, createdEquipment);
       return NextResponse.json({ item: { ...input.data, id: inserted.id, equipmentKey: key } }, { status: 201 });
     });
   } catch (error) {
@@ -270,6 +277,12 @@ export async function PATCH(request: Request) {
       })
       .where(eq(rentalLocationEquipment.id, input.data.id))
       .run();
+    const updatedEquipment = db
+      .select()
+      .from(rentalLocationEquipment)
+      .where(eq(rentalLocationEquipment.id, input.data.id))
+      .get();
+    if (updatedEquipment) syncLegacyEquipmentToAccessoryInventory(db, updatedEquipment);
     return NextResponse.json({ item: input.data });
   } catch (error) {
     if (error instanceof Error && error.message.includes("UNIQUE")) return duplicateResponse();
@@ -303,20 +316,18 @@ export async function DELETE(request: Request) {
     });
     if (!result) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
   } else {
-    const result = runInImmediateTransaction(
-      db,
-      () =>
-        db
-          .update(rentalLocationEquipment)
-          .set({ isAvailable: false })
-          .where(
-            and(
-              eq(rentalLocationEquipment.id, input.data.id),
-              eq(rentalLocationEquipment.location, input.data.location),
-            ),
-          )
-          .run().changes,
-    );
+    const result = runInImmediateTransaction(db, () => {
+      const updatedEquipment = db
+        .update(rentalLocationEquipment)
+        .set({ isAvailable: false })
+        .where(
+          and(eq(rentalLocationEquipment.id, input.data.id), eq(rentalLocationEquipment.location, input.data.location)),
+        )
+        .returning()
+        .get();
+      if (updatedEquipment) syncLegacyEquipmentToAccessoryInventory(db, updatedEquipment);
+      return updatedEquipment ? 1 : 0;
+    });
     if (!result) return NextResponse.json({ message: "Ausrüstung nicht gefunden." }, { status: 404 });
   }
   return NextResponse.json({ ok: true });

@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import { eq } from "drizzle-orm";
-import { rentalLocationBikes } from "../../lib/db/schema";
+import { accessoryInventory, rentalLocationBikes, rentalLocationEquipment } from "../../lib/db/schema";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 import { calculateInquiryPrice, calculateRentalPrice } from "../../lib/inventory/pricing";
 import { getLocationInventory, isRequestAvailable } from "../../lib/inventory/repository";
+import { syncLegacyEquipmentToAccessoryInventory } from "../../lib/inventory/accessory-sync";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -132,6 +133,38 @@ describe("location inventory", () => {
         ],
       }),
     ).toMatchObject({ equipmentSubtotalCents: 1_000 });
+  });
+
+  it("repairs stale and missing counted accessory rows from the legacy equipment catalog", () => {
+    const db = createTestDatabase();
+    const equipment = db
+      .select()
+      .from(rentalLocationEquipment)
+      .where(eq(rentalLocationEquipment.equipmentKey, "pedal-platform"))
+      .get()!;
+    const counted = db
+      .select()
+      .from(accessoryInventory)
+      .where(eq(accessoryInventory.legacyEquipmentId, equipment.id))
+      .get()!;
+
+    db.update(accessoryInventory)
+      .set({ accessoryKey: "pedal-flat", availableQuantity: 0, state: "maintenance" })
+      .where(eq(accessoryInventory.id, counted.id))
+      .run();
+    syncLegacyEquipmentToAccessoryInventory(db, { ...equipment, isAvailable: true });
+
+    expect(db.select().from(accessoryInventory).where(eq(accessoryInventory.id, counted.id)).get()).toMatchObject({
+      accessoryKey: "pedal-platform",
+      availableQuantity: 1,
+      state: "active",
+    });
+
+    db.delete(accessoryInventory).where(eq(accessoryInventory.id, counted.id)).run();
+    syncLegacyEquipmentToAccessoryInventory(db, equipment);
+    expect(
+      db.select().from(accessoryInventory).where(eq(accessoryInventory.legacyEquipmentId, equipment.id)).get(),
+    ).toMatchObject({ accessoryKey: "pedal-platform", availableQuantity: 1, state: "active" });
   });
 
   it("uses the configured location discounts for future rental calculations", () => {

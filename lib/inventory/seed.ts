@@ -9,6 +9,7 @@ import {
   rentalLocationDiscounts,
   rentalLocationEquipment,
 } from "../db/schema";
+import { syncAllLegacyEquipmentToAccessoryInventory } from "./accessory-sync";
 
 const locationPrices = { munich: 5900, regensburg: 4900, lindau: 5900, friedrichshafen: 5900, konstanz: 5900 } as const;
 const equipment = [
@@ -211,5 +212,6 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
       }
     }
   });
+  syncAllLegacyEquipmentToAccessoryInventory(db);
   normalizeExistingBikeSizes(db);
 }

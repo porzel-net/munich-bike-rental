@@ -484,6 +484,13 @@
       "when": 1787000000000,
       "tag": "0069_public_inquiry_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1787054400000,
+      "tag": "0070_repair_legacy_equipment",
+      "breakpoints": true
     }
   ]
 }
