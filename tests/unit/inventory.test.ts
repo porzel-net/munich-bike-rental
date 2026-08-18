@@ -135,6 +135,23 @@ describe("location inventory", () => {
     ).toMatchObject({ equipmentSubtotalCents: 1_000 });
   });
 
+  it("normalizes the persisted pedal-platform alias", () => {
+    const db = createTestDatabase();
+    const inventory = getLocationInventory(db, "munich");
+    const bike = {
+      bikeSize: "Endurace CF SL 8",
+      needsPedals: true,
+      pedalType: "pedal-platform",
+      needsComputerMount: false,
+      computerMountType: "",
+      needsHelmet: false,
+      needsClothing: false,
+    };
+
+    expect(isRequestAvailable(db, "munich", [bike])).toBe(true);
+    expect(inventory.pedalTypes.map((item) => item.value)).toContain("platform");
+  });
+
   it("repairs stale and missing counted accessory rows from the legacy equipment catalog", () => {
     const db = createTestDatabase();
     const equipment = db

@@ -91,6 +91,8 @@ export const computerMountTypeLabels = {
 const pedalTypeAliases: Record<string, keyof typeof pedalTypeLabels.de> = {
   platform: "platform",
   flat: "platform",
+  "pedal-platform": "platform",
+  "platform-pedals": "platform",
   spd: "spdSl",
   spdsl: "spdSl",
   "spd-sl": "spdSl",

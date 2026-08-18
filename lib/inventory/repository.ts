@@ -5,6 +5,7 @@ import {
   rentalLocationBikeSizes,
   rentalLocationBikes,
   rentalLocationDiscounts,
+  accessoryInventory,
   rentalLocationEquipment,
 } from "../db/schema";
 import type { Locale, PortfolioItem } from "../home-content";
@@ -135,12 +136,14 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
         .all()
     : [];
   const equipment = db
-    .select()
-    .from(rentalLocationEquipment)
-    .where(eq(rentalLocationEquipment.location, location))
-    .orderBy(asc(rentalLocationEquipment.displayOrder))
+    .select({ item: accessoryInventory })
+    .from(accessoryInventory)
+    .leftJoin(rentalLocationEquipment, eq(accessoryInventory.legacyEquipmentId, rentalLocationEquipment.id))
+    .where(eq(accessoryInventory.location, location))
+    .orderBy(asc(rentalLocationEquipment.displayOrder), asc(accessoryInventory.accessoryKey))
     .all()
-    .filter((item) => item.isAvailable && item.availableQuantity > 0);
+    .map(({ item }) => item)
+    .filter((item) => item.state === "active" && item.availableQuantity > 0);
   const discounts = db
     .select()
     .from(rentalLocationDiscounts)
@@ -165,7 +168,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     equipment
       .filter((item) => item.category === category)
       .map((item) => ({
-        value: item.equipmentKey.slice(prefix.length),
+        value: item.accessoryKey.slice(prefix.length),
         label: { de: item.labelDe, en: item.labelEn },
         priceCents: item.priceCents,
       }));
@@ -207,15 +210,15 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     requestBikeOptions,
     bikeOptions,
     bikePrices,
-    equipmentPrices: equipment.map((item) => ({ key: item.equipmentKey, priceCents: item.priceCents })),
+    equipmentPrices: equipment.map((item) => ({ key: item.accessoryKey, priceCents: item.priceCents })),
     pedalTypes: optionList("pedal", "pedal-"),
     computerMountTypes: optionList("computer-mount", "mount-"),
-    helmetAvailable: equipment.some((item) => item.equipmentKey === "helmet"),
-    clothingAvailable: equipment.some((item) => item.equipmentKey === "clothing"),
-    bikepackingBagAvailable: equipment.some((item) => item.equipmentKey === "bikepacking-bag"),
-    glassesAvailable: equipment.some((item) => item.equipmentKey === "glasses"),
-    bottleHolderIncluded: equipment.some((item) => item.equipmentKey === "bottle-holder"),
-    repairKitIncluded: equipment.some((item) => item.equipmentKey === "repair-kit"),
+    helmetAvailable: equipment.some((item) => item.accessoryKey === "helmet"),
+    clothingAvailable: equipment.some((item) => item.accessoryKey === "clothing"),
+    bikepackingBagAvailable: equipment.some((item) => item.accessoryKey === "bikepacking-bag"),
+    glassesAvailable: equipment.some((item) => item.accessoryKey === "glasses"),
+    bottleHolderIncluded: equipment.some((item) => item.accessoryKey === "bottle-holder"),
+    repairKitIncluded: equipment.some((item) => item.accessoryKey === "repair-kit"),
     accessoryFromCents: equipment.filter((item) => item.priceCents > 0).length
       ? Math.min(...equipment.filter((item) => item.priceCents > 0).map((item) => item.priceCents))
       : 0,

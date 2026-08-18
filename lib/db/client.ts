@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 
 import * as schema from "./schema";
+import { syncAllLegacyEquipmentToAccessoryInventory } from "../inventory/accessory-sync";
 
 const SQLITE_BUSY_TIMEOUT_MS = 5_000;
 
@@ -200,6 +201,11 @@ export function createDatabaseConnection(databasePath: string, migrationsFolder 
   } finally {
     client.pragma("foreign_keys = ON");
   }
+
+  // Keep partially migrated installations usable even when the startup seed
+  // is not run. Booking code reads accessory_inventory, while old admin and
+  // import paths may still write rental_location_equipment.
+  syncAllLegacyEquipmentToAccessoryInventory(db);
 
   if (databasePath !== ":memory:" && existsSync(databasePath)) {
     chmodSync(databasePath, 0o600);
