@@ -60,6 +60,10 @@ export type BookingEditAsset = {
   priceCents: number;
 };
 
+function bookingEditAssetLabel(asset: BookingEditAsset) {
+  return `${asset.nickname ? `${asset.nickname} · ` : ""}${asset.label}`;
+}
+
 type BookingEditDialogProps = BookingEditValues & {
   bookingId: number;
   commercialEditingAllowed: boolean;
@@ -375,36 +379,41 @@ export function BookingEditDialog({
                 Wähle ein verfügbares Fahrrad am Standort der Buchung. Das vereinbarte Mietentgelt bleibt dabei
                 unverändert.
               </FieldDescription>
-              {values.requestedItems.map((item) => (
-                <Field key={item.id}>
-                  <FieldLabel htmlFor={`edit-concrete-asset-${item.id}`}>Fahrrad {item.position}</FieldLabel>
-                  <Select
-                    value={selectedAssets[item.id] ? String(selectedAssets[item.id]) : undefined}
-                    onValueChange={(value) =>
-                      setSelectedAssets((current) => ({ ...current, [item.id]: Number(value) }))
-                    }
-                  >
-                    <SelectTrigger id={`edit-concrete-asset-${item.id}`} className="w-full">
-                      <SelectValue placeholder="Fahrrad auswählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableAssets.map((asset) => {
-                        const selectedForOtherItem = Object.entries(selectedAssets).some(
-                          ([requestedItemId, assetId]) =>
-                            Number(requestedItemId) !== item.id && Number(assetId) === asset.id,
-                        );
-                        return (
-                          <SelectItem key={asset.id} value={String(asset.id)} disabled={selectedForOtherItem}>
-                            {asset.nickname ? `${asset.nickname} · ` : ""}
-                            {asset.modelLabel} · {asset.label} · {(asset.priceCents / 100).toFixed(2).replace(".", ",")}{" "}
-                            €/Tag
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              ))}
+              {values.requestedItems.map((item) => {
+                const selectedAsset = availableAssets.find((asset) => asset.id === selectedAssets[item.id]);
+                return (
+                  <Field key={item.id}>
+                    <FieldLabel htmlFor={`edit-concrete-asset-${item.id}`}>Fahrrad {item.position}</FieldLabel>
+                    <Select
+                      value={selectedAssets[item.id] ? String(selectedAssets[item.id]) : undefined}
+                      onValueChange={(value) =>
+                        setSelectedAssets((current) => ({ ...current, [item.id]: Number(value) }))
+                      }
+                    >
+                      <SelectTrigger id={`edit-concrete-asset-${item.id}`} className="w-full">
+                        <SelectValue placeholder="Fahrrad auswählen">
+                          {selectedAsset ? bookingEditAssetLabel(selectedAsset) : undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableAssets.map((asset) => {
+                          const selectedForOtherItem = Object.entries(selectedAssets).some(
+                            ([requestedItemId, assetId]) =>
+                              Number(requestedItemId) !== item.id && Number(assetId) === asset.id,
+                          );
+                          return (
+                            <SelectItem key={asset.id} value={String(asset.id)} disabled={selectedForOtherItem}>
+                              {asset.nickname ? `${asset.nickname} · ` : ""}
+                              {asset.modelLabel} · {asset.label} ·{" "}
+                              {(asset.priceCents / 100).toFixed(2).replace(".", ",")} €/Tag
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                );
+              })}
               {!availableAssets.length ? (
                 <p className="text-sm text-destructive">
                   Für diesen Zeitraum sind am Standort keine Fahrräder verfügbar.
