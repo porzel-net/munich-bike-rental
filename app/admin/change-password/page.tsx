@@ -25,6 +25,10 @@ export default function ChangePasswordPage() {
       setError("Die neuen Passwörter stimmen nicht überein.");
       return;
     }
+    if (newPassword.length < 14) {
+      setError("Das neue Passwort muss mindestens 14 Zeichen enthalten.");
+      return;
+    }
 
     setIsSubmitting(true);
     const { error: changeError } = await authClient.changePassword({
@@ -35,7 +39,9 @@ export default function ChangePasswordPage() {
     setIsSubmitting(false);
 
     if (changeError) {
-      setError("Das Passwort konnte nicht geändert werden. Prüfe dein aktuelles Passwort und die Anforderungen.");
+      setError(
+        "Das Passwort konnte nicht geändert werden. Prüfe, ob dein aktuelles Passwort stimmt und das neue Passwort mindestens 14 Zeichen lang ist.",
+      );
       return;
     }
 

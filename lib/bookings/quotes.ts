@@ -112,7 +112,8 @@ export function buildOfferQuote(
   periodOverride?: { periodFrom: string; periodTo: string },
 ): OfferQuote {
   const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
-  if (!booking) throw new BookingCommandError("Booking not found");
+  if (!booking)
+    throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
   const requested = db
     .select()
     .from(bookingRequestedItems)
@@ -124,7 +125,9 @@ export function buildOfferQuote(
     requested.some((item) => !selectedIds.includes(item.id)) ||
     new Set(Object.values(assetsByRequestedItem)).size !== selectedIds.length
   ) {
-    throw new BookingCommandError("An offer must select one distinct concrete asset for every requested bike");
+    throw new BookingCommandError(
+      "Für jedes angefragte Fahrrad musst du genau ein eigenes verfügbares Fahrrad auswählen.",
+    );
   }
   const offeredItems = requested.map((item) => {
     const assetId = assetsByRequestedItem[item.id];
@@ -143,7 +146,9 @@ export function buildOfferQuote(
         size: asset.size,
       })
     )
-      throw new BookingCommandError("The selected asset is not active at this location");
+      throw new BookingCommandError(
+        "Mindestens eines der ausgewählten Fahrräder ist an diesem Standort nicht aktiv. Wähle ein anderes Fahrrad.",
+      );
     return {
       requestedItemId: item.id,
       requestedLabel: item.requestedLabel,

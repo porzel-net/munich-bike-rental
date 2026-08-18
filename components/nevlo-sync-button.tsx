@@ -19,11 +19,19 @@ export function NevloSyncButton() {
         body: "{}",
       });
       const result = (await response.json()) as { message?: string; inserted?: number; skipped?: number };
-      if (!response.ok) throw new Error(result.message || "Nevlo-Synchronisation fehlgeschlagen.");
+      if (!response.ok)
+        throw new Error(
+          result.message ||
+            "Die Nevlo-Synchronisation konnte nicht abgeschlossen werden. Prüfe Zeitraum, Kontoauswahl und Nevlo-Verbindung.",
+        );
       setMessage(`${result.inserted ?? 0} neue Transaktionen importiert, ${result.skipped ?? 0} bereits vorhanden.`);
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Nevlo-Synchronisation fehlgeschlagen.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Die Nevlo-Synchronisation konnte nicht abgeschlossen werden. Prüfe Zeitraum, Kontoauswahl und Nevlo-Verbindung.",
+      );
     } finally {
       setBusy(false);
     }

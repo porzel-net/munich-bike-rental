@@ -11,7 +11,7 @@ import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/comp
 import { authClient } from "@/lib/auth-client";
 
 function failureMessage() {
-  return "Der Code konnte nicht bestätigt werden. Bitte erneut versuchen.";
+  return "Der sechsstellige Code ist ungültig oder abgelaufen. Öffne deine Authenticator-App erneut und gib den aktuellsten Code ein.";
 }
 
 export default function TwoFactorPage() {
@@ -47,6 +47,10 @@ export default function TwoFactorPage() {
 
   async function beginEnrollment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!password) {
+      setError("Bitte gib dein aktuelles Passwort ein, bevor du die Authenticator-App einrichtest.");
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     const { data, error: enableError } = await authClient.twoFactor.enable({ password });
@@ -64,6 +68,10 @@ export default function TwoFactorPage() {
 
   async function verifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!/^\d{6}$/.test(code)) {
+      setError("Bitte gib den vollständigen sechsstelligen Code aus deiner Authenticator-App ein.");
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     const { error: verificationError } = await authClient.twoFactor.verifyTotp({ code, trustDevice: false });

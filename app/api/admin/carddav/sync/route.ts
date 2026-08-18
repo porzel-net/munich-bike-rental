@@ -12,9 +12,17 @@ import { recordAdminAuditEvent } from "@/lib/auth/audit";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
+  if (!hasTrustedOrigin(request))
+    return NextResponse.json(
+      { message: "Die Anfrage stammt nicht von der Admin-Seite. Bitte lade die Seite neu und versuche es erneut." },
+      { status: 403 },
+    );
   const session = await getServerSession();
-  if (!session || !canUseAdminApi(session.user)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session || !canUseAdminApi(session.user))
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für diese Aktion." },
+      { status: 401 },
+    );
 
   const db = getDatabase();
   const account = db

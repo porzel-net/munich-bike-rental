@@ -82,7 +82,11 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
     });
     setIsSaving(false);
     if (!response.ok) {
-      setMessage("Die Änderungen konnten nicht gespeichert werden.");
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      setMessage(
+        result.message ??
+          "Die Rolle oder Standortzuordnung konnte nicht gespeichert werden. Prüfe die Auswahl und versuche es erneut.",
+      );
       return;
     }
     setUsers((currentUsers) =>
@@ -103,7 +107,11 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
       body: JSON.stringify({ userId: user.id }),
     });
     if (!response.ok) {
-      setMessage("Der Nutzer konnte nicht gelöscht werden.");
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      setMessage(
+        result.message ??
+          "Der Nutzer konnte nicht gelöscht werden. Prüfe, ob du den letzten Administrator ausgewählt hast.",
+      );
       return;
     }
     setUsers((currentUsers) => currentUsers.filter((currentUser) => currentUser.id !== user.id));
@@ -124,7 +132,8 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
     });
     setIsInviting(false);
     if (!response.ok) {
-      setMessage("Der Einladungslink konnte nicht erzeugt werden.");
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      setMessage(result.message ?? "Der Einladungslink konnte nicht erzeugt werden. Prüfe Name, Rolle und Standort.");
       return;
     }
     const result = (await response.json()) as { invitation?: { link: string } };

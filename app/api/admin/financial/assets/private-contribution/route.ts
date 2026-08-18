@@ -22,16 +22,27 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   const session = await getServerSession();
-  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
   if (
     !hasTrustedOrigin(request) ||
     !session.user.twoFactorEnabled ||
     !canAccessAdmin(session.user) ||
     !isAdmin(session.user)
   )
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Du hast keine Berechtigung, eine Privateinlage zu erfassen." },
+      { status: 401 },
+    );
   const input = schema.safeParse(await readBoundedJson(request));
-  if (!input.success) return NextResponse.json({ message: "Ungültige Privateinlage" }, { status: 400 });
+  if (!input.success)
+    return NextResponse.json(
+      { message: "Die Privateinlage ist unvollständig. Prüfe Betrag, Datum, Nutzungsdauer und Anlageart." },
+      { status: 400 },
+    );
   try {
     return NextResponse.json({
       ok: true,
@@ -41,7 +52,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message:
-          error instanceof BookingCommandError ? error.message : "Privateinlage konnte nicht gespeichert werden.",
+          error instanceof BookingCommandError
+            ? error.message
+            : "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anlageart, Betrag, Anschaffungsdatum und Nutzungsdauer.",
       },
       { status: 409 },
     );

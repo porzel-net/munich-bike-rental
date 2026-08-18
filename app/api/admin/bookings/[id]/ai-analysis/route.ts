@@ -12,7 +12,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const id = Number((await context.params).id);
   const command = await getBookingAdminContext(request, id, { requireAssignee: true });
   if (!command) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für die KI-Prüfung." },
+      { status: 401 },
+    );
   }
   const { db, booking } = command;
 
@@ -46,6 +49,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       bookingId: booking.id,
       error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
     });
-    return NextResponse.json({ message: "KI-Analyse konnte nicht gestartet werden." }, { status: 500 });
+    return NextResponse.json(
+      {
+        message:
+          "Die KI-Analyse konnte nicht gestartet werden. Prüfe Mailverlauf, OpenAI-Konfiguration und Serverprotokoll.",
+      },
+      { status: 500 },
+    );
   }
 }

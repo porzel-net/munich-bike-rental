@@ -71,7 +71,9 @@ export function BookingConfirmationDialog({ token }: BookingConfirmationDialogPr
         } | null;
         if (!response.ok || !result?.booking) {
           if (active) setErrorCode(result?.code ?? null);
-          throw new Error(result?.message ?? "Die Buchung konnte nicht bestätigt werden.");
+          throw new Error(
+            result?.message ?? "Die Buchung konnte nicht bestätigt werden. Prüfe Zahlungsstatus und Angebotslink.",
+          );
         }
         if (active) {
           setBooking(result.booking);
@@ -79,7 +81,12 @@ export function BookingConfirmationDialog({ token }: BookingConfirmationDialogPr
         }
       })
       .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : "Die Buchung konnte nicht bestätigt werden.");
+        if (active)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Die Buchung konnte nicht bestätigt werden. Prüfe Zahlungsstatus und Angebotslink.",
+          );
       });
 
     return () => {

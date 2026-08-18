@@ -43,7 +43,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const id = Number((await context.params).id);
   const input = schema.safeParse(await readBoundedJson(request));
   const command = await getBookingAdminContext(request, id, { requireAssignee: true });
-  if (!command || !input.success) return NextResponse.json({ message: "Invalid preview" }, { status: 400 });
+  if (!command || !input.success)
+    return NextResponse.json(
+      { message: "Die Angebotsvorschau ist unvollständig. Prüfe Zeitraum, Übergabezeiten und Fahrradauswahl." },
+      { status: 400 },
+    );
   try {
     return NextResponse.json(
       previewOffer(command.db, {
@@ -70,7 +74,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     );
   } catch (error) {
     return NextResponse.json(
-      { message: error instanceof BookingCommandError ? error.message : "Preview failed" },
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Die Angebotsvorschau konnte nicht erstellt werden. Prüfe Zeitraum, Übergabezeiten und Fahrradauswahl.",
+      },
       { status: 409 },
     );
   }

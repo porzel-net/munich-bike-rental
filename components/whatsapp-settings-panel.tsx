@@ -29,7 +29,8 @@ export function WhatsAppSettingsPanel() {
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/admin/settings/whatsapp", { cache: "no-store" });
-    if (!response.ok) throw new Error("WhatsApp-Status konnte nicht geladen werden.");
+    if (!response.ok)
+      throw new Error("Der WhatsApp-Status konnte nicht geladen werden. Prüfe die Verbindung und lade die Seite neu.");
     setSnapshot((await response.json()) as Snapshot);
   }, []);
 
@@ -53,7 +54,10 @@ export function WhatsAppSettingsPanel() {
     async function loadAndConnect() {
       try {
         const response = await fetch("/api/admin/settings/whatsapp", { cache: "no-store" });
-        if (!response.ok) throw new Error("WhatsApp-Status konnte nicht geladen werden.");
+        if (!response.ok)
+          throw new Error(
+            "Der WhatsApp-Status konnte nicht geladen werden. Prüfe die Verbindung und lade die Seite neu.",
+          );
         const initialSnapshot = (await response.json()) as Snapshot;
         if (cancelled) return;
         setSnapshot(initialSnapshot);
@@ -63,7 +67,11 @@ export function WhatsAppSettingsPanel() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : "Status konnte nicht geladen werden.");
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Der WhatsApp-Status konnte nicht geladen werden. Prüfe die Verbindung und lade die Seite neu.",
+          );
         }
       }
     }

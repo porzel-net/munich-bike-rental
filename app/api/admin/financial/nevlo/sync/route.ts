@@ -25,7 +25,13 @@ const schema = z
 export async function POST(request: Request) {
   const session = await getServerSession();
   if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      {
+        message:
+          "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für die Nevlo-Synchronisation.",
+      },
+      { status: 401 },
+    );
 
   const input = schema.safeParse((await readBoundedJson(request)) ?? {});
   if (!input.success)
@@ -41,6 +47,12 @@ export async function POST(request: Request) {
     console.error("Nevlo synchronization failed", {
       error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
     });
-    return NextResponse.json({ message: "Nevlo-Synchronisation fehlgeschlagen." }, { status });
+    return NextResponse.json(
+      {
+        message:
+          "Die Nevlo-Synchronisation konnte nicht abgeschlossen werden. Prüfe Nevlo-Zugang, Kontoauswahl und Zeitraum.",
+      },
+      { status },
+    );
   }
 }

@@ -153,7 +153,7 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
       inReplyTo: inReplyTo ?? undefined,
       references: referencesHeader ?? undefined,
     });
-    if (!sent) throw new Error("Mail account is not configured");
+    if (!sent) throw new Error("Für den Versand ist kein Mailkonto eingerichtet. Prüfe die SMTP-Konfiguration.");
     let outboundMessageId: number | null = null;
     runInImmediateTransaction(db, () => {
       const sentAt = new Date();

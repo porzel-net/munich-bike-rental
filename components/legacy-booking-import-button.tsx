@@ -23,13 +23,21 @@ export function LegacyBookingImportButton() {
     try {
       const response = await fetch("/api/admin/bookings/legacy-import", { method: "POST" });
       const result = (await response.json().catch(() => null)) as ImportResult | null;
-      if (!response.ok) throw new Error(result?.message ?? "E-Mail-Import fehlgeschlagen.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der E-Mail-Import konnte nicht abgeschlossen werden. Prüfe Mailkonto, Importzeitraum und Berechtigung.",
+        );
       toast.success(
         `${result?.created ?? 0} Buchungen importiert · ${result?.skippedExisting ?? 0} bereits vorhanden · ${result?.deduplicated ?? 0} Duplikate übersprungen.`,
       );
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "E-Mail-Import fehlgeschlagen.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Der E-Mail-Import konnte nicht abgeschlossen werden. Prüfe Mailkonto, Importzeitraum und Berechtigung.",
+      );
     } finally {
       setBusy(false);
     }

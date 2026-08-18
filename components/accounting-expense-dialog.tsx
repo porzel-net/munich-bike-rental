@@ -112,7 +112,10 @@ export function AccountingExpenseDialog({
     } | null;
 
     if (!response.ok || !result?.expense) {
-      setError(result?.message || "Der Aufwand konnte nicht gespeichert werden.");
+      setError(
+        result?.message ||
+          "Der Aufwand konnte nicht gespeichert werden. Prüfe Betrag, Datum, Kategorie und Beschreibung.",
+      );
       setSaving(false);
       return;
     }

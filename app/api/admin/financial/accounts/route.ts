@@ -35,16 +35,34 @@ const createSchema = z.object({
 export async function POST(request: Request) {
   const session = await getServerSession();
   if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      {
+        message:
+          "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung, Finanzkonten zu verwalten.",
+      },
+      { status: 401 },
+    );
   const input = createSchema.safeParse(await readBoundedJson(request));
   if (!input.success)
-    return NextResponse.json({ message: input.error.issues[0]?.message ?? "Ungültige Kontodaten" }, { status: 400 });
+    return NextResponse.json(
+      {
+        message:
+          input.error.issues[0]?.message ??
+          "Die Kontodaten sind unvollständig. Prüfe Kontokennung, Kontoname, Währung und Kontotyp.",
+      },
+      { status: 400 },
+    );
   try {
     const account = createFinancialAccount(getDatabase(), input.data, session.user.id);
     return NextResponse.json({ account }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { message: error instanceof BookingCommandError ? error.message : "Finanzkonto konnte nicht angelegt werden." },
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Das Finanzkonto konnte nicht angelegt werden. Prüfe Kontokennung, Kontoname, Währung und Kontotyp.",
+      },
       { status: 409 },
     );
   }

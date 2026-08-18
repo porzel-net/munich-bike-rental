@@ -83,7 +83,11 @@ export function CalendarSubscription({
     const response = await fetch("/api/admin/calendar-account", { method: "DELETE" });
     setBusy(null);
     if (!response.ok) {
-      setMessage("Der Kalenderzugang konnte nicht widerrufen werden.");
+      const body = (await response.json().catch(() => ({}))) as { message?: string };
+      setMessage(
+        body.message ??
+          "Der Kalenderzugang konnte nicht widerrufen werden. Prüfe deine Berechtigung und versuche es erneut.",
+      );
       return;
     }
     setAccount((current) => (current ? { ...current, enabled: false, updatedAt: new Date().toISOString() } : current));

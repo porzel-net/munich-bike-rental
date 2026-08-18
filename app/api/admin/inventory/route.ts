@@ -95,7 +95,11 @@ function duplicateResponse() {
 
 export async function POST(request: Request) {
   const session = await getAuthorizedSession(request);
-  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
 
   const input = createSchema.safeParse(await readBoundedJson(request));
   if (!input.success || !canAccessLocation(session.user, input.data.location)) {
@@ -177,7 +181,11 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const session = await getAuthorizedSession(request);
-  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
 
   const input = updateSchema.safeParse(await readBoundedJson(request));
   if (!input.success || !canAccessLocation(session.user, input.data.location)) {
@@ -295,7 +303,11 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   const session = await getAuthorizedSession(request);
-  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
 
   const input = deleteSchema.safeParse(await readBoundedJson(request));
   if (!input.success || !canAccessLocation(session.user, input.data.location)) {

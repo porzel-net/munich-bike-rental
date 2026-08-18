@@ -4,7 +4,9 @@ export const runtime = "nodejs";
 
 export async function POST() {
   return NextResponse.json(
-    { message: "This legacy mail endpoint is archived. Use booking commands." },
+    {
+      message: "Dieser alte Mail-Endpunkt ist nicht mehr aktiv. Verwende die Mail-Aktionen in der Buchungsverwaltung.",
+    },
     { status: 410 },
   );
 }

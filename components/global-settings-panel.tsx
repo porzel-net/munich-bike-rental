@@ -94,7 +94,11 @@ export function GlobalSettingsPanel({ initialAccounts }: { initialAccounts: Fina
         account?: FinancialAccount;
         message?: string;
       } | null;
-      if (!response.ok || !result?.account) throw new Error(result?.message ?? "Konto konnte nicht angelegt werden.");
+      if (!response.ok || !result?.account)
+        throw new Error(
+          result?.message ??
+            "Das Finanzkonto konnte nicht angelegt werden. Prüfe Kontokennung, Kontoname, Währung und Kontotyp.",
+        );
       setAccounts((current) =>
         [...current, result.account!].sort((left, right) => left.name.localeCompare(right.name, "de")),
       );
@@ -102,7 +106,11 @@ export function GlobalSettingsPanel({ initialAccounts }: { initialAccounts: Fina
       setForm(emptyForm());
       toast.success("Buchhaltungskonto angelegt.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Konto konnte nicht angelegt werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Das Finanzkonto konnte nicht angelegt werden. Prüfe Kontokennung, Kontoname, Währung und Kontotyp.",
+      );
     } finally {
       setSaving(false);
     }
@@ -119,14 +127,22 @@ export function GlobalSettingsPanel({ initialAccounts }: { initialAccounts: Fina
         body: JSON.stringify({ status: nextStatus }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Kontostatus konnte nicht geändert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der Status des Finanzkontos konnte nicht geändert werden. Prüfe, ob das Konto noch vorhanden ist.",
+        );
       setAccounts((current) =>
         current.map((account) => (account.id === accountToChange.id ? { ...account, status: nextStatus } : account)),
       );
       toast.success(nextStatus === "active" ? "Konto reaktiviert." : "Konto archiviert.");
       setAccountToChange(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Kontostatus konnte nicht geändert werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Der Status des Finanzkontos konnte nicht geändert werden. Prüfe, ob das Konto noch vorhanden ist.",
+      );
     } finally {
       setStatusBusy(false);
     }

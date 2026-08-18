@@ -21,23 +21,42 @@ const invitationSchema = z
   })
   .superRefine((value, context) => {
     if (value.role === "standortuser" && !value.locationKey) {
-      context.addIssue({ code: "custom", path: ["locationKey"], message: "Standortuser requires a location" });
+      context.addIssue({
+        code: "custom",
+        path: ["locationKey"],
+        message: "Für einen Standortbenutzer musst du einen Standort auswählen.",
+      });
     }
     if (value.role === "admin" && value.locationKey) {
-      context.addIssue({ code: "custom", path: ["locationKey"], message: "Admin must not have a location" });
+      context.addIssue({
+        code: "custom",
+        path: ["locationKey"],
+        message: "Ein Administrator darf keinem einzelnen Standort zugeordnet werden.",
+      });
     }
   });
 
 export async function POST(request: Request) {
-  if (!hasTrustedOrigin(request)) return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
+  if (!hasTrustedOrigin(request))
+    return NextResponse.json(
+      { message: "Die Anfrage stammt nicht von der Admin-Seite. Bitte lade die Seite neu und versuche es erneut." },
+      { status: 403 },
+    );
 
   const session = await getServerSession();
   if (!session || !canUseAdminApiAsAdmin(session.user)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für diese Aktion." },
+      { status: 401 },
+    );
   }
 
   const parsed = invitationSchema.safeParse(await readBoundedJson(request));
-  if (!parsed.success) return NextResponse.json({ message: "Invalid invitation data" }, { status: 400 });
+  if (!parsed.success)
+    return NextResponse.json(
+      { message: "Die Einladung ist unvollständig oder ungültig. Prüfe Name, Rolle und Standort." },
+      { status: 400 },
+    );
 
   const token = createInvitationToken();
   const now = new Date();

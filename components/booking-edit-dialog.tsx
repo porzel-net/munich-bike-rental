@@ -123,7 +123,7 @@ export function BookingEditDialog({
       if (priceEditingAllowed && (quotedTotalCents === null || quotedTotalCents === undefined || quotedTotalCents < 0))
         throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
       if (concreteBikeEditingAllowed && values.requestedItems.some((item) => !selectedAssets[item.id]))
-        throw new Error("Bitte wähle für jedes Fahrrad ein konkretes Fahrrad aus.");
+        throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes verfügbares Fahrrad aus.");
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -143,7 +143,11 @@ export function BookingEditDialog({
         message?: string;
         mailStatus?: string | null;
       } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Buchung konnte nicht gespeichert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Die Buchung konnte nicht gespeichert werden. Prüfe Zeitraum, Übergabezeiten, Gesamtpreis und Fahrradauswahl.",
+        );
       toast.success(
         notifyCustomer
           ? result?.mailStatus === "sent"
@@ -154,7 +158,11 @@ export function BookingEditDialog({
       setOpen(false);
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Buchung konnte nicht gespeichert werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Die Buchung konnte nicht gespeichert werden. Prüfe Zeitraum, Übergabezeiten, Gesamtpreis und Fahrradauswahl.",
+      );
     } finally {
       setBusy(false);
     }

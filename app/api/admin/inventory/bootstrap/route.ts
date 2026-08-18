@@ -11,7 +11,10 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const session = await getServerSession();
   if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für diese Aktion." },
+      { status: 401 },
+    );
   const db = getDatabase();
   seedRentalInventoryIfEmpty(db);
   return NextResponse.json({ ok: true, ...importLegacyInventoryIntoBookingInventory(db) });

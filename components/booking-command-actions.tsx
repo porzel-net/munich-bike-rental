@@ -125,7 +125,9 @@ const cancellationPeriods: Array<{
 ];
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Aktion fehlgeschlagen";
+  return error instanceof Error
+    ? error.message
+    : "Die Buchungsaktion konnte nicht ausgeführt werden. Prüfe den aktuellen Buchungsstatus und die Eingaben.";
 }
 
 function BikeOptionLabel({
@@ -513,7 +515,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       mailStatus?: string;
       accountingWarning?: string | null;
     } | null;
-    if (!response.ok) throw new Error(result?.message ?? "Aktion fehlgeschlagen");
+    if (!response.ok)
+      throw new Error(
+        result?.message ??
+          "Die Aktion für diese Buchung konnte nicht ausgeführt werden. Prüfe Buchungsstatus und Eingaben.",
+      );
     return result;
   };
 
@@ -529,7 +535,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         if (offerPeriodFrom > offerPeriodTo)
           throw new Error("Das Rückgabedatum muss am oder nach dem Abholdatum liegen.");
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
-          throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes Asset.");
+          throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes verfügbares Fahrrad aus.");
         if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
           throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
         if (isAlternativeOffer && !alternativeReason)
@@ -682,7 +688,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       const requestId = ++previewRequestId.current;
       try {
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
-          throw new Error("Bitte wähle zuerst für jedes Fahrrad ein Asset.");
+          throw new Error("Bitte wähle zuerst für jedes angefragte Fahrrad ein konkretes verfügbares Fahrrad aus.");
         if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
           throw new Error("Mindestens ein ausgewähltes Fahrrad ist im angefragten Zeitraum bereits vermietet.");
         if (isAlternativeOffer && !alternativeReason)
@@ -714,7 +720,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           }),
         });
         const result = (await response.json().catch(() => null)) as typeof preview & { message?: string };
-        if (!response.ok || !result) throw new Error(result?.message ?? "Vorschau konnte nicht erstellt werden.");
+        if (!response.ok || !result)
+          throw new Error(
+            result?.message ??
+              "Die Angebotsvorschau konnte nicht erstellt werden. Prüfe Zeitraum, Übergabezeiten und Fahrradauswahl.",
+          );
         if (requestId === previewRequestId.current) setPreview(result);
       } catch (error) {
         if (requestId === previewRequestId.current) {

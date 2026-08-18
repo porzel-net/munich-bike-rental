@@ -36,7 +36,8 @@ export function AdminDashboard({ userName }: { userName: string }) {
     setIsSubmitting(false);
 
     if (!response.ok) {
-      setMessage("Der Einladungslink konnte nicht erzeugt werden.");
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      setMessage(result.message ?? "Der Einladungslink konnte nicht erzeugt werden. Prüfe Name, Rolle und Standort.");
       return;
     }
 

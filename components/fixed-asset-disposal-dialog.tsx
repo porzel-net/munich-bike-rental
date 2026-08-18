@@ -99,12 +99,20 @@ function FixedAssetDisposalDialog({
         }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Verkauf konnte nicht erfasst werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der Verkauf konnte nicht erfasst werden. Prüfe Anlagegut, Verkaufskonto, Datum und Nettoverkaufspreis.",
+        );
       toast.success("Verkauf erfasst; AfA und EÜR wurden aktualisiert.");
       onOpenChange(false);
       window.location.reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Verkauf konnte nicht erfasst werden.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Der Verkauf konnte nicht erfasst werden. Prüfe Anlagegut, Verkaufskonto, Datum und Nettoverkaufspreis.",
+      );
     } finally {
       setBusy(false);
     }

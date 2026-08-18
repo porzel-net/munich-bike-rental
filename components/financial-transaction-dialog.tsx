@@ -262,7 +262,11 @@ export function FinancialTransactionDialog({
       body: formData,
     });
     const result = (await response.json().catch(() => null)) as { documentId?: number; message?: string } | null;
-    if (!response.ok) throw new Error(result?.message ?? "Beleg konnte nicht gespeichert werden.");
+    if (!response.ok)
+      throw new Error(
+        result?.message ??
+          "Der Beleg konnte nicht gespeichert werden. Prüfe Datei, Beschreibung und die ausgewählte Transaktion.",
+      );
     const document = { id: result?.documentId ?? 0, originalFileName: file.name };
     setDocuments((current) => [...current, document]);
     return document;
@@ -373,7 +377,11 @@ export function FinancialTransactionDialog({
           }),
         });
         const result = (await response.json().catch(() => null)) as { message?: string } | null;
-        if (!response.ok) throw new Error(result?.message ?? "Transaktion konnte nicht gebucht werden.");
+        if (!response.ok)
+          throw new Error(
+            result?.message ??
+              "Die Transaktion konnte nicht gebucht werden. Prüfe Konto, Betrag, Kategorie und Zuordnung.",
+          );
         onBankCompleted?.({
           transactionId: bankTransaction.id,
           status: "posted",
@@ -415,14 +423,21 @@ export function FinancialTransactionDialog({
         });
         const result = (await response.json().catch(() => null)) as { message?: string; transactionId?: number } | null;
         if (!response.ok || !result?.transactionId)
-          throw new Error(result?.message ?? "Transaktion konnte nicht gespeichert werden.");
+          throw new Error(
+            result?.message ??
+              "Die Transaktion konnte nicht gespeichert werden. Prüfe Betrag, Kategorie, Konto und Buchungstext.",
+          );
         await uploadDocument(result.transactionId);
         onManualCompleted?.({ transactionId: result.transactionId });
         toast.success("Transaktion wurde gespeichert.");
       }
       onOpenChange(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Transaktion konnte nicht verarbeitet werden.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Die Transaktion konnte nicht verarbeitet werden. Prüfe die Zuordnung und versuche es erneut.",
+      );
     } finally {
       setBusy(false);
     }
@@ -442,11 +457,19 @@ export function FinancialTransactionDialog({
         body: JSON.stringify({ action: "ignore", reason: ignoreReason.trim() }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Transaktion konnte nicht ignoriert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Die Transaktion konnte nicht ignoriert werden. Gib einen Begründungstext ein und versuche es erneut.",
+        );
       onBankCompleted?.({ transactionId: bankTransaction.id, status: "ignored" });
       onOpenChange(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Transaktion konnte nicht ignoriert werden.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Die Transaktion konnte nicht ignoriert werden. Prüfe die Begründung und versuche es erneut.",
+      );
     } finally {
       setBusy(false);
     }

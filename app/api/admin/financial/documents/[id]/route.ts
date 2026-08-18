@@ -15,12 +15,20 @@ export const runtime = "nodejs";
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
   if ((request.headers.get("origin") && !hasTrustedOrigin(request)) || !session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung, diesen Beleg zu laden." },
+      { status: 401 },
+    );
 
   const id = Number((await context.params).id);
-  if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ message: "Ungültiger Beleg" }, { status: 400 });
+  if (!Number.isInteger(id) || id <= 0)
+    return NextResponse.json({ message: "Die Beleg-ID ist ungültig." }, { status: 400 });
   const document = getDatabase().select().from(financialDocuments).where(eq(financialDocuments.id, id)).get();
-  if (!document) return NextResponse.json({ message: "Beleg nicht gefunden" }, { status: 404 });
+  if (!document)
+    return NextResponse.json(
+      { message: "Der Beleg wurde nicht gefunden. Aktualisiere die Transaktion und versuche es erneut." },
+      { status: 404 },
+    );
   try {
     const body = await readFile(financialDocumentPath(document.storageKey));
     const supportedMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
@@ -39,6 +47,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     });
   } catch (error) {
     if (error instanceof BookingCommandError) return NextResponse.json({ message: error.message }, { status: 409 });
-    return NextResponse.json({ message: "Belegdatei nicht gefunden" }, { status: 404 });
+    return NextResponse.json({ message: "Die Belegdatei ist nicht mehr auf dem Server vorhanden." }, { status: 404 });
   }
 }

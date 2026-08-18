@@ -22,9 +22,15 @@ const schema = z.object({
 export async function POST(request: Request) {
   const session = await getServerSession();
   if (!session || !hasTrustedOrigin(request) || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ message: "Du hast keine Berechtigung, Anlagegüter zu verkaufen." }, { status: 401 });
   const input = schema.safeParse(await readBoundedJson(request));
-  if (!input.success) return NextResponse.json({ message: "Ungültige Verkaufsdaten" }, { status: 400 });
+  if (!input.success)
+    return NextResponse.json(
+      {
+        message: "Die Verkaufsdaten sind unvollständig. Prüfe Anlagegut, Verkaufskonto, Datum und Nettoverkaufspreis.",
+      },
+      { status: 400 },
+    );
   try {
     return NextResponse.json({
       ok: true,
@@ -32,7 +38,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { message: error instanceof BookingCommandError ? error.message : "Verkauf konnte nicht erfasst werden." },
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Der Verkauf konnte nicht erfasst werden. Prüfe Anlagegut, Verkaufskonto, Datum und Nettoverkaufspreis.",
+      },
       { status: 409 },
     );
   }

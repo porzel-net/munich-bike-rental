@@ -375,12 +375,19 @@ function SavingsTargets({
         message?: string;
       } | null;
       if (!response.ok || typeof result?.annualGoalCents !== "number" || typeof result.monthlyGoalCents !== "number") {
-        throw new Error(result?.message ?? "Umsatzziele konnten nicht gespeichert werden.");
+        throw new Error(
+          result?.message ??
+            "Die Umsatzziele konnten nicht gespeichert werden. Prüfe Jahresziel und Monatsziel und versuche es erneut.",
+        );
       }
       setGoals({ annualGoalCents: result.annualGoalCents, monthlyGoalCents: result.monthlyGoalCents });
       setDialogOpen(false);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Umsatzziele konnten nicht gespeichert werden.");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Die Umsatzziele konnten nicht gespeichert werden. Prüfe Jahresziel und Monatsziel und versuche es erneut.",
+      );
     } finally {
       setSaving(false);
     }

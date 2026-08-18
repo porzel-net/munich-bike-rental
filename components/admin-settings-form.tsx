@@ -32,12 +32,20 @@ export function AdminSettingsForm({
         whatsappPhone?: string;
         privateAddress?: string;
       } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Einstellungen konnten nicht gespeichert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Die Einstellungen konnten nicht gespeichert werden. Prüfe Telefonnummer und Adresse und versuche es erneut.",
+        );
       setWhatsappPhone(result?.whatsappPhone ?? whatsappPhone.trim());
       setPrivateAddress(result?.privateAddress ?? privateAddress.trim());
       toast.success("Einstellungen gespeichert.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Einstellungen konnten nicht gespeichert werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Die Einstellungen konnten nicht gespeichert werden. Prüfe Telefonnummer und Adresse und versuche es erneut.",
+      );
     } finally {
       setSaving(false);
     }

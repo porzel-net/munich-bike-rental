@@ -14,7 +14,10 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const session = await getServerSession();
   if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für die KI-Prüfung." },
+      { status: 401 },
+    );
   }
 
   const db = getDatabase();
@@ -38,7 +41,11 @@ export async function POST(request: Request) {
       results.push({
         bookingId: booking.id,
         orderNumber: booking.orderNumber,
-        review: { status: "error" as const, message: "Automatische Prüfung fehlgeschlagen." },
+        review: {
+          status: "error" as const,
+          message:
+            "Die automatische E-Mail-Fragenprüfung ist fehlgeschlagen. Öffne den Mailverlauf und prüfe die letzte Kundennachricht manuell.",
+        },
       });
     }
   }

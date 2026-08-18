@@ -21,11 +21,19 @@ export function BookingEmailQuestionsResolvedButton({ bookingId, resolved }: { b
         body: JSON.stringify({ command: "set_email_questions_resolved", resolved: nextResolved }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Status konnte nicht gespeichert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der Status der offenen E-Mail-Fragen konnte nicht gespeichert werden. Prüfe die Buchung und versuche es erneut.",
+        );
       toast.success(nextResolved ? "Fragen als geklärt markiert." : "Fragen wieder zur Prüfung geöffnet.");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Status konnte nicht gespeichert werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Der Status der offenen E-Mail-Fragen konnte nicht gespeichert werden. Prüfe die Buchung und versuche es erneut.",
+      );
     } finally {
       setBusy(false);
     }

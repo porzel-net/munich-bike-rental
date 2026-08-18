@@ -540,7 +540,7 @@ describe("booking commands", () => {
       ],
     });
     expect(() => correctJournalEntry(db, { bookingId: first.id, entryId: entry, reason: "Falscher Vorgang" })).toThrow(
-      "Journal entry not found",
+      "Der ausgewählte Journalposten wurde nicht gefunden",
     );
   });
 

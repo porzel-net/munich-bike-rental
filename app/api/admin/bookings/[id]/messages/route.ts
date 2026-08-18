@@ -46,7 +46,11 @@ function isLegacyInquiryMessage(
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
   const command = await getBookingAdminContext(request, id);
-  if (!command) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!command)
+    return NextResponse.json(
+      { message: "Die Buchung ist nicht verfügbar oder du hast keine Berechtigung, ihren Mailverlauf zu laden." },
+      { status: 401 },
+    );
   const { db, booking } = command;
   return NextResponse.json(
     { messages: readMessages(db, booking.id, booking.orderNumber, booking.customerMessage) },
@@ -57,7 +61,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const id = Number((await context.params).id);
   const command = await getBookingAdminContext(request, id);
-  if (!command) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!command)
+    return NextResponse.json(
+      {
+        message:
+          "Die Buchung ist nicht verfügbar oder du hast keine Berechtigung, ihren Mailverlauf zu synchronisieren.",
+      },
+      { status: 401 },
+    );
   const { db, booking } = command;
   db.delete(communicationMessages)
     .where(

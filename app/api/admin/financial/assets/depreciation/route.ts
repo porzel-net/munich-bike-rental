@@ -15,11 +15,19 @@ const schema = z.object({ throughMonth: z.string().refine(isValidIsoMonth, "Ung�
 
 export async function POST(request: Request) {
   const session = await getServerSession();
-  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr g체ltig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
   if (!hasTrustedOrigin(request) || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ message: "Du hast keine Berechtigung, Abschreibungen zu buchen." }, { status: 401 });
   const input = schema.safeParse(await readBoundedJson(request));
-  if (!input.success) return NextResponse.json({ message: "Ung체ltiger AfA-Zeitraum" }, { status: 400 });
+  if (!input.success)
+    return NextResponse.json(
+      { message: "Der AfA-Zeitraum ist ung체ltig. W채hle einen g체ltigen Abrechnungsmonat." },
+      { status: 400 },
+    );
   try {
     const result = postDueFixedAssetDepreciation(getDatabase(), { ...input.data, actorUserId: session.user.id });
     return NextResponse.json({ ok: true, ...result });

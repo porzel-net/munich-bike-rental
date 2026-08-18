@@ -80,13 +80,21 @@ export function PrivateAssetContributionDialog({
         }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Privateinlage konnte nicht gespeichert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anlageart, Betrag, Anschaffungsdatum und Nutzungsdauer.",
+        );
       toast.success("Privateinlage wurde im Anlageverzeichnis erfasst.");
       reset();
       onOpenChange(false);
       window.location.reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Privateinlage konnte nicht gespeichert werden.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anlageart, Betrag, Anschaffungsdatum und Nutzungsdauer.",
+      );
     } finally {
       setBusy(false);
     }

@@ -200,10 +200,18 @@ export function ManualBookingForm({
         body: JSON.stringify(payload),
       });
       const result = (await response.json().catch(() => null)) as { id?: number; message?: string } | null;
-      if (!response.ok || !result?.id) throw new Error(result?.message ?? "Buchung konnte nicht angelegt werden.");
+      if (!response.ok || !result?.id)
+        throw new Error(
+          result?.message ??
+            "Die Buchung konnte nicht angelegt werden. Prüfe Kundendaten, Zeitraum, Gesamtpreis und Fahrradauswahl.",
+        );
       window.location.assign(`/admin/bookings/${result.id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Buchung konnte nicht angelegt werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Die Buchung konnte nicht angelegt werden. Prüfe Kundendaten, Zeitraum, Gesamtpreis und Fahrradauswahl.",
+      );
     } finally {
       setBusy(false);
     }

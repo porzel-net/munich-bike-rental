@@ -52,13 +52,28 @@ function authorized(request: Request, session: Awaited<ReturnType<typeof getServ
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
-  if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  if (!authorized(request, session)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
+  if (!authorized(request, session))
+    return NextResponse.json(
+      { message: "Du hast keine Berechtigung, diese Finanztransaktion zu bearbeiten." },
+      { status: 401 },
+    );
   const transactionId = Number((await context.params).id);
   if (!Number.isInteger(transactionId) || transactionId <= 0)
-    return NextResponse.json({ message: "Ungültige Transaktion" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Die ausgewählte Finanztransaktion ist ungültig oder nicht mehr vorhanden. Aktualisiere die Liste." },
+      { status: 400 },
+    );
   const input = schema.safeParse(await readBoundedJson(request));
-  if (!input.success) return NextResponse.json({ message: "Ungültige Zuordnung" }, { status: 400 });
+  if (!input.success)
+    return NextResponse.json(
+      { message: "Die Zuordnung ist unvollständig. Wähle eine gültige Aktion und fülle die dazugehörigen Felder aus." },
+      { status: 400 },
+    );
 
   try {
     const db = getDatabase();
@@ -76,7 +91,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     return NextResponse.json(
       {
-        message: error instanceof BookingCommandError ? error.message : "Transaktion konnte nicht verarbeitet werden.",
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Die Finanztransaktion konnte nicht verarbeitet werden. Prüfe Zuordnung, Kategorie und Konten.",
       },
       { status: 409 },
     );

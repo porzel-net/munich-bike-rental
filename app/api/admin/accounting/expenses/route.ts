@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 
 export async function POST() {
   return NextResponse.json(
-    { message: "Mutable legacy expense records are archived. Use journal commands." },
+    { message: "Diese alten Aufwandsdatensätze sind schreibgeschützt. Erfasse neue Aufwände über die Journalbuchung." },
     { status: 410 },
   );
 }

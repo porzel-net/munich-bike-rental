@@ -16,11 +16,18 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const id = Number((await context.params).id);
   const session = await getServerSession();
   if (!session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Nicht autorisiert" }, { status: 403 });
+    return NextResponse.json(
+      { message: "Du hast keine Berechtigung, für diese Buchung eine Rechnung zu erstellen." },
+      { status: 403 },
+    );
 
   const db = getDatabase();
   const booking = Number.isInteger(id) ? db.select().from(bookings).where(eq(bookings.id, id)).get() : undefined;
-  if (!booking) return NextResponse.json({ message: "Buchung nicht gefunden" }, { status: 404 });
+  if (!booking)
+    return NextResponse.json(
+      { message: "Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut." },
+      { status: 404 },
+    );
 
   const payment = getBookingPaymentStatus(db, id);
   if (payment.status !== "settled")

@@ -50,7 +50,10 @@ export function JournalExpenseDialog({
     });
     const result = (await response.json().catch(() => null)) as { entry?: JournalEntry; message?: string } | null;
     if (!response.ok || !result?.entry) {
-      setError(result?.message ?? "Der Aufwand konnte nicht gespeichert werden.");
+      setError(
+        result?.message ??
+          "Der Aufwand konnte nicht gespeichert werden. Prüfe Betrag, Datum, Kategorie und Bezeichnung.",
+      );
       setSaving(false);
       return;
     }

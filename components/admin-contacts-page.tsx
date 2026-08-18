@@ -169,7 +169,11 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
     const response = await fetch("/api/admin/carddav", { method: "DELETE" });
     setBusy(null);
     if (!response.ok) {
-      setMessage("Der CardDAV-Zugang konnte nicht widerrufen werden.");
+      const body = (await response.json().catch(() => ({}))) as { message?: string };
+      setMessage(
+        body.message ??
+          "Der CardDAV-Zugang konnte nicht widerrufen werden. Prüfe deine Berechtigung und versuche es erneut.",
+      );
       return;
     }
     setAccount((current) => (current ? { ...current, enabled: false } : current));

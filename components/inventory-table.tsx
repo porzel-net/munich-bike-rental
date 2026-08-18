@@ -497,7 +497,10 @@ function InventoryDialog({
       message?: string;
     } | null;
     if (!response.ok || !result?.item) {
-      setError(result?.message ?? "Der Inventareintrag konnte nicht gespeichert werden.");
+      setError(
+        result?.message ??
+          "Der Inventareintrag konnte nicht gespeichert werden. Prüfe Preis, Bestand, Typ/Modell und Größe.",
+      );
       setSaving(false);
       return;
     }

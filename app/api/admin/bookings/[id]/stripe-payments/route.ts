@@ -24,7 +24,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     requireAssignee: true,
     requireTrustedOrigin: false,
   });
-  if (!command) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!command)
+    return NextResponse.json(
+      { message: "Die Buchung ist nicht verfügbar oder du hast keine Berechtigung, ihre Stripe-Zahlungen zu laden." },
+      { status: 401 },
+    );
 
   try {
     const offers = command.db

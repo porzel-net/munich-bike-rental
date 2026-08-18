@@ -80,7 +80,8 @@ export function allocateRequestedAccessories(
         ),
       )
       .get();
-    if (!accessory) throw new BookingCommandError(`Requested accessory ${accessoryKey} is unavailable`);
+    if (!accessory)
+      throw new BookingCommandError(`Das Zubehör „${accessoryKey}“ ist an diesem Standort nicht verfügbar.`);
     const allocated =
       db
         .select({ quantity: sql<number>`coalesce(sum(${bookingAccessoryAllocations.quantity}), 0)` })
@@ -94,7 +95,9 @@ export function allocateRequestedAccessories(
         )
         .get()?.quantity ?? 0;
     if (accessory.availableQuantity - allocated < quantity)
-      throw new BookingCommandError(`Requested accessory ${accessoryKey} is no longer available`);
+      throw new BookingCommandError(
+        `Das Zubehör „${accessoryKey}“ ist im gewählten Zeitraum nicht mehr verfügbar. Wähle eine kleinere Menge oder einen anderen Zeitraum.`,
+      );
     db.insert(bookingAccessoryAllocations)
       .values({
         bookingId: booking.id,

@@ -13,11 +13,21 @@ export const runtime = "nodejs";
 
 async function getAccess(request: Request, requireOrigin = false) {
   if (requireOrigin && !hasTrustedOrigin(request)) {
-    return { response: NextResponse.json({ message: "Invalid origin" }, { status: 403 }) } as const;
+    return {
+      response: NextResponse.json(
+        { message: "Die Anfrage stammt nicht von der Admin-Seite. Bitte lade die Seite neu und versuche es erneut." },
+        { status: 403 },
+      ),
+    } as const;
   }
   const session = await getServerSession();
   if (!session || !canUseAdminApi(session.user)) {
-    return { response: NextResponse.json({ message: "Unauthorized" }, { status: 401 }) } as const;
+    return {
+      response: NextResponse.json(
+        { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für diese Aktion." },
+        { status: 401 },
+      ),
+    } as const;
   }
   return { session } as const;
 }

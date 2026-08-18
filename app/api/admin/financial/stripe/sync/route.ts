@@ -25,7 +25,14 @@ function unixSeconds(value: string, endOfDay = false) {
 
 export async function POST(request: Request) {
   const session = await getServerSession();
-  if (!authorized(request, session)) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  if (!authorized(request, session))
+    return NextResponse.json(
+      {
+        message:
+          "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für die Stripe-Synchronisation.",
+      },
+      { status: 401 },
+    );
 
   const input = schema.safeParse((await readBoundedJson(request)) ?? {});
   if (!input.success)
@@ -44,6 +51,12 @@ export async function POST(request: Request) {
     console.error("Stripe synchronization failed", {
       error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
     });
-    return NextResponse.json({ message: "Stripe-Synchronisation fehlgeschlagen." }, { status: 502 });
+    return NextResponse.json(
+      {
+        message:
+          "Die Stripe-Synchronisation konnte nicht abgeschlossen werden. Prüfe Stripe-Zugang, Zeitraum und Serververbindung.",
+      },
+      { status: 502 },
+    );
   }
 }

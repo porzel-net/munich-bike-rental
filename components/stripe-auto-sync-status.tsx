@@ -26,7 +26,11 @@ export function StripeAutoSyncStatus() {
           body: "{}",
         });
         const result = (await response.json().catch(() => null)) as SyncResponse | null;
-        if (!response.ok) throw new Error(result?.message ?? "Stripe-Synchronisation fehlgeschlagen.");
+        if (!response.ok)
+          throw new Error(
+            result?.message ??
+              "Die Stripe-Synchronisation konnte nicht abgeschlossen werden. Prüfe den Zeitraum und die Stripe-Verbindung.",
+          );
         if (cancelled) return;
 
         setStatus("done");
@@ -40,7 +44,11 @@ export function StripeAutoSyncStatus() {
       } catch (error) {
         if (cancelled) return;
         setStatus("error");
-        setMessage(error instanceof Error ? error.message : "Stripe-Synchronisation fehlgeschlagen.");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Die Stripe-Synchronisation konnte nicht abgeschlossen werden. Prüfe den Zeitraum und die Stripe-Verbindung.",
+        );
       }
     }
 

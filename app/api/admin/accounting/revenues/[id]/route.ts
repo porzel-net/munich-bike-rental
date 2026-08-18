@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 
 export async function PATCH() {
   return NextResponse.json(
-    { message: "Mutable legacy revenue records are archived. Use journal commands." },
+    { message: "Diese alten Ertragsdatensätze sind schreibgeschützt. Erfasse Änderungen über die Journalbuchung." },
     { status: 410 },
   );
 }

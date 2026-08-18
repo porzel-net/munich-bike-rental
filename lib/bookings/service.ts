@@ -66,7 +66,8 @@ export { BookingCommandError } from "./errors";
 export function deleteBookingPermanently(db: AppDatabase, bookingId: number) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
-    if (!booking) throw new BookingCommandError("Buchung nicht gefunden.");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     if (["confirmed", "checked_out", "completed"].includes(booking.status)) {
       throw new BookingCommandError("Verbindliche oder bereits ausgegebene Buchungen können nicht gelöscht werden.");
     }
@@ -317,7 +318,8 @@ const legacyStatusesRequiringInvoice = new Set<BookingStatus>(["confirmed", "che
 /** Imported historical records can be moved between states, but each state must have coherent data. */
 function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBookingStatusInput) {
   const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-  if (!booking) throw new BookingCommandError("Booking not found");
+  if (!booking)
+    throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
   if (booking.source !== "legacy" && !(input.allowNonLegacy && input.status === "confirmed"))
     throw new BookingCommandError("Der Status kann hier nur bei importierten Buchungen frei geändert werden");
   if (booking.status === input.status && !input.details) return booking;
@@ -598,7 +600,8 @@ export function setBookingEmailQuestionsResolved(
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     const timestamp = now();
     event(
       db,
@@ -637,7 +640,8 @@ export function assignBooking(
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     const activeAssigneeId = booking.assignedUserId
       ? (db.select({ id: authUser.id }).from(authUser).where(eq(authUser.id, booking.assignedUserId)).get()?.id ?? null)
       : null;
@@ -651,7 +655,10 @@ export function assignBooking(
       .from(authUser)
       .where(eq(authUser.id, input.assigneeUserId))
       .get();
-    if (!assignee) throw new BookingCommandError("Sachbearbeiter not found");
+    if (!assignee)
+      throw new BookingCommandError(
+        "Der ausgewählte Sachbearbeiter wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.",
+      );
     if (assignee.role !== "admin" && assignee.locationKey !== booking.location)
       throw new BookingCommandError("Der ausgewählte Sachbearbeiter ist für diesen Standort nicht verfügbar");
 
@@ -706,7 +713,9 @@ export function createOrderNumberWithoutChangingFormat(insert: (orderNumber: str
       if (!message.includes("bookings_order_number_unique") && !message.includes("bookings.order_number")) throw error;
     }
   }
-  throw new BookingCommandError("No free order number was available in the next seven days");
+  throw new BookingCommandError(
+    "Es konnte keine freie Auftragsnummer erzeugt werden. Prüfe die Auftragsnummern und versuche es erneut.",
+  );
 }
 
 export type BookingRequestedItemCommand = {
@@ -967,14 +976,18 @@ export function createDirectBooking(
           !Number.isInteger(input.assetsByPosition[item.position]) || input.assetsByPosition[item.position] <= 0,
       )
     )
-      throw new BookingCommandError("A concrete asset is required for every requested bike");
+      throw new BookingCommandError(
+        "Für jedes angefragte Fahrrad musst du ein konkretes verfügbares Fahrrad auswählen.",
+      );
     const assetsByRequestedItem = Object.fromEntries(
       requested.map((item) => [item.id, input.assetsByPosition[item.position]!]),
     ) as Record<number, number>;
     const quote = buildOfferQuote(db, booking.id, assetsByRequestedItem);
     for (const item of quote.offeredItems) {
       if (hasAssetConflict(db, booking, item.assetId))
-        throw new BookingCommandError("The selected asset is already booked for this period");
+        throw new BookingCommandError(
+          "Das ausgewählte Fahrrad ist im gewählten Zeitraum bereits vergeben. Wähle ein anderes Fahrrad oder ändere den Zeitraum.",
+        );
     }
     const stamp = now();
     const directOffer = db
@@ -1092,10 +1105,13 @@ export function createOffer(
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     assertBookingHasAssignee(db, booking);
     if (booking.status !== "inquiry_received" && booking.status !== "offer_sent" && booking.status !== "expired")
-      throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
+      throw new BookingCommandError(
+        "Ein Angebot kann nur für eine neue Anfrage oder zum Ersetzen eines bestehenden Angebots erstellt werden.",
+      );
     const offerPeriodFrom = input.periodFrom ?? booking.periodFrom;
     const offerPeriodTo = input.periodTo ?? booking.periodTo;
     const offerPickupTime = input.pickupTime ?? booking.pickupTime;
@@ -1138,7 +1154,9 @@ export function createOffer(
       throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
     for (const item of quote.offeredItems) {
       if (hasAssetConflict(db, offerBooking, item.assetId))
-        throw new BookingCommandError("The selected asset is already booked for this period");
+        throw new BookingCommandError(
+          "Das ausgewählte Fahrrad ist im gewählten Zeitraum bereits vergeben. Wähle ein anderes Fahrrad oder ändere den Zeitraum.",
+        );
     }
     const previous = db
       .select()
@@ -1269,7 +1287,8 @@ export function revokeOffer(
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     assertBookingHasAssignee(db, booking);
     if (booking.status !== "offer_sent")
       throw new BookingCommandError("Nur ein ausgestelltes Angebot kann zurückgezogen werden.");
@@ -1324,7 +1343,9 @@ export function previewOffer(
     !booking ||
     (booking.status !== "inquiry_received" && booking.status !== "offer_sent" && booking.status !== "expired")
   )
-    throw new BookingCommandError("An offer can only be made for an inquiry or replaced offer");
+    throw new BookingCommandError(
+      "Ein Angebot kann nur für eine neue Anfrage oder zum Ersetzen eines bestehenden Angebots erstellt werden.",
+    );
   assertBookingHasAssignee(db, booking);
   const offerPeriodFrom = input.periodFrom ?? booking.periodFrom;
   const offerPeriodTo = input.periodTo ?? booking.periodTo;
@@ -1368,7 +1389,9 @@ export function previewOffer(
   };
   for (const item of quote.offeredItems) {
     if (hasAssetConflict(db, offerBooking, item.assetId))
-      throw new BookingCommandError("The selected asset is already booked for this period");
+      throw new BookingCommandError(
+        "Das ausgewählte Fahrrad ist im gewählten Zeitraum bereits vergeben. Wähle ein anderes Fahrrad oder ändere den Zeitraum.",
+      );
   }
   const mail = renderOfferMail({
     locale: booking.communicationLocale,
@@ -1422,7 +1445,8 @@ export type UpdateBookingCommand = {
 export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     if (input.notifyCustomer && booking.status !== "confirmed")
       throw new BookingCommandError("Eine Änderungsmail kann nur für verbindlich gebuchte Buchungen versendet werden");
     if (booking.version !== input.expectedVersion)
@@ -1948,12 +1972,15 @@ function confirmOfferRecord(
       ? offer.status !== "sent" && offer.status !== "expired"
       : offer.status !== "sent" || offerExpired
   )
-    throw new BookingCommandError("This offer is no longer available");
+    throw new BookingCommandError(
+      "Dieses Angebot ist nicht mehr verfügbar. Aktualisiere die Buchung und prüfe, ob ein neues Angebot vorliegt.",
+    );
   if (payment && (payment.amountCents !== offer.totalCents || !Number.isSafeInteger(payment.amountCents)))
-    throw new BookingCommandError("The Stripe payment amount does not match the offer");
+    throw new BookingCommandError("Der Betrag der Stripe-Zahlung stimmt nicht mit dem ausgewählten Angebot überein.");
 
   const booking = db.select().from(bookings).where(eq(bookings.id, offer.bookingId)).get();
-  if (!booking) throw new BookingCommandError("Booking not found");
+  if (!booking)
+    throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
   if (options.allowExpired) {
     if (booking.status !== "offer_sent" && booking.status !== "expired")
       throw new BookingCommandError("Dieser Auftrag kann nicht mehr über dieses Angebot bestätigt werden.");
@@ -1968,10 +1995,15 @@ function confirmOfferRecord(
       .run();
   }
   const offeredAssets = db.select().from(bookingOfferItems).where(eq(bookingOfferItems.offerId, offer.id)).all();
-  if (!offeredAssets.length) throw new BookingCommandError("The offer has no allocated assets");
+  if (!offeredAssets.length)
+    throw new BookingCommandError(
+      "Für dieses Angebot wurden noch keine konkreten Fahrräder zugeordnet. Erstelle das Angebot erneut und wähle für jedes Fahrrad ein verfügbares Modell.",
+    );
   for (const item of offeredAssets) {
     if (hasAssetConflict(db, booking, item.assetId))
-      throw new BookingCommandError("One of the offered bikes is no longer available; the offer remains open");
+      throw new BookingCommandError(
+        "Mindestens eines der angebotenen Fahrräder ist inzwischen nicht mehr verfügbar. Das Angebot bleibt offen; erstelle es mit verfügbaren Fahrrädern neu.",
+      );
     db.insert(bookingAssetAllocations)
       .values({
         bookingId: booking.id,
@@ -2062,7 +2094,10 @@ export function confirmOffer(db: AppDatabase, token: string, actorUserId?: strin
   const hash = createHash("sha256").update(token).digest("hex");
   return runInImmediateTransaction(db, () => {
     const offer = db.select().from(bookingOffers).where(eq(bookingOffers.tokenHash, hash)).get();
-    if (!offer) throw new BookingCommandError("This offer is no longer available");
+    if (!offer)
+      throw new BookingCommandError(
+        "Dieses Angebot ist nicht mehr verfügbar. Aktualisiere die Buchung und prüfe, ob ein neues Angebot vorliegt.",
+      );
     return confirmOfferRecord(db, offer, actorUserId, undefined, token);
   });
 }
@@ -2073,7 +2108,10 @@ export function confirmOfferWithStripePayment(
 ) {
   return runInImmediateTransaction(db, () => {
     const offer = db.select().from(bookingOffers).where(eq(bookingOffers.id, input.offerId)).get();
-    if (!offer) throw new BookingCommandError("This offer is no longer available");
+    if (!offer)
+      throw new BookingCommandError(
+        "Dieses Angebot ist nicht mehr verfügbar. Aktualisiere die Buchung und prüfe, ob ein neues Angebot vorliegt.",
+      );
     return confirmOfferRecord(
       db,
       offer,
@@ -2138,7 +2176,8 @@ export function assignStripePaymentToBooking(
       throw new BookingCommandError("Diese Stripe-Zahlung ist bereits einer anderen Buchung zugeordnet.");
 
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Buchung nicht gefunden.");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     if (booking.status !== "offer_sent" && booking.status !== "expired")
       throw new BookingCommandError("Nur offene oder abgelaufene Angebote können manuell bestätigt werden.");
 
@@ -2167,10 +2206,13 @@ export function cancelBooking(
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     assertBookingHasAssignee(db, booking);
     if (input.cancellationFeeCents < 0 || input.cancellationFeeCents > booking.quotedTotalCents || !input.reason.trim())
-      throw new BookingCommandError("Cancellation requires a reason and a fee between 0 and the order total");
+      throw new BookingCommandError(
+        "Für die Stornierung musst du einen Grund und eine Gebühr zwischen 0 € und dem Gesamtpreis angeben.",
+      );
     const paidCents = receivedPaymentCents(db, booking.id);
     const refundCents = Math.max(0, paidCents - input.cancellationFeeCents);
     transition(db, booking, "cancelled", "booking_cancelled", input.actorUserId, input.reason, {
@@ -2251,7 +2293,8 @@ type BookingMoneyMovementInput = {
 function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovementInput, amountCents: number) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     assertBookingHasAssignee(db, booking);
     if (input.idempotencyKey) {
       const existing = db
@@ -2350,13 +2393,13 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
 
 export function recordPayment(db: AppDatabase, input: BookingMoneyMovementInput) {
   if (!Number.isInteger(input.amountCents) || input.amountCents === 0 || !input.reason.trim())
-    throw new BookingCommandError("A non-zero payment amount and reason are required");
+    throw new BookingCommandError("Für eine Zahlung musst du einen Betrag größer als 0 € und einen Grund angeben.");
   return recordBookingMoneyMovement(db, input, input.amountCents);
 }
 
 export function recordRefund(db: AppDatabase, input: BookingMoneyMovementInput) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
-    throw new BookingCommandError("A positive refund amount and reason are required");
+    throw new BookingCommandError("Für eine Erstattung musst du einen Betrag größer als 0 € und einen Grund angeben.");
   return recordBookingMoneyMovement(db, input, -input.amountCents);
 }
 
@@ -2364,19 +2407,25 @@ export function correctJournalEntry(
   db: AppDatabase,
   input: { bookingId: number; entryId: number; reason: string; actorUserId?: string | null },
 ) {
-  if (!input.reason.trim()) throw new BookingCommandError("A correction reason is required");
+  if (!input.reason.trim())
+    throw new BookingCommandError("Für die Korrektur des Journalpostens musst du einen Grund angeben.");
   return runInImmediateTransaction(db, () => {
     const entry = db
       .select()
       .from(journalEntries)
       .where(and(eq(journalEntries.id, input.entryId), eq(journalEntries.bookingId, input.bookingId)))
       .get();
-    if (!entry) throw new BookingCommandError("Journal entry not found");
+    if (!entry)
+      throw new BookingCommandError(
+        "Der ausgewählte Journalposten wurde nicht gefunden. Aktualisiere die Buchung und versuche es erneut.",
+      );
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     assertBookingHasAssignee(db, booking);
     const lines = db.select().from(journalLines).where(eq(journalLines.entryId, entry.id)).all();
-    if (!lines.length) throw new BookingCommandError("Journal entry has no lines");
+    if (!lines.length)
+      throw new BookingCommandError("Der Journalposten enthält keine Buchungszeilen und kann nicht korrigiert werden.");
     return appendJournalEntry(db, {
       bookingId: entry.bookingId ?? undefined,
       kind: "correction",
@@ -2393,7 +2442,7 @@ export function recordExpense(
   input: { amountCents: number; reason: string; actorUserId: string; bookingId?: number },
 ) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
-    throw new BookingCommandError("A positive expense amount and reason are required");
+    throw new BookingCommandError("Für einen Aufwand musst du einen Betrag größer als 0 € und einen Grund angeben.");
   return runInImmediateTransaction(db, () =>
     appendJournalEntry(db, {
       bookingId: input.bookingId,
@@ -2422,7 +2471,8 @@ export function advanceBooking(
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
-    if (!booking) throw new BookingCommandError("Booking not found");
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
     assertBookingHasAssignee(db, booking);
     transition(db, booking, target, `booking_${target}`, actorUserId, reason);
     if (target === "completed") {

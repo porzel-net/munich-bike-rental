@@ -21,17 +21,30 @@ const updateSchema = z.union([openingBalanceSchema, z.object({ status: z.enum(["
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
   if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      {
+        message:
+          "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung, dieses Finanzkonto zu ändern.",
+      },
+      { status: 401 },
+    );
   const id = Number((await context.params).id);
   const input = updateSchema.safeParse(await readBoundedJson(request));
   if (!Number.isInteger(id) || id <= 0 || !input.success)
-    return NextResponse.json({ message: "Ungültige Kontodaten" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Die Kontodaten sind ungültig. Prüfe Kontostatus oder Anfangsbestand inklusive Datum." },
+      { status: 400 },
+    );
   const account = getDatabase()
     .select({ id: financialAccounts.id })
     .from(financialAccounts)
     .where(eq(financialAccounts.id, id))
     .get();
-  if (!account) return NextResponse.json({ message: "Finanzkonto nicht gefunden" }, { status: 404 });
+  if (!account)
+    return NextResponse.json(
+      { message: "Das Finanzkonto wurde nicht gefunden. Aktualisiere die Kontenliste und versuche es erneut." },
+      { status: 404 },
+    );
   try {
     if ("status" in input.data) {
       return NextResponse.json(
@@ -53,7 +66,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json(
       {
         message:
-          error instanceof BookingCommandError ? error.message : "Anfangsbestand konnte nicht gespeichert werden.",
+          error instanceof BookingCommandError
+            ? error.message
+            : "Der Anfangsbestand konnte nicht gespeichert werden. Prüfe Betrag, Datum und Kontostatus.",
       },
       { status: 409 },
     );

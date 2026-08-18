@@ -134,14 +134,21 @@ export function FinancialReviewInbox({
         body: JSON.stringify({ action: "assign_booking", bookingId }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Auftrag konnte nicht zugewiesen werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ?? "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
+        );
       setRows((current) => current.map((item) => (item.id === row.id ? { ...item, status: "posted" } : item)));
       router.refresh();
       const booking = bookings.find((item) => item.id === bookingId);
       toast.success(`Auftrag ${booking?.orderNumber ?? bookingId} wurde zugewiesen.`);
       setAssignmentRow(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Auftrag konnte nicht zugewiesen werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
+      );
     } finally {
       setAssigningId(null);
     }

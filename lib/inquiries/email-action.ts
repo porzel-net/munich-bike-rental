@@ -137,7 +137,7 @@ function parseModelResponse(response: OpenAiResponse) {
   try {
     parsed = JSON.parse(withoutFence);
   } catch {
-    throw new Error("OpenAI returned invalid JSON");
+    throw new Error("Die KI hat keine verwertbare strukturierte Antwort geliefert.");
   }
   return openAiReviewSchema.parse(parsed);
 }
@@ -148,7 +148,7 @@ export async function analyzeEmailThread(
 ): Promise<{ review: EmailActionReview; model: string; reasoningEffort: string }> {
   const environment = options.environment ?? process.env;
   const apiKey = await readSecret(environment, "OPENAI_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+  if (!apiKey) throw new Error("Die KI-Prüfung ist nicht eingerichtet: Der OpenAI-Schlüssel fehlt.");
 
   const model = getModel(environment);
   const reasoningEffort = getRequestedReasoningEffort(environment);
@@ -187,7 +187,9 @@ export async function analyzeEmailThread(
   });
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`OpenAI request failed (${response.status})${errorText ? `: ${errorText.slice(0, 300)}` : ""}`);
+    throw new Error(
+      `Die KI-Anfrage ist mit HTTP ${response.status} fehlgeschlagen.${errorText ? ` Technischer Hinweis: ${errorText.slice(0, 300)}` : ""}`,
+    );
   }
   return { review: parseModelResponse((await response.json()) as OpenAiResponse), model, reasoningEffort };
 }
@@ -310,7 +312,7 @@ export async function reviewBookingEmailThread(
       source = "fallback";
       summary = "Die KI-Prüfung ist fehlgeschlagen. Bitte den Mailverlauf manuell prüfen.";
       openQuestions = ["Konnte wegen eines KI-Fehlers nicht automatisch bewertet werden."];
-      errorMessage = error instanceof Error ? error.message : "Unknown OpenAI error";
+      errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler bei der KI-Prüfung.";
       model = getModel(environment);
       reasoningEffort = getRequestedReasoningEffort(environment);
     }

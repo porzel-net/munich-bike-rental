@@ -19,7 +19,11 @@ export function BookingAiAnalysisButton({ bookingId }: { bookingId: number }) {
         message?: string;
         review?: { status?: "needs_action" | "no_action" | "error" } | null;
       } | null;
-      if (!response.ok) throw new Error(result?.message ?? "KI-Analyse konnte nicht gestartet werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Die KI-Analyse konnte nicht gestartet werden. Prüfe den Mailverlauf und die KI-Konfiguration.",
+        );
 
       if (result?.review?.status === "needs_action")
         toast.warning("Wahrscheinlich ist noch eine Antwort erforderlich.");
@@ -28,7 +32,11 @@ export function BookingAiAnalysisButton({ bookingId }: { bookingId: number }) {
       else toast.success("Alle Fragen wirken beantwortet.");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "KI-Analyse konnte nicht gestartet werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Die KI-Analyse konnte nicht gestartet werden. Prüfe den Mailverlauf und die KI-Konfiguration.",
+      );
     } finally {
       setBusy(false);
     }

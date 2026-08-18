@@ -11,11 +11,17 @@ export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
   if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung, Belege zu verwalten." },
+      { status: 401 },
+    );
 
   const transactionId = Number((await context.params).id);
   if (!Number.isInteger(transactionId) || transactionId <= 0)
-    return NextResponse.json({ message: "Ungültige Transaktion" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Die ausgewählte Transaktion ist ungültig oder nicht mehr vorhanden. Aktualisiere die Liste." },
+      { status: 400 },
+    );
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   const maxRequestBytes = MAX_FINANCIAL_DOCUMENT_BYTES + 128 * 1024;
   if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
@@ -47,7 +53,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return NextResponse.json(
-      { message: error instanceof BookingCommandError ? error.message : "Beleg konnte nicht gespeichert werden." },
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Der Beleg konnte nicht gespeichert werden. Prüfe Datei, Dateityp, Größe und Beschreibung.",
+      },
       { status: 409 },
     );
   }

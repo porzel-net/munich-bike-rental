@@ -106,7 +106,10 @@ export function AccountingRevenueDialog({
       message?: string;
     } | null;
     if (!response.ok || !result?.revenue) {
-      setError(result?.message ?? "Der Ertrag konnte nicht gespeichert werden.");
+      setError(
+        result?.message ??
+          "Der Ertrag konnte nicht gespeichert werden. Prüfe Teilbeträge, Zahlungstage und den Gesamtbetrag.",
+      );
       setSaving(false);
       return;
     }

@@ -129,9 +129,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const id = Number((await context.params).id);
   const input = commandSchema.safeParse(await readBoundedJson(request));
   const command = await getBookingAdminContext(request, id, { requireAssignee: true });
-  if (!command || !input.success) return NextResponse.json({ message: "Invalid command" }, { status: 400 });
+  if (!command || !input.success)
+    return NextResponse.json(
+      {
+        message:
+          "Die Aktion ist unvollständig oder enthält ungültige Daten. Prüfe die Eingaben und versuche es erneut.",
+      },
+      { status: 400 },
+    );
   if (["correct_journal", "delete_permanently"].includes(input.data.command) && !isAdmin(command.user)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+    return NextResponse.json({ message: "Für diese Aktion brauchst du Administratorrechte." }, { status: 403 });
   }
   try {
     switch (input.data.command) {
@@ -314,7 +321,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(
-      { message: error instanceof BookingCommandError ? error.message : "Command failed" },
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Die Aktion für diese Buchung konnte nicht ausgeführt werden. Prüfe den aktuellen Buchungsstatus und versuche es erneut.",
+      },
       { status: 409 },
     );
   }

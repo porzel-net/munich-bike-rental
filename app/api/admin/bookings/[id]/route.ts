@@ -46,7 +46,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const id = Number((await context.params).id);
   const input = schema.safeParse(await readBoundedJson(request));
   const command = await getBookingAdminContext(request, id, { requireAssignee: true });
-  if (!command || !input.success) return NextResponse.json({ message: "Ungültige Buchungsdaten" }, { status: 400 });
+  if (!command || !input.success)
+    return NextResponse.json(
+      {
+        message:
+          "Die Buchungsdaten sind unvollständig oder ungültig. Prüfe die geänderten Felder und versuche es erneut.",
+      },
+      { status: 400 },
+    );
 
   try {
     const result = updateBooking(command.db, {

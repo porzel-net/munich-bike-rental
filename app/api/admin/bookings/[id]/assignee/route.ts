@@ -19,17 +19,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const id = Number((await context.params).id);
   const input = schema.safeParse(await readBoundedJson(request));
   if (!Number.isInteger(id) || !input.success || !hasTrustedOrigin(request))
-    return NextResponse.json({ message: "Ungültige Zuweisung" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Die Zuweisung ist unvollständig. Wähle eine gültige Buchung und einen Sachbearbeiter aus." },
+      { status: 400 },
+    );
 
   const session = await getServerSession();
   if (!session || !canUseAdminApi(session.user)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
   }
 
   const db = getDatabase();
   const booking = db.select().from(bookings).where(eq(bookings.id, id)).get();
   if (!booking || !canAccessLocation(session.user, booking.location as RentalLocation)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ message: "Du hast keine Berechtigung, diese Buchung zuzuweisen." }, { status: 401 });
   }
   const activeAssignee = booking.assignedUserId
     ? db.select({ id: authUser.id }).from(authUser).where(eq(authUser.id, booking.assignedUserId)).get()
@@ -45,21 +51,36 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     .from(authUser)
     .where(eq(authUser.id, input.data.assigneeUserId))
     .get();
-  if (!targetUser) return NextResponse.json({ message: "Sachbearbeiter nicht gefunden" }, { status: 404 });
+  if (!targetUser)
+    return NextResponse.json(
+      {
+        message: "Der ausgewählte Sachbearbeiter wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.",
+      },
+      { status: 404 },
+    );
   if (!isEligibleBookingAssignee(targetUser, booking.location as RentalLocation)) {
     return NextResponse.json(
-      { message: "Der ausgewählte Sachbearbeiter ist für diesen Standort nicht verfügbar" },
+      {
+        message:
+          "Der ausgewählte Sachbearbeiter ist diesem Standort nicht zugeordnet und kann die Buchung daher nicht übernehmen.",
+      },
       { status: 409 },
     );
   }
 
   if (!isAdmin(session.user)) {
     if (input.data.assigneeUserId !== session.user.id) {
-      return NextResponse.json({ message: "Du kannst nur dich selbst als Sachbearbeiter eintragen" }, { status: 403 });
+      return NextResponse.json(
+        { message: "Als Standortbenutzer kannst du nur dich selbst als Sachbearbeiter eintragen." },
+        { status: 403 },
+      );
     }
     if (activeAssignee && activeAssignee.id !== session.user.id) {
       return NextResponse.json(
-        { message: "Diese Buchung ist bereits einem anderen Sachbearbeiter zugewiesen" },
+        {
+          message:
+            "Diese Buchung ist bereits einem anderen Sachbearbeiter zugewiesen. Entferne zuerst die bestehende Zuweisung oder bitte den zuständigen Administrator.",
+        },
         { status: 409 },
       );
     }

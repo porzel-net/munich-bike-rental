@@ -100,14 +100,19 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
           cache: "no-store",
         });
         const result = (await response.json().catch(() => null)) as MailThreadResponse | null;
-        if (!response.ok || !result?.messages) throw new Error("Mailverlauf konnte nicht synchronisiert werden.");
+        if (!response.ok || !result?.messages)
+          throw new Error("Der Mailverlauf konnte nicht synchronisiert werden. Prüfe IMAP-Zugang und Buchungsnummer.");
         setMessages(result.messages);
         const sync = result.sync;
         setNotice(formatSyncNotice(sync, automatic));
         setFailed(false);
       } catch (error) {
         if (automatic) setFailed(true);
-        setNotice(error instanceof Error ? error.message : "Mailverlauf konnte nicht synchronisiert werden.");
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Der Mailverlauf konnte nicht synchronisiert werden. Prüfe IMAP-Zugang und Buchungsnummer.",
+        );
       } finally {
         setSyncing(false);
         if (automatic) setLoading(false);

@@ -21,14 +21,21 @@ export function BookingAiBatchAnalysisButton() {
         skipped?: number;
         candidates?: number;
       } | null;
-      if (!response.ok) throw new Error(result?.message ?? "KI-Prüfung konnte nicht gestartet werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ?? "Die KI-Prüfung konnte nicht gestartet werden. Prüfe Mailverläufe und KI-Konfiguration.",
+        );
 
       toast.success(
         `${result?.checked ?? 0} neue Mailverläufe geprüft · ${result?.skipped ?? 0} bereits geprüfte übersprungen.`,
       );
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "KI-Prüfung konnte nicht gestartet werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Die KI-Prüfung konnte nicht gestartet werden. Prüfe Mailverläufe und KI-Konfiguration.",
+      );
     } finally {
       setBusy(false);
     }

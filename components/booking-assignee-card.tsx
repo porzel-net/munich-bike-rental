@@ -68,11 +68,19 @@ export function BookingAssigneeCard({
         body: JSON.stringify({ assigneeUserId }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Sachbearbeiter konnte nicht gespeichert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der Sachbearbeiter konnte nicht gespeichert werden. Prüfe Standort, Buchungsstatus und bestehende Zuweisung.",
+        );
       toast.success("Sachbearbeiter wurde gespeichert.");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Sachbearbeiter konnte nicht gespeichert werden.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Der Sachbearbeiter konnte nicht gespeichert werden. Prüfe Standort, Buchungsstatus und bestehende Zuweisung.",
+      );
     } finally {
       setBusy(false);
     }

@@ -22,7 +22,9 @@ export function FinancialOpeningBalanceForm({
   async function save() {
     const amountCents = Math.round(Number(amount.replace(",", ".")) * 100);
     if (!Number.isSafeInteger(amountCents) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      setMessage("Betrag und Datum prüfen.");
+      setMessage(
+        "Bitte gib einen gültigen Anfangsbestand und ein gültiges Datum ein. Der Betrag muss als Eurobetrag lesbar sein.",
+      );
       return;
     }
     setBusy(true);
@@ -34,10 +36,18 @@ export function FinancialOpeningBalanceForm({
         body: JSON.stringify({ openingBalanceCents: amountCents, openingBalanceDate: date }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) throw new Error(result?.message ?? "Anfangsbestand konnte nicht gespeichert werden.");
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der Anfangsbestand konnte nicht gespeichert werden. Prüfe Betrag, Datum und das ausgewählte Finanzkonto.",
+        );
       setMessage("Anfangsbestand gespeichert.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Anfangsbestand konnte nicht gespeichert werden.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Der Anfangsbestand konnte nicht gespeichert werden. Prüfe Betrag, Datum und das ausgewählte Finanzkonto.",
+      );
     } finally {
       setBusy(false);
     }

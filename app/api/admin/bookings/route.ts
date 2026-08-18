@@ -93,7 +93,13 @@ export async function POST(request: Request) {
     !input.success ||
     !canAccessLocation(session.user, input.data.location as RentalLocation)
   )
-    return NextResponse.json({ message: "Invalid booking" }, { status: 400 });
+    return NextResponse.json(
+      {
+        message:
+          "Die Buchung ist unvollständig oder ungültig. Prüfe Kundendaten, Standort, Zeitraum und Fahrradauswahl.",
+      },
+      { status: 400 },
+    );
   const common = {
     customerName: input.data.name,
     customerEmail: input.data.email,
@@ -153,7 +159,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...created }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { message: error instanceof BookingCommandError ? error.message : "Could not create booking" },
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Die Buchung konnte nicht angelegt werden. Prüfe die Eingaben und versuche es erneut.",
+      },
       { status: 409 },
     );
   }

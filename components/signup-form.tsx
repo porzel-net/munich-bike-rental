@@ -31,7 +31,7 @@ export function SignupForm({ token }: { token: string }) {
     let cancelled = false;
     void fetch(`/api/auth/invitations/${encodeURIComponent(token)}`, { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) throw new Error("invalid");
+        if (!response.ok) throw new Error("Der Einladungslink konnte nicht geprüft werden.");
         return (await response.json()) as Invitation;
       })
       .then((data) => {
@@ -65,7 +65,11 @@ export function SignupForm({ token }: { token: string }) {
     });
     if (!response.ok) {
       setIsSubmitting(false);
-      setError("Das Konto konnte nicht erstellt werden. Der Link ist möglicherweise bereits verwendet.");
+      const result = (await response.json().catch(() => ({}))) as { message?: string };
+      setError(
+        result.message ??
+          "Das Konto konnte nicht erstellt werden. Prüfe, ob der Einladungslink noch gültig und nicht bereits verwendet ist.",
+      );
       return;
     }
 
