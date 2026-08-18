@@ -39,9 +39,9 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
   if (!session.user.twoFactorEnabled) redirect("/admin/two-factor");
 
   return (
-    <div className={styles.root}>
-      {children}
+    <>
+      <div className={styles.root}>{children}</div>
       <Toaster richColors />
-    </div>
+    </>
   );
 }
