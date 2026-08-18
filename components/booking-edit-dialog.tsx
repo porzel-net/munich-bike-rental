@@ -52,11 +52,22 @@ type BookingEditValues = {
   quotedTotalCents?: number;
 };
 
+export type BookingEditAsset = {
+  id: number;
+  label: string;
+  nickname: string | null;
+  modelLabel: string;
+  priceCents: number;
+};
+
 type BookingEditDialogProps = BookingEditValues & {
   bookingId: number;
   commercialEditingAllowed: boolean;
   priceEditingAllowed?: boolean;
   notifyCustomer?: boolean;
+  availableAssets?: BookingEditAsset[];
+  selectedAssetsByRequestedItem?: Record<number, number>;
+  concreteBikeEditingAllowed?: boolean;
   trigger?: (open: () => void) => ReactNode;
 };
 
@@ -65,6 +76,9 @@ export function BookingEditDialog({
   commercialEditingAllowed,
   priceEditingAllowed = false,
   notifyCustomer = false,
+  availableAssets = [],
+  selectedAssetsByRequestedItem = {},
+  concreteBikeEditingAllowed = false,
   trigger,
   ...initialValues
 }: BookingEditDialogProps) {
@@ -77,6 +91,7 @@ export function BookingEditDialog({
       ? ""
       : (initialValues.quotedTotalCents / 100).toFixed(2).replace(".", ","),
   );
+  const [selectedAssets, setSelectedAssets] = useState<Record<number, number>>(selectedAssetsByRequestedItem);
 
   const update = (patch: Partial<BookingEditValues>) => setValues((current) => ({ ...current, ...patch }));
   const updateItem = (id: number, patch: Partial<EditableItem>) =>
@@ -92,6 +107,8 @@ export function BookingEditDialog({
       const quotedTotalCents = priceEditingAllowed ? euroToCents(quotedTotal) : undefined;
       if (priceEditingAllowed && (quotedTotalCents === null || quotedTotalCents === undefined || quotedTotalCents < 0))
         throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
+      if (concreteBikeEditingAllowed && values.requestedItems.some((item) => !selectedAssets[item.id]))
+        throw new Error("Bitte wähle für jedes Fahrrad ein konkretes Fahrrad aus.");
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -99,6 +116,7 @@ export function BookingEditDialog({
           ...values,
           ...(priceEditingAllowed ? { quotedTotalCents } : {}),
           notifyCustomer,
+          ...(concreteBikeEditingAllowed ? { assetsByRequestedItem: selectedAssets } : {}),
           requestedItems: values.requestedItems.map((item) => ({
             ...item,
             pedalType: item.needsPedals ? item.pedalType || null : null,
@@ -141,7 +159,9 @@ export function BookingEditDialog({
           <DialogTitle>{notifyCustomer ? "Buchungsinformationen ändern" : "Buchung bearbeiten"}</DialogTitle>
           <DialogDescription>
             {notifyCustomer
-              ? "Ändere die Buchungsdaten. Danach erhält die Kundin oder der Kunde eine Änderungsmail; alle geänderten Angaben werden darin fett markiert."
+              ? concreteBikeEditingAllowed
+                ? "Ändere die Buchungsdaten oder ordne ein anderes verfügbares Fahrrad am jeweiligen Standort zu. Danach erhält die Kundin oder der Kunde eine Änderungsmail; alle geänderten Angaben werden darin fett markiert."
+                : "Ändere die Buchungsdaten. Danach erhält die Kundin oder der Kunde eine Änderungsmail; alle geänderten Angaben werden darin fett markiert."
               : `Kontaktdaten und interne Nachricht können jederzeit angepasst werden.${commercialEditingAllowed ? " Zeitraum, Fahrradwünsche und Zubehör sind in diesem Buchungsstatus ebenfalls editierbar." : " Zeitraum, Fahrräder und Zubehör sind nach der Bestätigung gesperrt."}${priceEditingAllowed ? " Der Mietbetrag kann bei importierten Buchungen weiterhin angepasst werden." : ""}`}
           </DialogDescription>
         </DialogHeader>
@@ -347,6 +367,51 @@ export function BookingEditDialog({
               </div>
             ))}
           </fieldset>
+
+          {concreteBikeEditingAllowed ? (
+            <fieldset className="space-y-4">
+              <legend className="text-sm font-medium">Konkrete Fahrräder</legend>
+              <FieldDescription>
+                Wähle ein verfügbares Fahrrad am Standort der Buchung. Das vereinbarte Mietentgelt bleibt dabei
+                unverändert.
+              </FieldDescription>
+              {values.requestedItems.map((item) => (
+                <Field key={item.id}>
+                  <FieldLabel htmlFor={`edit-concrete-asset-${item.id}`}>Fahrrad {item.position}</FieldLabel>
+                  <Select
+                    value={selectedAssets[item.id] ? String(selectedAssets[item.id]) : undefined}
+                    onValueChange={(value) =>
+                      setSelectedAssets((current) => ({ ...current, [item.id]: Number(value) }))
+                    }
+                  >
+                    <SelectTrigger id={`edit-concrete-asset-${item.id}`} className="w-full">
+                      <SelectValue placeholder="Fahrrad auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableAssets.map((asset) => {
+                        const selectedForOtherItem = Object.entries(selectedAssets).some(
+                          ([requestedItemId, assetId]) =>
+                            Number(requestedItemId) !== item.id && Number(assetId) === asset.id,
+                        );
+                        return (
+                          <SelectItem key={asset.id} value={String(asset.id)} disabled={selectedForOtherItem}>
+                            {asset.nickname ? `${asset.nickname} · ` : ""}
+                            {asset.modelLabel} · {asset.label} · {(asset.priceCents / 100).toFixed(2).replace(".", ",")}{" "}
+                            €/Tag
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ))}
+              {!availableAssets.length ? (
+                <p className="text-sm text-destructive">
+                  Für diesen Zeitraum sind am Standort keine Fahrräder verfügbar.
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

@@ -236,6 +236,16 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const latestOffer = offers[0];
   const hasActiveOffer = offers.some((offer) => offer.status === "sent");
   const acceptedOffer = offers.find((offer) => offer.status === "accepted");
+  const acceptedOfferItems = acceptedOffer
+    ? db.select().from(bookingOfferItems).where(eq(bookingOfferItems.offerId, acceptedOffer.id)).all()
+    : [];
+  const selectedAssetsByRequestedItem = Object.fromEntries(
+    acceptedOfferItems.map((item) => [item.requestedItemId, item.assetId]),
+  );
+  const selectedConcreteAssetIds = new Set(Object.values(selectedAssetsByRequestedItem));
+  const concreteAvailableAssets = availableAssets.filter(
+    (asset) => selectedConcreteAssetIds.has(asset.id) || !hasAssetConflict(db, booking, asset.id),
+  );
   const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
   const suggestedInvoiceNumber =
     booking.invoiceNumber ??
@@ -269,12 +279,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       { label: "Zahlungsstatus", value: <Badge variant={paymentView.badge}>{paymentView.label}</Badge> },
     ],
   ];
-  const offered = latestOffer
+  const displayOffer = acceptedOffer ?? latestOffer;
+  const offered = displayOffer
     ? db
         .select({ item: bookingOfferItems, asset: rentalAssets })
         .from(bookingOfferItems)
         .innerJoin(rentalAssets, eq(bookingOfferItems.assetId, rentalAssets.id))
-        .where(eq(bookingOfferItems.offerId, latestOffer.id))
+        .where(eq(bookingOfferItems.offerId, displayOffer.id))
         .all()
     : [];
 
@@ -664,6 +675,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                           customerMessage: booking.customerMessage,
                           communicationLocale: booking.communicationLocale,
                           requestedItems: items,
+                          availableAssets: concreteAvailableAssets,
+                          selectedAssetsByRequestedItem,
+                          concreteBikeEditingAllowed: Boolean(acceptedOffer),
                         }
                       : undefined
                   }

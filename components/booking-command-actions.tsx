@@ -244,6 +244,9 @@ export function BookingCommandActions({
     customerMessage: string;
     communicationLocale: "de" | "en";
     requestedItems: EditableItem[];
+    availableAssets: Asset[];
+    selectedAssetsByRequestedItem: Record<number, number>;
+    concreteBikeEditingAllowed: boolean;
   };
 }) {
   const router = useRouter();
@@ -854,6 +857,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             {...confirmedBookingEdit}
             commercialEditingAllowed
             notifyCustomer
+            availableAssets={confirmedBookingEdit.availableAssets}
+            selectedAssetsByRequestedItem={confirmedBookingEdit.selectedAssetsByRequestedItem}
+            concreteBikeEditingAllowed={confirmedBookingEdit.concreteBikeEditingAllowed}
             trigger={(open) => (
               <ActionItem
                 icon={<PencilIcon />}

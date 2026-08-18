@@ -39,6 +39,7 @@ const schema = z.object({
   requestedItems: z.array(requestedItem).min(1).max(10),
   quotedTotalCents: z.number().int().min(0).optional(),
   notifyCustomer: z.boolean().optional(),
+  assetsByRequestedItem: z.record(z.string(), z.number().int().positive()).optional(),
 });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -52,6 +53,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       bookingId: id,
       actorUserId: command.user.id,
       ...input.data,
+      assetsByRequestedItem: input.data.assetsByRequestedItem
+        ? Object.fromEntries(
+            Object.entries(input.data.assetsByRequestedItem).map(([itemId, assetId]) => [Number(itemId), assetId]),
+          )
+        : undefined,
     });
     const mailResult = result.mailId ? await dispatchNextOutboxMail(command.db, result.mailId) : null;
     return NextResponse.json({ ...result, mailStatus: mailResult?.status ?? null });

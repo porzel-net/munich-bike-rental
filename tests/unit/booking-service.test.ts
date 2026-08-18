@@ -11,6 +11,7 @@ import {
   bookingAssetAllocations,
   bookingEvents,
   bookingFeedback,
+  bookingOfferItems,
   bookingOffers,
   bookingRequestedItems,
   bookings,
@@ -133,7 +134,7 @@ function setup() {
       updatedAt: new Date(),
     })
     .run();
-  return { db, assetId: asset.id };
+  return { db, assetId: asset.id, variantId: variant.id };
 }
 
 function inquiry(db: ReturnType<typeof setup>["db"], periodFrom: string, periodTo: string) {
@@ -1280,6 +1281,120 @@ describe("booking commands", () => {
     expect(mail?.html).toContain("<strong>2026-08-01</strong>");
     expect(mail?.plainText).toContain("NEW 2026-08-01");
     expect(mail?.plainText).toContain("Bikes and equipment: NEW Test Bike - L");
+  });
+
+  it("changes the concrete bike of a confirmed booking and updates its allocation and offer snapshot", () => {
+    const { db, assetId, variantId } = setup();
+    const replacement = db
+      .insert(rentalAssets)
+      .values({
+        variantId,
+        location: "munich",
+        assetCode: "TEST-2",
+        displayName: "Test Bike - M 2",
+        dailyPriceCents: 5_500,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: rentalAssets.id })
+      .get();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOffer(db, offer.confirmationToken, "admin");
+    const confirmed = db.select().from(bookings).where(eq(bookings.id, booking.id)).get()!;
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, booking.id)).get()!;
+
+    const result = updateBooking(db, {
+      bookingId: booking.id,
+      expectedVersion: confirmed.version,
+      actorUserId: "admin",
+      customerName: confirmed.customerName,
+      customerEmail: confirmed.customerEmail,
+      customerPhone: confirmed.customerPhone,
+      periodFrom: confirmed.periodFrom,
+      periodTo: confirmed.periodTo,
+      pickupTime: confirmed.pickupTime,
+      dropoffTime: confirmed.dropoffTime,
+      customerMessage: confirmed.customerMessage,
+      communicationLocale: confirmed.communicationLocale,
+      requestedItems: [item],
+      notifyCustomer: true,
+      assetsByRequestedItem: { [item.id]: replacement.id },
+    });
+
+    expect(
+      db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, booking.id)).all(),
+    ).toMatchObject([{ assetId: replacement.id, releasedAt: null }]);
+    expect(
+      db
+        .select({ assetId: bookingOfferItems.assetId })
+        .from(bookingOfferItems)
+        .where(eq(bookingOfferItems.offerId, offer.offerId))
+        .get(),
+    ).toEqual({ assetId: replacement.id });
+    const acceptedOffer = db.select().from(bookingOffers).where(eq(bookingOffers.id, offer.offerId)).get()!;
+    expect(JSON.parse(acceptedOffer.priceSnapshotJson)).toMatchObject({
+      offeredItems: [{ assetId: replacement.id, assetName: "Test Bike - M 2", dailyPriceCents: 5_500 }],
+      bikeSubtotalCents: 11_000,
+      discountCents: 1_000,
+    });
+    const mail = db.select().from(mailOutbox).where(eq(mailOutbox.id, result.mailId!)).get();
+    expect(mail?.plainText).toContain("Assigned bikes: NEW Test Bike - M 2");
+  });
+
+  it("rejects a concrete bike change when the replacement is already booked", () => {
+    const { db, assetId, variantId } = setup();
+    const replacement = db
+      .insert(rentalAssets)
+      .values({
+        variantId,
+        location: "munich",
+        assetCode: "TEST-2",
+        displayName: "Test Bike - M 2",
+        dailyPriceCents: 5_000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: rentalAssets.id })
+      .get();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    const otherBooking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    assignAdminBooking(db, otherBooking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOffer(db, offer.confirmationToken, "admin");
+    const otherOffer = createOffer(db, {
+      bookingId: otherBooking.id,
+      assetsByRequestedItem: { [otherBooking.itemId]: replacement.id },
+    });
+    confirmOffer(db, otherOffer.confirmationToken, "admin");
+    const confirmed = db.select().from(bookings).where(eq(bookings.id, booking.id)).get()!;
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, booking.id)).get()!;
+
+    expect(() =>
+      updateBooking(db, {
+        bookingId: booking.id,
+        expectedVersion: confirmed.version,
+        actorUserId: "admin",
+        customerName: confirmed.customerName,
+        customerEmail: confirmed.customerEmail,
+        customerPhone: confirmed.customerPhone,
+        periodFrom: confirmed.periodFrom,
+        periodTo: confirmed.periodTo,
+        pickupTime: confirmed.pickupTime,
+        dropoffTime: confirmed.dropoffTime,
+        customerMessage: confirmed.customerMessage,
+        communicationLocale: confirmed.communicationLocale,
+        requestedItems: [item],
+        notifyCustomer: true,
+        assetsByRequestedItem: { [item.id]: replacement.id },
+      }),
+    ).toThrow("Das Fahrrad ist im neuen Zeitraum bereits anderweitig gebucht");
+    expect(
+      db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, booking.id)).all(),
+    ).toMatchObject([{ assetId, releasedAt: null }]);
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()?.version).toBe(confirmed.version);
   });
 
   it("allows imported binding and completed bookings to update the rental amount", () => {

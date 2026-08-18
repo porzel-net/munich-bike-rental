@@ -54,6 +54,7 @@ import {
 import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
 import { allocateInvoiceNumber, invoiceNumberPattern } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
+import { getRentalDays } from "../inventory/pricing";
 
 export { BookingCommandError } from "./errors";
 
@@ -1414,6 +1415,7 @@ export type UpdateBookingCommand = {
   requestedItems: Array<BookingRequestedItemCommand & { id: number }>;
   quotedTotalCents?: number;
   notifyCustomer?: boolean;
+  assetsByRequestedItem?: Record<number, number>;
 };
 
 /** Updates editable booking details while keeping offers, allocations and the event history consistent. */
@@ -1462,6 +1464,69 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       computerMountType: item.needsComputerMount ? normalizeComputerMountType(item.computerMountType) : null,
     }));
 
+    const acceptedOffer =
+      booking.status === "confirmed"
+        ? db
+            .select()
+            .from(bookingOffers)
+            .where(and(eq(bookingOffers.bookingId, booking.id), eq(bookingOffers.status, "accepted")))
+            .all()
+            .sort((left, right) => right.offerNumber - left.offerNumber)[0]
+        : undefined;
+    const acceptedOfferItems = acceptedOffer
+      ? db.select().from(bookingOfferItems).where(eq(bookingOfferItems.offerId, acceptedOffer.id)).all()
+      : [];
+    const currentConcreteAssetByRequestedItem = new Map(
+      acceptedOfferItems.map((item) => [item.requestedItemId, item.assetId]),
+    );
+    let selectedConcreteAssets: Array<{
+      asset: typeof rentalAssets.$inferSelect;
+      modelTitle: string;
+      size: string;
+    }> = [];
+    let concreteBikeChanged = false;
+    if (input.assetsByRequestedItem !== undefined) {
+      if (booking.status !== "confirmed" || input.notifyCustomer !== true)
+        throw new BookingCommandError("Konkrete Fahrräder können nur bei bestätigten Buchungen geändert werden");
+      const itemIds = currentItems.map((item) => item.id);
+      const selectedItemIds = Object.keys(input.assetsByRequestedItem).map(Number);
+      const selectedAssetIds = Object.values(input.assetsByRequestedItem);
+      if (
+        !acceptedOffer ||
+        selectedItemIds.length !== itemIds.length ||
+        itemIds.some((itemId) => !selectedItemIds.includes(itemId)) ||
+        selectedAssetIds.some((assetId) => !Number.isSafeInteger(assetId) || assetId <= 0) ||
+        new Set(selectedAssetIds).size !== itemIds.length ||
+        acceptedOfferItems.length !== itemIds.length ||
+        itemIds.some((itemId) => !currentConcreteAssetByRequestedItem.has(itemId))
+      )
+        throw new BookingCommandError("Für jedes angefragte Fahrrad muss ein konkretes Fahrrad ausgewählt werden");
+
+      selectedConcreteAssets = db
+        .select({ asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
+        .from(rentalAssets)
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+        .where(inArray(rentalAssets.id, selectedAssetIds))
+        .all();
+      if (
+        selectedConcreteAssets.length !== itemIds.length ||
+        selectedConcreteAssets.some(
+          (selected) =>
+            selected.asset.location !== booking.location ||
+            !isHistoricalAssetSelectableForBooking(booking, {
+              ...selected.asset,
+              modelTitle: selected.modelTitle,
+              size: selected.size,
+            }),
+        )
+      )
+        throw new BookingCommandError("Mindestens eines der ausgewählten Fahrräder ist nicht verfügbar");
+      concreteBikeChanged = currentItems.some(
+        (item) => currentConcreteAssetByRequestedItem.get(item.id) !== input.assetsByRequestedItem![item.id],
+      );
+    }
+
     const bikeDetailsChanged = currentItems.some((current) => {
       const next = normalizedRequestedItems.find((item) => item.id === current.id);
       return (
@@ -1485,7 +1550,8 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       booking.periodTo !== input.periodTo ||
       booking.pickupTime !== input.pickupTime ||
       booking.dropoffTime !== input.dropoffTime ||
-      bikeDetailsChanged;
+      bikeDetailsChanged ||
+      concreteBikeChanged;
     const quotedTotalChanged =
       input.quotedTotalCents !== undefined && input.quotedTotalCents !== booking.quotedTotalCents;
     if (commercialChanged && !["inquiry_received", "offer_sent"].includes(booking.status) && !input.notifyCustomer)
@@ -1534,6 +1600,28 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     const currentItemsSummary = currentItems.map(formatRequestedItem).join(", ");
     const nextItemsSummary = normalizedRequestedItems.map(formatRequestedItem).join(", ");
     addMailChange("Fahrräder und Ausstattung", "Bikes and equipment", currentItemsSummary, nextItemsSummary);
+    const currentConcreteNamesByRequestedItem = new Map<number, string>();
+    for (const offerItem of acceptedOfferItems) {
+      const asset = db
+        .select({ displayName: rentalAssets.displayName })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.id, offerItem.assetId))
+        .get();
+      if (asset) currentConcreteNamesByRequestedItem.set(offerItem.requestedItemId, asset.displayName);
+    }
+    if (concreteBikeChanged) {
+      const currentConcreteSummary = currentItems
+        .map((item) => currentConcreteNamesByRequestedItem.get(item.id) ?? item.requestedLabel)
+        .join(", ");
+      const nextConcreteSummary = normalizedRequestedItems
+        .map(
+          (item) =>
+            selectedConcreteAssets.find((selected) => selected.asset.id === input.assetsByRequestedItem![item.id])
+              ?.asset.displayName ?? item.requestedLabel,
+        )
+        .join(", ");
+      addMailChange("Konkrete Fahrräder", "Assigned bikes", currentConcreteSummary, nextConcreteSummary);
+    }
     const confirmedPeriodChanged =
       booking.status === "confirmed" &&
       input.notifyCustomer === true &&
@@ -1551,11 +1639,12 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       ...(booking.dropoffTime !== input.dropoffTime ? ["dropoffTime"] : []),
       ...(booking.customerMessage !== input.customerMessage ? ["customerMessage"] : []),
       ...(booking.communicationLocale !== input.communicationLocale ? ["communicationLocale"] : []),
-      ...(commercialChanged ? ["requestedItems"] : []),
+      ...(bikeDetailsChanged ? ["requestedItems"] : []),
+      ...(concreteBikeChanged ? ["assetAllocations"] : []),
       ...(quotedTotalChanged ? ["quotedTotalCents"] : []),
     ];
     let queuedMailId: number | null = null;
-    if (confirmedPeriodChanged) {
+    if (confirmedPeriodChanged || concreteBikeChanged) {
       const activeAllocations = db
         .select()
         .from(bookingAssetAllocations)
@@ -1563,6 +1652,8 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
           and(eq(bookingAssetAllocations.bookingId, booking.id), sql`${bookingAssetAllocations.releasedAt} is null`),
         )
         .all();
+      if (!activeAllocations.length || activeAllocations.length !== acceptedOfferItems.length)
+        throw new BookingCommandError("Für die bestätigte Buchung liegen keine vollständigen Fahrradzuordnungen vor");
       db.update(bookingAssetAllocations)
         .set({ releasedAt: stamp })
         .where(
@@ -1576,11 +1667,15 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         pickupTime: input.pickupTime,
         dropoffTime: input.dropoffTime,
       };
-      if (activeAllocations.some((allocation) => hasAssetConflict(db, nextBooking, allocation.assetId)))
-        throw new BookingCommandError("Das Fahrrad ist im neuen Zeitraum bereits anderweitig gebucht");
-      for (const allocation of activeAllocations)
+      for (const allocation of activeAllocations) {
+        const offerItem = acceptedOfferItems.find((item) => item.assetId === allocation.assetId);
+        if (!offerItem) throw new BookingCommandError("Die Fahrradzuordnung der Buchung ist inkonsistent");
+        const nextAssetId = input.assetsByRequestedItem?.[offerItem.requestedItemId] ?? allocation.assetId;
+        if (hasAssetConflict(db, nextBooking, nextAssetId))
+          throw new BookingCommandError("Das Fahrrad ist im neuen Zeitraum bereits anderweitig gebucht");
         db.update(bookingAssetAllocations)
           .set({
+            assetId: nextAssetId,
             periodFrom: input.periodFrom,
             periodTo: input.periodTo,
             pickupTime: input.pickupTime,
@@ -1589,20 +1684,22 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
           })
           .where(eq(bookingAssetAllocations.id, allocation.id))
           .run();
-      db.update(bookingAccessoryAllocations)
-        .set({
-          periodFrom: input.periodFrom,
-          periodTo: input.periodTo,
-          pickupTime: input.pickupTime,
-          dropoffTime: input.dropoffTime,
-        })
-        .where(
-          and(
-            eq(bookingAccessoryAllocations.bookingId, booking.id),
-            sql`${bookingAccessoryAllocations.releasedAt} is null`,
-          ),
-        )
-        .run();
+      }
+      if (confirmedPeriodChanged)
+        db.update(bookingAccessoryAllocations)
+          .set({
+            periodFrom: input.periodFrom,
+            periodTo: input.periodTo,
+            pickupTime: input.pickupTime,
+            dropoffTime: input.dropoffTime,
+          })
+          .where(
+            and(
+              eq(bookingAccessoryAllocations.bookingId, booking.id),
+              sql`${bookingAccessoryAllocations.releasedAt} is null`,
+            ),
+          )
+          .run();
     }
     db.update(bookings)
       .set({
@@ -1683,6 +1780,71 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         .run();
     }
 
+    if (acceptedOffer && (confirmedPeriodChanged || concreteBikeChanged)) {
+      for (const offerItem of acceptedOfferItems) {
+        const nextAssetId = input.assetsByRequestedItem?.[offerItem.requestedItemId];
+        if (nextAssetId === undefined) continue;
+        const selected = selectedConcreteAssets.find((item) => item.asset.id === nextAssetId);
+        if (!selected) throw new BookingCommandError("Das ausgewählte Fahrrad konnte nicht geladen werden");
+        db.update(bookingOfferItems)
+          .set({ assetId: nextAssetId, itemPriceCents: selected.asset.dailyPriceCents })
+          .where(and(eq(bookingOfferItems.id, offerItem.id), eq(bookingOfferItems.offerId, acceptedOffer.id)))
+          .run();
+      }
+
+      let priceSnapshot: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(acceptedOffer.priceSnapshotJson) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          priceSnapshot = parsed as Record<string, unknown>;
+      } catch {
+        // Keep old snapshots untouched when an imported record contains malformed JSON.
+      }
+      const snapshotItems = Array.isArray(priceSnapshot.offeredItems)
+        ? (priceSnapshot.offeredItems as Array<Record<string, unknown>>)
+        : [];
+      if (snapshotItems.length) {
+        const updatedSnapshotItems = snapshotItems.map((item) => {
+          const requestedItemId = typeof item.requestedItemId === "number" ? item.requestedItemId : null;
+          const nextAssetId = requestedItemId === null ? undefined : input.assetsByRequestedItem?.[requestedItemId];
+          const selected =
+            nextAssetId === undefined
+              ? undefined
+              : selectedConcreteAssets.find((asset) => asset.asset.id === nextAssetId);
+          return selected
+            ? {
+                ...item,
+                assetId: selected.asset.id,
+                assetName: selected.asset.displayName,
+                frameNumber: selected.asset.frameNumber,
+                dailyPriceCents: selected.asset.dailyPriceCents,
+              }
+            : item;
+        });
+        const bikeSubtotalCents =
+          updatedSnapshotItems.reduce(
+            (sum, item) => sum + (typeof item.dailyPriceCents === "number" ? item.dailyPriceCents : 0),
+            0,
+          ) * getRentalDays(input.periodFrom, input.periodTo);
+        const equipmentSubtotalCents =
+          typeof priceSnapshot.equipmentSubtotalCents === "number" ? priceSnapshot.equipmentSubtotalCents : 0;
+        const totalCents = acceptedOffer.totalCents;
+        db.update(bookingOffers)
+          .set({
+            priceSnapshotJson: JSON.stringify({
+              ...priceSnapshot,
+              offeredItems: updatedSnapshotItems,
+              rentalDays: getRentalDays(input.periodFrom, input.periodTo),
+              bikeSubtotalCents,
+              totalCents,
+              discountCents: bikeSubtotalCents + equipmentSubtotalCents - totalCents,
+            }),
+          })
+          .where(eq(bookingOffers.id, acceptedOffer.id))
+          .run();
+      }
+    }
+
     if (offerNeedsRevocation) {
       db.update(bookingOffers)
         .set({ status: "revoked", revokedAt: stamp })
@@ -1700,7 +1862,13 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         periodTo: input.periodTo,
         pickupTime: input.pickupTime,
         dropoffTime: input.dropoffTime,
-        bikes: normalizedRequestedItems.map((item) => item.requestedLabel),
+        bikes: normalizedRequestedItems.map(
+          (item) =>
+            (input.assetsByRequestedItem
+              ? selectedConcreteAssets.find((selected) => selected.asset.id === input.assetsByRequestedItem![item.id])
+                  ?.asset.displayName
+              : undefined) ?? item.requestedLabel,
+        ),
         changes: mailChanges,
       });
       queuedMailId = queueCustomerMail(
