@@ -132,6 +132,7 @@ export function InventoryTable({
             labelDe: item.labelDe,
             labelEn: item.labelEn,
             priceCents: item.priceCents,
+            availableQuantity: item.availableQuantity,
             isAvailable: !item.isAvailable,
           };
     const response = await fetch("/api/admin/inventory", {
@@ -302,13 +303,14 @@ export function InventoryTable({
                   <TableHead>Ausrüstung</TableHead>
                   <TableHead>Art</TableHead>
                   <TableHead>Standort</TableHead>
+                  <TableHead className="text-right">Anzahl</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Preis</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleEquipment.length === 0 ? (
-                  <EmptyRow colSpan={5} label="Noch keine Ausrüstung für diesen Standort erfasst." />
+                  <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
                 ) : (
                   visibleEquipment.map((item) => (
                     <TableRow
@@ -328,6 +330,7 @@ export function InventoryTable({
                       <TableCell>
                         {locations.find((location) => location.key === item.location)?.label ?? item.location}
                       </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">{item.availableQuantity}</TableCell>
                       <TableCell>
                         <StatusButton
                           active={item.isAvailable}
@@ -421,6 +424,9 @@ function InventoryDialog({
   const [labelDe, setLabelDe] = useState(item?.kind === "equipment" ? item.labelDe : "");
   const [labelEn, setLabelEn] = useState(item?.kind === "equipment" ? item.labelEn : "");
   const [price, setPrice] = useState(item ? priceToInput(item.priceCents) : "");
+  const [availableQuantity, setAvailableQuantity] = useState(
+    item?.kind === "equipment" ? String(item.availableQuantity) : "1",
+  );
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -432,6 +438,15 @@ function InventoryDialog({
     const priceCents = Math.round(Number(price.replace(",", ".")) * 100);
     if (!Number.isSafeInteger(priceCents) || priceCents < 0) {
       setError("Bitte gib einen gültigen Preis ein.");
+      setSaving(false);
+      return;
+    }
+    const equipmentQuantity = Number(availableQuantity);
+    if (
+      kind === "equipment" &&
+      (!Number.isSafeInteger(equipmentQuantity) || equipmentQuantity < 0 || equipmentQuantity > 10_000)
+    ) {
+      setError("Bitte gib eine gültige Anzahl zwischen 0 und 10.000 ein.");
       setSaving(false);
       return;
     }
@@ -459,6 +474,7 @@ function InventoryDialog({
             labelDe: labelDe.trim(),
             labelEn: labelEn.trim() || labelDe.trim(),
             priceCents,
+            availableQuantity: equipmentQuantity,
             isAvailable,
           };
     if (kind === "bike" && (!title.trim() || !size.trim())) {
@@ -513,6 +529,7 @@ function InventoryDialog({
           labelDe: labelDe.trim(),
           labelEn: labelEn.trim() || labelDe.trim(),
           priceCents,
+          availableQuantity: equipmentQuantity,
           isAvailable,
         },
         "equipment",
@@ -663,6 +680,23 @@ function InventoryDialog({
                     />
                   </Field>
                 </div>
+                <Field>
+                  <FieldLabel htmlFor="inventory-quantity">Anzahl im Bestand</FieldLabel>
+                  <Input
+                    id="inventory-quantity"
+                    required
+                    type="number"
+                    min="0"
+                    max="10000"
+                    step="1"
+                    inputMode="numeric"
+                    value={availableQuantity}
+                    onChange={(event) => setAvailableQuantity(event.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Wie viele Exemplare dieser Ausrüstung am Standort vorhanden sind.
+                  </p>
+                </Field>
               </>
             )}
             <div className="grid gap-4 sm:grid-cols-2">

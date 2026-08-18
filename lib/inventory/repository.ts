@@ -140,7 +140,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .where(eq(rentalLocationEquipment.location, location))
     .orderBy(asc(rentalLocationEquipment.displayOrder))
     .all()
-    .filter((item) => item.isAvailable);
+    .filter((item) => item.isAvailable && item.availableQuantity > 0);
   const discounts = db
     .select()
     .from(rentalLocationDiscounts)

@@ -24,6 +24,7 @@ const locationSchema = z.enum(rentalLocations);
 const baseSchema = z.object({
   location: locationSchema,
   priceCents: z.number().int().min(0).max(1_000_000_000),
+  availableQuantity: z.number().int().min(0).max(10_000).default(1),
   isAvailable: z.boolean().default(true),
 });
 const bikeSchema = baseSchema.extend({
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
           labelDe: input.data.labelDe,
           labelEn: input.data.labelEn,
           priceCents: input.data.priceCents,
+          availableQuantity: input.data.availableQuantity,
           displayOrder,
           isAvailable: input.data.isAvailable,
         })
@@ -272,6 +274,7 @@ export async function PATCH(request: Request) {
         labelDe: input.data.labelDe,
         labelEn: input.data.labelEn,
         priceCents: input.data.priceCents,
+        availableQuantity: input.data.availableQuantity,
         isAvailable: input.data.isAvailable,
         equipmentKey: equipmentKey(input.data.category, input.data.labelDe),
       })

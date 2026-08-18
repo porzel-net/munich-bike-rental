@@ -175,6 +175,7 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
               labelEn,
               priceCents,
               displayOrder: index + 1,
+              availableQuantity: 1,
             })),
           )
           .run();
@@ -199,6 +200,7 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
               labelEn,
               priceCents,
               displayOrder: equipment.length + index + 1,
+              availableQuantity: 1,
             })),
           )
           .run();

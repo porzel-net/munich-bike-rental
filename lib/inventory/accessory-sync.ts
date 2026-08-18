@@ -8,8 +8,8 @@ type LegacyEquipment = typeof rentalLocationEquipment.$inferSelect;
 /**
  * Keeps the counted booking inventory compatible with the legacy equipment
  * catalog. The latter is still the source edited by the admin inventory API.
- * Existing quantities are preserved; a previously empty but available legacy
- * item gets the historical default quantity of one.
+ * The legacy catalog owns the quantity now; the counted booking inventory is
+ * synchronized from it so both admin views and booking allocation agree.
  */
 export function syncLegacyEquipmentToAccessoryInventory(
   db: AppDatabase,
@@ -32,7 +32,7 @@ export function syncLegacyEquipmentToAccessoryInventory(
     )
     .get();
   const accessory = byLegacyId ?? byLocationKey;
-  const nextState = equipment.isAvailable ? "active" : "maintenance";
+  const nextState = equipment.isAvailable && equipment.availableQuantity > 0 ? "active" : "maintenance";
 
   if (!accessory) {
     db.insert(accessoryInventory)
@@ -43,7 +43,7 @@ export function syncLegacyEquipmentToAccessoryInventory(
         labelDe: equipment.labelDe,
         labelEn: equipment.labelEn,
         priceCents: equipment.priceCents,
-        availableQuantity: equipment.isAvailable ? 1 : 0,
+        availableQuantity: equipment.availableQuantity,
         state: nextState,
         legacyEquipmentId: equipment.id,
         createdAt: stamp,
@@ -74,7 +74,7 @@ export function syncLegacyEquipmentToAccessoryInventory(
       labelDe: equipment.labelDe,
       labelEn: equipment.labelEn,
       priceCents: equipment.priceCents,
-      availableQuantity: Math.max(accessory.availableQuantity, equipment.isAvailable ? 1 : 0),
+      availableQuantity: equipment.availableQuantity,
       state: nextState,
       legacyEquipmentId: accessory.legacyEquipmentId ?? equipment.id,
       updatedAt: stamp,

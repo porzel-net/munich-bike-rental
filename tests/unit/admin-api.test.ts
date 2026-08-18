@@ -70,6 +70,7 @@ import { PATCH as financialAccountPatch } from "../../app/api/admin/financial/ac
 import { POST as depreciationPost } from "../../app/api/admin/financial/assets/depreciation/route";
 import { POST as disposalPost } from "../../app/api/admin/financial/assets/disposal/route";
 import {
+  accessoryInventory,
   authInvitation,
   authUser,
   carddavAccounts,
@@ -252,12 +253,39 @@ describe("admin inventory API", () => {
         labelDe: "Edge Pedal",
         labelEn: "Edge Pedal",
         priceCents: 300,
+        availableQuantity: 3,
         isAvailable: true,
       }),
     );
     expect(equipmentResponse.status).toBe(201);
     const equipmentBody = (await equipmentResponse.json()) as { item: { id: number; equipmentKey: string } };
     expect(equipmentBody.item.equipmentKey).toBe("pedal-edge-pedal");
+    expect(
+      db.select().from(rentalLocationEquipment).where(eq(rentalLocationEquipment.id, equipmentBody.item.id)).get(),
+    ).toMatchObject({ availableQuantity: 3, isAvailable: true });
+    expect(
+      db.select().from(accessoryInventory).where(eq(accessoryInventory.legacyEquipmentId, equipmentBody.item.id)).get(),
+    ).toMatchObject({ accessoryKey: "pedal-edge-pedal", availableQuantity: 3, state: "active" });
+    expect(
+      (
+        await inventoryPatch(
+          request("/api/admin/inventory", "PATCH", {
+            id: equipmentBody.item.id,
+            location: "munich",
+            type: "equipment",
+            category: "pedal",
+            labelDe: "Edge Pedal",
+            labelEn: "Edge Pedal",
+            priceCents: 300,
+            availableQuantity: 4,
+            isAvailable: true,
+          }),
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      db.select().from(accessoryInventory).where(eq(accessoryInventory.legacyEquipmentId, equipmentBody.item.id)).get(),
+    ).toMatchObject({ availableQuantity: 4 });
     expect(
       (
         await inventoryDelete(

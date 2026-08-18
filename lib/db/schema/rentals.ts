@@ -192,6 +192,7 @@ export const rentalLocationEquipment = sqliteTable(
     labelEn: text("label_en").notNull(),
     priceCents: integer("price_cents").notNull(),
     displayOrder: integer("display_order").notNull(),
+    availableQuantity: integer("available_quantity").notNull().default(1),
     isAvailable: integer("is_available", { mode: "boolean" }).notNull().default(true),
   },
   (table) => [

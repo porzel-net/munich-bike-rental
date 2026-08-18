@@ -33,6 +33,7 @@ export type AdminInventoryEquipment = {
   labelDe: string;
   labelEn: string;
   priceCents: number;
+  availableQuantity: number;
   isAvailable: boolean;
 };
 
@@ -88,6 +89,7 @@ export default async function InventoryPage() {
     labelDe: item.labelDe,
     labelEn: item.labelEn,
     priceCents: item.priceCents,
+    availableQuantity: item.availableQuantity,
     isAvailable: item.isAvailable,
   }));
   const locationOptions = locations.map((key) => ({ key, label: rentalLocationLabels.de[key] }));

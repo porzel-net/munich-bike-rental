@@ -491,6 +491,13 @@
       "when": 1787054400000,
       "tag": "0070_repair_legacy_equipment",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1787058000000,
+      "tag": "0071_equipment_quantities",
+      "breakpoints": true
     }
   ]
 }
