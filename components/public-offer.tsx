@@ -527,10 +527,21 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                       {formatEuro(currentOffer.quote.equipmentSubtotalCents, currentOffer.booking.locale)}
                     </strong>
                   </div>
-                  {currentOffer.quote.discountCents ? (
+                  {currentOffer.quote.discountCents !== 0 ? (
                     <div className="public-offer-totals__discount">
-                      <span>{de ? "Rabatt" : "Discount"}</span>
-                      <strong>-{formatEuro(currentOffer.quote.discountCents, currentOffer.booking.locale)}</strong>
+                      <span>
+                        {currentOffer.quote.discountCents > 0
+                          ? de
+                            ? "Rabatt"
+                            : "Discount"
+                          : de
+                            ? "Aufpreis"
+                            : "Surcharge"}
+                      </span>
+                      <strong>
+                        {currentOffer.quote.discountCents > 0 ? "−" : "+"}
+                        {formatEuro(Math.abs(currentOffer.quote.discountCents), currentOffer.booking.locale)}
+                      </strong>
                     </div>
                   ) : null}
                   <div className="public-offer-total">

@@ -251,6 +251,7 @@ function event(
   actorUserId?: string | null,
   reason = "",
   payload: unknown = {},
+  occurredAt = now(),
 ) {
   db.insert(bookingEvents)
     .values({
@@ -261,7 +262,7 @@ function event(
       actorUserId: actorUserId ?? null,
       reason,
       payloadJson: JSON.stringify(payload),
-      occurredAt: now(),
+      occurredAt,
     })
     .run();
 }
@@ -300,6 +301,7 @@ type SetLegacyBookingStatusInput = {
   details?: LegacyStatusDetails;
   reason?: string;
   actorUserId?: string | null;
+  allowNonLegacy?: boolean;
 };
 
 const legacyStatusesRequiringBookingDetails = new Set<BookingStatus>([
@@ -315,7 +317,7 @@ const legacyStatusesRequiringInvoice = new Set<BookingStatus>(["confirmed", "che
 function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBookingStatusInput) {
   const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
   if (!booking) throw new BookingCommandError("Booking not found");
-  if (booking.source !== "legacy")
+  if (booking.source !== "legacy" && !(input.allowNonLegacy && input.status === "confirmed"))
     throw new BookingCommandError("Der Status kann hier nur bei importierten Buchungen frei geändert werden");
   if (booking.status === input.status && !input.details) return booking;
 
@@ -339,22 +341,24 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
       "Für diesen Status müssen Zeitraum, Uhrzeiten und Preis vollständig angegeben werden",
     );
 
+  let resolvedInvoiceNumber = booking.invoiceNumber;
   if (requiresInvoice) {
-    const invoiceNumber = details?.invoiceNumber?.trim() ?? "";
-    if (!invoiceNumberPattern.test(invoiceNumber))
+    const requestedInvoiceNumber = details?.invoiceNumber?.trim() ?? "";
+    if (requestedInvoiceNumber && !invoiceNumberPattern.test(requestedInvoiceNumber))
       throw new BookingCommandError("Die Rechnungsnummer muss dem Format YBR-JJJJ-NNNN entsprechen");
     if (booking.invoiceNumber) {
-      if (invoiceNumber !== booking.invoiceNumber)
+      if (requestedInvoiceNumber && requestedInvoiceNumber !== booking.invoiceNumber)
         throw new BookingCommandError("Die bereits vergebene Rechnungsnummer darf nicht geändert werden");
     } else {
-      let expectedInvoiceNumber: string;
       try {
-        expectedInvoiceNumber = allocateInvoiceNumber(db, stamp);
+        const expectedInvoiceNumber = allocateInvoiceNumber(db, stamp);
+        if (requestedInvoiceNumber && requestedInvoiceNumber !== expectedInvoiceNumber)
+          throw new BookingCommandError(`Die nächste zulässige Rechnungsnummer ist ${expectedInvoiceNumber}`);
+        resolvedInvoiceNumber = expectedInvoiceNumber;
       } catch (error) {
+        if (error instanceof BookingCommandError) throw error;
         throw new BookingCommandError(error instanceof Error ? error.message : "Rechnungsnummern sind ungültig");
       }
-      if (invoiceNumber !== expectedInvoiceNumber)
-        throw new BookingCommandError(`Die nächste zulässige Rechnungsnummer ist ${expectedInvoiceNumber}`);
     }
   }
 
@@ -441,6 +445,14 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
     quote = applyCustomOfferPrice(buildOfferQuote(db, booking.id, assetsByRequestedItem), details!.quotedTotalCents);
   }
 
+  if (input.allowNonLegacy && input.status === "confirmed")
+    db.update(bookingOffers)
+      .set({ status: "revoked", revokedAt: stamp })
+      .where(and(eq(bookingOffers.bookingId, booking.id), eq(bookingOffers.status, "sent")))
+      .run();
+
+  if (input.allowNonLegacy) allocateRequestedAccessories(db, nextBooking, {}, stamp);
+
   db.update(bookings)
     .set({
       status: input.status,
@@ -455,7 +467,7 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
         : {}),
       ...(requiresInvoice && details
         ? {
-            invoiceNumber: details.invoiceNumber!.trim(),
+            invoiceNumber: resolvedInvoiceNumber,
             invoiceIssuedAt: booking.invoiceNumber ? booking.invoiceIssuedAt : stamp,
           }
         : {}),
@@ -526,8 +538,10 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
         bookingId: booking.id,
         kind: "rental_charge",
         actorUserId: input.actorUserId,
-        idempotencyKey: `legacy_booking_charge_adjustment:${booking.id}:${booking.version + 1}`,
-        reason: "Mietpreis der importierten Buchung angepasst",
+        idempotencyKey: `${input.allowNonLegacy ? "manual_booking_charge" : "legacy_booking_charge_adjustment"}:${booking.id}:${booking.version + 1}`,
+        reason: input.allowNonLegacy
+          ? "Mietpreis der Buchung manuell festgelegt"
+          : "Mietpreis der importierten Buchung angepasst",
         lines: [
           { account: "accounts_receivable", amountCents: rentalChargeDelta },
           { account: "rental_revenue", amountCents: -rentalChargeDelta },
@@ -538,17 +552,15 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
   event(
     db,
     booking.id,
-    "legacy_booking_status_changed",
+    input.allowNonLegacy ? "manual_booking_confirmed" : "legacy_booking_status_changed",
     booking.status,
     input.status,
     input.actorUserId,
-    "Status der importierten Buchung manuell geändert",
+    input.allowNonLegacy ? "Buchung manuell verbindlich bestätigt" : "Status der importierten Buchung manuell geändert",
     {
       reason: details?.reason ?? input.reason ?? "",
       requiresBookingDetails: requiresDetails,
-      invoiceNumber: requiresInvoice
-        ? (details?.invoiceNumber?.trim() ?? booking.invoiceNumber)
-        : booking.invoiceNumber,
+      invoiceNumber: requiresInvoice ? resolvedInvoiceNumber : booking.invoiceNumber,
       assignedAssets: quote?.offeredItems.map((item) => item.assetName) ?? [],
     },
   );
@@ -566,7 +578,7 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
       : {}),
     ...(requiresInvoice && details
       ? {
-          invoiceNumber: details.invoiceNumber!.trim(),
+          invoiceNumber: resolvedInvoiceNumber,
           invoiceIssuedAt: booking.invoiceNumber ? booking.invoiceIssuedAt : stamp,
         }
       : {}),
@@ -576,6 +588,46 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
 
 export function setLegacyBookingStatus(db: AppDatabase, input: SetLegacyBookingStatusInput) {
   return runInImmediateTransaction(db, () => setLegacyBookingStatusInTransaction(db, input));
+}
+
+/** Records whether open booking questions were clarified outside the e-mail thread. */
+export function setBookingEmailQuestionsResolved(
+  db: AppDatabase,
+  input: { bookingId: number; resolved: boolean; actorUserId?: string | null },
+) {
+  return runInImmediateTransaction(db, () => {
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking) throw new BookingCommandError("Booking not found");
+    const timestamp = now();
+    event(
+      db,
+      booking.id,
+      input.resolved ? "email_questions_resolved" : "email_questions_reopened",
+      booking.status,
+      booking.status,
+      input.actorUserId,
+      input.resolved ? "Fragen telefonisch oder persönlich geklärt" : "Fragen wieder zur Prüfung geöffnet",
+      {},
+      timestamp,
+    );
+    return { resolved: input.resolved, occurredAt: timestamp };
+  });
+}
+
+/** Confirms a regular booking directly when the agreement was made outside the offer flow. */
+export function confirmManualBooking(
+  db: AppDatabase,
+  input: { bookingId: number; details: Omit<LegacyStatusDetails, "invoiceNumber">; actorUserId?: string | null },
+) {
+  return runInImmediateTransaction(db, () =>
+    setLegacyBookingStatusInTransaction(db, {
+      bookingId: input.bookingId,
+      status: "confirmed",
+      details: input.details,
+      actorUserId: input.actorUserId,
+      allowNonLegacy: true,
+    }),
+  );
 }
 
 export function assignBooking(

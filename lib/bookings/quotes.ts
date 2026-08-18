@@ -46,6 +46,7 @@ export function applyCustomOfferPrice(quote: OfferQuote, customTotalCents?: numb
   return {
     ...quote,
     totalCents: customTotalCents,
+    discountCents: quote.bikeSubtotalCents + quote.equipmentSubtotalCents - customTotalCents,
     calculatedTotalCents: quote.totalCents,
     customPriceCents: customTotalCents,
   };

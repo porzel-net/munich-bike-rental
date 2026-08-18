@@ -6,9 +6,11 @@ const bookingApiMocks = vi.hoisted(() => ({
   isAdmin: vi.fn(),
   advanceBooking: vi.fn(),
   cancelBooking: vi.fn(),
+  confirmManualBooking: vi.fn(),
   correctJournalEntry: vi.fn(),
   createOffer: vi.fn(),
   recordRefund: vi.fn(),
+  setBookingEmailQuestionsResolved: vi.fn(),
   dispatchNextOutboxMail: vi.fn(),
 }));
 
@@ -19,9 +21,11 @@ vi.mock("@/lib/auth/session", () => ({ isAdmin: bookingApiMocks.isAdmin }));
 vi.mock("@/lib/bookings/service", () => ({
   advanceBooking: bookingApiMocks.advanceBooking,
   cancelBooking: bookingApiMocks.cancelBooking,
+  confirmManualBooking: bookingApiMocks.confirmManualBooking,
   correctJournalEntry: bookingApiMocks.correctJournalEntry,
   createOffer: bookingApiMocks.createOffer,
   recordRefund: bookingApiMocks.recordRefund,
+  setBookingEmailQuestionsResolved: bookingApiMocks.setBookingEmailQuestionsResolved,
 }));
 vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: bookingApiMocks.dispatchNextOutboxMail }));
 
@@ -48,9 +52,11 @@ describe("admin booking command API", () => {
     bookingApiMocks.isAdmin.mockReturnValue(true);
     bookingApiMocks.advanceBooking.mockReset();
     bookingApiMocks.cancelBooking.mockReset();
+    bookingApiMocks.confirmManualBooking.mockReset();
     bookingApiMocks.correctJournalEntry.mockReset();
     bookingApiMocks.createOffer.mockReset();
     bookingApiMocks.recordRefund.mockReset();
+    bookingApiMocks.setBookingEmailQuestionsResolved.mockReset();
     bookingApiMocks.dispatchNextOutboxMail.mockReset();
     bookingApiMocks.dispatchNextOutboxMail.mockResolvedValue({ status: "sent" });
   });
@@ -72,6 +78,49 @@ describe("admin booking command API", () => {
       bookingApiMocks.context.db,
       expect.objectContaining({ bookingId: 42, amountCents: 1_500, financialAccountId: 7 }),
     );
+  });
+
+  it("forwards manual confirmations with dates, amount, and selected assets", async () => {
+    const response = await bookingCommandPost(
+      request({
+        command: "confirm_manual_booking",
+        periodFrom: "2026-08-20",
+        periodTo: "2026-08-22",
+        pickupTime: "09:00",
+        dropoffTime: "17:00",
+        quotedTotalCents: 12_300,
+        assetsByRequestedItem: { "17": 23 },
+      }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(bookingApiMocks.confirmManualBooking).toHaveBeenCalledWith(bookingApiMocks.context.db, {
+      bookingId: 42,
+      actorUserId: "admin",
+      details: {
+        periodFrom: "2026-08-20",
+        periodTo: "2026-08-22",
+        pickupTime: "09:00",
+        dropoffTime: "17:00",
+        quotedTotalCents: 12_300,
+        assetsByRequestedItem: { 17: 23 },
+      },
+    });
+  });
+
+  it("forwards the manual email-question resolution status", async () => {
+    const response = await bookingCommandPost(
+      request({ command: "set_email_questions_resolved", resolved: true }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(bookingApiMocks.setBookingEmailQuestionsResolved).toHaveBeenCalledWith(bookingApiMocks.context.db, {
+      bookingId: 42,
+      resolved: true,
+      actorUserId: "admin",
+    });
   });
 
   it("rejects the legacy payment command so payments go through manual transactions", async () => {

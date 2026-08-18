@@ -73,7 +73,16 @@ type Asset = {
 };
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
-type Action = "offer" | "stripe_payment" | "revoke_offer" | "cancel" | "refund" | "correct" | "reject" | "status";
+type Action =
+  | "offer"
+  | "stripe_payment"
+  | "revoke_offer"
+  | "cancel"
+  | "refund"
+  | "correct"
+  | "reject"
+  | "status"
+  | "manual_confirm";
 type ConfirmAction = "check_out" | "complete" | "delete_permanently" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
@@ -435,6 +444,16 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setActiveAction("status");
   };
 
+  const openManualConfirmation = () => {
+    setLegacyPeriodFrom(periodFrom);
+    setLegacyPeriodTo(periodTo);
+    setLegacyPickupTime(pickupTime);
+    setLegacyDropoffTime(dropoffTime);
+    setLegacyPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+    setLegacyAssetsByRequestedItem({});
+    setActiveAction("manual_confirm");
+  };
+
   const openReject = () => {
     setActiveAction("reject");
     setRejectionReasonType("");
@@ -589,6 +608,28 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           personalMessage: personalMessage.trim() || undefined,
         });
         toast.success("Anfrage wurde abgelehnt.");
+      } else if (activeAction === "manual_confirm") {
+        const manualPriceCents = legacyPrice.trim() ? euroToCents(legacyPrice) : null;
+        if (!legacyPeriodFrom || !legacyPeriodTo || !legacyPickupTime || !legacyDropoffTime)
+          throw new Error("Bitte vervollständige Zeitraum und Übergabezeiten.");
+        if (legacyPeriodFrom > legacyPeriodTo)
+          throw new Error("Das Rückgabedatum muss am oder nach dem Abholdatum liegen.");
+        if (manualPriceCents === null || manualPriceCents < 0)
+          throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
+        if (requestedItems.some((item) => !legacyAssetsByRequestedItem[String(item.id)]))
+          throw new Error("Bitte wähle für jedes Fahrrad ein konkretes Fahrrad aus.");
+        await request({
+          command: "confirm_manual_booking",
+          periodFrom: legacyPeriodFrom,
+          periodTo: legacyPeriodTo,
+          pickupTime: legacyPickupTime,
+          dropoffTime: legacyDropoffTime,
+          quotedTotalCents: manualPriceCents,
+          assetsByRequestedItem: Object.fromEntries(
+            Object.entries(legacyAssetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
+          ),
+        });
+        toast.success("Buchung wurde manuell als verbindlich gebucht.");
       } else if (activeAction === "status") {
         const needsBookingDetails = ["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus);
         const needsAssets = needsBookingDetails;
@@ -757,41 +798,45 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         ? !stripeOfferId || !stripeSessionId || stripePaymentsLoading
         : requiresReason && !reason.trim();
   const dialogDescription =
-    activeAction === "status"
-      ? "Der Statuswechsel prüft automatisch, welche Buchungsdaten für den Zielstatus noch benötigt werden."
-      : showOfferFields
-        ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
-        : activeAction === "revoke_offer"
-          ? "Das Angebot wird sofort ungültig. Es wird keine neue E-Mail versendet; die Angebotsseite zeigt den Hinweis online an."
-          : activeAction === "stripe_payment"
-            ? "Wähle eine in Stripe als bezahlt ausgewiesene Zahlung aus. Das Angebot darf bereits abgelaufen sein; die Auswahl wird zusätzlich serverseitig geprüft."
-            : activeAction === "reject"
-              ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
-              : activeAction === "cancel"
-                ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
-                : activeAction === "refund"
-                  ? "Gib den Betrag und den Buchungstext ein."
-                  : activeAction === "correct"
-                    ? "Die Korrektur wird im Finanzjournal dokumentiert."
-                    : "Die Aktion wird dokumentiert.";
+    activeAction === "manual_confirm"
+      ? "Lege Zeitraum, Übergabezeiten, Gesamtbetrag und konkrete Fahrräder fest. Die Rechnungsnummer wird automatisch vergeben."
+      : activeAction === "status"
+        ? "Der Statuswechsel prüft automatisch, welche Buchungsdaten für den Zielstatus noch benötigt werden."
+        : showOfferFields
+          ? "Prüfe die Fahrradauswahl und die Ausstattung. Vor dem Versand kannst du die Mail noch ansehen."
+          : activeAction === "revoke_offer"
+            ? "Das Angebot wird sofort ungültig. Es wird keine neue E-Mail versendet; die Angebotsseite zeigt den Hinweis online an."
+            : activeAction === "stripe_payment"
+              ? "Wähle eine in Stripe als bezahlt ausgewiesene Zahlung aus. Das Angebot darf bereits abgelaufen sein; die Auswahl wird zusätzlich serverseitig geprüft."
+              : activeAction === "reject"
+                ? "Der Ablehnungsgrund wird gespeichert und eine Absage-Mail an die Kundin oder den Kunden gesendet."
+                : activeAction === "cancel"
+                  ? "Die Buchung wird storniert und der Vorgang wird dokumentiert."
+                  : activeAction === "refund"
+                    ? "Gib den Betrag und den Buchungstext ein."
+                    : activeAction === "correct"
+                      ? "Die Korrektur wird im Finanzjournal dokumentiert."
+                      : "Die Aktion wird dokumentiert.";
   const title =
-    activeAction === "status"
-      ? "Buchungsstatus ändern"
-      : activeAction === "offer"
-        ? status === "offer_sent"
-          ? "Angebot überarbeiten"
-          : "Angebot erstellen"
-        : activeAction === "revoke_offer"
-          ? "Angebot zurückziehen"
-          : activeAction === "stripe_payment"
-            ? "Stripe-Zahlung manuell zuordnen"
-            : activeAction === "cancel"
-              ? "Buchung stornieren"
-              : activeAction === "refund"
-                ? "Erstattung erfassen"
-                : activeAction === "correct"
-                  ? "Journal korrigieren"
-                  : "Anfrage ablehnen";
+    activeAction === "manual_confirm"
+      ? "Buchung manuell verbindlich buchen"
+      : activeAction === "status"
+        ? "Buchungsstatus ändern"
+        : activeAction === "offer"
+          ? status === "offer_sent"
+            ? "Angebot überarbeiten"
+            : "Angebot erstellen"
+          : activeAction === "revoke_offer"
+            ? "Angebot zurückziehen"
+            : activeAction === "stripe_payment"
+              ? "Stripe-Zahlung manuell zuordnen"
+              : activeAction === "cancel"
+                ? "Buchung stornieren"
+                : activeAction === "refund"
+                  ? "Erstattung erfassen"
+                  : activeAction === "correct"
+                    ? "Journal korrigieren"
+                    : "Anfrage ablehnen";
   const actionsLocked = !canExecuteActions;
 
   return (
@@ -829,6 +874,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             onClick={() => {
               openLegacyStatus();
             }}
+          />
+        )}
+        {!isLegacy && ["inquiry_received", "offer_sent", "expired"].includes(status) && (
+          <ActionItem
+            icon={<CheckIcon />}
+            title="Manuell verbindlich buchen"
+            description="Zeitraum, Preis und Fahrrad festlegen – auch bei Überweisung"
+            disabled={actionsLocked}
+            onClick={openManualConfirmation}
           />
         )}
         {(status === "inquiry_received" || status === "offer_sent" || status === "expired") && (
@@ -1003,37 +1057,47 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 </Field>
               </>
             )}
-            {activeAction === "status" && (
+            {(activeAction === "manual_confirm" || activeAction === "status") && (
               <>
-                <Field>
-                  <FieldLabel htmlFor="legacy-booking-status">Neuer Buchungsstatus</FieldLabel>
-                  <Select
-                    value={legacyStatus}
-                    onValueChange={(value) => value && setLegacyStatus(value as BookingStatus)}
-                  >
-                    <SelectTrigger id="legacy-booking-status" className="w-full">
-                      <SelectValue>{bookingStatusLabels[legacyStatus]}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {bookingStatusLabels[value]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>
-                    Je nach Zielstatus werden darunter die dafür notwendigen Buchungsdaten eingeblendet.
-                  </FieldDescription>
-                </Field>
-                {["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
+                {activeAction === "status" ? (
+                  <Field>
+                    <FieldLabel htmlFor="legacy-booking-status">Neuer Buchungsstatus</FieldLabel>
+                    <Select
+                      value={legacyStatus}
+                      onValueChange={(value) => value && setLegacyStatus(value as BookingStatus)}
+                    >
+                      <SelectTrigger id="legacy-booking-status" className="w-full">
+                        <SelectValue>{bookingStatusLabels[legacyStatus]}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {bookingStatusLabels[value]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      Je nach Zielstatus werden darunter die dafür notwendigen Buchungsdaten eingeblendet.
+                    </FieldDescription>
+                  </Field>
+                ) : (
+                  <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+                    Diese Buchung wird ohne Angebots- oder Stripe-Zahlungsablauf verbindlich bestätigt. Eine bereits
+                    eingegangene Überweisung kannst du anschließend in der Finanzübersicht zuordnen.
+                  </div>
+                )}
+                {activeAction === "manual_confirm" ||
+                ["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
                   <>
                     <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                      Für „{bookingStatusLabels[legacyStatus]}“ müssen Zeitraum, Übergabezeiten, Preis und konkrete
-                      Fahrräder hinterlegt werden.
-                      {["confirmed", "checked_out", "completed"].includes(legacyStatus)
-                        ? " Zusätzlich ist eine gültige, lückenlose Rechnungsnummer erforderlich."
-                        : ""}
+                      Für die verbindliche Buchung müssen Zeitraum, Übergabezeiten, Preis und konkrete Fahrräder
+                      hinterlegt werden.
+                      {activeAction === "manual_confirm"
+                        ? " Die nächste freie Rechnungsnummer wird automatisch vergeben."
+                        : ["confirmed", "checked_out", "completed"].includes(legacyStatus)
+                          ? " Zusätzlich ist eine gültige, lückenlose Rechnungsnummer erforderlich."
+                          : ""}
                     </div>
                     <FieldGroup className="grid gap-4 sm:grid-cols-2">
                       <Field>
@@ -1088,7 +1152,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                         required
                       />
                     </Field>
-                    {["confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
+                    {activeAction === "status" && ["confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
                       <Field>
                         <FieldLabel htmlFor="legacy-invoice-number">Rechnungsnummer</FieldLabel>
                         <Input
@@ -1147,7 +1211,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     </div>
                   </>
                 ) : null}
-                {["rejected", "cancelled", "expired"].includes(legacyStatus) ? (
+                {activeAction === "status" && ["rejected", "cancelled", "expired"].includes(legacyStatus) ? (
                   <Field>
                     <FieldLabel htmlFor="legacy-status-reason">Begründung</FieldLabel>
                     <Textarea
@@ -1703,9 +1767,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     ? "Angebot zurückziehen"
                     : activeAction === "stripe_payment"
                       ? "Zahlung zuordnen"
-                      : activeAction === "reject"
-                        ? "Ablehnung schicken"
-                        : "Aktion speichern"}
+                      : activeAction === "manual_confirm"
+                        ? "Verbindlich buchen"
+                        : activeAction === "reject"
+                          ? "Ablehnung schicken"
+                          : "Aktion speichern"}
             </Button>
           </DialogFooter>
         </DialogContent>

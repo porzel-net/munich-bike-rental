@@ -1,8 +1,31 @@
 import { describe, expect, it } from "vitest";
 
 import { renderInvoicePdf } from "../../lib/bookings/invoice-pdf";
+import { applyCustomOfferPrice } from "../../lib/bookings/quotes";
 
 describe("invoice PDF rendering", () => {
+  it("derives the negotiated discount from the line-item subtotal", () => {
+    const quote = applyCustomOfferPrice(
+      {
+        totalCents: 28_320,
+        bikeSubtotalCents: 35_400,
+        equipmentSubtotalCents: 0,
+        discountCents: 7_080,
+        rentalDays: 6,
+        appliedDiscountKeys: ["long-term"],
+        offeredItems: [],
+      },
+      12_000,
+    );
+
+    expect(quote).toMatchObject({
+      totalCents: 12_000,
+      calculatedTotalCents: 28_320,
+      discountCents: 23_400,
+      customPriceCents: 12_000,
+    });
+  });
+
   it("renders a non-empty PDF", async () => {
     const pdf = await renderInvoicePdf({
       invoiceNumber: "YBR-2026-0001",

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAiAnalysisButton } from "@/components/booking-ai-analysis-button";
+import { BookingEmailQuestionsResolvedButton } from "@/components/booking-email-questions-resolved-button";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAssigneeCard } from "@/components/booking-assignee-card";
 import { BookingCommandActions } from "@/components/booking-command-actions";
@@ -45,6 +46,7 @@ import {
 import {
   bikeModels,
   bikeVariants,
+  bookingEvents,
   bookingFeedback,
   bookingOfferItems,
   bookingOffers,
@@ -146,26 +148,42 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const latestEmailActionReview = getLatestEmailActionReview(db, booking.id);
   const emailActionQuestions = reviewQuestions(latestEmailActionReview);
   const emailActionEligible = isEmailActionEligible(booking.createdAt, []);
+  const latestEmailQuestionsEvent = db
+    .select({ eventType: bookingEvents.eventType, occurredAt: bookingEvents.occurredAt })
+    .from(bookingEvents)
+    .where(eq(bookingEvents.bookingId, booking.id))
+    .orderBy(desc(bookingEvents.occurredAt), desc(bookingEvents.id))
+    .all()
+    .find((event) => event.eventType === "email_questions_resolved" || event.eventType === "email_questions_reopened");
+  const emailQuestionsManuallyResolved =
+    latestEmailQuestionsEvent?.eventType === "email_questions_resolved" &&
+    (!latestEmailActionReview ||
+      latestEmailQuestionsEvent.occurredAt.getTime() >= latestEmailActionReview.createdAt.getTime());
   const hasPendingEmailAction =
-    latestEmailActionReview?.status === "needs_action" ||
-    latestEmailActionReview?.status === "error" ||
-    (!latestEmailActionReview && booking.status === "inquiry_received" && emailActionEligible);
-  const emailActionStatusLabel = !latestEmailActionReview
-    ? booking.status === "inquiry_received" && emailActionEligible
-      ? "Antwort erforderlich"
-      : emailActionEligible
-        ? "Noch nicht geprüft"
-        : "Außerhalb des Prüfzeitraums"
-    : latestEmailActionReview.status === "error"
-      ? "Manuelle Prüfung nötig"
-      : hasPendingEmailAction
+    !emailQuestionsManuallyResolved &&
+    (latestEmailActionReview?.status === "needs_action" ||
+      latestEmailActionReview?.status === "error" ||
+      (!latestEmailActionReview && booking.status === "inquiry_received" && emailActionEligible));
+  const emailActionStatusLabel = emailQuestionsManuallyResolved
+    ? "Telefonisch geklärt"
+    : !latestEmailActionReview
+      ? booking.status === "inquiry_received" && emailActionEligible
         ? "Antwort erforderlich"
-        : "Alle Fragen beantwortet";
-  const emailActionBadgeVariant: "outline" | "destructive" | "success" = !latestEmailActionReview
-    ? "outline"
-    : hasPendingEmailAction
-      ? "destructive"
-      : "success";
+        : emailActionEligible
+          ? "Noch nicht geprüft"
+          : "Außerhalb des Prüfzeitraums"
+      : latestEmailActionReview.status === "error"
+        ? "Manuelle Prüfung nötig"
+        : hasPendingEmailAction
+          ? "Antwort erforderlich"
+          : "Alle Fragen beantwortet";
+  const emailActionBadgeVariant: "outline" | "destructive" | "success" = emailQuestionsManuallyResolved
+    ? "success"
+    : !latestEmailActionReview
+      ? "outline"
+      : hasPendingEmailAction
+        ? "destructive"
+        : "success";
   const payment = getBookingPaymentStatus(db, booking.id);
   const paymentView = paymentPresentation(payment.status, payment.openCents);
   const statusView = bookingPresentation[booking.status];
@@ -372,7 +390,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             className={
               hasPendingEmailAction
                 ? "border-red-200 bg-red-50/40 dark:border-red-950 dark:bg-red-950/20"
-                : latestEmailActionReview?.status === "no_action"
+                : emailQuestionsManuallyResolved || latestEmailActionReview?.status === "no_action"
                   ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-950 dark:bg-emerald-950/20"
                   : ""
             }
@@ -380,16 +398,26 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle>Antwortstatus</CardTitle>
-                <Badge variant={emailActionBadgeVariant}>{emailActionStatusLabel}</Badge>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Badge variant={emailActionBadgeVariant}>{emailActionStatusLabel}</Badge>
+                  {hasAssignedCaseworker && booking.source !== "legacy" ? (
+                    <BookingEmailQuestionsResolvedButton
+                      bookingId={booking.id}
+                      resolved={emailQuestionsManuallyResolved}
+                    />
+                  ) : null}
+                </div>
               </div>
             </CardHeader>
-            {hasPendingEmailAction ? (
+            {hasPendingEmailAction || emailQuestionsManuallyResolved ? (
               <CardContent className="space-y-3 pt-0">
                 <p className="text-sm leading-6">
-                  {latestEmailActionReview?.summary ??
-                    "Neue Buchungsanfrage: Bitte prüfe den Eingang und beantworte die Anfrage."}
+                  {emailQuestionsManuallyResolved
+                    ? "Die offenen Fragen wurden telefonisch oder persönlich geklärt."
+                    : (latestEmailActionReview?.summary ??
+                      "Neue Buchungsanfrage: Bitte prüfe den Eingang und beantworte die Anfrage.")}
                 </p>
-                {emailActionQuestions.length ? (
+                {!emailQuestionsManuallyResolved && emailActionQuestions.length ? (
                   <div>
                     <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Offene Punkte</p>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">

@@ -62,7 +62,11 @@ function renderTex(input: InvoiceInput) {
     )
     .join("\n");
   const accessoryRow = input.quote.equipmentSubtotalCents ? row("Zubehör", input.quote.equipmentSubtotalCents) : "";
-  const discountRow = input.quote.discountCents ? row("Rabatt", -input.quote.discountCents) : "";
+  const invoiceDiscountCents =
+    input.quote.bikeSubtotalCents + input.quote.equipmentSubtotalCents - input.quote.totalCents;
+  const discountRow = invoiceDiscountCents
+    ? row(invoiceDiscountCents > 0 ? "Rabatt" : "Aufpreis", -invoiceDiscountCents)
+    : "";
 
   return String.raw`\documentclass[10pt]{letter}
 \usepackage{fontspec}

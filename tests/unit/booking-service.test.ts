@@ -28,6 +28,7 @@ import {
   assignStripePaymentToBooking,
   assignBooking,
   cancelBooking,
+  confirmManualBooking,
   confirmOffer,
   confirmOfferWithStripePayment,
   correctJournalEntry,
@@ -41,6 +42,7 @@ import {
   previewOffer,
   revokeOffer,
   recordPayment,
+  setBookingEmailQuestionsResolved,
   updateBooking,
   setLegacyBookingStatus,
 } from "../../lib/bookings/service";
@@ -159,6 +161,29 @@ function assignAdminBooking(db: ReturnType<typeof setup>["db"], bookingId: numbe
 }
 
 describe("booking commands", () => {
+  it("records and can reopen a manual clarification of email questions", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+
+    expect(
+      setBookingEmailQuestionsResolved(db, { bookingId: booking.id, resolved: true, actorUserId: "admin" }),
+    ).toMatchObject({ resolved: true, occurredAt: expect.any(Date) });
+    expect(
+      setBookingEmailQuestionsResolved(db, { bookingId: booking.id, resolved: false, actorUserId: "admin" }),
+    ).toMatchObject({ resolved: false, occurredAt: expect.any(Date) });
+    expect(
+      db
+        .select({ eventType: bookingEvents.eventType, reason: bookingEvents.reason })
+        .from(bookingEvents)
+        .where(eq(bookingEvents.bookingId, booking.id))
+        .all()
+        .slice(-2),
+    ).toEqual([
+      { eventType: "email_questions_resolved", reason: "Fragen telefonisch oder persönlich geklärt" },
+      { eventType: "email_questions_reopened", reason: "Fragen wieder zur Prüfung geöffnet" },
+    ]);
+  });
+
   it("creates a completed historical booking without sending customer mail", () => {
     const { db, assetId } = setup();
     const created = createHistoricalBooking(db, {
@@ -1136,6 +1161,82 @@ describe("booking commands", () => {
         },
       }),
     ).toThrow("YBR-2026-0002");
+  });
+
+  it("confirms a regular booking manually, allocates an invoice, and leaves the amount open for reconciliation", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+    assignAdminBooking(db, booking.id);
+    db.update(bookingRequestedItems)
+      .set({ needsHelmet: true })
+      .where(eq(bookingRequestedItems.id, booking.itemId))
+      .run();
+    const sentOffer = createOffer(db, {
+      bookingId: booking.id,
+      assetsByRequestedItem: { [booking.itemId]: assetId },
+      actorUserId: "admin",
+    });
+
+    confirmManualBooking(db, {
+      bookingId: booking.id,
+      actorUserId: "admin",
+      details: {
+        periodFrom: "2026-08-22",
+        periodTo: "2026-08-24",
+        pickupTime: "09:30",
+        dropoffTime: "17:00",
+        quotedTotalCents: 12_300,
+        assetsByRequestedItem: { [booking.itemId]: assetId },
+      },
+    });
+
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toMatchObject({
+      status: "confirmed",
+      periodFrom: "2026-08-22",
+      periodTo: "2026-08-24",
+      pickupTime: "09:30",
+      dropoffTime: "17:00",
+      quotedTotalCents: 12_300,
+      invoiceNumber: expect.stringMatching(/^YBR-\d{4}-0001$/),
+    });
+    expect(
+      db
+        .select({ status: bookingOffers.status })
+        .from(bookingOffers)
+        .where(eq(bookingOffers.id, sentOffer.offerId))
+        .get(),
+    ).toEqual({ status: "revoked" });
+    expect(
+      db
+        .select({ status: bookingOffers.status })
+        .from(bookingOffers)
+        .where(eq(bookingOffers.bookingId, booking.id))
+        .all()
+        .map((row) => row.status)
+        .sort(),
+    ).toEqual(["accepted", "revoked"]);
+    expect(
+      db.select().from(bookingAssetAllocations).where(eq(bookingAssetAllocations.bookingId, booking.id)).all(),
+    ).toHaveLength(1);
+    expect(
+      db.select().from(bookingAccessoryAllocations).where(eq(bookingAccessoryAllocations.bookingId, booking.id)).all(),
+    ).toHaveLength(1);
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 12_300, status: "open" });
+    expect(
+      db
+        .select({ kind: journalEntries.kind })
+        .from(journalEntries)
+        .where(eq(journalEntries.bookingId, booking.id))
+        .all(),
+    ).toEqual([{ kind: "rental_charge" }]);
+    expect(
+      db
+        .select({ eventType: bookingEvents.eventType })
+        .from(bookingEvents)
+        .where(eq(bookingEvents.bookingId, booking.id))
+        .all()
+        .at(-1),
+    ).toEqual({ eventType: "manual_booking_confirmed" });
   });
 
   it("updates confirmed booking times and queues a highlighted change mail", () => {

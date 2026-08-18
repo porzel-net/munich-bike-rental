@@ -8,11 +8,13 @@ import {
   advanceBooking,
   assignStripePaymentToBooking,
   cancelBooking,
+  confirmManualBooking,
   correctJournalEntry,
   createOffer,
   deleteBookingPermanently,
   revokeOffer,
   recordRefund,
+  setBookingEmailQuestionsResolved,
   setLegacyBookingStatus,
 } from "@/lib/bookings/service";
 import { BookingCommandError } from "@/lib/bookings/errors";
@@ -107,6 +109,19 @@ const commandSchema = z.discriminatedUnion("command", [
         reason: z.string().trim().max(500).optional(),
       })
       .optional(),
+  }),
+  z.object({
+    command: z.literal("confirm_manual_booking"),
+    periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
+    periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
+    pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
+    dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
+    quotedTotalCents: z.number().int().min(0),
+    assetsByRequestedItem: z.record(z.string(), z.number().int().positive()),
+  }),
+  z.object({
+    command: z.literal("set_email_questions_resolved"),
+    resolved: z.boolean(),
   }),
 ]);
 
@@ -269,6 +284,29 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
                 ),
               }
             : undefined,
+          actorUserId: command.user.id,
+        });
+        break;
+      case "confirm_manual_booking":
+        confirmManualBooking(command.db, {
+          bookingId: id,
+          actorUserId: command.user.id,
+          details: {
+            periodFrom: input.data.periodFrom,
+            periodTo: input.data.periodTo,
+            pickupTime: input.data.pickupTime,
+            dropoffTime: input.data.dropoffTime,
+            quotedTotalCents: input.data.quotedTotalCents,
+            assetsByRequestedItem: Object.fromEntries(
+              Object.entries(input.data.assetsByRequestedItem).map(([key, value]) => [Number(key), value]),
+            ),
+          },
+        });
+        break;
+      case "set_email_questions_resolved":
+        setBookingEmailQuestionsResolved(command.db, {
+          bookingId: id,
+          resolved: input.data.resolved,
           actorUserId: command.user.id,
         });
         break;
