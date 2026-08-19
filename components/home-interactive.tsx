@@ -197,6 +197,17 @@ type LocationShowcaseProps = {
 
 type ContactStatus = "idle" | "sending" | "success" | "error";
 
+const portfolioCardPricing: Record<Locale, { weekdays: string; weekend: string }> = {
+  de: {
+    weekdays: "Mo-Fr: 49€/Tag",
+    weekend: "Sa-So: 69€/Tag",
+  },
+  en: {
+    weekdays: "Mon-Fri: 49€/day",
+    weekend: "Sat-Sun: 69€/day",
+  },
+};
+
 type ContactField =
   | "location"
   | "name"
@@ -1051,10 +1062,13 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 </span>
               ) : null}
               <div className="portfolio-card__details">
-                <h3>{item.title}</h3>
                 <div className="portfolio-card__meta">
+                  <h3>{item.title}</h3>
                   <span>{item.subtitle[lang]}</span>
-                  <span>{item.price[lang]}</span>
+                </div>
+                <div className="portfolio-card__pricing" aria-label={lang === "de" ? "Tagespreise" : "Daily prices"}>
+                  <span>{portfolioCardPricing[lang].weekdays}</span>
+                  <span>{portfolioCardPricing[lang].weekend}</span>
                 </div>
               </div>
             </button>
