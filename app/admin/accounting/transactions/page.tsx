@@ -47,7 +47,7 @@ export default async function BankTransactionsPage({
     .from(bookings)
     .orderBy(bookings.orderNumber)
     .all();
-  const activeAccounts = db
+  const availableAccounts = db
     .select({
       id: financialAccounts.id,
       code: financialAccounts.code,
@@ -55,7 +55,6 @@ export default async function BankTransactionsPage({
       currency: financialAccounts.currency,
     })
     .from(financialAccounts)
-    .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
     .all();
   const categories = db
@@ -168,7 +167,7 @@ export default async function BankTransactionsPage({
               title="Finanztransaktionen"
               transactions={reviewTransactionsForClient}
               categories={categories as FinancialReviewCategory[]}
-              accounts={activeAccounts as FinancialReviewAccount[]}
+              accounts={availableAccounts as FinancialReviewAccount[]}
               bookings={bookingReferences}
               initialTransactionId={initialTransactionId}
             />

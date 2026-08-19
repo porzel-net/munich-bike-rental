@@ -54,6 +54,13 @@ function formatBookedDate(value: string) {
   return `${day}.${month}.${year}`;
 }
 
+function transactionSourceLabel(source: string | undefined) {
+  if (source === "bank") return "Bank";
+  if (source === "cash") return "Bargeld / Kasse";
+  if (source === "manual") return "Sonstige manuelle Zahlung";
+  return "Manuell erfasst";
+}
+
 function bookingStatusLabel(status: string) {
   const labels: Record<string, string> = {
     inquiry_received: "Anfrage eingegangen",
@@ -183,6 +190,9 @@ export function FinancialTransactionDialog({
   const isManuallyEnteredTransaction =
     isBank && (bankTransaction?.source === "cash" || bankTransaction?.source === "manual");
   const canEditManualTransactionAccount = Boolean(isPosted && isManuallyEnteredTransaction);
+  const selectableAccounts = accounts.filter(
+    (account) => canEditManualTransactionAccount || account.status !== "archived",
+  );
   const saveMode =
     isBank && bankTransaction
       ? getBankTransactionSaveMode({
@@ -531,7 +541,7 @@ export function FinancialTransactionDialog({
                     <div>
                       <p className="text-xs text-muted-foreground">Quelle</p>
                       <p className="font-medium">
-                        {bankTransaction?.source === "bank" ? "Bank" : "Manuell"} · {accountLabel}
+                        {transactionSourceLabel(bankTransaction?.source)} · {accountLabel}
                       </p>
                     </div>
                     <div>
@@ -551,14 +561,14 @@ export function FinancialTransactionDialog({
                   </div>
                   {canEditManualTransactionAccount ? (
                     <Field>
-                      <FieldLabel htmlFor="financial-posted-account">Finanzkonto</FieldLabel>
+                      <FieldLabel htmlFor="financial-posted-account">Zielkonto der Buchung</FieldLabel>
                       <Select value={accountId} onValueChange={(value) => setAccountId(value || "")}>
                         <SelectTrigger id="financial-posted-account" className="w-full">
-                          <SelectValue>{selectedSourceAccount?.name ?? "Finanzkonto auswählen"}</SelectValue>
+                          <SelectValue>{selectedSourceAccount?.name ?? "Zielkonto auswählen"}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            {accounts.map((account) => (
+                            {selectableAccounts.map((account) => (
                               <SelectItem key={account.id} value={String(account.id)}>
                                 {account.name}
                                 {account.status === "archived" ? " · archiviert" : ""}
@@ -568,7 +578,7 @@ export function FinancialTransactionDialog({
                         </SelectContent>
                       </Select>
                       <FieldDescription>
-                        Das Finanzkonto kann nur bei manuell erfassten Buchungen nachträglich geändert werden.
+                        Das Zielkonto kann nur bei manuell erfassten Buchungen nachträglich geändert werden.
                       </FieldDescription>
                     </Field>
                   ) : null}
@@ -625,7 +635,7 @@ export function FinancialTransactionDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {accounts.map((account) => (
+                          {selectableAccounts.map((account) => (
                             <SelectItem key={account.id} value={String(account.id)}>
                               {account.name}
                               {account.status === "archived" ? " · archiviert" : ""}
@@ -730,7 +740,7 @@ export function FinancialTransactionDialog({
               </Field>
               {selectedCategory?.categoryType === "transfer" ? (
                 <Field>
-                  <FieldLabel htmlFor="financial-destination-account">Zielkonto</FieldLabel>
+                  <FieldLabel htmlFor="financial-destination-account">Zielkonto der Umbuchung</FieldLabel>
                   <Select value={destinationAccountId} onValueChange={(value) => setDestinationAccountId(value || "")}>
                     <SelectTrigger id="financial-destination-account" className="w-full">
                       <SelectValue>{selectedDestinationAccount?.name ?? "Zielkonto auswählen"}</SelectValue>
@@ -740,10 +750,11 @@ export function FinancialTransactionDialog({
                         {accounts
                           .filter(
                             (account) =>
+                              (canEditManualTransactionAccount || account.status !== "archived") &&
                               account.id !==
-                              (isBank && !canEditManualTransactionAccount
-                                ? bankTransaction?.financialAccountId
-                                : Number(accountId)),
+                                (isBank && !canEditManualTransactionAccount
+                                  ? bankTransaction?.financialAccountId
+                                  : Number(accountId)),
                           )
                           .map((account) => (
                             <SelectItem key={account.id} value={String(account.id)}>

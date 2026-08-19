@@ -295,7 +295,7 @@ function assignNevloTransactionToBookingInTransaction(
     .from(financialAccounts)
     .where(eq(financialAccounts.id, transaction.financialAccountId))
     .get();
-  if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
+  if (!sourceAccount) throw new BookingCommandError("Zugehöriges Finanzkonto nicht gefunden.");
   if (isPostedBookingPaymentReassignment && existingAllocation?.bookingId) {
     reverseJournalEntryForCorrection(db, existingAllocation, {
       bookingId: existingAllocation.bookingId,
@@ -429,7 +429,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
     .where(eq(financialAccounts.id, input.accountId ?? transaction.financialAccountId))
     .get();
   if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
-  if (sourceAccount.status !== "active" && transaction.source !== "manual")
+  if (sourceAccount.status !== "active" && !["cash", "manual"].includes(transaction.source))
     throw new BookingCommandError("Das Finanzkonto ist nicht aktiv.");
   if (sourceAccount.currency !== transaction.currency)
     throw new BookingCommandError("Finanzkonto und Transaktion müssen dieselbe Währung haben.");
