@@ -794,7 +794,7 @@ describe("financial reconciliation", () => {
       actorUserId: "admin",
     });
 
-    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: -10_000, status: "refund_due" });
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: -10_000, status: "prepayment" });
 
     appendJournalEntry(db, {
       bookingId: booking.id,

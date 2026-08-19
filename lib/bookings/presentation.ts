@@ -37,7 +37,7 @@ export const bookingPresentation: Record<
   expired: { label: "Angebot abgelaufen", badge: "outline" },
 };
 
-export function paymentPresentation(status: "open" | "refund_due" | "settled", openCents: number) {
+export function paymentPresentation(status: "open" | "refund_due" | "prepayment" | "settled", openCents: number) {
   if (status === "open")
     return {
       label: `Noch ausstehend: ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(openCents / 100)}`,
@@ -47,6 +47,11 @@ export function paymentPresentation(status: "open" | "refund_due" | "settled", o
     return {
       label: `Noch zu erstatten: ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(-openCents / 100)}`,
       badge: "destructive" as const,
+    };
+  if (status === "prepayment")
+    return {
+      label: `Zahlung erhalten: ${new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(-openCents / 100)}`,
+      badge: "success" as const,
     };
   return { label: "Ausgeglichen", badge: "success" as const };
 }

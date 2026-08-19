@@ -380,7 +380,7 @@ describe("booking commands", () => {
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
       status: "inquiry_received",
     });
-    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: -70_000, status: "refund_due" });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: -70_000, status: "prepayment" });
     expect(
       db
         .select({

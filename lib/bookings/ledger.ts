@@ -49,9 +49,7 @@ export function appendJournalEntry(db: AppDatabase, input: JournalCommand) {
     input.kind === "payment_received" &&
     !input.lines.some((line) => line.account.trim() === "accounts_receivable" && line.amountCents < 0)
   )
-    throw new BookingCommandError(
-      "Zahlungseingänge zu einer Buchung müssen immer gegen Forderungen gebucht werden.",
-    );
+    throw new BookingCommandError("Zahlungseingänge zu einer Buchung müssen immer gegen Forderungen gebucht werden.");
 
   const accountCodes = [...new Set(input.lines.map((line) => line.account.trim()))];
   for (const code of accountCodes) {
@@ -147,7 +145,15 @@ export function getReceivableStatus(db: AppDatabase, bookingId: number) {
     .where(and(eq(journalEntries.bookingId, bookingId), eq(journalLines.account, "accounts_receivable")))
     .all();
   const openCents = rows.reduce((sum, row) => sum + row.amountCents, 0);
-  return { openCents, status: openCents > 0 ? "open" : openCents < 0 ? "refund_due" : "settled" } as const;
+  const status =
+    openCents > 0
+      ? "open"
+      : openCents < 0
+        ? hasBookingCharge(db, bookingId)
+          ? "refund_due"
+          : "prepayment"
+        : "settled";
+  return { openCents, status } as const;
 }
 
 /** Returns whether a booking already has a receivable-producing charge. */
