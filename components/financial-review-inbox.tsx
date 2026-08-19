@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { bookingPresentation } from "@/lib/bookings/presentation";
 
 export type FinancialReviewCategory = {
   id: number;
@@ -94,6 +95,10 @@ function statusLabel(status: string, euerTreatment: string | null) {
   if (status === "posted") return "Gebucht & abgestimmt";
   if (status === "ignored") return "Ignoriert";
   return "Prüfung offen";
+}
+
+function bookingStatusLabel(status: string) {
+  return bookingPresentation[status as keyof typeof bookingPresentation]?.label ?? status;
 }
 
 export function FinancialReviewInbox({

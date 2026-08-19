@@ -635,11 +635,11 @@ export function FinancialTransactionDialog({
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  <FieldDescription>
-                    {isBank
-                      ? "Prüfe die automatisch vorgeschlagene Auftragsnummer und wähle bei Bedarf den richtigen Auftrag manuell aus."
-                      : "Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene Forderung gebucht."}
-                  </FieldDescription>
+                  {!isBank ? (
+                    <FieldDescription>
+                      Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene Forderung gebucht.
+                    </FieldDescription>
+                  ) : null}
                 </Field>
               ) : null}
               <Field>
