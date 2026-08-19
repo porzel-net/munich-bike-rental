@@ -6,17 +6,21 @@ export function getBankTransactionSaveMode(input: {
   euerTreatment: string | null;
   bookingId?: number | null;
   destinationAccountId?: number | null;
+  financialAccountId?: number | null;
   originalCategoryId?: number | null;
   originalBookingId?: number | null;
   originalDestinationAccountId?: number | null;
+  originalFinancialAccountId?: number | null;
 }): BankTransactionSaveMode {
   const hasAccountingChange =
     input.originalCategoryId !== undefined ||
     input.originalBookingId !== undefined ||
-    input.originalDestinationAccountId !== undefined
+    input.originalDestinationAccountId !== undefined ||
+    input.originalFinancialAccountId !== undefined
       ? input.categoryId !== input.originalCategoryId ||
         (input.bookingId ?? null) !== (input.originalBookingId ?? null) ||
-        (input.destinationAccountId ?? null) !== (input.originalDestinationAccountId ?? null)
+        (input.destinationAccountId ?? null) !== (input.originalDestinationAccountId ?? null) ||
+        (input.financialAccountId ?? null) !== (input.originalFinancialAccountId ?? null)
       : false;
   if (
     input.status === "posted" &&

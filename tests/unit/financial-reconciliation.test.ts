@@ -498,6 +498,37 @@ describe("financial reconciliation", () => {
     expect(original.journalEntryId).toBeTruthy();
   });
 
+  it("changes the source account of a posted manual transaction with a correction journal", () => {
+    const { db, bank, cash, travel } = setup();
+    const manual = createAndPostManualTransaction(db, {
+      accountId: bank.id,
+      source: "manual",
+      bookedAt: "2026-08-04",
+      amountCents: 4_500,
+      categoryId: travel.id,
+      description: "Manuelle Fahrtkosten",
+      note: "Ursprüngliches Finanzkonto",
+      actorUserId: "admin",
+    });
+
+    postFinancialTransaction(db, {
+      transactionId: manual.transactionId,
+      accountId: cash.id,
+      categoryId: travel.id,
+      note: "Finanzkonto korrigiert",
+      actorUserId: "admin",
+    });
+
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, manual.transactionId)).get(),
+    ).toMatchObject({ financialAccountId: cash.id, source: "manual", status: "posted" });
+    expect(
+      db.select().from(journalEntries).where(eq(journalEntries.financialTransactionId, manual.transactionId)).all(),
+    ).toHaveLength(2);
+    expect(getFinancialAccountReconciliation(db, bank.id).expectedBalanceCents).toBe(0);
+    expect(getFinancialAccountReconciliation(db, cash.id).expectedBalanceCents).toBe(-4_500);
+  });
+
   it("records a cash withdrawal as a transfer and keeps ignored movements in the bank balance", () => {
     const { db, bank, transfer, cash } = setup();
     const withdrawal = transaction(db, bank.id, -10_000);
@@ -727,5 +758,55 @@ describe("financial reconciliation", () => {
       allocationKind: "booking_payment",
     });
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
+  });
+
+  it("keeps a manual payment correct when the booking charge is posted later", () => {
+    const { db, bank, income } = setup();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260808000004",
+        customerName: "Vorabzahler",
+        customerEmail: "booking@example.com",
+        customerPhone: "0123",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        source: "legacy",
+        status: "inquiry_received",
+        quotedTotalCents: 10_000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+      .get();
+
+    createAndPostManualTransaction(db, {
+      source: "manual",
+      bookedAt: "2026-08-12",
+      amountCents: 10_000,
+      accountId: bank.id,
+      bookingId: booking.id,
+      categoryId: income.id,
+      description: "Vorabzahlung",
+      actorUserId: "admin",
+    });
+
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: -10_000, status: "refund_due" });
+
+    appendJournalEntry(db, {
+      bookingId: booking.id,
+      kind: "rental_charge",
+      actorUserId: "admin",
+      reason: "Mietpreis später festgelegt",
+      lines: [
+        { account: "accounts_receivable", amountCents: 10_000 },
+        { account: "rental_revenue", amountCents: -10_000 },
+      ],
+    });
+
+    expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
   });
 });

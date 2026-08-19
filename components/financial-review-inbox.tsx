@@ -23,6 +23,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { bookingPresentation } from "@/lib/bookings/presentation";
+import { getFinancialReviewState } from "@/lib/financial/review-status";
 
 export type FinancialReviewCategory = {
   id: number;
@@ -58,7 +59,12 @@ export type FinancialReviewTransaction = {
   status: string;
   euerTreatment: string | null;
   categoryId: number | null;
+  categoryCode: string | null;
+  categoryType: string | null;
+  allocationKind: string | null;
+  bookingId: number | null;
   destinationAccountId: number | null;
+  fixedAssetId: number | null;
   amountCents: number;
   currency: string;
   bookedAt: string;
@@ -90,10 +96,10 @@ function formatAmount(amountCents: number, currency = "EUR") {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(amountCents / 100);
 }
 
-function statusLabel(status: string, euerTreatment: string | null) {
-  if (status === "posted" && (!euerTreatment || euerTreatment === "needs_review")) return "Gebucht · EÜR offen";
-  if (status === "posted") return "Gebucht & abgestimmt";
-  if (status === "ignored") return "Ignoriert";
+function statusLabel(row: FinancialReviewTransaction) {
+  const reviewStatus = getFinancialReviewState(row).status;
+  if (reviewStatus === "posted") return "Gebucht & abgestimmt";
+  if (reviewStatus === "ignored") return "Ignoriert";
   return "Prüfung offen";
 }
 
@@ -117,20 +123,19 @@ export function FinancialReviewInbox({
   title?: string;
 }) {
   const router = useRouter();
-  const [rows, setRows] = useState(transactions);
   const [selected, setSelected] = useState<FinancialReviewTransaction | null>(null);
   const initialReviewOpened = useRef(false);
-  const openCount = rows.filter((row) => row.status !== "posted" && row.status !== "ignored").length;
+  const openCount = transactions.filter((row) => getFinancialReviewState(row).status === "needs_review").length;
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
   const [assignmentBookingId, setAssignmentBookingId] = useState("");
   const sortedRows = useMemo(
     () =>
-      [...rows].sort((left, right) => {
+      [...transactions].sort((left, right) => {
         const dateDifference = right.bookedAt.localeCompare(left.bookedAt);
         return dateDifference || right.id - left.id;
       }),
-    [rows],
+    [transactions],
   );
 
   function openBookingAssignment(row: FinancialReviewTransaction) {
@@ -151,9 +156,8 @@ export function FinancialReviewInbox({
         throw new Error(
           result?.message ?? "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
         );
-      setRows((current) => current.map((item) => (item.id === row.id ? { ...item, status: "posted" } : item)));
-      router.refresh();
       const booking = bookings.find((item) => item.id === bookingId);
+      router.refresh();
       toast.success(`Auftrag ${booking?.orderNumber ?? bookingId} wurde zugewiesen.`);
       setAssignmentRow(null);
     } catch (error) {
@@ -173,12 +177,12 @@ export function FinancialReviewInbox({
 
   useEffect(() => {
     if (!initialTransactionId || initialReviewOpened.current) return;
-    const initialRow = rows.find((row) => row.id === initialTransactionId);
+    const initialRow = transactions.find((row) => row.id === initialTransactionId);
     if (!initialRow) return;
     initialReviewOpened.current = true;
     const timer = window.setTimeout(() => openReview(initialRow), 0);
     return () => window.clearTimeout(timer);
-  }, [initialTransactionId, openReview, rows]);
+  }, [initialTransactionId, openReview, transactions]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -284,14 +288,14 @@ export function FinancialReviewInbox({
                   <TableCell>
                     <Badge
                       variant={
-                        row.status === "posted" && row.euerTreatment && row.euerTreatment !== "needs_review"
+                        getFinancialReviewState(row).status === "posted"
                           ? "default"
-                          : row.status === "ignored"
+                          : getFinancialReviewState(row).status === "ignored"
                             ? "outline"
                             : "destructive"
                       }
                     >
-                      {statusLabel(row.status, row.euerTreatment)}
+                      {statusLabel(row)}
                     </Badge>
                   </TableCell>
                   <TableCell
@@ -373,12 +377,7 @@ export function FinancialReviewInbox({
         accounts={accounts}
         bookings={bookings}
         bankTransaction={selected}
-        onBankCompleted={({ transactionId, status, euerTreatment }) => {
-          setRows((current) =>
-            current.map((row) =>
-              row.id === transactionId ? { ...row, status, euerTreatment: euerTreatment ?? row.euerTreatment } : row,
-            ),
-          );
+        onBankCompleted={() => {
           router.refresh();
           setSelected(null);
         }}

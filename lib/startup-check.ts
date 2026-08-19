@@ -186,6 +186,39 @@ function validateFinancialData(db: AppDatabase) {
     );
   }
 
+  const directRevenueBookingPayments = db.all<{ id: number }>(sql`
+    SELECT DISTINCT a.id
+    FROM financial_transaction_allocations a
+    JOIN journal_entries payment ON payment.id = a.journal_entry_id
+    JOIN journal_lines revenue_line
+      ON revenue_line.entry_id = payment.id
+     AND revenue_line.account = 'rental_revenue'
+     AND revenue_line.amount_cents < 0
+    WHERE a.allocation_kind = 'booking_payment'
+      AND payment.kind = 'payment_received'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM journal_lines receivable_line
+        WHERE receivable_line.entry_id = payment.id
+          AND receivable_line.account = 'accounts_receivable'
+          AND receivable_line.amount_cents < 0
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM journal_entries correction
+        WHERE correction.idempotency_key = 'booking_payment_ar_reclassification:' || payment.id
+      )
+    ORDER BY a.id
+    LIMIT 25
+  `);
+  if (directRevenueBookingPayments.length > 0) {
+    throw new Error(
+      `Buchungszahlungen sind direkt als Umsatz statt gegen Forderungen gebucht: ${directRevenueBookingPayments
+        .map((row) => row.id)
+        .join(", ")}`,
+    );
+  }
+
   const incompletelyAllocatedPostedTransactions = db.all<{ id: number }>(sql`
     SELECT t.id
     FROM financial_transactions t

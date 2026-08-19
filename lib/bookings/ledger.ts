@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, ne } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
 import { accountingAccounts, financialAccounts, journalEntries, journalLines } from "../db/schema";
@@ -44,6 +44,14 @@ export function appendJournalEntry(db: AppDatabase, input: JournalCommand) {
     throw new BookingCommandError("Jede Journalzeile braucht ein Konto und einen gültigen Nicht-Null-Betrag.");
   const balance = input.lines.reduce((sum, line) => sum + line.amountCents, 0);
   if (balance !== 0) throw new BookingCommandError("Journalposten müssen ausgeglichen sein.");
+  if (
+    input.bookingId &&
+    input.kind === "payment_received" &&
+    !input.lines.some((line) => line.account.trim() === "accounts_receivable" && line.amountCents < 0)
+  )
+    throw new BookingCommandError(
+      "Zahlungseingänge zu einer Buchung müssen immer gegen Forderungen gebucht werden.",
+    );
 
   const accountCodes = [...new Set(input.lines.map((line) => line.account.trim()))];
   for (const code of accountCodes) {
@@ -140,4 +148,40 @@ export function getReceivableStatus(db: AppDatabase, bookingId: number) {
     .all();
   const openCents = rows.reduce((sum, row) => sum + row.amountCents, 0);
   return { openCents, status: openCents > 0 ? "open" : openCents < 0 ? "refund_due" : "settled" } as const;
+}
+
+/** Returns whether a booking already has a receivable-producing charge. */
+export function hasBookingCharge(db: AppDatabase, bookingId: number) {
+  return Boolean(
+    db
+      .select({ id: journalEntries.id })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
+      .where(
+        and(
+          eq(journalEntries.bookingId, bookingId),
+          inArray(journalEntries.kind, ["rental_charge", "cancellation_fee"]),
+          eq(journalLines.account, "accounts_receivable"),
+          gt(journalLines.amountCents, 0),
+        ),
+      )
+      .get(),
+  );
+}
+
+/** Cash payments and refunds recorded for a booking, independent of their posting order. */
+export function getReceivedPaymentCents(db: AppDatabase, bookingId: number) {
+  return db
+    .select({ amountCents: journalLines.amountCents })
+    .from(journalLines)
+    .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
+    .where(
+      and(
+        eq(journalEntries.bookingId, bookingId),
+        inArray(journalEntries.kind, ["payment_received", "refund_issued"]),
+        ne(journalLines.account, "accounts_receivable"),
+      ),
+    )
+    .all()
+    .reduce((sum, line) => sum + line.amountCents, 0);
 }

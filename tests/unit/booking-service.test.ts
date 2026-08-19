@@ -380,7 +380,7 @@ describe("booking commands", () => {
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
       status: "inquiry_received",
     });
-    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: -70_000, status: "refund_due" });
     expect(
       db
         .select({
@@ -405,8 +405,19 @@ describe("booking commands", () => {
         .all(),
     ).toEqual([
       { account: "test_transfer_bank", amountCents: 70_000 },
-      { account: "rental_revenue", amountCents: -70_000 },
+      { account: "accounts_receivable", amountCents: -70_000 },
     ]);
+    appendJournalEntry(db, {
+      bookingId: booking.id,
+      kind: "rental_charge",
+      actorUserId: "admin",
+      reason: "Preis später festgelegt",
+      lines: [
+        { account: "accounts_receivable", amountCents: 70_000 },
+        { account: "rental_revenue", amountCents: -70_000 },
+      ],
+    });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
     expect(
       db
         .select({ status: financialTransactions.status })

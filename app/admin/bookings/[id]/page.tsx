@@ -38,6 +38,11 @@ import { getDailyBikePriceCents } from "@/lib/inventory/pricing";
 import { formatReceivedAt } from "@/lib/bookings/order-number";
 import { allocateInvoiceNumber } from "@/lib/bookings/invoice-number";
 import {
+  formatFinancialTransactionKind,
+  formatFinancialTransactionSource,
+  formatJournalEntryKind,
+} from "@/lib/financial/presentation";
+import {
   getComputerMountTypeLabel,
   getPedalTypeLabel,
   rentalLocationLabels,
@@ -94,20 +99,6 @@ const nextActionCopy: Record<string, { title: string; description: string }> = {
     title: "Buchung abgeschlossen",
     description: "Diese Buchung wurde storniert und kann nicht weiter bearbeitet werden.",
   },
-};
-
-const transactionSourceLabels: Record<string, string> = {
-  bank: "Bank",
-  stripe: "Stripe",
-  cash: "Bar",
-  manual: "Manuell",
-  other: "Sonstiges",
-};
-
-const transactionKindLabels: Record<string, string> = {
-  payment: "Zahlung",
-  refund: "Erstattung",
-  income: "Einnahme",
 };
 
 function formatTransactionAmount(amountCents: number, currency: string) {
@@ -765,7 +756,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     }))}
                     availableAssets={availableAssets}
                     unavailableAssetIds={unavailableAssetIds}
-                    journalEntries={entries.map((entry) => ({ id: entry.id, label: `${entry.kind}: ${entry.reason}` }))}
+                    journalEntries={entries.map((entry) => ({
+                      id: entry.id,
+                      label: `${formatJournalEntryKind(entry.kind)}: ${entry.reason}`,
+                    }))}
                   />
                 </div>
               </CardContent>
@@ -790,8 +784,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       const amountCents = transaction.grossAmountCents ?? transaction.amountCents;
                       const title = transaction.counterpartyName || transaction.description || transaction.reference;
                       const detail = [
-                        transactionSourceLabels[transaction.source] ?? transaction.source,
-                        transactionKindLabels[transaction.kind] ?? transaction.kind,
+                        formatFinancialTransactionSource(transaction.source),
+                        formatFinancialTransactionKind(transaction.kind),
                         transaction.accountName,
                       ]
                         .filter(Boolean)

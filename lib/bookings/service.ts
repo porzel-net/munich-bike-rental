@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { and, eq, inArray, like, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
 
 import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import {
@@ -42,7 +42,7 @@ import { getLocationInventory } from "../inventory/repository";
 import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
 import { isHistoricalAssetSelectableForBooking } from "./historical-availability";
-import { appendJournalEntry, getReceivableStatus } from "./ledger";
+import { appendJournalEntry, getReceivedPaymentCents, getReceivableStatus } from "./ledger";
 import { confirmedBookingChargeCents, formatEuro } from "./money";
 import {
   renderBookingInformationChangedMail,
@@ -186,22 +186,6 @@ function getBookingPickupAddress(db: AppDatabase, booking: typeof bookings.$infe
 
 function getBookingContactPhone(db: AppDatabase, booking: typeof bookings.$inferSelect) {
   return getBookingAssignee(db, booking)?.whatsappPhone?.trim() || undefined;
-}
-
-function receivedPaymentCents(db: AppDatabase, bookingId: number) {
-  return db
-    .select({ amountCents: journalLines.amountCents })
-    .from(journalLines)
-    .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
-    .where(
-      and(
-        eq(journalEntries.bookingId, bookingId),
-        inArray(journalEntries.kind, ["payment_received", "refund_issued"]),
-        ne(journalLines.account, "accounts_receivable"),
-      ),
-    )
-    .all()
-    .reduce((sum, line) => sum + line.amountCents, 0);
 }
 
 function firstName(name: string | undefined) {
@@ -2249,7 +2233,7 @@ export function cancelBooking(
       throw new BookingCommandError(
         "Für die Stornierung musst du einen Grund und eine Gebühr zwischen 0 € und dem Gesamtpreis angeben.",
       );
-    const paidCents = receivedPaymentCents(db, booking.id);
+    const paidCents = getReceivedPaymentCents(db, booking.id);
     const refundCents = Math.max(0, paidCents - input.cancellationFeeCents);
     transition(db, booking, "cancelled", "booking_cancelled", input.actorUserId, input.reason, {
       cancellationFeeCents: input.cancellationFeeCents,
@@ -2353,9 +2337,9 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
     const isRefund = amountCents < 0;
     const absoluteAmountCents = Math.abs(amountCents);
     if (isRefund) {
-      if (absoluteAmountCents > Math.max(0, receivedPaymentCents(db, booking.id)))
+      if (absoluteAmountCents > Math.max(0, getReceivedPaymentCents(db, booking.id)))
         throw new BookingCommandError("Die Erstattung darf die tatsächlich erhaltenen Zahlungen nicht überschreiten");
-    } else if (receivedPaymentCents(db, booking.id) + absoluteAmountCents > booking.quotedTotalCents) {
+    } else if (getReceivedPaymentCents(db, booking.id) + absoluteAmountCents > booking.quotedTotalCents) {
       throw new BookingCommandError("Die Zahlung darf den Gesamtpreis der Buchung nicht überschreiten");
     }
 

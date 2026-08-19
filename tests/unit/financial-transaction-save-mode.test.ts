@@ -29,6 +29,21 @@ describe("financial bank transaction save mode", () => {
     ).toBe("post");
   });
 
+  it("keeps the posting flow when the source account of a manual transaction is changed", () => {
+    expect(
+      getBankTransactionSaveMode({
+        status: "posted",
+        categoryId: 7,
+        euerTreatment: "expense",
+        financialAccountId: 12,
+        originalCategoryId: 7,
+        originalBookingId: null,
+        originalDestinationAccountId: null,
+        originalFinancialAccountId: 3,
+      }),
+    ).toBe("post");
+  });
+
   it.each([
     { status: "posted", categoryId: 7, euerTreatment: "income", bookingId: 42 },
     { status: "posted", categoryId: 7, euerTreatment: "expense", bookingId: 42 },

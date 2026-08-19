@@ -49,6 +49,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatAccountLabel } from "@/lib/bookings/presentation";
+import { formatJournalEntryKind } from "@/lib/financial/presentation";
 
 export type JournalLine = {
   id: number;
@@ -83,21 +84,8 @@ const entryFilterItems = [
   { value: "expense", label: "Aufwände" },
 ] as const;
 
-const kindLabels: Record<string, string> = {
-  rental_charge: "Mietumsatz",
-  cancellation_fee: "Stornogebühr",
-  payment_received: "Zahlungseingang",
-  refund_issued: "Erstattung",
-  credit_note: "Gutschrift",
-  expense: "Aufwand",
-  depreciation: "Abschreibung (AfA)",
-  capital_contribution: "Privateinlage",
-  correction: "Korrektur",
-  legacy_import: "Historischer Import",
-};
-
 function formatKind(kind: string) {
-  return kindLabels[kind] ?? kind;
+  return formatJournalEntryKind(kind);
 }
 
 function formatDate(date: Date) {

@@ -178,7 +178,11 @@ export function FinancialTransactionDialog({
 
   const selectedCategory = categories.find((category) => String(category.id) === categoryId);
   const selectedBooking = bookings?.find((booking) => String(booking.id) === bookingId);
+  const selectedSourceAccount = accounts.find((account) => String(account.id) === accountId);
   const selectedDestinationAccount = accounts.find((account) => String(account.id) === destinationAccountId);
+  const isManuallyEnteredTransaction =
+    isBank && (bankTransaction?.source === "cash" || bankTransaction?.source === "manual");
+  const canEditManualTransactionAccount = Boolean(isPosted && isManuallyEnteredTransaction);
   const saveMode =
     isBank && bankTransaction
       ? getBankTransactionSaveMode({
@@ -186,9 +190,11 @@ export function FinancialTransactionDialog({
           categoryId: selectedCategory?.id ?? null,
           bookingId: selectedBooking?.id ?? null,
           destinationAccountId: selectedDestinationAccount?.id ?? null,
+          financialAccountId: canEditManualTransactionAccount ? (selectedSourceAccount?.id ?? null) : null,
           originalCategoryId: bankTransaction.categoryId,
           originalBookingId: bankTransaction.matchedBooking?.id ?? null,
           originalDestinationAccountId: bankTransaction.destinationAccountId,
+          originalFinancialAccountId: canEditManualTransactionAccount ? bankTransaction.financialAccountId : null,
         })
       : "post";
   const isDocumentOnlyUpdate = saveMode === "document_only";
@@ -369,6 +375,7 @@ export function FinancialTransactionDialog({
             categoryId: selectedCategory ? Number(categoryId) : undefined,
             bookingId: selectedBooking ? Number(bookingId) : undefined,
             destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
+            accountId: canEditManualTransactionAccount && accountId ? Number(accountId) : undefined,
             note: note.trim(),
             businessMeal:
               selectedCategory?.code === "business_meal"
@@ -488,7 +495,9 @@ export function FinancialTransactionDialog({
   }
 
   const accountLabel = isBank
-    ? (bankTransaction?.accountName ?? "Bankkonto")
+    ? canEditManualTransactionAccount
+      ? (selectedSourceAccount?.name ?? "Finanzkonto")
+      : (bankTransaction?.accountName ?? "Bankkonto")
     : (accounts.find((account) => String(account.id) === accountId)?.name ?? "Automatisch: Kasse");
 
   return (
@@ -517,28 +526,53 @@ export function FinancialTransactionDialog({
           <form id="financial-transaction-form" onSubmit={save}>
             <FieldGroup className="mt-2">
               {isBank ? (
-                <div className="grid gap-3 rounded-2xl bg-muted/40 p-4 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Quelle</p>
-                    <p className="font-medium">
-                      {bankTransaction?.source === "bank" ? "Bank" : "Manuell"} · {accountLabel}
-                    </p>
+                <>
+                  <div className="grid gap-3 rounded-2xl bg-muted/40 p-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quelle</p>
+                      <p className="font-medium">
+                        {bankTransaction?.source === "bank" ? "Bank" : "Manuell"} · {accountLabel}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Betrag</p>
+                      <p className="font-medium">
+                        {formatAmount(Math.abs(bankTransaction?.amountCents ?? 0), bankTransaction?.currency)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Gegenpartei</p>
+                      <p className="font-medium">{counterpartyName || "Nicht angegeben"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Buchungsdatum</p>
+                      <p className="font-medium">{formatBookedDate(date)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Betrag</p>
-                    <p className="font-medium">
-                      {formatAmount(Math.abs(bankTransaction?.amountCents ?? 0), bankTransaction?.currency)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Gegenpartei</p>
-                    <p className="font-medium">{counterpartyName || "Nicht angegeben"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Buchungsdatum</p>
-                    <p className="font-medium">{formatBookedDate(date)}</p>
-                  </div>
-                </div>
+                  {canEditManualTransactionAccount ? (
+                    <Field>
+                      <FieldLabel htmlFor="financial-posted-account">Finanzkonto</FieldLabel>
+                      <Select value={accountId} onValueChange={(value) => setAccountId(value || "")}>
+                        <SelectTrigger id="financial-posted-account" className="w-full">
+                          <SelectValue>{selectedSourceAccount?.name ?? "Finanzkonto auswählen"}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {accounts.map((account) => (
+                              <SelectItem key={account.id} value={String(account.id)}>
+                                {account.name}
+                                {account.status === "archived" ? " · archiviert" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FieldDescription>
+                        Das Finanzkonto kann nur bei manuell erfassten Buchungen nachträglich geändert werden.
+                      </FieldDescription>
+                    </Field>
+                  ) : null}
+                </>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
@@ -706,7 +740,10 @@ export function FinancialTransactionDialog({
                         {accounts
                           .filter(
                             (account) =>
-                              account.id !== (isBank ? bankTransaction?.financialAccountId : Number(accountId)),
+                              account.id !==
+                              (isBank && !canEditManualTransactionAccount
+                                ? bankTransaction?.financialAccountId
+                                : Number(accountId)),
                           )
                           .map((account) => (
                             <SelectItem key={account.id} value={String(account.id)}>

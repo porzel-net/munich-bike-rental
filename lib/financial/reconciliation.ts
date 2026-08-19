@@ -13,7 +13,7 @@ import {
   bookings,
 } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
-import { appendJournalEntry, getReceivableStatus } from "../bookings/ledger";
+import { appendJournalEntry, getReceivedPaymentCents, getReceivableStatus, hasBookingCharge } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
 import { getActiveFinancialCategoryByCode, getBookingRevenueCategory } from "./categories";
@@ -154,6 +154,7 @@ export type FinancialTransactionPostingInput = {
   transactionId: number;
   categoryId?: number;
   bookingId?: number;
+  accountId?: number;
   destinationAccountId?: number;
   note: string;
   actorUserId: string;
@@ -273,10 +274,21 @@ function assignNevloTransactionToBookingInTransaction(
     };
   }
   const receivable = getReceivableStatus(db, booking.id);
-  if (receivable.openCents < 0)
-    throw new BookingCommandError("Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung.");
-  if (receivable.openCents > 0 && transaction.amountCents > receivable.openCents)
-    throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
+  if (hasBookingCharge(db, booking.id)) {
+    if (receivable.openCents <= 0)
+      throw new BookingCommandError(
+        receivable.openCents < 0
+          ? "Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung."
+          : "Dieser Auftrag ist bereits vollständig bezahlt.",
+      );
+    if (transaction.amountCents > receivable.openCents)
+      throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
+  } else if (
+    booking.quotedTotalCents > 0 &&
+    getReceivedPaymentCents(db, booking.id) + transaction.amountCents > booking.quotedTotalCents
+  ) {
+    throw new BookingCommandError("Die Zahlung darf den bekannten Gesamtpreis der Buchung nicht überschreiten.");
+  }
 
   const sourceAccount = db
     .select()
@@ -312,12 +324,9 @@ function assignNevloTransactionToBookingInTransaction(
         reason: `Nevlo-Überweisung ${booking.orderNumber}`,
         lines: [
           { account: sourceAccount.code, amountCents: transaction.amountCents },
-          // An inquiry/offer without a posted charge has no receivable to clear;
-          // in that case the bank receipt is recognized directly as rental revenue.
-          {
-            account: receivable.openCents > 0 ? "accounts_receivable" : "rental_revenue",
-            amountCents: -transaction.amountCents,
-          },
+          // The charge may be created later. Posting every booking payment to
+          // receivables keeps the journal correct regardless of event order.
+          { account: "accounts_receivable", amountCents: -transaction.amountCents },
         ],
       });
   const now = new Date();
@@ -409,10 +418,15 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
     : input.note.trim();
   if (!note) throw new BookingCommandError("Bitte beschreibe den Geschäftsvorfall.");
 
+  if (input.accountId && (transaction.status !== "posted" || !["cash", "manual"].includes(transaction.source))) {
+    throw new BookingCommandError(
+      "Das Finanzkonto kann nur bei bereits gebuchten manuellen Transaktionen geändert werden.",
+    );
+  }
   const sourceAccount = db
     .select()
     .from(financialAccounts)
-    .where(eq(financialAccounts.id, transaction.financialAccountId))
+    .where(eq(financialAccounts.id, input.accountId ?? transaction.financialAccountId))
     .get();
   if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
   if (sourceAccount.status !== "active" && transaction.source !== "manual")
@@ -528,7 +542,27 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       if (previousDestination) previousCounterpartAccount = previousDestination.code;
     }
 
-    if (previousCounterpartAccount !== counterpartAccount) {
+    const sourceAccountChanged = sourceAccount.id !== transaction.financialAccountId;
+    if (sourceAccountChanged) {
+      const previousJournalLines = db
+        .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+        .from(journalLines)
+        .where(eq(journalLines.entryId, existingAllocation.journalEntryId))
+        .all();
+      if (!previousJournalLines.length)
+        throw new BookingCommandError("Der bestehende Journalposten konnte nicht korrigiert werden.");
+      appendJournalEntry(db, {
+        kind: "correction",
+        financialTransactionId: transaction.id,
+        actorUserId: input.actorUserId,
+        reason: `Finanzkonto geändert: ${note}`,
+        lines: [
+          ...previousJournalLines.map((line) => ({ account: line.account, amountCents: -line.amountCents })),
+          { account: sourceAccount.code, amountCents: transaction.amountCents },
+          { account: counterpartAccount, amountCents: -transaction.amountCents },
+        ],
+      });
+    } else if (previousCounterpartAccount !== counterpartAccount) {
       appendJournalEntry(db, {
         kind: "correction",
         financialTransactionId: transaction.id,
@@ -555,7 +589,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       .where(eq(financialTransactionAllocations.id, existingAllocation.id))
       .run();
     db.update(financialTransactions)
-      .set({ notes: note, updatedAt: new Date() })
+      .set({ financialAccountId: sourceAccount.id, notes: note, updatedAt: new Date() })
       .where(eq(financialTransactions.id, transaction.id))
       .run();
 

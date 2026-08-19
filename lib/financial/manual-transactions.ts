@@ -10,7 +10,7 @@ import {
 } from "../db/schema";
 import { postFinancialTransactionInTransaction } from "./reconciliation";
 import { getBookingRevenueCategory } from "./categories";
-import { appendJournalEntry, getReceivableStatus } from "../bookings/ledger";
+import { appendJournalEntry, getReceivedPaymentCents, getReceivableStatus, hasBookingCharge } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
 import { isValidIsoDate } from "../bookings/validation";
 
@@ -92,9 +92,21 @@ export function createAndPostManualTransaction(
     if (booking) {
       const bookingRevenueCategory = getBookingRevenueCategory(db);
       const receivable = getReceivableStatus(db, booking.id);
-      if (receivable.openCents <= 0) throw new BookingCommandError("Diese Buchung hat keine offene Forderung mehr.");
-      if (input.amountCents > receivable.openCents)
-        throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Buchungsbetrag.");
+      if (hasBookingCharge(db, booking.id)) {
+        if (receivable.openCents <= 0)
+          throw new BookingCommandError(
+            receivable.openCents < 0
+              ? "Diese Buchung ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung."
+              : "Diese Buchung hat keine offene Forderung mehr.",
+          );
+        if (input.amountCents > receivable.openCents)
+          throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Buchungsbetrag.");
+      } else if (
+        booking.quotedTotalCents > 0 &&
+        getReceivedPaymentCents(db, booking.id) + input.amountCents > booking.quotedTotalCents
+      ) {
+        throw new BookingCommandError("Die Zahlung darf den bekannten Gesamtpreis der Buchung nicht überschreiten.");
+      }
       const now = new Date();
       const description = input.description?.trim() || `Zahlung zu ${booking.orderNumber}`;
       const transaction = db

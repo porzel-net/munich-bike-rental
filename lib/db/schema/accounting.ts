@@ -29,6 +29,7 @@ export const accountingAccountTypes = ["asset", "liability", "equity", "revenue"
 export const financialAccountTypes = ["bank", "stripe_clearing", "cash", "card", "other"] as const;
 export const financialAccountStatuses = ["active", "archived"] as const;
 export const financialTransactionSources = ["bank", "stripe", "cash", "manual", "other"] as const;
+export type FinancialTransactionSource = (typeof financialTransactionSources)[number];
 export const financialTransactionKinds = [
   "payment",
   "refund",
@@ -43,6 +44,7 @@ export const financialTransactionKinds = [
   "expense",
   "other",
 ] as const;
+export type FinancialTransactionKind = (typeof financialTransactionKinds)[number];
 export const financialTransactionStatuses = ["imported", "needs_review", "matched", "posted", "ignored"] as const;
 export const financialAllocationKinds = [
   "booking_payment",
