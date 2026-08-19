@@ -114,6 +114,7 @@ export const accessoryInventory = sqliteTable(
     labelEn: text("label_en").notNull(),
     priceCents: integer("price_cents").notNull(),
     availableQuantity: integer("available_quantity").notNull().default(0),
+    quantityRelevant: integer("quantity_relevant", { mode: "boolean" }).notNull().default(true),
     state: text("state", { enum: assetStates }).notNull().default("active"),
     legacyEquipmentId: integer("legacy_equipment_id").unique(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -220,6 +221,7 @@ export const bookingRequestedItems = sqliteTable(
     needsGlasses: integer("needs_glasses", { mode: "boolean" }).notNull().default(false),
     bottleHolderIncluded: integer("bottle_holder_included", { mode: "boolean" }).notNull().default(true),
     repairKitIncluded: integer("repair_kit_included", { mode: "boolean" }).notNull().default(true),
+    insuranceProtectionSelected: integer("insurance_protection_selected", { mode: "boolean" }).notNull().default(true),
   },
   (table) => [
     uniqueIndex("booking_requested_items_position_unique").on(table.bookingId, table.position),

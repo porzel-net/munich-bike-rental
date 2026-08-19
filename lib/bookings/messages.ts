@@ -99,6 +99,7 @@ export function renderOfferMail(input: OfferMailInput) {
           `Rennradbrille: ${accessories.needsGlasses ? "Enthalten" : "Nicht enthalten"}`,
           `Flaschenhalter: ${accessories.bottleHolderIncluded !== false ? "Inklusive" : "Nicht enthalten"}`,
           `Reparaturset: ${accessories.repairKitIncluded !== false ? "Inklusive" : "Nicht enthalten"}`,
+          `Versicherungsschutz: ${accessories.insuranceProtectionSelected !== false ? "Ja" : "Nein"}`,
         ]
       : [
           `Pedals: ${accessories.needsPedals ? getPedalTypeLabel(accessories.pedalType, "en") || "Included" : "Not included"}`,
@@ -109,6 +110,7 @@ export function renderOfferMail(input: OfferMailInput) {
           `Road cycling glasses: ${accessories.needsGlasses ? "Included" : "Not included"}`,
           `Bottle holder: ${accessories.bottleHolderIncluded !== false ? "Included" : "Not included"}`,
           `Repair kit: ${accessories.repairKitIncluded !== false ? "Included" : "Not included"}`,
+          `Insurance protection: ${accessories.insuranceProtectionSelected !== false ? "Yes" : "No"}`,
         ];
     return { bikeHeading, frameLine, accessories: lines };
   });
@@ -309,6 +311,7 @@ export function renderInquiryReceivedMail(input: {
           `Rennradbrille: ${accessories.needsGlasses ? "Ja" : "Nein"}`,
           `Flaschenhalter: ${accessories.bottleHolderIncluded !== false ? "Inklusive" : "Nicht enthalten"}`,
           `Reparaturset: ${accessories.repairKitIncluded !== false ? "Inklusive" : "Nicht enthalten"}`,
+          `Versicherungsschutz: ${accessories.insuranceProtectionSelected !== false ? "Ja" : "Nein"}`,
         ]
       : [
           `Pedals: ${accessories.needsPedals ? getPedalTypeLabel(accessories.pedalType, "en") || "Included" : "Not included"}`,
@@ -319,6 +322,7 @@ export function renderInquiryReceivedMail(input: {
           `Road cycling glasses: ${accessories.needsGlasses ? "Yes" : "No"}`,
           `Bottle holder: ${accessories.bottleHolderIncluded !== false ? "Included" : "Not included"}`,
           `Repair kit: ${accessories.repairKitIncluded !== false ? "Included" : "Not included"}`,
+          `Insurance protection: ${accessories.insuranceProtectionSelected !== false ? "Yes" : "No"}`,
         ];
   };
   const bikes = input.requested.flatMap((item, index) => [

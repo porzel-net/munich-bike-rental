@@ -32,6 +32,7 @@ const item = z.object({
   needsGlasses: z.boolean().default(false),
   bottleHolderIncluded: z.boolean().default(true),
   repairKitIncluded: z.boolean().default(true),
+  insuranceProtectionSelected: z.boolean().default(true),
 });
 const schema = z.discriminatedUnion("mode", [
   z.object({

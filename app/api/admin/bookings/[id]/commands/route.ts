@@ -39,6 +39,7 @@ const offerAccessories = z.object({
   needsGlasses: z.boolean().default(false),
   bottleHolderIncluded: z.boolean().default(true),
   repairKitIncluded: z.boolean().default(true),
+  insuranceProtectionSelected: z.boolean().optional(),
 });
 const commandSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("delete_permanently") }),

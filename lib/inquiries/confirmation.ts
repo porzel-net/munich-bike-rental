@@ -21,6 +21,7 @@ export type BookingConfirmationBike = {
   needsGlasses: boolean;
   bottleHolderIncluded: boolean;
   repairKitIncluded: boolean;
+  insuranceProtectionSelected: boolean;
 };
 
 export type BookingConfirmationDetails = {
@@ -77,6 +78,7 @@ function getBookingDetails(db: AppDatabase, inquiryId: number): BookingConfirmat
       needsGlasses: rentalInquiryBikes.needsGlasses,
       bottleHolderIncluded: rentalInquiryBikes.bottleHolderIncluded,
       repairKitIncluded: rentalInquiryBikes.repairKitIncluded,
+      insuranceProtectionSelected: rentalInquiryBikes.insuranceProtectionSelected,
     })
     .from(rentalInquiryBikes)
     .where(eq(rentalInquiryBikes.inquiryId, inquiryId))

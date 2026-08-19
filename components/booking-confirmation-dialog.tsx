@@ -31,6 +31,7 @@ function formatEquipment(bike: BookingConfirmationDetails["bikes"][number]) {
     bike.needsGlasses && "Rennradbrille",
     bike.bottleHolderIncluded && "Flaschenhalter inklusive",
     bike.repairKitIncluded && "Reparaturset inklusive",
+    bike.insuranceProtectionSelected && "Versicherungsschutz",
   ]
     .filter(Boolean)
     .join(" · ");

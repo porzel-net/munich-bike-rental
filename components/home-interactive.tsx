@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowUpRight, ChevronDown, ImageIcon, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ImageIcon, Info, MapPin, Ruler, ShieldCheck, Weight, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useConsent } from "./consent-manager";
 import { InquiryHoneypot } from "./inquiry-honeypot";
@@ -85,6 +85,8 @@ type FormTranslations = {
   bikepackingBag: string;
   bottleHolder: string;
   repairKit: string;
+  insuranceProtection: string;
+  insuranceProtectionInfo: string;
   glasses: string;
   glassesPreview: string;
   message: string;
@@ -229,6 +231,7 @@ type BikeFormState = {
   needsBikepackingBag: boolean;
   bottleHolderIncluded: boolean;
   repairKitIncluded: boolean;
+  insuranceProtectionSelected: boolean;
   needsGlasses: boolean;
 };
 
@@ -290,6 +293,7 @@ function createEmptyBike(): BikeFormState {
     needsBikepackingBag: false,
     bottleHolderIncluded: true,
     repairKitIncluded: true,
+    insuranceProtectionSelected: true,
     needsGlasses: false,
   };
 }
@@ -1588,30 +1592,56 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
                   ) : null}
 
                   {inventory.bottleHolderIncluded ? (
-                    <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                    <label className="contact-form__checkbox">
                       <input
                         type="checkbox"
                         name={"bikes." + index + ".bottleHolderIncluded"}
                         checked={bike.bottleHolderIncluded}
-                        disabled
-                        readOnly
+                        onChange={(event) => updateBike(index, "bottleHolderIncluded", event.target.checked)}
                       />
                       <span>{translations.form.bottleHolder}</span>
                     </label>
                   ) : null}
 
                   {inventory.repairKitIncluded ? (
-                    <label className="contact-form__checkbox contact-form__checkbox--fixed">
+                    <label className="contact-form__checkbox">
                       <input
                         type="checkbox"
                         name={"bikes." + index + ".repairKitIncluded"}
                         checked={bike.repairKitIncluded}
-                        disabled
-                        readOnly
+                        onChange={(event) => updateBike(index, "repairKitIncluded", event.target.checked)}
                       />
                       <span>{translations.form.repairKit}</span>
                     </label>
                   ) : null}
+
+                  <div className="contact-form__equipment-item">
+                    <div className="contact-form__equipment-option">
+                      <label className="contact-form__checkbox">
+                        <input
+                          type="checkbox"
+                          name={"bikes." + index + ".insuranceProtectionSelected"}
+                          checked={bike.insuranceProtectionSelected}
+                          onChange={(event) => updateBike(index, "insuranceProtectionSelected", event.target.checked)}
+                        />
+                        <span>{translations.form.insuranceProtection}</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="contact-form__equipment-help"
+                        aria-label={translations.form.insuranceProtectionInfo}
+                      >
+                        <Info aria-hidden="true" size={16} />
+                        <span
+                          className="contact-form__equipment-tooltip contact-form__equipment-tooltip--text"
+                          role="tooltip"
+                        >
+                          {translations.form.insuranceProtectionInfo}{" "}
+                          <Link href={lang === "en" ? "/en/agb" : "/de/agb"}>AGB</Link>.
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

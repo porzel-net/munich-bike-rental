@@ -46,6 +46,7 @@ export async function POST(request: Request) {
         needsGlasses: bike.needsGlasses,
         bottleHolderIncluded: bike.bottleHolderIncluded,
         repairKitIncluded: bike.repairKitIncluded,
+        insuranceProtectionSelected: bike.insuranceProtectionSelected,
       })),
     });
     const dispatchResults = await dispatchOutboxForBooking(database, created.id);

@@ -10,6 +10,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { rentalLocationBikes, rentalLocationBikeSizes, rentalLocationEquipment } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
+import type { EquipmentCategory } from "@/lib/inventory/equipment-categories";
 
 export type AdminInventoryBike = {
   id: number;
@@ -29,11 +30,12 @@ export type AdminInventoryEquipment = {
   id: number;
   location: RentalLocation;
   equipmentKey: string;
-  category: "pedal" | "computer-mount" | "helmet" | "clothing";
+  category: EquipmentCategory;
   labelDe: string;
   labelEn: string;
   priceCents: number;
   availableQuantity: number;
+  quantityRelevant: boolean;
   isAvailable: boolean;
 };
 
@@ -90,6 +92,7 @@ export default async function InventoryPage() {
     labelEn: item.labelEn,
     priceCents: item.priceCents,
     availableQuantity: item.availableQuantity,
+    quantityRelevant: item.quantityRelevant,
     isAvailable: item.isAvailable,
   }));
   const locationOptions = locations.map((key) => ({ key, label: rentalLocationLabels.de[key] }));

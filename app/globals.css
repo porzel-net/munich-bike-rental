@@ -2626,6 +2626,21 @@ button {
   border-radius: 9px;
 }
 
+.contact-form__equipment-tooltip--text {
+  width: min(360px, calc(100vw - 48px));
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.contact-form__equipment-tooltip--text a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .contact-form__equipment-help:hover .contact-form__equipment-tooltip,
 .contact-form__equipment-help:focus-visible .contact-form__equipment-tooltip {
   pointer-events: auto;

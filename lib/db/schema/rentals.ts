@@ -69,6 +69,7 @@ export const rentalInquiryBikes = sqliteTable(
     needsGlasses: integer("needs_glasses", { mode: "boolean" }).notNull().default(false),
     bottleHolderIncluded: integer("bottle_holder_included", { mode: "boolean" }).notNull().default(true),
     repairKitIncluded: integer("repair_kit_included", { mode: "boolean" }).notNull().default(true),
+    insuranceProtectionSelected: integer("insurance_protection_selected", { mode: "boolean" }).notNull().default(true),
   },
   (table) => [
     uniqueIndex("rental_inquiry_bikes_inquiry_position_unique").on(table.inquiryId, table.position),
@@ -193,6 +194,7 @@ export const rentalLocationEquipment = sqliteTable(
     priceCents: integer("price_cents").notNull(),
     displayOrder: integer("display_order").notNull(),
     availableQuantity: integer("available_quantity").notNull().default(1),
+    quantityRelevant: integer("quantity_relevant", { mode: "boolean" }).notNull().default(true),
     isAvailable: integer("is_available", { mode: "boolean" }).notNull().default(true),
   },
   (table) => [

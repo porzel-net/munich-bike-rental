@@ -25,6 +25,7 @@ const schema = z.object({
         needsGlasses: z.boolean().default(false),
         bottleHolderIncluded: z.boolean().default(true),
         repairKitIncluded: z.boolean().default(true),
+        insuranceProtectionSelected: z.boolean().optional(),
       }),
     )
     .optional(),

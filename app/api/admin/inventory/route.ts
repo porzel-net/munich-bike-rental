@@ -17,6 +17,7 @@ import { readBoundedJson } from "@/lib/security/request-body";
 import { formatBikeDisplayName } from "@/lib/inventory/display-name";
 import { createBikeKey, getBikeKeyForUpdate } from "@/lib/inventory/bike-key";
 import { syncLegacyEquipmentToAccessoryInventory } from "@/lib/inventory/accessory-sync";
+import { defaultUncountedEquipmentCategories, equipmentCategories } from "@/lib/inventory/equipment-categories";
 
 export const runtime = "nodejs";
 
@@ -38,9 +39,10 @@ const bikeSchema = baseSchema.extend({
 });
 const equipmentSchema = baseSchema.extend({
   type: z.literal("equipment"),
-  category: z.enum(["pedal", "computer-mount", "helmet", "clothing"]),
+  category: z.enum(equipmentCategories),
   labelDe: z.string().trim().min(1).max(120),
   labelEn: z.string().trim().min(1).max(120),
+  quantityRelevant: z.boolean().optional(),
 });
 const createSchema = z.discriminatedUnion("type", [bikeSchema, equipmentSchema]);
 const updateSchema = z.discriminatedUnion("type", [
@@ -160,6 +162,8 @@ export async function POST(request: Request) {
           labelEn: input.data.labelEn,
           priceCents: input.data.priceCents,
           availableQuantity: input.data.availableQuantity,
+          quantityRelevant:
+            input.data.quantityRelevant ?? !defaultUncountedEquipmentCategories.has(input.data.category),
           displayOrder,
           isAvailable: input.data.isAvailable,
         })
@@ -269,13 +273,14 @@ export async function PATCH(request: Request) {
     }
 
     const existing = db
-      .select({ id: rentalLocationEquipment.id })
+      .select()
       .from(rentalLocationEquipment)
       .where(
         and(eq(rentalLocationEquipment.id, input.data.id), eq(rentalLocationEquipment.location, input.data.location)),
       )
       .get();
     if (!existing) return NextResponse.json({ message: "Ausrüstung nicht gefunden." }, { status: 404 });
+    const quantityRelevant = input.data.quantityRelevant ?? existing.quantityRelevant;
     db.update(rentalLocationEquipment)
       .set({
         category: input.data.category,
@@ -283,6 +288,7 @@ export async function PATCH(request: Request) {
         labelEn: input.data.labelEn,
         priceCents: input.data.priceCents,
         availableQuantity: input.data.availableQuantity,
+        quantityRelevant,
         isAvailable: input.data.isAvailable,
         equipmentKey: equipmentKey(input.data.category, input.data.labelDe),
       })
@@ -294,7 +300,7 @@ export async function PATCH(request: Request) {
       .where(eq(rentalLocationEquipment.id, input.data.id))
       .get();
     if (updatedEquipment) syncLegacyEquipmentToAccessoryInventory(db, updatedEquipment);
-    return NextResponse.json({ item: input.data });
+    return NextResponse.json({ item: { ...input.data, quantityRelevant } });
   } catch (error) {
     if (error instanceof Error && error.message.includes("UNIQUE")) return duplicateResponse();
     throw error;

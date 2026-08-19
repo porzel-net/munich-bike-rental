@@ -136,6 +136,7 @@ function buildPublicBookingView(
           needsGlasses: item.needsGlasses,
           bottleHolderIncluded: item.bottleHolderIncluded,
           repairKitIncluded: item.repairKitIncluded,
+          insuranceProtectionSelected: item.insuranceProtectionSelected,
         },
       };
     }),

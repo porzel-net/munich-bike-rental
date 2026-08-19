@@ -104,7 +104,11 @@ export function importLegacyInventoryIntoBookingInventory(db: AppDatabase) {
           labelEn: equipment.labelEn,
           priceCents: equipment.priceCents,
           availableQuantity: equipment.availableQuantity,
-          state: equipment.isAvailable && equipment.availableQuantity > 0 ? "active" : "maintenance",
+          quantityRelevant: equipment.quantityRelevant,
+          state:
+            equipment.isAvailable && (!equipment.quantityRelevant || equipment.availableQuantity > 0)
+              ? "active"
+              : "maintenance",
           legacyEquipmentId: equipment.id,
           createdAt: stamp,
           updatedAt: stamp,

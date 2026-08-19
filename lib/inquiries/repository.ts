@@ -58,6 +58,7 @@ export function saveRentalInquiry(
           needsGlasses: bike.needsGlasses,
           bottleHolderIncluded: bike.bottleHolderIncluded,
           repairKitIncluded: bike.repairKitIncluded,
+          insuranceProtectionSelected: bike.insuranceProtectionSelected,
         })),
       )
       .run();

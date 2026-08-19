@@ -52,8 +52,9 @@ const bikeInquirySchema = z
     needsHelmet: booleanInput.default(false),
     needsClothing: booleanInput.default(false),
     needsBikepackingBag: booleanInput.default(false),
-    bottleHolderIncluded: z.literal(true).default(true),
-    repairKitIncluded: z.literal(true).default(true),
+    bottleHolderIncluded: booleanInput.default(true),
+    repairKitIncluded: booleanInput.default(true),
+    insuranceProtectionSelected: booleanInput.default(true).optional(),
     needsGlasses: booleanInput.default(false),
   })
   .superRefine((value, context) => {

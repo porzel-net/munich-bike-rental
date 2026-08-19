@@ -32,7 +32,10 @@ export function syncLegacyEquipmentToAccessoryInventory(
     )
     .get();
   const accessory = byLegacyId ?? byLocationKey;
-  const nextState = equipment.isAvailable && equipment.availableQuantity > 0 ? "active" : "maintenance";
+  const nextState =
+    equipment.isAvailable && (!equipment.quantityRelevant || equipment.availableQuantity > 0)
+      ? "active"
+      : "maintenance";
 
   if (!accessory) {
     db.insert(accessoryInventory)
@@ -44,6 +47,7 @@ export function syncLegacyEquipmentToAccessoryInventory(
         labelEn: equipment.labelEn,
         priceCents: equipment.priceCents,
         availableQuantity: equipment.availableQuantity,
+        quantityRelevant: equipment.quantityRelevant,
         state: nextState,
         legacyEquipmentId: equipment.id,
         createdAt: stamp,
@@ -75,6 +79,7 @@ export function syncLegacyEquipmentToAccessoryInventory(
       labelEn: equipment.labelEn,
       priceCents: equipment.priceCents,
       availableQuantity: equipment.availableQuantity,
+      quantityRelevant: equipment.quantityRelevant,
       state: nextState,
       legacyEquipmentId: accessory.legacyEquipmentId ?? equipment.id,
       updatedAt: stamp,

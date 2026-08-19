@@ -20,22 +20,20 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  defaultUncountedEquipmentCategories,
+  equipmentCategories,
+  equipmentCategoryLabels,
+  type EquipmentCategory,
+} from "@/lib/inventory/equipment-categories";
 
 type LocationOption = { key: AdminInventoryBike["location"]; label: string };
 type InventoryKind = "bike" | "equipment";
-type EquipmentCategory = AdminInventoryEquipment["category"];
 type EditingItem = (AdminInventoryBike & { kind: "bike" }) | (AdminInventoryEquipment & { kind: "equipment" });
 type LocationFilter = "all" | LocationOption["key"];
 
 const euroFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 const allLocationsItem = { value: "all", label: "Alle Standorte" } as const;
-const categoryLabels: Record<EquipmentCategory, string> = {
-  pedal: "Pedale",
-  "computer-mount": "Computer-Halterung",
-  helmet: "Helm",
-  clothing: "Kleidung",
-};
-
 function priceToInput(cents: number) {
   return (cents / 100).toFixed(2).replace(".00", "");
 }
@@ -133,6 +131,7 @@ export function InventoryTable({
             labelEn: item.labelEn,
             priceCents: item.priceCents,
             availableQuantity: item.availableQuantity,
+            quantityRelevant: item.quantityRelevant,
             isAvailable: !item.isAvailable,
           };
     const response = await fetch("/api/admin/inventory", {
@@ -303,7 +302,7 @@ export function InventoryTable({
                   <TableHead>Ausrüstung</TableHead>
                   <TableHead>Art</TableHead>
                   <TableHead>Standort</TableHead>
-                  <TableHead className="text-right">Anzahl</TableHead>
+                  <TableHead className="text-right">Bestand</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Preis</TableHead>
                 </TableRow>
@@ -325,12 +324,14 @@ export function InventoryTable({
                         }
                       }}
                     >
-                      <TableCell className="font-medium">{categoryLabels[item.category]}</TableCell>
+                      <TableCell className="font-medium">{equipmentCategoryLabels[item.category]}</TableCell>
                       <TableCell>{item.labelDe}</TableCell>
                       <TableCell>
                         {locations.find((location) => location.key === item.location)?.label ?? item.location}
                       </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">{item.availableQuantity}</TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {item.quantityRelevant ? item.availableQuantity : "Nicht gezählt"}
+                      </TableCell>
                       <TableCell>
                         <StatusButton
                           active={item.isAvailable}
@@ -427,6 +428,7 @@ function InventoryDialog({
   const [availableQuantity, setAvailableQuantity] = useState(
     item?.kind === "equipment" ? String(item.availableQuantity) : "1",
   );
+  const [quantityRelevant, setQuantityRelevant] = useState(item?.kind === "equipment" ? item.quantityRelevant : true);
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -475,6 +477,7 @@ function InventoryDialog({
             labelEn: labelEn.trim() || labelDe.trim(),
             priceCents,
             availableQuantity: equipmentQuantity,
+            quantityRelevant,
             isAvailable,
           };
     if (kind === "bike" && (!title.trim() || !size.trim())) {
@@ -533,6 +536,7 @@ function InventoryDialog({
           labelEn: labelEn.trim() || labelDe.trim(),
           priceCents,
           availableQuantity: equipmentQuantity,
+          quantityRelevant,
           isAvailable,
         },
         "equipment",
@@ -648,15 +652,23 @@ function InventoryDialog({
             ) : (
               <>
                 <Field>
-                  <FieldLabel htmlFor="inventory-category">Ausrüstung</FieldLabel>
-                  <Select value={category} onValueChange={(value) => value && setCategory(value as EquipmentCategory)}>
+                  <FieldLabel htmlFor="inventory-category">Kategorie</FieldLabel>
+                  <Select
+                    value={category}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      const nextCategory = value as EquipmentCategory;
+                      setCategory(nextCategory);
+                      if (!item) setQuantityRelevant(!defaultUncountedEquipmentCategories.has(nextCategory));
+                    }}
+                  >
                     <SelectTrigger id="inventory-category" className="w-full">
-                      <SelectValue>{categoryLabels[category]}</SelectValue>
+                      <SelectValue>{equipmentCategoryLabels[category]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(categoryLabels).map(([value, label]) => (
+                      {equipmentCategories.map((value) => (
                         <SelectItem key={value} value={value}>
-                          {label}
+                          {equipmentCategoryLabels[value]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -694,10 +706,28 @@ function InventoryDialog({
                     step="1"
                     inputMode="numeric"
                     value={availableQuantity}
+                    disabled={!quantityRelevant}
                     onChange={(event) => setAvailableQuantity(event.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Wie viele Exemplare dieser Ausrüstung am Standort vorhanden sind.
+                    {quantityRelevant
+                      ? "Wie viele Exemplare dieser Ausrüstung am Standort vorhanden sind."
+                      : "Die Anzahl begrenzt Buchungen nicht; dieses Zubehör wird pro Bike berücksichtigt."}
+                  </p>
+                </Field>
+                <Field>
+                  <label className="flex items-center gap-3 text-sm" htmlFor="inventory-quantity-relevant">
+                    <input
+                      id="inventory-quantity-relevant"
+                      type="checkbox"
+                      checked={quantityRelevant}
+                      onChange={(event) => setQuantityRelevant(event.target.checked)}
+                    />
+                    Bestand zählen
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Ausschalten für Ausstattung, deren Anzahl vom jeweiligen Bike abhängt, zum Beispiel Flaschenhalter
+                    oder Reparaturset.
                   </p>
                 </Field>
               </>

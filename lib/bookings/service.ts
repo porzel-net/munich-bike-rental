@@ -731,6 +731,7 @@ export type BookingRequestedItemCommand = {
   needsGlasses?: boolean;
   bottleHolderIncluded?: boolean;
   repairKitIncluded?: boolean;
+  insuranceProtectionSelected?: boolean;
 };
 
 export type CreateBookingCommand = {
@@ -812,6 +813,7 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
         needsGlasses: item.needsGlasses ?? false,
         bottleHolderIncluded: item.bottleHolderIncluded ?? true,
         repairKitIncluded: item.repairKitIncluded ?? true,
+        insuranceProtectionSelected: item.insuranceProtectionSelected ?? true,
       })),
     )
     .run();
@@ -1566,7 +1568,9 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         current.needsBikepackingBag !== Boolean(next.needsBikepackingBag) ||
         current.needsGlasses !== Boolean(next.needsGlasses) ||
         current.bottleHolderIncluded !== (next.bottleHolderIncluded ?? true) ||
-        current.repairKitIncluded !== (next.repairKitIncluded ?? true)
+        current.repairKitIncluded !== (next.repairKitIncluded ?? true) ||
+        current.insuranceProtectionSelected !==
+          (next.insuranceProtectionSelected ?? current.insuranceProtectionSelected)
       );
     });
     const commercialChanged =
@@ -1791,6 +1795,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     }
 
     for (const item of normalizedRequestedItems) {
+      const currentItem = currentItems.find((current) => current.id === item.id);
       db.update(bookingRequestedItems)
         .set({
           requestedLabel: item.requestedLabel,
@@ -1805,6 +1810,8 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
           needsGlasses: Boolean(item.needsGlasses),
           bottleHolderIncluded: item.bottleHolderIncluded ?? true,
           repairKitIncluded: item.repairKitIncluded ?? true,
+          insuranceProtectionSelected:
+            item.insuranceProtectionSelected ?? currentItem?.insuranceProtectionSelected ?? true,
         })
         .where(and(eq(bookingRequestedItems.id, item.id), eq(bookingRequestedItems.bookingId, booking.id)))
         .run();

@@ -508,6 +508,9 @@ export const translations = {
       glasses: "Rennradbrille\n(einmalig 5 €)",
       bottleHolder: "Flaschenhalter (inklusive)",
       repairKit: "Reparaturset (inklusive)",
+      insuranceProtection: "Versicherungsschutz",
+      insuranceProtectionInfo:
+        "Wir gehören zu den wenigen Rennradverleihern in München, die – anders als viele andere Verleiher – Versicherungsschutz anbieten. Bei konkreten, von dir verursachten Schäden am Fahrrad zahlst du höchstens 100 €, bei Verlust höchstens 300 €. Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.",
       glassesPreview: "Vorschau der Rennradbrille anzeigen",
       message: "Worum geht es?",
       messageHint:
@@ -686,6 +689,9 @@ export const translations = {
       glasses: "Road cycling glasses\n(one-time €5)",
       bottleHolder: "Bottle holder (included)",
       repairKit: "Repair kit (included)",
+      insuranceProtection: "Insurance protection",
+      insuranceProtectionInfo:
+        "We are one of the few road-bike rental companies in Munich to offer insurance protection, unlike many other rental providers. For concrete damage to the bike caused by you, you pay no more than €100; in case of loss, no more than €300. Normal wear and tear from proper use is not charged to you.",
       glassesPreview: "Show a preview of the road cycling glasses",
       message: "What is it about?",
       messageHint:

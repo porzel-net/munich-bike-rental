@@ -82,6 +82,9 @@ export function allocateRequestedAccessories(
       .get();
     if (!accessory)
       throw new BookingCommandError(`Das Zubehör „${accessoryKey}“ ist an diesem Standort nicht verfügbar.`);
+    // Non-counted equipment is attached to the selected bike (for example a
+    // bottle holder) and must not consume a shared stock quantity.
+    if (!accessory.quantityRelevant) continue;
     const allocated =
       db
         .select({ quantity: sql<number>`coalesce(sum(${bookingAccessoryAllocations.quantity}), 0)` })

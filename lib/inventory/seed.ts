@@ -24,8 +24,8 @@ const equipment = [
   ["clothing", "clothing", "Kleidung", "Clothing", 1_500],
   ["bikepacking-bag", "bag", "Bikepackingtasche", "Bikepacking bag", 2_500],
   ["glasses", "glasses", "Rennradbrille", "Road cycling glasses", 500],
-  ["bottle-holder", "included", "Flaschenhalter", "Bottle holder", 0],
-  ["repair-kit", "included", "Reparaturset", "Repair kit", 0],
+  ["bottle-holder", "bottle-holder", "Flaschenhalter", "Bottle holder", 0],
+  ["repair-kit", "repair-kit", "Reparaturset", "Repair kit", 0],
 ] as const;
 const discounts = [
   {
@@ -176,6 +176,7 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
               priceCents,
               displayOrder: index + 1,
               availableQuantity: 1,
+              quantityRelevant: category !== "bottle-holder" && category !== "repair-kit",
             })),
           )
           .run();
@@ -201,6 +202,7 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
               priceCents,
               displayOrder: equipment.length + index + 1,
               availableQuantity: 1,
+              quantityRelevant: category !== "bottle-holder" && category !== "repair-kit",
             })),
           )
           .run();

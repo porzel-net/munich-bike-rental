@@ -63,6 +63,7 @@ export type OfferAccessorySelection = {
   needsGlasses?: boolean;
   bottleHolderIncluded?: boolean;
   repairKitIncluded?: boolean;
+  insuranceProtectionSelected?: boolean;
 };
 
 /** Public requests are always accepted; this is only their initial, non-binding estimate. */
@@ -99,6 +100,7 @@ function selectedAccessories(
     needsGlasses: override?.needsGlasses ?? item.needsGlasses,
     bottleHolderIncluded: override?.bottleHolderIncluded ?? item.bottleHolderIncluded,
     repairKitIncluded: override?.repairKitIncluded ?? item.repairKitIncluded,
+    insuranceProtectionSelected: override?.insuranceProtectionSelected ?? item.insuranceProtectionSelected,
   };
 }
 

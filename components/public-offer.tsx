@@ -54,6 +54,8 @@ function accessoryLabels(item: PublicOffer["items"][number], locale: "de" | "en"
     accessories.bottleHolderIncluded !== false &&
       (locale === "de" ? "Flaschenhalter inklusive" : "Bottle holder included"),
     accessories.repairKitIncluded !== false && (locale === "de" ? "Reparaturset inklusive" : "Repair kit included"),
+    accessories.insuranceProtectionSelected !== false &&
+      (locale === "de" ? "Versicherungsschutz" : "Insurance protection"),
   ].filter((value): value is string => Boolean(value));
 }
 
