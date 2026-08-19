@@ -770,6 +770,57 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
           <Card>
             <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Zahlungen</CardTitle>
+                  <CardDescription className="mt-1">
+                    Alle dieser Buchung zugeordneten Finanztransaktionen.
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">{bookingTransactions.length}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {bookingTransactions.length ? (
+                <div className="divide-y rounded-2xl border">
+                  {bookingTransactions.map((transaction) => {
+                    const amountCents = transaction.grossAmountCents ?? transaction.amountCents;
+                    const title = transaction.counterpartyName || transaction.description || transaction.reference;
+                    const detail = [
+                      transactionSourceLabels[transaction.source] ?? transaction.source,
+                      transactionKindLabels[transaction.kind] ?? transaction.kind,
+                      transaction.accountName,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" key={transaction.id}>
+                        <div className="min-w-0">
+                          <p className="font-medium">{title || "Finanztransaktion"}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatTransactionDate(transaction.bookedAt)} · {detail}
+                          </p>
+                        </div>
+                        <p
+                          className={`shrink-0 font-semibold tabular-nums ${amountCents >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                        >
+                          {amountCents >= 0 ? "+" : "−"}
+                          {formatTransactionAmount(Math.abs(amountCents), transaction.currency)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                  Für diese Buchung wurden noch keine Finanztransaktionen zugeordnet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Mailverlauf</CardTitle>
             </CardHeader>
             <CardContent>
