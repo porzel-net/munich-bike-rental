@@ -134,6 +134,7 @@ export function createAndPostManualTransaction(
         .values({
           transactionId: transaction.id,
           bookingId: booking.id,
+          categoryId: category.id,
           allocationKind: "booking_payment",
           matchMethod: "manual",
           amountCents: input.amountCents,

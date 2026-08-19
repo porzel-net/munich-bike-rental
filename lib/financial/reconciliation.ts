@@ -118,6 +118,10 @@ function getActiveCategoryByCode(db: AppDatabase, code: string) {
   return category;
 }
 
+function getBookingPaymentCategory(db: AppDatabase) {
+  return getActiveCategoryByCode(db, "rental_revenue");
+}
+
 function assertAllocationTotal(
   transactionAmountCents: number,
   allocations: Array<{ amountCents: number; category?: typeof financialCategories.$inferSelect }>,
@@ -236,6 +240,7 @@ function assignNevloTransactionToBookingInTransaction(
     .where(eq(financialAccounts.id, transaction.financialAccountId))
     .get();
   if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
+  const bookingPaymentCategory = getBookingPaymentCategory(db);
   const journalEntryId = canConvertExistingCategoryAllocation
     ? appendJournalEntry(db, {
         bookingId: booking.id,
@@ -276,6 +281,7 @@ function assignNevloTransactionToBookingInTransaction(
     .values({
       transactionId: transaction.id,
       bookingId: booking.id,
+      categoryId: bookingPaymentCategory.id,
       allocationKind: "booking_payment",
       matchMethod: input.matchMethod ?? "automatic",
       matchScore: 100,

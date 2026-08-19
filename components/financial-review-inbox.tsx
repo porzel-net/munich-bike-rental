@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDownLeftIcon, ArrowUpRightIcon, FileTextIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -58,6 +58,7 @@ export type FinancialReviewTransaction = {
   status: string;
   euerTreatment: string | null;
   categoryId: number | null;
+  allocationKind: string | null;
   destinationAccountId: number | null;
   amountCents: number;
   currency: string;
@@ -124,6 +125,14 @@ export function FinancialReviewInbox({
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
   const [assignmentBookingId, setAssignmentBookingId] = useState("");
+  const sortedRows = useMemo(
+    () =>
+      [...rows].sort((left, right) => {
+        const dateDifference = right.bookedAt.localeCompare(left.bookedAt);
+        return dateDifference || right.id - left.id;
+      }),
+    [rows],
+  );
 
   function openBookingAssignment(row: FinancialReviewTransaction) {
     setAssignmentRow(row);
@@ -201,14 +210,14 @@ export function FinancialReviewInbox({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {sortedRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-28 text-center text-muted-foreground">
                   Noch keine Finanztransaktionen erfasst.
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              sortedRows.map((row) => (
                 <TableRow
                   key={row.id}
                   className="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50"

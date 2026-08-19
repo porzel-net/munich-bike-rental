@@ -211,7 +211,12 @@ describe("financial reconciliation", () => {
         .from(financialTransactionAllocations)
         .where(eq(financialTransactionAllocations.transactionId, imported.id))
         .get(),
-    ).toMatchObject({ bookingId: booking.id, allocationKind: "booking_payment", matchMethod: "manual" });
+    ).toMatchObject({
+      bookingId: booking.id,
+      categoryId: income.id,
+      allocationKind: "booking_payment",
+      matchMethod: "manual",
+    });
     expect(result.bookingId).toBe(booking.id);
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
   });
@@ -273,7 +278,7 @@ describe("financial reconciliation", () => {
         .from(financialTransactionAllocations)
         .where(eq(financialTransactionAllocations.transactionId, imported.id))
         .get(),
-    ).toMatchObject({ bookingId: booking.id, allocationKind: "booking_payment" });
+    ).toMatchObject({ bookingId: booking.id, categoryId: income.id, allocationKind: "booking_payment" });
   });
 
   it("leaves the remaining receivable open after a partial payment", () => {
@@ -304,6 +309,7 @@ describe("financial reconciliation", () => {
         .get(),
     ).toMatchObject({
       bookingId: booking.id,
+      categoryId: income.id,
       amountCents: 5_000,
       allocationKind: "booking_payment",
       journalEntryId: result.journalEntryId,
@@ -631,7 +637,11 @@ describe("financial reconciliation", () => {
       .where(eq(financialTransactionAllocations.transactionId, result.transactionId))
       .get();
     expect(transaction).toMatchObject({ financialAccountId: bank.id, status: "posted", amountCents: 10_000 });
-    expect(allocation).toMatchObject({ bookingId: booking.id, categoryId: null, allocationKind: "booking_payment" });
+    expect(allocation).toMatchObject({
+      bookingId: booking.id,
+      categoryId: income.id,
+      allocationKind: "booking_payment",
+    });
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
   });
 });
