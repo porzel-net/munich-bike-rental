@@ -141,6 +141,10 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
       faqPickup: `Bike pickup takes place directly in ${city} ${district}. We hand over the bike on site and adjust it to your needs, for example the saddle position. We will coordinate the exact process with you by email after your request.`,
       aboutRental: `We are a personal bike rental in ${city} and rent out only our own endurance, gravel, all-round and aero bikes, so every bike is ready to ride right away.`,
       blogIntro: `Short, practical insights about road bikes, fit and routes in and around ${city}.`,
+      insuranceProtectionInfo: {
+        lead: "Your protection matters to us.",
+        body: `We are one of the few road-bike rental companies in ${city} to offer insurance protection, unlike almost all other rental providers. For concrete damage to the bike caused by you, you pay no more than €100; in case of loss, no more than €300. Normal wear and tear from proper use is not charged to you.`,
+      },
     };
   }
 
@@ -156,5 +160,9 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
     faqPickup: `Die Abholung findet direkt in ${city}-${district} statt. Vor Ort geben wir dir das Fahrrad heraus und passen es auf deine Wünsche an, zum Beispiel die Sitzposition. Den genauen Ablauf stimmen wir nach der Anfrage per E-Mail mit dir ab.`,
     aboutRental: `Wir sind ein persönlicher Bike-Verleih in ${city} und verleihen ausschließlich unsere eigenen Endurance-, Gravel-, Allround- und Aero-Bikes, damit jedes Rad sofort startklar ist.`,
     blogIntro: `Kurze, praktische Einblicke rund um Rennrad, Passform und Touren in und um ${city}.`,
+    insuranceProtectionInfo: {
+      lead: "Dein Schutz ist uns wichtig.",
+      body: `Wir gehören zu den wenigen Rennradverleihern in ${city}, die – anders als fast alle Verleiher – Versicherungsschutz anbieten. Bei konkreten, von dir verursachten Schäden am Fahrrad zahlst du höchstens 100 €, bei Verlust höchstens 300 €. Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.`,
+    },
   };
 }

@@ -380,7 +380,10 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
             translations={{
               portfolio: t.portfolio,
               modal: t.modal,
-              form: t.form,
+              form: {
+                ...t.form,
+                insuranceProtectionInfo: copy.insuranceProtectionInfo,
+              },
             }}
           />
         </div>
