@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import mainImage from "@/main.webp";
 import { ArrowUpRight } from "lucide-react";
 
 import { BlogPreviewCard } from "@/components/blog-content";
@@ -8,6 +9,8 @@ import { blogPosts } from "@/lib/blog-content";
 import { resolveLocale, translations } from "@/lib/home-content";
 import { siteConfig } from "@/lib/site";
 import { defaultRentalLocation, getLocalizedLocationPath } from "@/lib/rental-locations";
+
+const heroImageUrl = new URL(mainImage.src, siteConfig.url).toString();
 
 type PageProps = {
   searchParams?: Promise<{
@@ -31,9 +34,9 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     images: [
       {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
+        url: heroImageUrl,
+        width: mainImage.width,
+        height: mainImage.height,
         alt: "Blog von Munich Rental",
       },
     ],
@@ -42,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Blog | Munich Rental",
     description: "Touren, Bike-Infos und Routentipps rund um Rennradfahren in München.",
-    images: ["/opengraph-image"],
+    images: [heroImageUrl],
   },
 };
 

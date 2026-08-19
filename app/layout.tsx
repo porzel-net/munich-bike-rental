@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import mainImage from "../main.webp";
 
 import { ConsentProvider } from "../components/consent-manager";
 import { TooltipProvider } from "../components/ui/tooltip";
@@ -9,6 +10,8 @@ import { getRentalStructuredDataJson } from "../lib/structured-data";
 import { resolveLocale } from "../lib/home-content";
 import { getRentalLocation } from "../lib/rental-locations";
 import { siteConfig } from "../lib/site";
+
+const heroImageUrl = new URL(mainImage.src, siteConfig.url).toString();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -95,9 +98,9 @@ export const metadata: Metadata = {
     description: siteConfig.description,
     images: [
       {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
+        url: heroImageUrl,
+        width: mainImage.width,
+        height: mainImage.height,
         alt: `${siteConfig.name} - Rennrad- und Gravel-Verleih in München, Regensburg und am Bodensee`,
       },
     ],
@@ -106,7 +109,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteConfig.title,
     description: siteConfig.description,
-    images: ["/opengraph-image"],
+    images: [heroImageUrl],
   },
   robots: {
     index: true,

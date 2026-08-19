@@ -61,6 +61,7 @@ export async function generateRentalMetadata({ searchParams, location, locale }:
   const city = location.city[lang];
   const district = location.district[lang];
   const localizedPath = getLocalizedLocationPath(location, lang);
+  const heroImageUrl = new URL(mainImage.src, siteConfig.url).toString();
 
   const title = isGerman
     ? `Canyon Carbon Rennrad & Gravel Leihen in ${district} | Your Bike Rental`
@@ -113,9 +114,9 @@ export async function generateRentalMetadata({ searchParams, location, locale }:
       description,
       images: [
         {
-          url: "/opengraph-image",
-          width: 1200,
-          height: 630,
+          url: heroImageUrl,
+          width: mainImage.width,
+          height: mainImage.height,
           alt: isGerman
             ? `Your Bike Rental - Rennrad- und Gravel-Verleih in ${city}`
             : `Your Bike Rental - road and gravel bike rental in ${city}`,
@@ -126,7 +127,7 @@ export async function generateRentalMetadata({ searchParams, location, locale }:
       card: "summary_large_image",
       title,
       description,
-      images: ["/opengraph-image"],
+      images: [heroImageUrl],
     },
   };
 }

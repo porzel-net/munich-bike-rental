@@ -1,4 +1,5 @@
 import type { Locale } from "./home-content";
+import mainImage from "@/main.webp";
 import { faqItems, portfolioItems } from "./home-content";
 import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
@@ -26,7 +27,7 @@ function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
 
   return catalog
     .filter((offer) => offer.name === "Endurace CF SL 8" || offer.name === "Grail CF SL 7")
-    .map((offer) => ({ ...offer, price: location.key === "regensburg" ? 49 : 59 }));
+    .map((offer) => ({ ...offer, price: 49 }));
 }
 
 function getFaqEntries(location: RentalLocationConfig, locale: Locale) {
@@ -46,6 +47,7 @@ export function getRentalStructuredDataJson(location: RentalLocationConfig, loca
   const isGerman = locale === "de";
   const copy = getLocationCopy(location, locale);
   const pageUrl = `${siteConfig.url}${getLocalizedLocationPath(location, locale)}`;
+  const heroImageUrl = new URL(mainImage.src, siteConfig.url).toString();
   const city = location.city[locale];
   const district = location.district[locale];
   const localOfferCatalog = getOfferCatalog(location, locale);
@@ -79,7 +81,7 @@ export function getRentalStructuredDataJson(location: RentalLocationConfig, loca
         url: pageUrl,
         telephone: siteConfig.phoneE164,
         email: siteConfig.email,
-        image: `${siteConfig.url}/assets/img/hero/1.jpg`,
+        image: heroImageUrl,
         priceRange: siteConfig.priceRange,
         areaServed: [city, district],
         serviceType: isGerman ? "Rennrad- und Gravel-Verleih" : "Road and gravel bike rental",
