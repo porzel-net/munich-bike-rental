@@ -63,8 +63,7 @@ describe("location inventory", () => {
       ]),
     );
     expect(munich.discounts.map((discount) => [discount.key, discount.percentage])).toEqual([
-      ["weekday", 10],
-      ["long-term", 20],
+      ["long-term", 15],
       ["student", 10],
     ]);
   });
@@ -184,18 +183,18 @@ describe("location inventory", () => {
     ).toMatchObject({ accessoryKey: "pedal-platform", availableQuantity: 1, state: "active" });
   });
 
-  it("uses the configured location discounts for future rental calculations", () => {
+  it("applies the configured location discounts to future rental calculations", () => {
     const db = createTestDatabase();
     const inventory = getLocationInventory(db, "munich");
 
     expect(
       calculateRentalPrice(inventory, {
-        dailyPriceCents: 5900,
+        dailyPriceCents: 4900,
         rentalDays: 3,
         pickupDate: new Date("2026-07-20T12:00:00Z"),
         isStudent: true,
       }),
-    ).toMatchObject({ subtotalCents: 17700, discountPercentage: 20, discountCents: 3540, totalCents: 14160 });
+    ).toMatchObject({ subtotalCents: 14700, discountPercentage: 15, discountCents: 2205, totalCents: 12495 });
   });
 
   it("handles malformed catalog JSON without crashing and keeps the real minimum bike price", () => {
@@ -210,7 +209,7 @@ describe("location inventory", () => {
     expect(inventory.minimumBikePriceCents).toBeGreaterThan(0);
   });
 
-  it("prices each selected asset once and applies discounts to every qualifying rental day", () => {
+  it("prices each selected asset once with the long-term discount", () => {
     const db = createTestDatabase();
     const inventory = getLocationInventory(db, "munich");
 
@@ -248,11 +247,10 @@ describe("location inventory", () => {
       }),
     ).toMatchObject({
       rentalDays: 5,
-      bikeSubtotalCents: 29_500,
+      bikeSubtotalCents: 24_500,
       equipmentSubtotalCents: 3_500,
-      // Long-term discount (20%) wins over the non-stackable weekday discount on all five days.
-      discountCents: 5_900,
-      totalCents: 27_100,
+      discountCents: 3_675,
+      totalCents: 24_325,
       appliedDiscountKeys: ["long-term"],
     });
   });
@@ -295,10 +293,10 @@ describe("location inventory", () => {
       }),
     ).toMatchObject({
       rentalDays: 1,
-      bikeSubtotalCents: 5_900,
+      bikeSubtotalCents: 4_900,
       equipmentSubtotalCents: 3_000,
-      discountCents: 590,
-      totalCents: 8_310,
+      discountCents: 0,
+      totalCents: 7_900,
     });
   });
 });

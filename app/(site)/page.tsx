@@ -63,8 +63,8 @@ export async function generateRentalMetadata({ searchParams, location, locale }:
   const localizedPath = getLocalizedLocationPath(location, lang);
 
   const title = isGerman
-    ? `Dein Rennradverleih & Gravelverleih in ${city} | Your Bike Rental`
-    : `Road and gravel bike rental in ${city} ${district} | Your Bike Rental`;
+    ? `Canyon Carbon Rennrad & Gravel Leihen in ${district} | Your Bike Rental`
+    : `Rent Canyon Carbon Road & Gravel Bikes in ${district} | Your Bike Rental`;
   const description = isGerman
     ? `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Räder, direkte Anfrage, persönliche Beratung und klare Preise.`
     : `Personal road and gravel bike rental in ${city} ${district} with serviced bikes, direct inquiry, personal advice and transparent pricing.`;
@@ -144,20 +144,19 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
   );
   const inventory = getLocationInventory(getDatabase(), location.key);
   const localPortfolioItems = inventory.portfolioItems;
-  const localPriceItems = priceItems.map((item, index) => {
+  const localPriceItems = priceItems.flatMap((item, index) => {
     if (index === 0) {
       const price = (inventory.minimumBikePriceCents / 100).toFixed(0);
       return { ...item, cost: { de: `ab ${price}€`, en: `from ${price}€` } };
     }
-    if (index === 4) {
+    if (index === priceItems.length - 1) {
       const price = (inventory.accessoryFromCents / 100).toFixed(0);
       return { ...item, cost: { de: `ab ${price}€`, en: `from ${price}€` } };
     }
     const discount = inventory.discounts[index - 1];
-    if (discount) {
-      return { ...item, title: discount.label, cost: { de: `${discount.percentage}%`, en: `${discount.percentage}%` } };
-    }
-    return item;
+    return discount
+      ? { ...item, title: discount.label, cost: { de: `${discount.percentage}%`, en: `${discount.percentage}%` } }
+      : [];
   });
   const showLocationSelection = params?.standortauswahl === "1";
   return (

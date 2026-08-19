@@ -1127,10 +1127,20 @@ button {
   left: 48px;
   bottom: 38px;
   z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 24px;
   width: calc(100% - 96px);
 }
 
-.portfolio-card__details h3 {
+.portfolio-card__meta {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.portfolio-card__meta h3 {
   margin: 0 0 4px;
   color: #111111;
   font-family: "Poppins", Arial, Helvetica, sans-serif;
@@ -1145,17 +1155,19 @@ button {
   font-weight: 600;
 }
 
-.portfolio-card__meta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 20px;
-  width: 100%;
+.portfolio-card__pricing {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  text-align: right;
 }
 
-.portfolio-card__meta span:last-child {
-  margin-left: auto;
-  text-align: right;
+.portfolio-card__pricing span {
+  color: #111111;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
   white-space: nowrap;
 }
 
@@ -3936,6 +3948,8 @@ button {
   .portfolio-card__details {
     left: 22px;
     bottom: 22px;
+    width: calc(100% - 44px);
+    gap: 12px;
   }
 
   .portfolio-card__arrow {

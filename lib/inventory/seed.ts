@@ -11,7 +11,13 @@ import {
 } from "../db/schema";
 import { syncAllLegacyEquipmentToAccessoryInventory } from "./accessory-sync";
 
-const locationPrices = { munich: 5900, regensburg: 4900, lindau: 5900, friedrichshafen: 5900, konstanz: 5900 } as const;
+const locationPrices = {
+  munich: 4900,
+  regensburg: 4900,
+  lindau: 4900,
+  friedrichshafen: 4900,
+  konstanz: 4900,
+} as const;
 const equipment = [
   ["pedal-platform", "pedal", "Plattformpedale", "Platform pedals", 500],
   ["pedal-spdSl", "pedal", "SPD-SL", "SPD-SL", 500],
@@ -27,16 +33,9 @@ const equipment = [
   ["bottle-holder", "bottle-holder", "Flaschenhalter", "Bottle holder", 0],
   ["repair-kit", "repair-kit", "Reparaturset", "Repair kit", 0],
 ] as const;
+
 const discounts = [
-  {
-    discountKey: "weekday",
-    labelDe: "Mo-Do Rabatt",
-    labelEn: "Mon-Thu discount",
-    percentage: 10,
-    weekdayFrom: 1,
-    weekdayTo: 4,
-  },
-  { discountKey: "long-term", labelDe: "Ab 3 Tagen", labelEn: "From 3 days", percentage: 20, minimumRentalDays: 3 },
+  { discountKey: "long-term", labelDe: "Ab 3 Tagen", labelEn: "From 3 days", percentage: 15, minimumRentalDays: 3 },
   {
     discountKey: "student",
     labelDe: "Studentenrabatt",
@@ -182,6 +181,13 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
           .run();
       }
 
+      if (needsDiscounts) {
+        transaction
+          .insert(rentalLocationDiscounts)
+          .values(discounts.map((discount, index) => ({ location, ...discount, displayOrder: index + 1 })))
+          .run();
+      }
+
       const existingEquipment = transaction
         .select({ equipmentKey: rentalLocationEquipment.equipmentKey })
         .from(rentalLocationEquipment)
@@ -208,12 +214,6 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
           .run();
       }
 
-      if (needsDiscounts) {
-        transaction
-          .insert(rentalLocationDiscounts)
-          .values(discounts.map((discount, index) => ({ location, ...discount, displayOrder: index + 1 })))
-          .run();
-      }
     }
   });
   syncAllLegacyEquipmentToAccessoryInventory(db);

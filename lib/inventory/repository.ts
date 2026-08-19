@@ -74,6 +74,22 @@ const optimizedBikeMedia: Record<string, string> = {
   "/bikes/ultimate-cf-sl-7eTap-axs/real3.png": "/bikes/ultimate-cf-sl-7eTap-axs/real3.webp",
 };
 
+const bikeSizeOrder = new Map(
+  ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "XXL"].map((size, index) => [size, index]),
+);
+
+function sortBikeSizes(sizes: string[]) {
+  return [...new Set(sizes)].sort((left, right) => {
+    const leftIndex = bikeSizeOrder.get(left.trim().toUpperCase());
+    const rightIndex = bikeSizeOrder.get(right.trim().toUpperCase());
+
+    if (leftIndex !== undefined && rightIndex !== undefined) return leftIndex - rightIndex;
+    if (leftIndex !== undefined) return -1;
+    if (rightIndex !== undefined) return 1;
+    return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+  });
+}
+
 function optimizeBikeMediaPath(path: string) {
   return optimizedBikeMedia[path] ?? path;
 }
@@ -164,6 +180,12 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     ([option, dailyPriceCents]) => ({ option, dailyPriceCents }),
   );
   const portfolioBikes = [...new Map(bikes.map((bike) => [bike.title, bike])).values()];
+  const bikeSizes = (title: string) =>
+    sortBikeSizes(
+      bikeVariantOptions
+        .filter((option) => option.startsWith(title + " - "))
+        .map((option) => option.slice(title.length + 3)),
+    ).join(" / ");
   const optionList = (category: string, prefix: string) =>
     equipment
       .filter((item) => item.category === category)
@@ -178,16 +200,8 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       title: bike.title,
       frameNumber: bike.frameNumber,
       subtitle: {
-        de: bikeVariantOptions
-          .filter((option) => option.startsWith(bike.title + " - "))
-          .map((option) => option.slice(bike.title.length + 3))
-          .filter((size, index, sizes) => sizes.indexOf(size) === index)
-          .join(" / "),
-        en: bikeVariantOptions
-          .filter((option) => option.startsWith(bike.title + " - "))
-          .map((option) => option.slice(bike.title.length + 3))
-          .filter((size, index, sizes) => sizes.indexOf(size) === index)
-          .join(" / "),
+        de: bikeSizes(bike.title),
+        en: bikeSizes(bike.title),
       },
       price: {
         de: `${(bike.priceCentsPerDay / 100).toFixed(0)}€/Tag`,
@@ -219,9 +233,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     glassesAvailable: equipment.some((item) => item.accessoryKey === "glasses"),
     bottleHolderIncluded: equipment.some((item) => item.accessoryKey === "bottle-holder"),
     repairKitIncluded: equipment.some((item) => item.accessoryKey === "repair-kit"),
-    accessoryFromCents: equipment.filter((item) => item.priceCents > 0).length
-      ? Math.min(...equipment.filter((item) => item.priceCents > 0).map((item) => item.priceCents))
-      : 0,
+    accessoryFromCents: equipment.length ? Math.min(...equipment.map((item) => item.priceCents)) : 0,
     minimumBikePriceCents: bikes.length ? Math.min(...bikes.map((item) => item.priceCentsPerDay)) : 0,
     discounts: discounts.map((discount) => ({
       key: discount.discountKey,

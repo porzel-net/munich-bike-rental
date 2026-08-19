@@ -132,7 +132,7 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
     return {
       heroTitle: `ROAD & GRAVEL BIKE RENTAL ${city.toUpperCase()}`,
       heroIntro: `Personal road and gravel bike rental in ${city} ${district}: serviced endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. You get direct contact, honest advice and transparent rates instead of anonymous mass rental.`,
-      priceIntro: `Clear prices for your bike rental in ${city}, plus Mon-Thu, long-rental and student discounts as well as accessories from 5€.`,
+      priceIntro: `Clear prices for your bike rental in ${city}: road bikes from €49, with discounts on top. Accessories from €0.`,
       pricePromise: `If you find a comparable road bike in ${city} with similar equipment for less elsewhere, you get the better price with us.`,
       locationTitle: `Bike rental in ${city} ${district}`,
       locationIntro: `Pick up your road or gravel bike directly in ${city} ${district}. After your request, we will coordinate the exact handover with you by email.`,
@@ -143,7 +143,10 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
       blogIntro: `Short, practical insights about road bikes, fit and routes in and around ${city}.`,
       insuranceProtectionInfo: {
         lead: "Your protection matters to us.",
-        body: `We are one of the few road-bike rental companies in ${city} to offer insurance protection, unlike almost all other rental providers. For concrete damage to the bike caused by you, you pay no more than €100; in case of loss, no more than €300. Normal wear and tear from proper use is not charged to you.`,
+        body: `We are one of the few road-bike rental companies in ${city} to offer insurance protection, unlike almost all other rental providers.`,
+        savings:
+          "For damage caused by you, you pay no more than €100 instead of the full cost of the damage. If the bike is lost, you pay no more than €300 instead of replacing the entire bike.",
+        footer: "Normal wear and tear from proper use is not charged to you.",
       },
     };
   }
@@ -151,7 +154,7 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
   return {
     heroTitle: `RENNRAD-, GRAVEL-VERLEIH ${city.toUpperCase()}`,
     heroIntro: `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.`,
-    priceIntro: `Klare Preise für deinen Bike-Verleih in ${city}, dazu Mo-Do-Rabatt, Langzeitrabatt und Studentenrabatt sowie Zubehör ab 5€.`,
+    priceIntro: `Klare Preise für deinen Bike-Verleih in ${city}: Rennräder ab 49€ plus Rabatte obendrauf. Zubehör ab 0€.`,
     pricePromise: `Findest du in ${city} ein vergleichbares Rennrad mit ähnlicher Ausstattung günstiger, bekommst du bei uns den besseren Preis.`,
     locationTitle: `Rennradverleih in ${city}-${district}`,
     locationIntro: `Hole dein Rennrad oder Gravelbike direkt in ${city}-${district} ab. Den genauen Ablauf der Übergabe stimmen wir nach deiner Anfrage per E-Mail mit dir ab.`,
@@ -162,7 +165,10 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
     blogIntro: `Kurze, praktische Einblicke rund um Rennrad, Passform und Touren in und um ${city}.`,
     insuranceProtectionInfo: {
       lead: "Dein Schutz ist uns wichtig.",
-      body: `Wir gehören zu den wenigen Rennradverleihern in ${city}, die – anders als fast alle Verleiher – Versicherungsschutz anbieten. Bei konkreten, von dir verursachten Schäden am Fahrrad zahlst du höchstens 100 €, bei Verlust höchstens 300 €. Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.`,
+      body: `Wir gehören zu den wenigen Rennradverleihern in ${city}, die – anders als fast alle Verleiher – Versicherungsschutz anbieten.`,
+      savings:
+        "Bei einem von dir verursachten Schaden zahlst du höchstens 100 € – statt für den gesamten Schaden aufzukommen. Bei Verlust zahlst du höchstens 300 € – statt das komplette Fahrrad ersetzen zu müssen.",
+      footer: "Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.",
     },
   };
 }

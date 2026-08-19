@@ -1,5 +1,5 @@
 import type { StaticImageData } from "next/image";
-import { Bike, CalendarClock, CalendarRange, GraduationCap, Package, type LucideIcon } from "lucide-react";
+import { Bike, CalendarClock, GraduationCap, Package, type LucideIcon } from "lucide-react";
 
 const aeroadPreview = "/bikes/aeroad-cf-sl-8-disc/preview.webp";
 const aeroadReal1 = "/bikes/aeroad-cf-sl-8-disc/real1.webp";
@@ -277,17 +277,12 @@ export const portfolioItems: PortfolioItem[] = [
 export const priceItems: PriceItem[] = [
   {
     title: { de: "Rennräder", en: "Road bikes" },
-    cost: { de: "ab 59€", en: "from 59€" },
+    cost: { de: "ab 49€", en: "from 49€" },
     icon: Bike,
   },
   {
-    title: { de: "Mo-Do Rabatt", en: "Mon-Thu discount" },
-    cost: { de: "10%", en: "10%" },
-    icon: CalendarRange,
-  },
-  {
     title: { de: "Ab 3 Tagen", en: "From 3 days" },
-    cost: { de: "20%", en: "20%" },
+    cost: { de: "15%", en: "15%" },
     icon: CalendarClock,
   },
   {
@@ -297,7 +292,7 @@ export const priceItems: PriceItem[] = [
   },
   {
     title: { de: "Zubehör", en: "Accessories" },
-    cost: { de: "ab 5€", en: "from 5€" },
+    cost: { de: "ab 0€", en: "from 0€" },
     icon: Package,
   },
 ];
@@ -427,8 +422,7 @@ export const translations = {
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro:
-        "Klare Preise für deinen Bike-Verleih in München, dazu Mo-Do-Rabatt, Langzeitrabatt und Studentenrabatt sowie Zubehör ab 5€.",
+      intro: "Klare Preise für deinen Bike-Verleih in München: Rennräder ab 49€ plus Rabatte obendrauf. Zubehör ab 0€.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -511,7 +505,10 @@ export const translations = {
       insuranceProtection: "Versicherungsschutz",
       insuranceProtectionInfo: {
         lead: "Dein Schutz ist uns wichtig.",
-        body: "Wir gehören zu den wenigen Rennradverleihern in München, die – anders als fast alle Verleiher – Versicherungsschutz anbieten. Bei konkreten, von dir verursachten Schäden am Fahrrad zahlst du höchstens 100 €, bei Verlust höchstens 300 €. Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.",
+        body: "Wir gehören zu den wenigen Rennradverleihern in München, die – anders als fast alle Verleiher – Versicherungsschutz anbieten.",
+        savings:
+          "Bei einem von dir verursachten Schaden zahlst du höchstens 100 € – statt für den gesamten Schaden aufzukommen. Bei Verlust zahlst du höchstens 300 € – statt das komplette Fahrrad ersetzen zu müssen.",
+        footer: "Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.",
       },
       glassesPreview: "Vorschau der Rennradbrille anzeigen",
       message: "Worum geht es?",
@@ -611,7 +608,7 @@ export const translations = {
       eyebrow: "Prices",
       title: "Rental & rates",
       intro:
-        "Clear prices for your bike rental in Munich, plus Mon-Thu, long-rental and student discounts as well as accessories from 5€.",
+        "Clear prices for your bike rental in Munich: road bikes from €49, with discounts on top. Accessories from €0.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -694,7 +691,10 @@ export const translations = {
       insuranceProtection: "Insurance protection",
       insuranceProtectionInfo: {
         lead: "Your protection matters to us.",
-        body: "We are one of the few road-bike rental companies in Munich to offer insurance protection, unlike almost all other rental providers. For concrete damage to the bike caused by you, you pay no more than €100; in case of loss, no more than €300. Normal wear and tear from proper use is not charged to you.",
+        body: "We are one of the few road-bike rental companies in Munich to offer insurance protection, unlike almost all other rental providers.",
+        savings:
+          "For damage caused by you, you pay no more than €100 instead of the full cost of the damage. If the bike is lost, you pay no more than €300 instead of replacing the entire bike.",
+        footer: "Normal wear and tear from proper use is not charged to you.",
       },
       glassesPreview: "Show a preview of the road cycling glasses",
       message: "What is it about?",
