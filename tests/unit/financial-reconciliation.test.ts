@@ -430,7 +430,7 @@ describe("financial reconciliation", () => {
     expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 7_500, status: "open" });
   });
 
-  it("does not allow a posted payment to be reassigned to another booking", () => {
+  it("reassigns a posted payment and restores the old booking receivable", () => {
     const { db, bank, income } = setup();
     const firstBooking = bookingWithReceivable(db, 7_500, "#20260808000008");
     const secondBooking = bookingWithReceivable(db, 7_500, "#20260808000009");
@@ -444,17 +444,58 @@ describe("financial reconciliation", () => {
       actorUserId: "admin",
     });
 
-    expect(() =>
-      postFinancialTransaction(db, {
-        transactionId: imported.id,
-        categoryId: income.id,
-        bookingId: secondBooking.id,
-        note: "Zweite Zuordnung",
-        actorUserId: "admin",
-      }),
-    ).toThrow("Diese Transaktion ist bereits zugewiesen.");
-    expect(getReceivableStatus(db, firstBooking.id)).toEqual({ openCents: 0, status: "settled" });
-    expect(getReceivableStatus(db, secondBooking.id)).toEqual({ openCents: 7_500, status: "open" });
+    postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      bookingId: secondBooking.id,
+      note: "Zweite Zuordnung",
+      actorUserId: "admin",
+    });
+
+    expect(getReceivableStatus(db, firstBooking.id)).toEqual({ openCents: 7_500, status: "open" });
+    expect(getReceivableStatus(db, secondBooking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, imported.id))
+        .get(),
+    ).toMatchObject({ bookingId: secondBooking.id, categoryId: income.id, allocationKind: "booking_payment" });
+  });
+
+  it("reclassifies a posted transaction with a correction journal", () => {
+    const { db, bank, income } = setup();
+    const cancellationFee = db
+      .select()
+      .from(financialCategories)
+      .where(eq(financialCategories.code, "cancellation_fee"))
+      .get()!;
+    const imported = transaction(db, bank.id, 7_500, "test");
+
+    const original = postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      note: "Falsch als Mietertrag erfasst",
+      actorUserId: "admin",
+    });
+    postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: cancellationFee.id,
+      note: "Sachliche Zuordnung korrigiert",
+      actorUserId: "admin",
+    });
+
+    const allocation = db
+      .select()
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.transactionId, imported.id))
+      .get();
+    expect(allocation).toMatchObject({ categoryId: cancellationFee.id, allocationKind: "revenue" });
+    expect(
+      db.select().from(journalEntries).where(eq(journalEntries.financialTransactionId, imported.id)).all(),
+    ).toHaveLength(2);
+    expect(getEuerSummary(db, 2026)).toMatchObject({ incomeCents: 7_500, profitCents: 7_500 });
+    expect(original.journalEntryId).toBeTruthy();
   });
 
   it("records a cash withdrawal as a transfer and keeps ignored movements in the bank balance", () => {

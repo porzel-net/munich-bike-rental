@@ -181,7 +181,15 @@ export function FinancialTransactionDialog({
   const selectedDestinationAccount = accounts.find((account) => String(account.id) === destinationAccountId);
   const saveMode =
     isBank && bankTransaction
-      ? getBankTransactionSaveMode({ ...bankTransaction, bookingId: selectedBooking?.id ?? null })
+      ? getBankTransactionSaveMode({
+          ...bankTransaction,
+          categoryId: selectedCategory?.id ?? null,
+          bookingId: selectedBooking?.id ?? null,
+          destinationAccountId: selectedDestinationAccount?.id ?? null,
+          originalCategoryId: bankTransaction.categoryId,
+          originalBookingId: bankTransaction.matchedBooking?.id ?? null,
+          originalDestinationAccountId: bankTransaction.destinationAccountId,
+        })
       : "post";
   const isDocumentOnlyUpdate = saveMode === "document_only";
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
@@ -288,6 +296,10 @@ export function FinancialTransactionDialog({
     }
     if (!isBank && selectedBooking && selectedCategory?.code !== "rental_revenue") {
       setError("Eine Buchung kann nur der sachlichen Zuordnung „Mieterträge“ zugewiesen werden.");
+      return;
+    }
+    if (isBank && !isDocumentOnlyUpdate && !selectedCategory) {
+      setError("Bitte wähle eine sachliche Zuordnung mit konkreter EÜR-Zuordnung.");
       return;
     }
     if ((!isBank && !selectedBooking && !description.trim()) || !note.trim()) {
@@ -637,7 +649,8 @@ export function FinancialTransactionDialog({
                   </Select>
                   {!isBank ? (
                     <FieldDescription>
-                      Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene Forderung gebucht.
+                      Bei Mieterträgen ist die Buchung erforderlich. Der Zahlungseingang wird direkt gegen die offene
+                      Forderung gebucht.
                     </FieldDescription>
                   ) : null}
                 </Field>
@@ -646,7 +659,6 @@ export function FinancialTransactionDialog({
                 <FieldLabel htmlFor="financial-category">Sachliche Zuordnung</FieldLabel>
                 <Select
                   value={categoryId}
-                  disabled={isDocumentOnlyUpdate}
                   onValueChange={(value) => {
                     setCategoryId(value || "");
                     setBookingId("");

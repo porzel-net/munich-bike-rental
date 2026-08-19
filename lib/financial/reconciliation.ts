@@ -9,6 +9,7 @@ import {
   fixedAssets,
   financialTransactionAllocations,
   financialTransactions,
+  journalLines,
   bookings,
 } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
@@ -122,6 +123,30 @@ function getBookingPaymentCategory(db: AppDatabase) {
   return getActiveCategoryByCode(db, "rental_revenue");
 }
 
+function reverseJournalEntryForCorrection(
+  db: AppDatabase,
+  allocation: typeof financialTransactionAllocations.$inferSelect,
+  input: { bookingId: number; transactionId: number; actorUserId: string; reason: string },
+) {
+  if (!allocation.journalEntryId)
+    throw new BookingCommandError("Die bestehende Zahlungszuordnung hat keinen zugehörigen Journalposten.");
+  const lines = db
+    .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+    .from(journalLines)
+    .where(eq(journalLines.entryId, allocation.journalEntryId))
+    .all();
+  if (!lines.length) throw new BookingCommandError("Der bestehende Journalposten konnte nicht korrigiert werden.");
+  return appendJournalEntry(db, {
+    bookingId: input.bookingId,
+    financialTransactionId: input.transactionId,
+    actorUserId: input.actorUserId,
+    kind: "correction",
+    reason: input.reason,
+    reversesEntryId: allocation.journalEntryId,
+    lines: lines.map((line) => ({ account: line.account, amountCents: -line.amountCents })),
+  });
+}
+
 function assertAllocationTotal(
   transactionAmountCents: number,
   allocations: Array<{ amountCents: number; category?: typeof financialCategories.$inferSelect }>,
@@ -214,6 +239,13 @@ function assignNevloTransactionToBookingInTransaction(
   const existingCategory = existingAllocation?.categoryId
     ? db.select().from(financialCategories).where(eq(financialCategories.id, existingAllocation.categoryId)).get()
     : undefined;
+  const isSameBookingPayment =
+    existingAllocation?.bookingId === input.bookingId && existingAllocation.allocationKind === "booking_payment";
+  const isPostedBookingPaymentReassignment =
+    transaction.status === "posted" &&
+    Boolean(existingAllocation?.bookingId) &&
+    existingAllocation?.allocationKind === "booking_payment" &&
+    existingAllocation.bookingId !== input.bookingId;
   const canConvertExistingCategoryAllocation =
     input.allowExistingCategoryAllocation &&
     transaction.status === "posted" &&
@@ -221,13 +253,35 @@ function assignNevloTransactionToBookingInTransaction(
     !existingAllocation.bookingId &&
     !existingAllocation.fixedAssetId &&
     existingCategory?.code === "rental_revenue";
-  if (existingAllocation && !canConvertExistingCategoryAllocation)
+  if (
+    existingAllocation &&
+    !canConvertExistingCategoryAllocation &&
+    !isSameBookingPayment &&
+    !isPostedBookingPaymentReassignment
+  )
     throw new BookingCommandError("Diese Transaktion ist bereits zugewiesen.");
 
   const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
   if (!booking) throw new BookingCommandError("Auftrag nicht gefunden.");
   if (booking.status === "rejected" || booking.status === "cancelled")
     throw new BookingCommandError("Dieser Auftrag ist nicht mehr in einem sinnvollen Zahlungsstatus.");
+  const bookingPaymentCategory = getBookingPaymentCategory(db);
+  if (isSameBookingPayment) {
+    if (!existingAllocation.journalEntryId)
+      throw new BookingCommandError("Die bestehende Zahlungszuordnung hat keinen zugehörigen Journalposten.");
+    if (existingAllocation.categoryId !== bookingPaymentCategory.id) {
+      db.update(financialTransactionAllocations)
+        .set({ categoryId: bookingPaymentCategory.id, updatedAt: new Date() })
+        .where(eq(financialTransactionAllocations.id, existingAllocation.id))
+        .run();
+    }
+    return {
+      journalEntryId: existingAllocation.journalEntryId,
+      transactionId: transaction.id,
+      bookingId: booking.id,
+      orderNumber: booking.orderNumber,
+    };
+  }
   const receivable = getReceivableStatus(db, booking.id);
   if (receivable.openCents < 0)
     throw new BookingCommandError("Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung.");
@@ -240,7 +294,14 @@ function assignNevloTransactionToBookingInTransaction(
     .where(eq(financialAccounts.id, transaction.financialAccountId))
     .get();
   if (!sourceAccount) throw new BookingCommandError("Zugehöriges Bankkonto nicht gefunden.");
-  const bookingPaymentCategory = getBookingPaymentCategory(db);
+  if (isPostedBookingPaymentReassignment && existingAllocation?.bookingId) {
+    reverseJournalEntryForCorrection(db, existingAllocation, {
+      bookingId: existingAllocation.bookingId,
+      transactionId: transaction.id,
+      actorUserId: input.actorUserId,
+      reason: `Fehlerhafte Auftragszuordnung korrigiert: ${booking.orderNumber}`,
+    });
+  }
   const journalEntryId = canConvertExistingCategoryAllocation
     ? appendJournalEntry(db, {
         bookingId: booking.id,
@@ -333,6 +394,12 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   const existingCategory = existingAllocation?.categoryId
     ? db.select().from(financialCategories).where(eq(financialCategories.id, existingAllocation.categoryId)).get()
     : undefined;
+  const isPostedBookingPaymentReclassification =
+    transaction.status === "posted" &&
+    existingAllocations.length === 1 &&
+    existingAllocation?.allocationKind === "booking_payment" &&
+    Boolean(existingAllocation.bookingId) &&
+    !input.bookingId;
   const isEuerReclassification =
     transaction.status === "posted" &&
     existingAllocations.length === 1 &&
@@ -340,7 +407,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
     Boolean(existingCategory) &&
     !existingAllocation?.bookingId &&
     !existingAllocation?.fixedAssetId;
-  if (transaction.status === "posted" && !isEuerReclassification)
+  if (transaction.status === "posted" && !isEuerReclassification && !isPostedBookingPaymentReclassification)
     throw new BookingCommandError(
       existingAllocations.length > 1
         ? "Eine Transaktion mit mehreren Zuordnungen kann nicht direkt geändert werden. Bitte korrigiere die einzelnen Teilbuchungen separat."
@@ -378,6 +445,14 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   if (isEuerReclassification && (input.asset || input.businessMeal))
     throw new BookingCommandError(
       "Eine bestehende EÜR-Zuordnung kann nicht in einen Spezialvorgang umgewandelt werden.",
+    );
+  if (isPostedBookingPaymentReclassification && category.euerTreatment === "asset_acquisition")
+    throw new BookingCommandError(
+      "Eine gebuchte Auftragszahlung kann nicht nachträglich als Anlagegut erfasst werden.",
+    );
+  if (isPostedBookingPaymentReclassification && (input.asset || input.businessMeal))
+    throw new BookingCommandError(
+      "Eine gebuchte Auftragszahlung kann nicht in einen Spezialvorgang umgewandelt werden.",
     );
 
   const isBusinessMeal = category.code === "business_meal";
@@ -566,6 +641,19 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   });
 
   const now = new Date();
+  if (isPostedBookingPaymentReclassification && existingAllocation?.bookingId && existingAllocation.journalEntryId) {
+    reverseJournalEntryForCorrection(db, existingAllocation, {
+      bookingId: existingAllocation.bookingId,
+      transactionId: transaction.id,
+      actorUserId: input.actorUserId,
+      reason: `Fehlerhafte Auftragszuordnung korrigiert: ${note}`,
+    });
+  }
+  if (isPostedBookingPaymentReclassification && existingAllocation) {
+    db.delete(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.id, existingAllocation.id))
+      .run();
+  }
   db.insert(financialTransactionAllocations)
     .values(
       allocationParts.map((part) => ({
