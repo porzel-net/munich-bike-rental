@@ -358,476 +358,483 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Buchung bearbeiten" />
-        <main className="min-w-0 max-w-full overflow-x-hidden flex flex-1 flex-col gap-6 p-8 lg:p-12">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/admin/bookings" />}>
-                ← Buchungsübersicht
-              </Button>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  {hasPendingEmailAction ? (
-                    <span
-                      aria-label="Offene Kundenfrage"
-                      className="size-3 rounded-full bg-red-500 ring-2 ring-red-100"
-                    />
-                  ) : null}
-                  <h1 className="text-2xl font-semibold tracking-tight">{booking.orderNumber}</h1>
-                </div>
-                <Badge variant={statusView.badge}>{statusView.label}</Badge>
-                <Badge variant={paymentView.badge}>{paymentView.label}</Badge>
-                {likelyUnavailable && (
-                  <Badge
-                    variant="outline"
-                    className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
-                  >
-                    Wahrscheinlich nicht annehmbar
-                  </Badge>
-                )}
-                <BookingAssigneeBadge assigneeName={assignee?.name ?? null} />
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {locationLabel} · Kommunikation {booking.communicationLocale.toUpperCase()} · {booking.periodFrom}{" "}
-                {booking.pickupTime} – {booking.periodTo} {booking.dropoffTime}
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              {hasAssignedCaseworker && booking.source !== "legacy" && (
-                <BookingAiAnalysisButton bookingId={booking.id} />
-              )}
-              {hasAssignedCaseworker ? (
-                <RepeatBookingDialog
-                  assets={availableAssets}
-                  pricingByLocation={{ [booking.location]: locationInventory }}
-                  initialValues={{
-                    name: booking.customerName,
-                    email: booking.customerEmail,
-                    phone: booking.customerPhone,
-                    location: booking.location,
-                    locale: booking.communicationLocale,
-                    items: items.map((item) => ({
-                      requestedLabel: item.requestedLabel,
-                      heightCm: String(item.heightCm),
-                      needsPedals: item.needsPedals,
-                      pedalType: item.pedalType ?? "",
-                      needsComputerMount: item.needsComputerMount,
-                      computerMountType: item.computerMountType ?? "",
-                      needsHelmet: item.needsHelmet,
-                      needsClothing: item.needsClothing,
-                    })),
-                  }}
-                />
-              ) : null}
-              {hasAssignedCaseworker && canGenerateInvoice ? (
-                <Button
-                  nativeButton={false}
-                  variant="outline"
-                  render={<a href={`/api/admin/bookings/${booking.id}/invoice`} target="_blank" rel="noreferrer" />}
-                >
-                  Rechnung als PDF
+        <div className="admin-page-surface bg-muted dark:bg-background">
+          <main className="min-w-0 max-w-full overflow-x-hidden flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/admin/bookings" />}>
+                  ← Buchungsübersicht
                 </Button>
-              ) : null}
-              {hasAssignedCaseworker ? (
-                <>
-                  {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ||
-                  importedPriceEditingAllowed ? (
-                    <BookingEditDialog
-                      bookingId={booking.id}
-                      expectedVersion={booking.version}
-                      customerName={booking.customerName}
-                      customerEmail={booking.customerEmail}
-                      customerPhone={booking.customerPhone}
-                      periodFrom={booking.periodFrom}
-                      periodTo={booking.periodTo}
-                      pickupTime={booking.pickupTime}
-                      dropoffTime={booking.dropoffTime}
-                      customerMessage={booking.customerMessage}
-                      communicationLocale={booking.communicationLocale}
-                      requestedItems={items}
-                      requestedBikeOptions={requestedBikeOptions}
-                      commercialEditingAllowed={commercialEditingAllowed}
-                      priceEditingAllowed={importedPriceEditingAllowed}
-                      quotedTotalCents={importedPriceEditingAllowed ? booking.quotedTotalCents : undefined}
-                    />
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          </div>
-
-          <Card
-            className={
-              hasPendingEmailAction
-                ? "border-red-200 bg-red-50/40 dark:border-red-950 dark:bg-red-950/20"
-                : emailQuestionsManuallyResolved || latestEmailActionReview?.status === "no_action"
-                  ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-950 dark:bg-emerald-950/20"
-                  : ""
-            }
-          >
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle>Antwortstatus</CardTitle>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Badge variant={emailActionBadgeVariant}>{emailActionStatusLabel}</Badge>
-                  {hasAssignedCaseworker && booking.source !== "legacy" ? (
-                    <BookingEmailQuestionsResolvedButton
-                      bookingId={booking.id}
-                      resolved={emailQuestionsManuallyResolved}
-                    />
-                  ) : null}
-                </div>
-              </div>
-            </CardHeader>
-            {hasPendingEmailAction || emailQuestionsManuallyResolved ? (
-              <CardContent className="space-y-3 pt-0">
-                <p className="text-sm leading-6">
-                  {emailQuestionsManuallyResolved
-                    ? "Die offenen Fragen wurden telefonisch oder persönlich geklärt."
-                    : (latestEmailActionReview?.summary ??
-                      "Neue Buchungsanfrage: Bitte prüfe den Eingang und beantworte die Anfrage.")}
-                </p>
-                {!emailQuestionsManuallyResolved && emailActionQuestions.length ? (
-                  <div>
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Offene Punkte</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                      {emailActionQuestions.map((question) => (
-                        <li key={question}>{question}</li>
-                      ))}
-                    </ul>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {hasPendingEmailAction ? (
+                      <span
+                        aria-label="Offene Kundenfrage"
+                        className="size-3 rounded-full bg-red-500 ring-2 ring-red-100"
+                      />
+                    ) : null}
+                    <h1 className="text-2xl font-semibold tracking-tight">{booking.orderNumber}</h1>
                   </div>
+                  <Badge variant={statusView.badge}>{statusView.label}</Badge>
+                  <Badge variant={paymentView.badge}>{paymentView.label}</Badge>
+                  {likelyUnavailable && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                    >
+                      Wahrscheinlich nicht annehmbar
+                    </Badge>
+                  )}
+                  <BookingAssigneeBadge assigneeName={assignee?.name ?? null} />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {locationLabel} · Kommunikation {booking.communicationLocale.toUpperCase()} · {booking.periodFrom}{" "}
+                  {booking.pickupTime} – {booking.periodTo} {booking.dropoffTime}
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                {hasAssignedCaseworker && booking.source !== "legacy" && (
+                  <BookingAiAnalysisButton bookingId={booking.id} />
+                )}
+                {hasAssignedCaseworker ? (
+                  <RepeatBookingDialog
+                    assets={availableAssets}
+                    pricingByLocation={{ [booking.location]: locationInventory }}
+                    initialValues={{
+                      name: booking.customerName,
+                      email: booking.customerEmail,
+                      phone: booking.customerPhone,
+                      location: booking.location,
+                      locale: booking.communicationLocale,
+                      items: items.map((item) => ({
+                        requestedLabel: item.requestedLabel,
+                        heightCm: String(item.heightCm),
+                        needsPedals: item.needsPedals,
+                        pedalType: item.pedalType ?? "",
+                        needsComputerMount: item.needsComputerMount,
+                        computerMountType: item.computerMountType ?? "",
+                        needsHelmet: item.needsHelmet,
+                        needsClothing: item.needsClothing,
+                      })),
+                    }}
+                  />
                 ) : null}
-                {latestEmailActionReview ? (
-                  <p className="text-xs text-muted-foreground">
-                    Quelle:{" "}
-                    {latestEmailActionReview.source === "inquiry_rule"
-                      ? "Eingangsregel"
-                      : (latestEmailActionReview.model ?? "KI-Fallback")}
-                    {latestEmailActionReview.createdAt
-                      ? ` · geprüft am ${new Date(latestEmailActionReview.createdAt).toLocaleString("de-DE")}`
-                      : ""}
-                  </p>
+                {hasAssignedCaseworker && canGenerateInvoice ? (
+                  <Button
+                    nativeButton={false}
+                    variant="outline"
+                    render={<a href={`/api/admin/bookings/${booking.id}/invoice`} target="_blank" rel="noreferrer" />}
+                  >
+                    Rechnung als PDF
+                  </Button>
                 ) : null}
-              </CardContent>
-            ) : null}
-          </Card>
+                {hasAssignedCaseworker ? (
+                  <>
+                    {!["completed", "rejected", "cancelled", "expired"].includes(booking.status) ||
+                    importedPriceEditingAllowed ? (
+                      <BookingEditDialog
+                        bookingId={booking.id}
+                        expectedVersion={booking.version}
+                        customerName={booking.customerName}
+                        customerEmail={booking.customerEmail}
+                        customerPhone={booking.customerPhone}
+                        periodFrom={booking.periodFrom}
+                        periodTo={booking.periodTo}
+                        pickupTime={booking.pickupTime}
+                        dropoffTime={booking.dropoffTime}
+                        customerMessage={booking.customerMessage}
+                        communicationLocale={booking.communicationLocale}
+                        requestedItems={items}
+                        requestedBikeOptions={requestedBikeOptions}
+                        commercialEditingAllowed={commercialEditingAllowed}
+                        priceEditingAllowed={importedPriceEditingAllowed}
+                        quotedTotalCents={importedPriceEditingAllowed ? booking.quotedTotalCents : undefined}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </div>
 
-          {feedback ? (
+            <Card
+              className={
+                hasPendingEmailAction
+                  ? "border-red-200 bg-red-50/40 dark:border-red-950 dark:bg-red-950/20"
+                  : emailQuestionsManuallyResolved || latestEmailActionReview?.status === "no_action"
+                    ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-950 dark:bg-emerald-950/20"
+                    : ""
+              }
+            >
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <CardTitle>Antwortstatus</CardTitle>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Badge variant={emailActionBadgeVariant}>{emailActionStatusLabel}</Badge>
+                    {hasAssignedCaseworker && booking.source !== "legacy" ? (
+                      <BookingEmailQuestionsResolvedButton
+                        bookingId={booking.id}
+                        resolved={emailQuestionsManuallyResolved}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </CardHeader>
+              {hasPendingEmailAction || emailQuestionsManuallyResolved ? (
+                <CardContent className="space-y-3 pt-0">
+                  <p className="text-sm leading-6">
+                    {emailQuestionsManuallyResolved
+                      ? "Die offenen Fragen wurden telefonisch oder persönlich geklärt."
+                      : (latestEmailActionReview?.summary ??
+                        "Neue Buchungsanfrage: Bitte prüfe den Eingang und beantworte die Anfrage.")}
+                  </p>
+                  {!emailQuestionsManuallyResolved && emailActionQuestions.length ? (
+                    <div>
+                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Offene Punkte</p>
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                        {emailActionQuestions.map((question) => (
+                          <li key={question}>{question}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {latestEmailActionReview ? (
+                    <p className="text-xs text-muted-foreground">
+                      Quelle:{" "}
+                      {latestEmailActionReview.source === "inquiry_rule"
+                        ? "Eingangsregel"
+                        : (latestEmailActionReview.model ?? "KI-Fallback")}
+                      {latestEmailActionReview.createdAt
+                        ? ` · geprüft am ${new Date(latestEmailActionReview.createdAt).toLocaleString("de-DE")}`
+                        : ""}
+                    </p>
+                  ) : null}
+                </CardContent>
+              ) : null}
+            </Card>
+
+            {feedback ? (
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <CardTitle>Kundenfeedback</CardTitle>
+                      <CardDescription className="mt-1">Kurze Bewertung nach der Fahrradausgabe.</CardDescription>
+                    </div>
+                    <Badge variant={feedback?.submittedAt ? "success" : "outline"}>
+                      {feedback?.submittedAt ? "Eingegangen" : feedback ? "Noch offen" : "Wird nach Ausgabe angelegt"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                {feedback.submittedAt ? (
+                  <CardContent className="space-y-5">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                      {(
+                        [
+                          ["Fahrrad & Ausstattung", feedback.bikeRating],
+                          ["Übergabe", feedback.handoverRating],
+                          ["Kommunikation", feedback.communicationRating],
+                          ["Preis-Leistung", feedback.priceRating],
+                          ["Gesamterlebnis", feedback.overallRating],
+                        ] as Array<[string, number | null]>
+                      ).map(([label, rating]) => (
+                        <div className="rounded-2xl border bg-muted/25 p-4" key={label}>
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                          <p className="mt-2 text-lg font-semibold text-amber-600">
+                            {"★".repeat(rating ?? 0)}
+                            <span className="text-muted-foreground/30">{"★".repeat(5 - (rating ?? 0))}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">{rating}/5 Sterne</p>
+                        </div>
+                      ))}
+                    </div>
+                    {feedback.comment ? (
+                      <div className="rounded-2xl border bg-muted/25 p-4">
+                        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Kommentar</p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{feedback.comment}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Kein zusätzlicher Kommentar.</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Eingegangen am{" "}
+                      {feedback.submittedAt.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </CardContent>
+                ) : (
+                  <CardContent className="text-sm text-muted-foreground">
+                    Der Feedback-Link wurde versendet. Sobald die Rückmeldung eingeht, erscheint sie hier.
+                  </CardContent>
+                )}
+              </Card>
+            ) : null}
+
+            <Card>
+              <CardContent>
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <div className="text-sm font-medium">Buchungsinformationen</div>
+                  </div>
+                  <div className="grid gap-x-8 sm:grid-cols-2">
+                    {bookingInfoColumns.map((column, columnIndex) => (
+                      <ItemGroup className="gap-2 text-muted-foreground" data-size="xs" key={columnIndex}>
+                        {column.map(({ label, value }, index) => (
+                          <React.Fragment key={label}>
+                            {index > 0 && <ItemSeparator />}
+                            <Item variant="default" size="xs" className="border-0 px-0 py-0">
+                              <ItemHeader>
+                                <ItemTitle className="font-normal">{label}</ItemTitle>
+                                <ItemActions className="min-w-0 max-w-[70%] justify-end text-right">
+                                  <span className="break-words">{value}</span>
+                                </ItemActions>
+                              </ItemHeader>
+                            </Item>
+                          </React.Fragment>
+                        ))}
+                      </ItemGroup>
+                    ))}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {items.map((item) => {
+                      const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
+                      const requestedDailyPriceCents = getDailyBikePriceCents(locationInventory, item.requestedLabel);
+                      const accessories = [
+                        item.needsPedals ? (item.pedalType ? getPedalTypeLabel(item.pedalType, "de") : "Pedale") : null,
+                        item.needsComputerMount
+                          ? item.computerMountType
+                            ? getComputerMountTypeLabel(item.computerMountType, "de")
+                            : "Computerhalterung"
+                          : null,
+                        item.needsHelmet ? "Helm" : null,
+                        item.needsClothing ? "Kleidung" : null,
+                        item.needsBikepackingBag ? "Bikepackingtasche" : null,
+                        item.needsGlasses ? "Rennradbrille" : null,
+                        item.bottleHolderIncluded ? "Flaschenhalter inklusive" : null,
+                        item.repairKitIncluded ? "Reparaturset inklusive" : null,
+                      ].filter((value): value is string => Boolean(value));
+                      const priceCents = match?.item.itemPriceCents ?? requestedDailyPriceCents;
+                      const concreteBikeDiffers = Boolean(match);
+
+                      return (
+                        <div className="h-full rounded-xl border p-4" key={item.id}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                Fahrrad {item.position}
+                              </p>
+                              <p className="mt-1 font-medium">{item.requestedLabel}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {item.heightCm} cm
+                                {accessories.length ? ` · ${accessories.join(" · ")}` : " · Kein Zubehör"}
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-xs text-muted-foreground">Preis/Tag</p>
+                              <p className="mt-1 font-medium">
+                                {priceCents !== undefined ? formatEuro(priceCents) : "—"}
+                              </p>
+                            </div>
+                          </div>
+                          {concreteBikeDiffers && match ? (
+                            <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
+                              <span className="text-muted-foreground">Konkretes Fahrrad:</span>{" "}
+                              {match.asset.nickname ? `${match.asset.nickname} · ` : ""}
+                              {match.modelTitle} · {match.size}
+                            </p>
+                          ) : null}
+                          {!match && latestOffer ? (
+                            <p className="mt-3 text-sm text-muted-foreground">Noch nicht zugeordnet.</p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Separator />
+                  <div>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Nachricht</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+                      {booking.customerMessage || "Keine Nachricht hinterlegt."}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-primary/15">
+              <CardHeader className="border-b border-border/60 pb-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>Nächste Aktion</CardTitle>
+                    <CardDescription className="mt-1">
+                      Die wichtigsten Schritte für diese Buchung direkt an einem Ort.
+                    </CardDescription>
+                  </div>
+                  <Badge variant={statusView.badge}>{statusView.label}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5 pt-6">
+                <div className="rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+                  <p className="text-xs font-medium tracking-wide text-primary uppercase">
+                    Empfohlener nächster Schritt
+                  </p>
+                  <p className="mt-2 text-base font-semibold">{nextAction.title}</p>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/25 p-3 sm:px-4">
+                  <div>
+                    <p className="text-sm font-medium">Zuständigkeit</p>
+                    <p className="text-sm text-muted-foreground">
+                      {assignee ? `${assignee.name} bearbeitet diese Buchung.` : "Noch niemand zugewiesen."}
+                    </p>
+                  </div>
+                  <BookingAssigneeCard
+                    bookingId={booking.id}
+                    bookingLocationLabel={locationLabel}
+                    assignee={assignee}
+                    eligibleUsers={eligibleAssignees}
+                    currentUserId={session.user.id}
+                    isAdmin={isAdmin(session.user)}
+                    canSelfAssign={canSelfAssign}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium">Aktionen</h3>
+                  </div>
+                  <BookingCommandActions
+                    bookingId={booking.id}
+                    bookingTotalCents={latestOffer?.totalCents ?? booking.quotedTotalCents}
+                    invoiceNumber={suggestedInvoiceNumber}
+                    periodFrom={booking.periodFrom}
+                    periodTo={booking.periodTo}
+                    pickupTime={booking.pickupTime}
+                    dropoffTime={booking.dropoffTime}
+                    status={booking.status}
+                    customerName={booking.customerName}
+                    senderName={session.user.name}
+                    paymentAccounts={paymentAccounts}
+                    isLegacy={booking.source === "legacy"}
+                    canExecuteActions={
+                      hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
+                    }
+                    isAdmin={isAdmin(session.user)}
+                    hasActiveOffer={hasActiveOffer}
+                    offers={offers.map((offer) => ({
+                      id: offer.id,
+                      label: `Angebot #${offer.offerNumber} · ${offer.status === "sent" ? "versendet" : offer.status === "expired" ? "abgelaufen" : offer.status === "accepted" ? "bestätigt" : "zurückgezogen"}`,
+                      status: offer.status,
+                      totalCents: offer.totalCents,
+                    }))}
+                    confirmedBookingEdit={
+                      hasAssignedCaseworker && booking.status === "confirmed"
+                        ? {
+                            expectedVersion: booking.version,
+                            customerName: booking.customerName,
+                            customerEmail: booking.customerEmail,
+                            customerPhone: booking.customerPhone,
+                            periodFrom: booking.periodFrom,
+                            periodTo: booking.periodTo,
+                            pickupTime: booking.pickupTime,
+                            dropoffTime: booking.dropoffTime,
+                            customerMessage: booking.customerMessage,
+                            communicationLocale: booking.communicationLocale,
+                            requestedItems: items,
+                            availableAssets: concreteAvailableAssets,
+                            requestedBikeOptions,
+                            selectedAssetsByRequestedItem,
+                            concreteBikeEditingAllowed: Boolean(acceptedOffer),
+                          }
+                        : undefined
+                    }
+                    requestedItems={items.map((item) => ({
+                      id: item.id,
+                      label: `${item.position}. ${item.requestedLabel} (${item.heightCm} cm)`,
+                      requestedLabel: item.requestedLabel,
+                      heightCm: item.heightCm,
+                      accessories: {
+                        needsPedals: item.needsPedals,
+                        pedalType: item.pedalType,
+                        needsComputerMount: item.needsComputerMount,
+                        computerMountType: item.computerMountType,
+                        needsHelmet: item.needsHelmet,
+                        needsClothing: item.needsClothing,
+                        needsBikepackingBag: item.needsBikepackingBag,
+                        needsGlasses: item.needsGlasses,
+                        bottleHolderIncluded: item.bottleHolderIncluded,
+                        repairKitIncluded: item.repairKitIncluded,
+                      },
+                    }))}
+                    availableAssets={availableAssets}
+                    unavailableAssetIds={unavailableAssetIds}
+                    journalEntries={entries.map((entry) => ({ id: entry.id, label: `${entry.kind}: ${entry.reason}` }))}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <CardTitle>Kundenfeedback</CardTitle>
-                    <CardDescription className="mt-1">Kurze Bewertung nach der Fahrradausgabe.</CardDescription>
+                    <CardTitle>Zahlungen</CardTitle>
+                    <CardDescription className="mt-1">
+                      Alle dieser Buchung zugeordneten Finanztransaktionen.
+                    </CardDescription>
                   </div>
-                  <Badge variant={feedback?.submittedAt ? "success" : "outline"}>
-                    {feedback?.submittedAt ? "Eingegangen" : feedback ? "Noch offen" : "Wird nach Ausgabe angelegt"}
-                  </Badge>
+                  <Badge variant="outline">{bookingTransactions.length}</Badge>
                 </div>
               </CardHeader>
-              {feedback.submittedAt ? (
-                <CardContent className="space-y-5">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                    {(
-                      [
-                        ["Fahrrad & Ausstattung", feedback.bikeRating],
-                        ["Übergabe", feedback.handoverRating],
-                        ["Kommunikation", feedback.communicationRating],
-                        ["Preis-Leistung", feedback.priceRating],
-                        ["Gesamterlebnis", feedback.overallRating],
-                      ] as Array<[string, number | null]>
-                    ).map(([label, rating]) => (
-                      <div className="rounded-2xl border bg-muted/25 p-4" key={label}>
-                        <p className="text-xs text-muted-foreground">{label}</p>
-                        <p className="mt-2 text-lg font-semibold text-amber-600">
-                          {"★".repeat(rating ?? 0)}
-                          <span className="text-muted-foreground/30">{"★".repeat(5 - (rating ?? 0))}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">{rating}/5 Sterne</p>
-                      </div>
-                    ))}
-                  </div>
-                  {feedback.comment ? (
-                    <div className="rounded-2xl border bg-muted/25 p-4">
-                      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Kommentar</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{feedback.comment}</p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Kein zusätzlicher Kommentar.</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Eingegangen am{" "}
-                    {feedback.submittedAt.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}
-                  </p>
-                </CardContent>
-              ) : (
-                <CardContent className="text-sm text-muted-foreground">
-                  Der Feedback-Link wurde versendet. Sobald die Rückmeldung eingeht, erscheint sie hier.
-                </CardContent>
-              )}
-            </Card>
-          ) : null}
-
-          <Card>
-            <CardContent>
-              <div className="flex flex-col gap-3">
-                <div>
-                  <div className="text-sm font-medium">Buchungsinformationen</div>
-                </div>
-                <div className="grid gap-x-8 sm:grid-cols-2">
-                  {bookingInfoColumns.map((column, columnIndex) => (
-                    <ItemGroup className="gap-2 text-muted-foreground" data-size="xs" key={columnIndex}>
-                      {column.map(({ label, value }, index) => (
-                        <React.Fragment key={label}>
-                          {index > 0 && <ItemSeparator />}
-                          <Item variant="default" size="xs" className="border-0 px-0 py-0">
-                            <ItemHeader>
-                              <ItemTitle className="font-normal">{label}</ItemTitle>
-                              <ItemActions className="min-w-0 max-w-[70%] justify-end text-right">
-                                <span className="break-words">{value}</span>
-                              </ItemActions>
-                            </ItemHeader>
-                          </Item>
-                        </React.Fragment>
-                      ))}
-                    </ItemGroup>
-                  ))}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {items.map((item) => {
-                    const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
-                    const requestedDailyPriceCents = getDailyBikePriceCents(locationInventory, item.requestedLabel);
-                    const accessories = [
-                      item.needsPedals ? (item.pedalType ? getPedalTypeLabel(item.pedalType, "de") : "Pedale") : null,
-                      item.needsComputerMount
-                        ? item.computerMountType
-                          ? getComputerMountTypeLabel(item.computerMountType, "de")
-                          : "Computerhalterung"
-                        : null,
-                      item.needsHelmet ? "Helm" : null,
-                      item.needsClothing ? "Kleidung" : null,
-                      item.needsBikepackingBag ? "Bikepackingtasche" : null,
-                      item.needsGlasses ? "Rennradbrille" : null,
-                      item.bottleHolderIncluded ? "Flaschenhalter inklusive" : null,
-                      item.repairKitIncluded ? "Reparaturset inklusive" : null,
-                    ].filter((value): value is string => Boolean(value));
-                    const priceCents = match?.item.itemPriceCents ?? requestedDailyPriceCents;
-                    const concreteBikeDiffers = Boolean(match);
-
-                    return (
-                      <div className="h-full rounded-xl border p-4" key={item.id}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                              Fahrrad {item.position}
-                            </p>
-                            <p className="mt-1 font-medium">{item.requestedLabel}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {item.heightCm} cm
-                              {accessories.length ? ` · ${accessories.join(" · ")}` : " · Kein Zubehör"}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-xs text-muted-foreground">Preis/Tag</p>
-                            <p className="mt-1 font-medium">
-                              {priceCents !== undefined ? formatEuro(priceCents) : "—"}
-                            </p>
-                          </div>
-                        </div>
-                        {concreteBikeDiffers && match ? (
-                          <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-                            <span className="text-muted-foreground">Konkretes Fahrrad:</span>{" "}
-                            {match.asset.nickname ? `${match.asset.nickname} · ` : ""}
-                            {match.modelTitle} · {match.size}
-                          </p>
-                        ) : null}
-                        {!match && latestOffer ? (
-                          <p className="mt-3 text-sm text-muted-foreground">Noch nicht zugeordnet.</p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Nachricht</p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
-                    {booking.customerMessage || "Keine Nachricht hinterlegt."}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-primary/15">
-            <CardHeader className="border-b border-border/60 pb-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle>Nächste Aktion</CardTitle>
-                  <CardDescription className="mt-1">
-                    Die wichtigsten Schritte für diese Buchung direkt an einem Ort.
-                  </CardDescription>
-                </div>
-                <Badge variant={statusView.badge}>{statusView.label}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-6">
-              <div className="rounded-3xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
-                <p className="text-xs font-medium tracking-wide text-primary uppercase">Empfohlener nächster Schritt</p>
-                <p className="mt-2 text-base font-semibold">{nextAction.title}</p>
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/25 p-3 sm:px-4">
-                <div>
-                  <p className="text-sm font-medium">Zuständigkeit</p>
-                  <p className="text-sm text-muted-foreground">
-                    {assignee ? `${assignee.name} bearbeitet diese Buchung.` : "Noch niemand zugewiesen."}
-                  </p>
-                </div>
-                <BookingAssigneeCard
-                  bookingId={booking.id}
-                  bookingLocationLabel={locationLabel}
-                  assignee={assignee}
-                  eligibleUsers={eligibleAssignees}
-                  currentUserId={session.user.id}
-                  isAdmin={isAdmin(session.user)}
-                  canSelfAssign={canSelfAssign}
-                />
-              </div>
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-medium">Aktionen</h3>
-                </div>
-                <BookingCommandActions
-                  bookingId={booking.id}
-                  bookingTotalCents={latestOffer?.totalCents ?? booking.quotedTotalCents}
-                  invoiceNumber={suggestedInvoiceNumber}
-                  periodFrom={booking.periodFrom}
-                  periodTo={booking.periodTo}
-                  pickupTime={booking.pickupTime}
-                  dropoffTime={booking.dropoffTime}
-                  status={booking.status}
-                  customerName={booking.customerName}
-                  senderName={session.user.name}
-                  paymentAccounts={paymentAccounts}
-                  isLegacy={booking.source === "legacy"}
-                  canExecuteActions={
-                    hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
-                  }
-                  isAdmin={isAdmin(session.user)}
-                  hasActiveOffer={hasActiveOffer}
-                  offers={offers.map((offer) => ({
-                    id: offer.id,
-                    label: `Angebot #${offer.offerNumber} · ${offer.status === "sent" ? "versendet" : offer.status === "expired" ? "abgelaufen" : offer.status === "accepted" ? "bestätigt" : "zurückgezogen"}`,
-                    status: offer.status,
-                    totalCents: offer.totalCents,
-                  }))}
-                  confirmedBookingEdit={
-                    hasAssignedCaseworker && booking.status === "confirmed"
-                      ? {
-                          expectedVersion: booking.version,
-                          customerName: booking.customerName,
-                          customerEmail: booking.customerEmail,
-                          customerPhone: booking.customerPhone,
-                          periodFrom: booking.periodFrom,
-                          periodTo: booking.periodTo,
-                          pickupTime: booking.pickupTime,
-                          dropoffTime: booking.dropoffTime,
-                          customerMessage: booking.customerMessage,
-                          communicationLocale: booking.communicationLocale,
-                          requestedItems: items,
-                          availableAssets: concreteAvailableAssets,
-                          requestedBikeOptions,
-                          selectedAssetsByRequestedItem,
-                          concreteBikeEditingAllowed: Boolean(acceptedOffer),
-                        }
-                      : undefined
-                  }
-                  requestedItems={items.map((item) => ({
-                    id: item.id,
-                    label: `${item.position}. ${item.requestedLabel} (${item.heightCm} cm)`,
-                    requestedLabel: item.requestedLabel,
-                    heightCm: item.heightCm,
-                    accessories: {
-                      needsPedals: item.needsPedals,
-                      pedalType: item.pedalType,
-                      needsComputerMount: item.needsComputerMount,
-                      computerMountType: item.computerMountType,
-                      needsHelmet: item.needsHelmet,
-                      needsClothing: item.needsClothing,
-                      needsBikepackingBag: item.needsBikepackingBag,
-                      needsGlasses: item.needsGlasses,
-                      bottleHolderIncluded: item.bottleHolderIncluded,
-                      repairKitIncluded: item.repairKitIncluded,
-                    },
-                  }))}
-                  availableAssets={availableAssets}
-                  unavailableAssetIds={unavailableAssetIds}
-                  journalEntries={entries.map((entry) => ({ id: entry.id, label: `${entry.kind}: ${entry.reason}` }))}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle>Zahlungen</CardTitle>
-                  <CardDescription className="mt-1">
-                    Alle dieser Buchung zugeordneten Finanztransaktionen.
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">{bookingTransactions.length}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {bookingTransactions.length ? (
-                <div className="divide-y rounded-2xl border">
-                  {bookingTransactions.map((transaction) => {
-                    const amountCents = transaction.grossAmountCents ?? transaction.amountCents;
-                    const title = transaction.counterpartyName || transaction.description || transaction.reference;
-                    const detail = [
-                      transactionSourceLabels[transaction.source] ?? transaction.source,
-                      transactionKindLabels[transaction.kind] ?? transaction.kind,
-                      transaction.accountName,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ");
-                    return (
-                      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" key={transaction.id}>
-                        <div className="min-w-0">
-                          <p className="font-medium">{title || "Finanztransaktion"}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatTransactionDate(transaction.bookedAt)} · {detail}
-                          </p>
-                        </div>
-                        <p
-                          className={`shrink-0 font-semibold tabular-nums ${amountCents >= 0 ? "text-emerald-600" : "text-destructive"}`}
+              <CardContent>
+                {bookingTransactions.length ? (
+                  <div className="divide-y rounded-2xl border">
+                    {bookingTransactions.map((transaction) => {
+                      const amountCents = transaction.grossAmountCents ?? transaction.amountCents;
+                      const title = transaction.counterpartyName || transaction.description || transaction.reference;
+                      const detail = [
+                        transactionSourceLabels[transaction.source] ?? transaction.source,
+                        transactionKindLabels[transaction.kind] ?? transaction.kind,
+                        transaction.accountName,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <div
+                          className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                          key={transaction.id}
                         >
-                          {amountCents >= 0 ? "+" : "−"}
-                          {formatTransactionAmount(Math.abs(amountCents), transaction.currency)}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                  Für diese Buchung wurden noch keine Finanztransaktionen zugeordnet.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                          <div className="min-w-0">
+                            <p className="font-medium">{title || "Finanztransaktion"}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatTransactionDate(transaction.bookedAt)} · {detail}
+                            </p>
+                          </div>
+                          <p
+                            className={`shrink-0 font-semibold tabular-nums ${amountCents >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                          >
+                            {amountCents >= 0 ? "+" : "−"}
+                            {formatTransactionAmount(Math.abs(amountCents), transaction.currency)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                    Für diese Buchung wurden noch keine Finanztransaktionen zugeordnet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Mailverlauf</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BookingMailThreadSync bookingId={booking.id} />
-            </CardContent>
-          </Card>
-        </main>
+            <Card>
+              <CardHeader>
+                <CardTitle>Mailverlauf</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BookingMailThreadSync bookingId={booking.id} />
+              </CardContent>
+            </Card>
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
