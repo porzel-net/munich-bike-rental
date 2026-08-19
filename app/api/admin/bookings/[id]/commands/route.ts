@@ -276,7 +276,28 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             error,
           });
         }
-        return NextResponse.json({ ok: true, ...result, accountingWarning });
+        const confirmationMailId = command.db
+          .select({ id: mailOutbox.id })
+          .from(mailOutbox)
+          .where(
+            and(
+              eq(mailOutbox.bookingId, id),
+              eq(mailOutbox.kind, "booking_confirmed"),
+              eq(mailOutbox.status, "queued"),
+            ),
+          )
+          .get()?.id;
+        const mailResult = confirmationMailId ? await dispatchNextOutboxMail(command.db, confirmationMailId) : null;
+        if (mailResult?.status === "failed") {
+          return NextResponse.json(
+            {
+              message: "Die Zahlung wurde zugeordnet, aber die Bestätigungsmail konnte nicht versendet werden.",
+              mailStatus: mailResult.status,
+            },
+            { status: 502 },
+          );
+        }
+        return NextResponse.json({ ok: true, ...result, accountingWarning, mailStatus: mailResult?.status ?? null });
       }
       case "set_legacy_status":
         setLegacyBookingStatus(command.db, {

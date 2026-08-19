@@ -5,6 +5,7 @@ const bookingApiMocks = vi.hoisted(() => ({
   getBookingAdminContext: vi.fn(),
   isAdmin: vi.fn(),
   advanceBooking: vi.fn(),
+  assignStripePaymentToBooking: vi.fn(),
   cancelBooking: vi.fn(),
   confirmManualBooking: vi.fn(),
   correctJournalEntry: vi.fn(),
@@ -12,6 +13,8 @@ const bookingApiMocks = vi.hoisted(() => ({
   recordRefund: vi.fn(),
   setBookingEmailQuestionsResolved: vi.fn(),
   dispatchNextOutboxMail: vi.fn(),
+  getStripeCheckoutSession: vi.fn(),
+  importStripeCheckoutPayment: vi.fn(),
 }));
 
 vi.mock("@/lib/bookings/admin-guard", () => ({
@@ -20,6 +23,7 @@ vi.mock("@/lib/bookings/admin-guard", () => ({
 vi.mock("@/lib/auth/session", () => ({ isAdmin: bookingApiMocks.isAdmin }));
 vi.mock("@/lib/bookings/service", () => ({
   advanceBooking: bookingApiMocks.advanceBooking,
+  assignStripePaymentToBooking: bookingApiMocks.assignStripePaymentToBooking,
   cancelBooking: bookingApiMocks.cancelBooking,
   confirmManualBooking: bookingApiMocks.confirmManualBooking,
   correctJournalEntry: bookingApiMocks.correctJournalEntry,
@@ -28,6 +32,10 @@ vi.mock("@/lib/bookings/service", () => ({
   setBookingEmailQuestionsResolved: bookingApiMocks.setBookingEmailQuestionsResolved,
 }));
 vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: bookingApiMocks.dispatchNextOutboxMail }));
+vi.mock("@/lib/stripe", () => ({ getStripeCheckoutSession: bookingApiMocks.getStripeCheckoutSession }));
+vi.mock("@/lib/financial/stripe-payment", () => ({
+  importStripeCheckoutPayment: bookingApiMocks.importStripeCheckoutPayment,
+}));
 
 import { POST as bookingCommandPost } from "../../app/api/admin/bookings/[id]/commands/route";
 import { BookingCommandError } from "../../lib/bookings/errors";
@@ -46,11 +54,13 @@ function context() {
 
 describe("admin booking command API", () => {
   beforeEach(() => {
+    bookingApiMocks.context.db = { marker: "booking-db" };
     bookingApiMocks.getBookingAdminContext.mockReset();
     bookingApiMocks.getBookingAdminContext.mockResolvedValue(bookingApiMocks.context);
     bookingApiMocks.isAdmin.mockReset();
     bookingApiMocks.isAdmin.mockReturnValue(true);
     bookingApiMocks.advanceBooking.mockReset();
+    bookingApiMocks.assignStripePaymentToBooking.mockReset();
     bookingApiMocks.cancelBooking.mockReset();
     bookingApiMocks.confirmManualBooking.mockReset();
     bookingApiMocks.correctJournalEntry.mockReset();
@@ -59,6 +69,9 @@ describe("admin booking command API", () => {
     bookingApiMocks.setBookingEmailQuestionsResolved.mockReset();
     bookingApiMocks.dispatchNextOutboxMail.mockReset();
     bookingApiMocks.dispatchNextOutboxMail.mockResolvedValue({ status: "sent" });
+    bookingApiMocks.getStripeCheckoutSession.mockReset();
+    bookingApiMocks.importStripeCheckoutPayment.mockReset();
+    bookingApiMocks.importStripeCheckoutPayment.mockResolvedValue(undefined);
   });
 
   it("forwards refund commands with their financial metadata", async () => {
@@ -225,5 +238,34 @@ describe("admin booking command API", () => {
     const rejected = await bookingCommandPost(request({ command: "reject", reason: "Nicht verfügbar" }), context());
     expect(rejected.status).toBe(200);
     expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(bookingApiMocks.context.db, 12);
+  });
+
+  it("dispatches the confirmation mail after manually assigning a Stripe payment", async () => {
+    const queuedMailId = 23;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({ get: () => ({ id: queuedMailId }) }),
+        }),
+      }),
+    };
+    bookingApiMocks.context.db = db as unknown as typeof bookingApiMocks.context.db;
+    bookingApiMocks.getStripeCheckoutSession.mockResolvedValue({
+      id: "cs_test_manual_assignment",
+      payment_status: "paid",
+      amount_total: 12_300,
+    });
+    bookingApiMocks.assignStripePaymentToBooking.mockReturnValue({
+      bookingId: 42,
+      alreadyConfirmed: false,
+    });
+
+    const response = await bookingCommandPost(
+      request({ command: "assign_stripe_payment", offerId: 7, sessionId: "cs_test_manual_assignment" }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(db, queuedMailId);
   });
 });
