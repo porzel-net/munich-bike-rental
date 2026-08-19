@@ -89,6 +89,8 @@ type FormTranslations = {
   insuranceProtectionInfo: {
     lead: string;
     body: string;
+    savings: string;
+    footer: string;
   };
   glasses: string;
   glassesPreview: string;
@@ -1635,7 +1637,7 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
                       <button
                         type="button"
                         className="contact-form__equipment-help"
-                        aria-label={`${translations.form.insuranceProtectionInfo.lead} ${translations.form.insuranceProtectionInfo.body}`}
+                        aria-label={`${translations.form.insuranceProtectionInfo.lead} ${translations.form.insuranceProtectionInfo.body} ${translations.form.insuranceProtectionInfo.savings} ${translations.form.insuranceProtectionInfo.footer}`}
                       >
                         <Info aria-hidden="true" size={16} />
                         <span
@@ -1644,6 +1646,8 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
                         >
                           <strong>{translations.form.insuranceProtectionInfo.lead}</strong>{" "}
                           {translations.form.insuranceProtectionInfo.body}{" "}
+                          <strong>{translations.form.insuranceProtectionInfo.savings}</strong>{" "}
+                          {translations.form.insuranceProtectionInfo.footer}{" "}
                           <Link href={lang === "en" ? "/en/agb" : "/de/agb"}>AGB</Link>.
                         </span>
                       </button>

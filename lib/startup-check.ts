@@ -144,7 +144,8 @@ function validateFinancialData(db: AppDatabase) {
   ] as const;
   const existingTriggers = new Set(
     db
-      .all<{ name: string }>(sql`
+      .all<{ name: string }>(
+        sql`
         SELECT name
         FROM sqlite_master
         WHERE type = 'trigger'
@@ -152,7 +153,8 @@ function validateFinancialData(db: AppDatabase) {
             requiredTriggers.map((name) => sql`${name}`),
             sql`, `,
           )})
-      `)
+      `,
+      )
       .map((trigger) => trigger.name),
   );
   const missingTriggers = requiredTriggers.filter((name) => !existingTriggers.has(name));
