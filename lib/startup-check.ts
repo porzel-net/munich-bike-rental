@@ -137,6 +137,78 @@ function readMigrationJournal(migrationsFolder: string) {
   return journal.entries ?? [];
 }
 
+function validateFinancialData(db: AppDatabase) {
+  const requiredTriggers = [
+    "financial_booking_payment_allocation_insert_check",
+    "financial_booking_payment_allocation_update_check",
+  ] as const;
+  const existingTriggers = new Set(
+    db
+      .all<{ name: string }>(sql`
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'trigger'
+          AND name IN (${sql.join(
+            requiredTriggers.map((name) => sql`${name}`),
+            sql`, `,
+          )})
+      `)
+      .map((trigger) => trigger.name),
+  );
+  const missingTriggers = requiredTriggers.filter((name) => !existingTriggers.has(name));
+  if (missingTriggers.length > 0) {
+    throw new Error(`Finanzielle Integritäts-Trigger fehlen: ${missingTriggers.join(", ")}`);
+  }
+
+  const invalidBookingAllocations = db.all<{ id: number }>(sql`
+    SELECT a.id
+    FROM financial_transaction_allocations a
+    WHERE a.allocation_kind IN ('booking_payment', 'booking_refund')
+      AND (
+        a.booking_id IS NULL
+        OR a.category_id IS NULL
+        OR NOT EXISTS (
+          SELECT 1
+          FROM financial_categories c
+          WHERE c.id = a.category_id
+            AND c.code = 'rental_revenue'
+            AND c.is_active = 1
+        )
+      )
+    ORDER BY a.id
+    LIMIT 25
+  `);
+  if (invalidBookingAllocations.length > 0) {
+    throw new Error(
+      `Ungültige Buchungszahlungs-Allocations: ${invalidBookingAllocations.map((row) => row.id).join(", ")}`,
+    );
+  }
+
+  const incompletelyAllocatedPostedTransactions = db.all<{ id: number }>(sql`
+    SELECT t.id
+    FROM financial_transactions t
+    LEFT JOIN financial_transaction_allocations a ON a.transaction_id = t.id
+    WHERE t.status = 'posted'
+    GROUP BY t.id, t.amount_cents
+    HAVING COALESCE(SUM(a.amount_cents), 0) <> t.amount_cents
+    ORDER BY t.id
+    LIMIT 25
+  `);
+  if (incompletelyAllocatedPostedTransactions.length > 0) {
+    throw new Error(
+      `Gebuchte Finanztransaktionen sind nicht vollständig zugeordnet: ${incompletelyAllocatedPostedTransactions
+        .map((row) => row.id)
+        .join(", ")}`,
+    );
+  }
+
+  return {
+    status: "ok" as const,
+    message: "Finanzielle Zuordnungen und gebuchte Beträge sind konsistent",
+    details: { checked: true },
+  };
+}
+
 function validateDatabase(db: AppDatabase, migrationsFolder: string, production: boolean) {
   const integrity = db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`);
   if (integrity?.integrity_check !== "ok")
@@ -213,10 +285,16 @@ function validateDatabase(db: AppDatabase, migrationsFolder: string, production:
     );
   }
 
+  const financialData = validateFinancialData(db);
+
   return {
     status: "ok" as const,
-    message: "SQLite, Migrationen und Drizzle-Schema sind vollständig geprüft",
-    details: { migrations: appliedMigrations.length, tables: tableDefinitions.length },
+    message: "SQLite, Migrationen, Drizzle-Schema und Finanzzuordnungen sind vollständig geprüft",
+    details: {
+      migrations: appliedMigrations.length,
+      tables: tableDefinitions.length,
+      financialData: financialData.details,
+    },
   };
 }
 

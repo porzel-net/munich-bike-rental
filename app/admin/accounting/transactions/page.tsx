@@ -84,7 +84,6 @@ export default async function BankTransactionsPage({
       status: financialTransactions.status,
       euerTreatment: financialCategories.euerTreatment,
       categoryId: financialTransactionAllocations.categoryId,
-      allocationKind: financialTransactionAllocations.allocationKind,
       destinationAccountId: financialTransactionAllocations.destinationAccountId,
       bookingId: financialTransactionAllocations.bookingId,
       amountCents: financialTransactions.amountCents,
@@ -131,10 +130,6 @@ export default async function BankTransactionsPage({
     }, new Map<number, Array<{ id: number; originalFileName: string }>>());
   const reviewTransactionsForClient: FinancialReviewTransaction[] = reviewTransactions.map((row) => {
     const documents = documentCounts.get(row.id) ?? [];
-    const bookingPaymentCategory =
-      row.allocationKind === "booking_payment"
-        ? categories.find((category) => category.code === "rental_revenue")
-        : null;
     const matchedBooking = row.bookingId
       ? (bookingReferences.find((booking) => booking.id === row.bookingId) ?? null)
       : row.source === "bank" && row.provider === "nevlo"
@@ -142,8 +137,6 @@ export default async function BankTransactionsPage({
         : null;
     return {
       ...row,
-      categoryId: row.categoryId ?? bookingPaymentCategory?.id ?? null,
-      euerTreatment: row.euerTreatment ?? bookingPaymentCategory?.euerTreatment ?? null,
       matchedBooking:
         matchedBooking && matchedBooking.status !== "rejected" && matchedBooking.status !== "cancelled"
           ? { id: matchedBooking.id, orderNumber: matchedBooking.orderNumber }

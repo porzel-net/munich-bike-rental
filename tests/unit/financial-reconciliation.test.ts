@@ -547,6 +547,49 @@ describe("financial reconciliation", () => {
     });
   });
 
+  it("surfaces a missing allocation category as an unresolved EÜR row", () => {
+    const { db, bank } = setup();
+    const tx = transaction(db, bank.id, -1_250);
+    const journalEntryId = appendJournalEntry(db, {
+      financialTransactionId: tx.id,
+      kind: "expense",
+      actorUserId: "admin",
+      reason: "Fehlerhafte Testzuordnung",
+      lines: [
+        { account: bank.code, amountCents: -1_250 },
+        { account: "expense", amountCents: 1_250 },
+      ],
+    });
+    db.insert(financialTransactionAllocations)
+      .values({
+        transactionId: tx.id,
+        destinationAccountId: bank.id,
+        allocationKind: "other",
+        matchMethod: "unmatched",
+        amountCents: -1_250,
+        journalEntryId,
+        note: "Fehlende Kategorie",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
+    db.update(financialTransactions).set({ status: "posted" }).where(eq(financialTransactions.id, tx.id)).run();
+
+    const summary = getEuerSummary(db, 2026);
+    expect(summary).toMatchObject({ unresolvedCents: 1_250 });
+    expect(summary.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          transactionId: tx.id,
+          category: "EÜR-Zuordnung fehlt",
+          categoryCode: null,
+          euerTreatment: "needs_review",
+          amountCents: -1_250,
+        }),
+      ]),
+    );
+  });
+
   it("splits a business meal into deductible, non-deductible, private, and input VAT parts", () => {
     const { db, bank } = setup();
     const meal = db.select().from(financialCategories).where(eq(financialCategories.code, "business_meal")).get()!;

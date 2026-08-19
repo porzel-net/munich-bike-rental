@@ -9,12 +9,15 @@ import {
   financialTransactions,
   fixedAssetDepreciationEntries,
   fixedAssets,
+  journalEntries,
+  journalLines,
 } from "../db/schema";
 
 export type EuerRow = {
   id: number;
   date: string;
   category: string;
+  categoryCode: string | null;
   euerTreatment: string;
   source: string;
   description: string;
@@ -35,6 +38,7 @@ export type EuerSummary = {
   inputVatCents: number;
   outputVatCents: number;
   profitCents: number;
+  outstandingCents: number;
   unresolvedCents: number;
   excludedInternalCents: number;
   rows: EuerRow[];
@@ -47,8 +51,9 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     .select({
       id: financialTransactionAllocations.id,
       date: financialTransactions.bookedAt,
-      category: financialCategories.name,
-      euerTreatment: financialCategories.euerTreatment,
+      categoryCode: financialCategories.code,
+      category: sql<string>`coalesce(${financialCategories.name}, 'EÜR-Zuordnung fehlt')`,
+      euerTreatment: sql<string>`coalesce(${financialCategories.euerTreatment}, 'needs_review')`,
       source: financialTransactions.source,
       accountName: financialAccounts.name,
       iban: financialAccounts.iban,
@@ -63,7 +68,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     .from(financialTransactionAllocations)
     .innerJoin(financialTransactions, eq(financialTransactionAllocations.transactionId, financialTransactions.id))
     .innerJoin(financialAccounts, eq(financialTransactions.financialAccountId, financialAccounts.id))
-    .innerJoin(financialCategories, eq(financialTransactionAllocations.categoryId, financialCategories.id))
+    .leftJoin(financialCategories, eq(financialTransactionAllocations.categoryId, financialCategories.id))
     .leftJoin(bookings, eq(financialTransactionAllocations.bookingId, bookings.id))
     .where(
       and(
@@ -83,6 +88,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       id: sql<number>`-${fixedAssetDepreciationEntries.id}`,
       date: fixedAssetDepreciationEntries.periodStart,
       category: financialCategories.name,
+      categoryCode: financialCategories.code,
       euerTreatment: financialCategories.euerTreatment,
       source: sql<string>`'depreciation'`,
       description: fixedAssets.name,
@@ -130,6 +136,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           id: -1_000_000 - asset.id,
           date,
           category: "Veräußerung Anlagevermögen",
+          categoryCode: null,
           euerTreatment: "income",
           source: "asset_sale",
           description: `${asset.name} · ${asset.assetNumber}`,
@@ -147,6 +154,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           id: -2_000_000 - asset.id,
           date,
           category: "Restbuchwert Anlagenabgang",
+          categoryCode: null,
           euerTreatment: "expense",
           source: "asset_disposal",
           description: `${asset.name} · ${asset.assetNumber}`,
@@ -164,6 +172,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           id: -3_000_000 - asset.id,
           date,
           category: "Umsatzsteuer Verkauf Anlagevermögen",
+          categoryCode: null,
           euerTreatment: "output_vat",
           source: "asset_sale",
           description: `${asset.name} · ${asset.assetNumber}`,
@@ -187,6 +196,17 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
   let vatPaymentCents = 0;
   let inputVatCents = 0;
   let outputVatCents = 0;
+  const outstandingByBooking = db
+    .select({
+      bookingId: journalEntries.bookingId,
+      amountCents: sql<number>`coalesce(sum(${journalLines.amountCents}), 0)`,
+    })
+    .from(journalLines)
+    .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
+    .where(and(eq(journalLines.account, "accounts_receivable"), sql`${journalEntries.bookingId} is not null`))
+    .groupBy(journalEntries.bookingId)
+    .all();
+  const outstandingCents = outstandingByBooking.reduce((sum, row) => sum + Math.max(0, row.amountCents), 0);
   let unresolvedCents = 0;
   let excludedInternalCents = 0;
   for (const row of rows) {
@@ -210,6 +230,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     inputVatCents,
     outputVatCents,
     profitCents: incomeCents - expenseCents,
+    outstandingCents,
     unresolvedCents,
     excludedInternalCents,
     rows,

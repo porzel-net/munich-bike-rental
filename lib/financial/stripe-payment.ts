@@ -9,6 +9,7 @@ import {
   financialTransactions,
 } from "../db/schema";
 import { getStripeCheckoutPaymentDetails } from "../stripe";
+import { getBookingRevenueCategory } from "./categories";
 
 function dateInBerlin(timestampSeconds: number) {
   const parts = Object.fromEntries(
@@ -72,14 +73,9 @@ export async function importStripeCheckoutPayment(db: AppDatabase, input: { sess
       return { transactionId: importedDuringConcurrentWebhook.id, alreadyImported: true };
 
     const stripeAccount = db.select().from(financialAccounts).where(eq(financialAccounts.code, "stripe_main")).get();
-    const revenueCategory = db
-      .select()
-      .from(financialCategories)
-      .where(eq(financialCategories.code, "rental_revenue"))
-      .get();
+    const revenueCategory = getBookingRevenueCategory(db);
     const feeCategory = db.select().from(financialCategories).where(eq(financialCategories.code, "stripe_fee")).get();
-    if (!stripeAccount || !revenueCategory || !feeCategory)
-      throw new Error("Stripe-Konto oder EÜR-Kategorien sind nicht eingerichtet.");
+    if (!stripeAccount || !feeCategory) throw new Error("Stripe-Konto oder EÜR-Kategorien sind nicht eingerichtet.");
 
     const createdAt = new Date(balance.created * 1_000);
     const bookedAt = dateInBerlin(balance.created);

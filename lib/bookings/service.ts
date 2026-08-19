@@ -20,7 +20,6 @@ import {
   emailActionReviews,
   financialDocumentLinks,
   financialAccounts,
-  financialCategories,
   financialTransactionAllocations,
   financialTransactions,
   journalEntries,
@@ -56,6 +55,7 @@ import { applyCustomOfferPrice, buildOfferQuote, getAssetPriceSchedule, type Off
 import { allocateInvoiceNumber, invoiceNumberPattern } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
 import { calculateBikePriceWithDiscounts, getRentalDays } from "../inventory/pricing";
+import { getBookingRevenueCategory } from "../financial/categories";
 
 export { BookingCommandError } from "./errors";
 
@@ -2348,12 +2348,7 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
     if (!account) throw new BookingCommandError("Bitte wähle ein gültiges Zahlungskonto aus.");
     if (account.status !== "active" || account.currency !== "EUR")
       throw new BookingCommandError("Das Zahlungskonto ist nicht aktiv oder nicht in EUR geführt.");
-    const incomeCategory = db
-      .select()
-      .from(financialCategories)
-      .where(eq(financialCategories.code, "rental_revenue"))
-      .get();
-    if (!incomeCategory) throw new BookingCommandError("Die EÜR-Kategorie für Mieteinnahmen fehlt.");
+    const incomeCategory = getBookingRevenueCategory(db);
 
     const isRefund = amountCents < 0;
     const absoluteAmountCents = Math.abs(amountCents);

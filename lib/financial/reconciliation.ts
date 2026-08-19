@@ -16,6 +16,7 @@ import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry, getReceivableStatus } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
+import { getActiveFinancialCategoryByCode, getBookingRevenueCategory } from "./categories";
 
 type JournalKind = Parameters<typeof appendJournalEntry>[1]["kind"];
 type AllocationKind = (typeof financialAllocationKinds)[number];
@@ -110,17 +111,6 @@ function ensureAccountingAccount(db: AppDatabase, accountCode: string) {
     .get();
   if (!account) throw new BookingCommandError(`Das Buchungskonto ${accountCode} ist nicht eingerichtet.`);
   if (!account.isActive) throw new BookingCommandError(`Das Buchungskonto ${accountCode} ist nicht aktiv.`);
-}
-
-function getActiveCategoryByCode(db: AppDatabase, code: string) {
-  const category = db.select().from(financialCategories).where(eq(financialCategories.code, code)).get();
-  if (!category || !category.isActive)
-    throw new BookingCommandError(`Die Buchhaltungskategorie ${code} ist nicht eingerichtet.`);
-  return category;
-}
-
-function getBookingPaymentCategory(db: AppDatabase) {
-  return getActiveCategoryByCode(db, "rental_revenue");
 }
 
 function reverseJournalEntryForCorrection(
@@ -265,7 +255,7 @@ function assignNevloTransactionToBookingInTransaction(
   if (!booking) throw new BookingCommandError("Auftrag nicht gefunden.");
   if (booking.status === "rejected" || booking.status === "cancelled")
     throw new BookingCommandError("Dieser Auftrag ist nicht mehr in einem sinnvollen Zahlungsstatus.");
-  const bookingPaymentCategory = getBookingPaymentCategory(db);
+  const bookingPaymentCategory = getBookingRevenueCategory(db);
   if (isSameBookingPayment) {
     if (!existingAllocation.journalEntryId)
       throw new BookingCommandError("Die bestehende Zahlungszuordnung hat keinen zugehörigen Journalposten.");
@@ -579,7 +569,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       ...(mealSplit.nonDeductibleCents > 0
         ? [
             {
-              category: getActiveCategoryByCode(db, "business_meal_non_deductible"),
+              category: getActiveFinancialCategoryByCode(db, "business_meal_non_deductible"),
               amountCents: -mealSplit.nonDeductibleCents,
               allocationKind: "other" as const,
             },
@@ -588,7 +578,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       ...(mealSplit.privateCents > 0
         ? [
             {
-              category: getActiveCategoryByCode(db, "private_meal_share"),
+              category: getActiveFinancialCategoryByCode(db, "private_meal_share"),
               amountCents: -mealSplit.privateCents,
               allocationKind: "other" as const,
             },
@@ -597,7 +587,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       ...(mealSplit.inputVatCents > 0
         ? [
             {
-              category: getActiveCategoryByCode(db, "input_vat"),
+              category: getActiveFinancialCategoryByCode(db, "input_vat"),
               amountCents: -mealSplit.inputVatCents,
               allocationKind: "tax" as const,
             },
@@ -610,7 +600,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       ...(input.asset.inputVatCents
         ? [
             {
-              category: getActiveCategoryByCode(db, "input_vat"),
+              category: getActiveFinancialCategoryByCode(db, "input_vat"),
               amountCents: -input.asset.inputVatCents,
               allocationKind: "tax" as const,
             },

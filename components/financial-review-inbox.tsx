@@ -58,7 +58,6 @@ export type FinancialReviewTransaction = {
   status: string;
   euerTreatment: string | null;
   categoryId: number | null;
-  allocationKind: string | null;
   destinationAccountId: number | null;
   amountCents: number;
   currency: string;
@@ -92,7 +91,7 @@ function formatAmount(amountCents: number, currency = "EUR") {
 }
 
 function statusLabel(status: string, euerTreatment: string | null) {
-  if (status === "posted" && euerTreatment === "needs_review") return "Gebucht · EÜR offen";
+  if (status === "posted" && (!euerTreatment || euerTreatment === "needs_review")) return "Gebucht · EÜR offen";
   if (status === "posted") return "Gebucht & abgestimmt";
   if (status === "ignored") return "Ignoriert";
   return "Prüfung offen";
@@ -285,7 +284,7 @@ export function FinancialReviewInbox({
                   <TableCell>
                     <Badge
                       variant={
-                        row.status === "posted" && row.euerTreatment !== "needs_review"
+                        row.status === "posted" && row.euerTreatment && row.euerTreatment !== "needs_review"
                           ? "default"
                           : row.status === "ignored"
                             ? "outline"
@@ -332,7 +331,7 @@ export function FinancialReviewInbox({
                   .filter((booking) => booking.status !== "rejected" && booking.status !== "cancelled")
                   .map((booking) => (
                     <SelectItem key={booking.id} value={String(booking.id)}>
-                      {booking.orderNumber} · {booking.customerName} · {booking.status}
+                      {booking.orderNumber} · {booking.customerName} · {bookingStatusLabel(booking.status)}
                     </SelectItem>
                   ))}
               </SelectContent>

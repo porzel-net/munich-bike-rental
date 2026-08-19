@@ -38,7 +38,7 @@ function treatmentLabel(treatment: string) {
 }
 
 function rowTarget(row: EuerRow) {
-  if (row.source === "bank") return `/admin/accounting/transactions?transaction=${row.transactionId}`;
+  if (row.transactionId) return `/admin/accounting/transactions?transaction=${row.transactionId}`;
   if (row.source === "stripe" && row.bookingId) return `/admin/bookings/${row.bookingId}`;
   return null;
 }
@@ -102,6 +102,13 @@ export function EuerSummary({
         </Card>
         <Card className="h-full">
           <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Ausstehende Zahlungen</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.outstandingCents)}</CardTitle>
+            <CardDescription className="tabular-nums">Noch zu überweisen</CardDescription>
+          </CardContent>
+        </Card>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
             <CardDescription>Gewinn vor Steuer</CardDescription>
             <CardTitle className="text-2xl tabular-nums">{formatAmount(data.profitCents)}</CardTitle>
             <CardDescription className="tabular-nums">Einnahmen − Ausgaben</CardDescription>
@@ -119,13 +126,6 @@ export function EuerSummary({
             <CardDescription>Gewinnmarge</CardDescription>
             <CardTitle className="text-2xl tabular-nums">{formatPercentage(profitMargin)}</CardTitle>
             <CardDescription className="tabular-nums">Gewinn / Einnahmen</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Prüfung offen</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.unresolvedCents)}</CardTitle>
-            <CardDescription className="tabular-nums">EÜR-Zuordnung offen</CardDescription>
           </CardContent>
         </Card>
       </div>

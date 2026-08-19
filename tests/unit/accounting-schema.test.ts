@@ -5,6 +5,7 @@ import { createDatabaseConnection } from "../../lib/db/client";
 import {
   adminAuditEvents,
   accountingAccounts,
+  bookings,
   financialAccounts,
   financialCategories,
   financialTransactionAllocations,
@@ -89,6 +90,65 @@ describe("accounting schema", () => {
       .run();
 
     expect(connection.db.select().from(financialTransactionAllocations).all()).toHaveLength(1);
+  });
+
+  it("rejects booking payment allocations without the rental revenue category", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const db = connection.db;
+    const account = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get()!;
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260808000000",
+        customerName: "Testkunde",
+        customerEmail: "test@example.com",
+        customerPhone: "0123",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        source: "legacy",
+        status: "completed",
+        quotedTotalCents: 1_000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+      .get();
+    const transaction = db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: account.id,
+        source: "cash",
+        kind: "payment",
+        status: "needs_review",
+        amountCents: 1_000,
+        currency: "EUR",
+        bookedAt: "2026-08-10",
+        description: "Testzahlung",
+        importedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: financialTransactions.id })
+      .get();
+
+    expect(() =>
+      db
+        .insert(financialTransactionAllocations)
+        .values({
+          transactionId: transaction.id,
+          bookingId: booking.id,
+          allocationKind: "booking_payment",
+          matchMethod: "manual",
+          amountCents: 1_000,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .run(),
+    ).toThrow("booking payment allocations require");
   });
 
   it("locks the opening balance after the first account movement", () => {

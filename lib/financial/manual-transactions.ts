@@ -9,6 +9,7 @@ import {
   financialTransactions,
 } from "../db/schema";
 import { postFinancialTransactionInTransaction } from "./reconciliation";
+import { getBookingRevenueCategory } from "./categories";
 import { appendJournalEntry, getReceivableStatus } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
 import { isValidIsoDate } from "../bookings/validation";
@@ -89,6 +90,7 @@ export function createAndPostManualTransaction(
     if (account.currency !== "EUR")
       throw new BookingCommandError("Manuelle Transaktionen werden aktuell nur in EUR unterstützt.");
     if (booking) {
+      const bookingRevenueCategory = getBookingRevenueCategory(db);
       const receivable = getReceivableStatus(db, booking.id);
       if (receivable.openCents <= 0) throw new BookingCommandError("Diese Buchung hat keine offene Forderung mehr.");
       if (input.amountCents > receivable.openCents)
@@ -134,7 +136,7 @@ export function createAndPostManualTransaction(
         .values({
           transactionId: transaction.id,
           bookingId: booking.id,
-          categoryId: category.id,
+          categoryId: bookingRevenueCategory.id,
           allocationKind: "booking_payment",
           matchMethod: "manual",
           amountCents: input.amountCents,
