@@ -1,5 +1,5 @@
 import * as React from "react";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -53,6 +53,8 @@ import {
   bookingRequestedItems,
   bookings,
   financialAccounts,
+  financialTransactionAllocations,
+  financialTransactions,
   authUser,
   journalEntries,
   rentalAssets,
@@ -94,6 +96,31 @@ const nextActionCopy: Record<string, { title: string; description: string }> = {
   },
 };
 
+const transactionSourceLabels: Record<string, string> = {
+  bank: "Bank",
+  stripe: "Stripe",
+  cash: "Bar",
+  manual: "Manuell",
+  other: "Sonstiges",
+};
+
+const transactionKindLabels: Record<string, string> = {
+  payment: "Zahlung",
+  refund: "Erstattung",
+  income: "Einnahme",
+};
+
+function formatTransactionAmount(amountCents: number, currency: string) {
+  return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(amountCents / 100);
+}
+
+function formatTransactionDate(value: string) {
+  const dateOnly = value.trim().match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (!dateOnly) return value || "Datum unbekannt";
+  const [year, month, day] = dateOnly.split("-");
+  return `${day}.${month}.${year}`;
+}
+
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();
   const id = Number((await params).id);
@@ -134,6 +161,33 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .where(eq(journalEntries.bookingId, id))
     .orderBy(desc(journalEntries.occurredAt))
     .all();
+  const transactionIds = db
+    .select({ transactionId: financialTransactionAllocations.transactionId })
+    .from(financialTransactionAllocations)
+    .where(eq(financialTransactionAllocations.bookingId, id))
+    .all()
+    .map(({ transactionId }) => transactionId);
+  const bookingTransactions = transactionIds.length
+    ? db
+        .select({
+          id: financialTransactions.id,
+          amountCents: financialTransactions.amountCents,
+          grossAmountCents: financialTransactions.grossAmountCents,
+          currency: financialTransactions.currency,
+          bookedAt: financialTransactions.bookedAt,
+          source: financialTransactions.source,
+          kind: financialTransactions.kind,
+          counterpartyName: financialTransactions.counterpartyNameSnapshot,
+          reference: financialTransactions.reference,
+          description: financialTransactions.description,
+          accountName: financialAccounts.name,
+        })
+        .from(financialTransactions)
+        .innerJoin(financialAccounts, eq(financialTransactions.financialAccountId, financialAccounts.id))
+        .where(inArray(financialTransactions.id, [...new Set(transactionIds)]))
+        .orderBy(desc(financialTransactions.bookedAt), desc(financialTransactions.id))
+        .all()
+    : [];
   const paymentAccounts = db
     .select({
       id: financialAccounts.id,
