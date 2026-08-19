@@ -12,11 +12,11 @@ import {
 import { syncAllLegacyEquipmentToAccessoryInventory } from "./accessory-sync";
 
 const locationPrices = {
-  munich: 4900,
-  regensburg: 4900,
-  lindau: 4900,
-  friedrichshafen: 4900,
-  konstanz: 4900,
+  munich: { weekday: 4900, weekend: 6900 },
+  regensburg: { weekday: 4900, weekend: 6900 },
+  lindau: { weekday: 4900, weekend: 6900 },
+  friedrichshafen: { weekday: 4900, weekend: 6900 },
+  konstanz: { weekday: 4900, weekend: 6900 },
 } as const;
 const equipment = [
   ["pedal-platform", "pedal", "Plattformpedale", "Platform pedals", 500],
@@ -103,6 +103,8 @@ function normalizeExistingBikeSizes(db: AppDatabase) {
             nickname: bike.nickname,
             frameNumber: bike.frameNumber,
             priceCentsPerDay: bike.priceCentsPerDay,
+            weekdayPriceCentsPerDay: bike.weekdayPriceCentsPerDay,
+            weekendPriceCentsPerDay: bike.weekendPriceCentsPerDay,
             discountTextDe: bike.discountTextDe,
             discountTextEn: bike.discountTextEn,
             descriptionDe: bike.descriptionDe,
@@ -148,7 +150,9 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
                 bikeKey: bikeKey(item.title, size, occurrence),
                 title: item.title,
                 isAvailable: location === "munich",
-                priceCentsPerDay: locationPrices[location as keyof typeof locationPrices],
+                priceCentsPerDay: locationPrices[location as keyof typeof locationPrices].weekday,
+                weekdayPriceCentsPerDay: locationPrices[location as keyof typeof locationPrices].weekday,
+                weekendPriceCentsPerDay: locationPrices[location as keyof typeof locationPrices].weekend,
                 ...bikeDiscountText(item.title),
                 descriptionDe: item.description.de,
                 descriptionEn: item.description.en,
@@ -213,7 +217,6 @@ export function seedRentalInventoryIfEmpty(db: AppDatabase) {
           )
           .run();
       }
-
     }
   });
   syncAllLegacyEquipmentToAccessoryInventory(db);

@@ -17,7 +17,12 @@ export type LocationInventory = {
   requestBikeOptions: string[];
   /** Bikes currently eligible for internal availability checks. */
   bikeOptions: string[];
-  bikePrices: Array<{ option: string; dailyPriceCents: number }>;
+  bikePrices: Array<{
+    option: string;
+    dailyPriceCents: number;
+    weekdayPriceCents: number;
+    weekendPriceCents: number;
+  }>;
   equipmentPrices: Array<{ key: string; priceCents: number }>;
   pedalTypes: Array<{ value: string; label: Record<Locale, string>; priceCents: number }>;
   computerMountTypes: Array<{ value: string; label: Record<Locale, string>; priceCents: number }>;
@@ -176,9 +181,20 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   const bikeOptions = [...new Set(activeBikes.map((bike) => bike.title))];
   // Public inquiries may name paused bikes so they remain trackable. Concrete
   // asset selection in the admin still uses only active assets.
-  const bikePrices = [...new Map(bikes.map((bike) => [bike.title, bike.priceCentsPerDay])).entries()].map(
-    ([option, dailyPriceCents]) => ({ option, dailyPriceCents }),
-  );
+  const bikePrices = bikes.flatMap((bike) => {
+    const prices = {
+      dailyPriceCents: bike.weekdayPriceCentsPerDay,
+      weekdayPriceCents: bike.weekdayPriceCentsPerDay,
+      weekendPriceCents: bike.weekendPriceCentsPerDay,
+    };
+    const bikeSizesForRow = sizes
+      .filter((size) => size.locationBikeId === bike.id && size.isAvailable)
+      .map((size) => size.size);
+    return [
+      { option: bike.title, ...prices },
+      ...bikeSizesForRow.map((size) => ({ option: `${bike.title} - ${size}`, ...prices })),
+    ];
+  });
   const portfolioBikes = [...new Map(bikes.map((bike) => [bike.title, bike])).values()];
   const bikeSizes = (title: string) =>
     sortBikeSizes(
@@ -204,8 +220,16 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
         en: bikeSizes(bike.title),
       },
       price: {
-        de: `${(bike.priceCentsPerDay / 100).toFixed(0)}€/Tag`,
-        en: `${(bike.priceCentsPerDay / 100).toFixed(0)}€/day`,
+        de: `${(bike.weekdayPriceCentsPerDay / 100).toFixed(0)}€/Tag`,
+        en: `${(bike.weekdayPriceCentsPerDay / 100).toFixed(0)}€/day`,
+      },
+      weekdayPrice: {
+        de: `Mo-Fr: ${(bike.weekdayPriceCentsPerDay / 100).toFixed(0)}€/Tag`,
+        en: `Mon-Fri: ${(bike.weekdayPriceCentsPerDay / 100).toFixed(0)}€/day`,
+      },
+      weekendPrice: {
+        de: `Sa-So: ${(bike.weekendPriceCentsPerDay / 100).toFixed(0)}€/Tag`,
+        en: `Sat-Sun: ${(bike.weekendPriceCentsPerDay / 100).toFixed(0)}€/day`,
       },
       discountText: {
         de:
@@ -234,7 +258,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     bottleHolderIncluded: equipment.some((item) => item.accessoryKey === "bottle-holder"),
     repairKitIncluded: equipment.some((item) => item.accessoryKey === "repair-kit"),
     accessoryFromCents: equipment.length ? Math.min(...equipment.map((item) => item.priceCents)) : 0,
-    minimumBikePriceCents: bikes.length ? Math.min(...bikes.map((item) => item.priceCentsPerDay)) : 0,
+    minimumBikePriceCents: bikes.length ? Math.min(...bikes.map((item) => item.weekdayPriceCentsPerDay)) : 0,
     discounts: discounts.map((discount) => ({
       key: discount.discountKey,
       label: { de: discount.labelDe, en: discount.labelEn },

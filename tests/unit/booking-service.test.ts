@@ -965,13 +965,13 @@ describe("booking commands", () => {
       dropoffTime: "16:30",
     });
 
-    expect(offer.quote).toMatchObject({ rentalDays: 3, bikeSubtotalCents: 15_000, totalCents: 15_000 });
+    expect(offer.quote).toMatchObject({ rentalDays: 3, bikeSubtotalCents: 15_000, totalCents: 12_750 });
     expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toMatchObject({
       periodFrom: "2026-07-22",
       periodTo: "2026-07-24",
       pickupTime: "11:30",
       dropoffTime: "16:30",
-      quotedTotalCents: 15_000,
+      quotedTotalCents: 12_750,
     });
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.offerId, offer.offerId)).get()?.plainText).toContain(
       "Rental period: 2026-07-22 11:30 – 2026-07-24 16:30",

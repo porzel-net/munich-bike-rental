@@ -51,6 +51,8 @@ export type PortfolioItem = {
   frameNumber?: string | null;
   subtitle: LocalizedText;
   price: LocalizedText;
+  weekdayPrice?: LocalizedText;
+  weekendPrice?: LocalizedText;
   discountText?: LocalizedText;
   description: LocalizedText;
   image: string | StaticImageData;
@@ -116,7 +118,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Endurace CF SL 8",
     subtitle: { de: "XS / S / M / L", en: "XS / S / M / L" },
-    price: { de: "59€/Tag", en: "59€/day" },
+    price: { de: "49€/Tag", en: "49€/day" },
     description: {
       de: "Ausgewogenes Endurance-Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
       en: "Balanced endurance road bike for fast, long rides and relaxed outings with plenty of comfort.",
@@ -149,7 +151,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Grail CF SL 7",
     subtitle: { de: "S / M / L", en: "S / M / L" },
-    price: { de: "59€/Tag", en: "59€/day" },
+    price: { de: "49€/Tag", en: "49€/day" },
     description: {
       de: "Carbon-Gravelbike mit Shimano-Schaltung und hydraulischen Scheibenbremsen für gemischte Strecken und längere Ausfahrten.",
       en: "Carbon gravel bike with Shimano shifting and hydraulic disc brakes for mixed routes and longer rides.",
@@ -196,7 +198,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Ultimate CF SL 7",
     subtitle: { de: "M / L", en: "M / L" },
-    price: { de: "59€/Tag", en: "59€/day" },
+    price: { de: "49€/Tag", en: "49€/day" },
     description: {
       de: "Leichtes Allround-Rennrad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
       en: "Light all-round road bike for sporty rides, training and quick city trips.",
@@ -233,7 +235,7 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Aeroad CF SL 8",
     subtitle: { de: "S / M", en: "S / M" },
-    price: { de: "59€/Tag", en: "59€/day" },
+    price: { de: "49€/Tag", en: "49€/day" },
     description: {
       de: "Aero-Rennrad für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
       en: "Aero road bike for maximum speed on the road and a direct, sporty ride feel.",

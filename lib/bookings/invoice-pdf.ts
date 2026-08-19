@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 
 import type { OfferQuote } from "./quotes";
+import { calculateBikeSubtotalCents } from "../inventory/pricing";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,7 +58,13 @@ function renderTex(input: InvoiceInput) {
     .map((item) =>
       row(
         `Fahrradmiete: ${item.assetName} (${input.quote.rentalDays} Tage)`,
-        item.dailyPriceCents * input.quote.rentalDays,
+        calculateBikeSubtotalCents({
+          dailyBikePriceCents: item.dailyPriceCents,
+          weekdayBikePriceCents: item.weekdayPriceCents,
+          weekendBikePriceCents: item.weekendPriceCents,
+          periodFrom: input.periodFrom,
+          rentalDays: input.quote.rentalDays,
+        }),
       ),
     )
     .join("\n");

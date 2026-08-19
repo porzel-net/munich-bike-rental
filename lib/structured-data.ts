@@ -5,13 +5,17 @@ import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
 import { getLocalizedLocationPath, getLocationCopy, type RentalLocationConfig } from "./rental-locations";
+import { getDatabase } from "./db/client";
+import { getLocationInventory } from "./inventory/repository";
 
 function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
 function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
-  const catalog = portfolioItems.map((item, index) => ({
+  const databaseItems = getLocationInventory(getDatabase(), location.key).portfolioItems;
+  const items = databaseItems.length ? databaseItems : portfolioItems;
+  const catalog = items.map((item, index) => ({
     "@type": "Offer",
     position: index + 1,
     name: item.title,

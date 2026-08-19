@@ -90,6 +90,8 @@ export const rentalAssets = sqliteTable(
     frameNumber: text("frame_number"),
     displayName: text("display_name").notNull(),
     dailyPriceCents: integer("daily_price_cents").notNull(),
+    weekdayPriceCents: integer("weekday_price_cents").notNull().default(4900),
+    weekendPriceCents: integer("weekend_price_cents").notNull().default(6900),
     state: text("state", { enum: assetStates }).notNull().default("active"),
     legacyLocationBikeId: integer("legacy_location_bike_id").unique(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -99,6 +101,8 @@ export const rentalAssets = sqliteTable(
     uniqueIndex("rental_assets_location_code_unique").on(table.location, table.assetCode),
     index("rental_assets_location_state_idx").on(table.location, table.state),
     check("rental_assets_daily_price_nonnegative", sql`${table.dailyPriceCents} >= 0`),
+    check("rental_assets_weekday_price_nonnegative", sql`${table.weekdayPriceCents} >= 0`),
+    check("rental_assets_weekend_price_nonnegative", sql`${table.weekendPriceCents} >= 0`),
   ],
 );
 

@@ -20,6 +20,8 @@ export type AdminInventoryBike = {
   nickname: string | null;
   frameNumber: string | null;
   priceCents: number;
+  weekdayPriceCents: number;
+  weekendPriceCents: number;
   discountTextDe: string;
   discountTextEn: string;
   size: string;
@@ -77,7 +79,9 @@ export default async function InventoryPage() {
     title: bike.title,
     nickname: bike.nickname,
     frameNumber: bike.frameNumber,
-    priceCents: bike.priceCentsPerDay,
+    priceCents: bike.weekdayPriceCentsPerDay,
+    weekdayPriceCents: bike.weekdayPriceCentsPerDay,
+    weekendPriceCents: bike.weekendPriceCentsPerDay,
     discountTextDe: bike.discountTextDe,
     discountTextEn: bike.discountTextEn,
     size: sizeRows.find((size) => size.locationBikeId === bike.id)?.size ?? "",

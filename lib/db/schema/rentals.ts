@@ -152,6 +152,8 @@ export const rentalLocationBikes = sqliteTable(
     nickname: text("nickname"),
     frameNumber: text("frame_number"),
     priceCentsPerDay: integer("price_cents_per_day").notNull(),
+    weekdayPriceCentsPerDay: integer("weekday_price_cents_per_day").notNull().default(4900),
+    weekendPriceCentsPerDay: integer("weekend_price_cents_per_day").notNull().default(6900),
     discountTextDe: text("discount_text_de").notNull().default(""),
     discountTextEn: text("discount_text_en").notNull().default(""),
     descriptionDe: text("description_de").notNull(),
@@ -166,6 +168,8 @@ export const rentalLocationBikes = sqliteTable(
   (table) => [
     uniqueIndex("rental_location_bikes_location_key_unique").on(table.location, table.bikeKey),
     index("rental_location_bikes_location_order_idx").on(table.location, table.displayOrder),
+    check("rental_location_bikes_weekday_price_nonnegative", sql`${table.weekdayPriceCentsPerDay} >= 0`),
+    check("rental_location_bikes_weekend_price_nonnegative", sql`${table.weekendPriceCentsPerDay} >= 0`),
   ],
 );
 

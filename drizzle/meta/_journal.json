@@ -521,6 +521,27 @@
       "breakpoints": true
     },
     {
+      "idx": 75,
+      "version": "7",
+      "when": 1787139000000,
+      "tag": "0075_remove_discounts_and_set_base_prices",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787139001000,
+      "tag": "0076_restore_long_term_and_student_discounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1787139002000,
+      "tag": "0077_weekday_weekend_bike_prices",
+      "breakpoints": true
+    },
+    {
       "idx": 78,
       "version": "7",
       "when": 1787139003000,

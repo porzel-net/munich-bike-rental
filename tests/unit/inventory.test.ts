@@ -197,6 +197,23 @@ describe("location inventory", () => {
     ).toMatchObject({ subtotalCents: 14700, discountPercentage: 15, discountCents: 2205, totalCents: 12495 });
   });
 
+  it("uses the configured weekday and weekend bike prices for each rental date", () => {
+    const db = createTestDatabase();
+    const inventory = getLocationInventory(db, "munich");
+    const bike = inventory.portfolioItems.find((item) => item.title === "Endurace CF SL 8");
+
+    expect(bike?.weekdayPrice?.de).toBe("Mo-Fr: 49€/Tag");
+    expect(bike?.weekendPrice?.de).toBe("Sa-So: 69€/Tag");
+    expect(
+      calculateRentalPrice(inventory, {
+        weekdayPriceCents: 4_900,
+        weekendPriceCents: 6_900,
+        rentalDays: 3,
+        pickupDate: new Date("2026-07-24T12:00:00Z"), // Friday through Sunday
+      }),
+    ).toMatchObject({ subtotalCents: 18_700, discountPercentage: 15, discountCents: 2_805, totalCents: 15_895 });
+  });
+
   it("handles malformed catalog JSON without crashing and keeps the real minimum bike price", () => {
     const db = createTestDatabase();
     db.update(rentalLocationBikes)

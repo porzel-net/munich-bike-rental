@@ -38,6 +38,7 @@ import {
   normalizePedalType,
 } from "../inquiries/catalog";
 import { bikeMatchesRequestedLabel } from "../inventory/display-name";
+import { getLocationInventory } from "../inventory/repository";
 
 import { BookingCommandError } from "./errors";
 import { allocateRequestedAccessories, hasAssetConflict } from "./availability";
@@ -51,10 +52,10 @@ import {
   renderInquiryReceivedMail,
   renderOfferMail,
 } from "./messages";
-import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
+import { applyCustomOfferPrice, buildOfferQuote, getAssetPriceSchedule, type OfferAccessorySelection } from "./quotes";
 import { allocateInvoiceNumber, invoiceNumberPattern } from "./invoice-number";
 import { isValidIsoDate, isValidTime } from "./validation";
-import { getRentalDays } from "../inventory/pricing";
+import { calculateBikePriceWithDiscounts, getRentalDays } from "../inventory/pricing";
 
 export { BookingCommandError } from "./errors";
 
@@ -1824,7 +1825,10 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         const selected = selectedConcreteAssets.find((item) => item.asset.id === nextAssetId);
         if (!selected) throw new BookingCommandError("Das ausgewählte Fahrrad konnte nicht geladen werden");
         db.update(bookingOfferItems)
-          .set({ assetId: nextAssetId, itemPriceCents: selected.asset.dailyPriceCents })
+          .set({
+            assetId: nextAssetId,
+            itemPriceCents: getAssetPriceSchedule(selected.asset).weekdayPriceCents,
+          })
           .where(and(eq(bookingOfferItems.id, offerItem.id), eq(bookingOfferItems.offerId, acceptedOffer.id)))
           .run();
       }
@@ -1848,21 +1852,46 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
             nextAssetId === undefined
               ? undefined
               : selectedConcreteAssets.find((asset) => asset.asset.id === nextAssetId);
-          return selected
-            ? {
-                ...item,
-                assetId: selected.asset.id,
-                assetName: selected.asset.displayName,
-                frameNumber: selected.asset.frameNumber,
-                dailyPriceCents: selected.asset.dailyPriceCents,
-              }
-            : item;
+          if (!selected) return item;
+          const priceSchedule = getAssetPriceSchedule(selected.asset);
+          return {
+            ...item,
+            assetId: selected.asset.id,
+            assetName: selected.asset.displayName,
+            frameNumber: selected.asset.frameNumber,
+            dailyPriceCents: priceSchedule.weekdayPriceCents,
+            weekdayPriceCents: priceSchedule.weekdayPriceCents,
+            weekendPriceCents: priceSchedule.weekendPriceCents,
+          };
         });
-        const bikeSubtotalCents =
-          updatedSnapshotItems.reduce(
-            (sum, item) => sum + (typeof item.dailyPriceCents === "number" ? item.dailyPriceCents : 0),
-            0,
-          ) * getRentalDays(input.periodFrom, input.periodTo);
+        const weekdayBikePriceCents = updatedSnapshotItems.reduce(
+          (sum, item) =>
+            sum +
+            (typeof item.weekdayPriceCents === "number"
+              ? item.weekdayPriceCents
+              : typeof item.dailyPriceCents === "number"
+                ? item.dailyPriceCents
+                : 0),
+          0,
+        );
+        const weekendBikePriceCents = updatedSnapshotItems.reduce(
+          (sum, item) =>
+            sum +
+            (typeof item.weekendPriceCents === "number"
+              ? item.weekendPriceCents
+              : typeof item.dailyPriceCents === "number"
+                ? item.dailyPriceCents
+                : 0),
+          0,
+        );
+        const rentalDays = getRentalDays(input.periodFrom, input.periodTo);
+        const recalculated = calculateBikePriceWithDiscounts(getLocationInventory(db, booking.location), {
+          weekdayBikePriceCents,
+          weekendBikePriceCents,
+          periodFrom: input.periodFrom,
+          rentalDays,
+        });
+        const bikeSubtotalCents = recalculated.bikeSubtotalCents;
         const equipmentSubtotalCents =
           typeof priceSnapshot.equipmentSubtotalCents === "number" ? priceSnapshot.equipmentSubtotalCents : 0;
         const totalCents = acceptedOffer.totalCents;
@@ -1871,7 +1900,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
             priceSnapshotJson: JSON.stringify({
               ...priceSnapshot,
               offeredItems: updatedSnapshotItems,
-              rentalDays: getRentalDays(input.periodFrom, input.periodTo),
+              rentalDays,
               bikeSubtotalCents,
               totalCents,
               discountCents: bikeSubtotalCents + equipmentSubtotalCents - totalCents,

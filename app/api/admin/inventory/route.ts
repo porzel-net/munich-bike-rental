@@ -34,6 +34,8 @@ const bikeSchema = baseSchema.extend({
   nickname: z.string().trim().max(120).optional().nullable(),
   size: z.string().trim().min(1).max(32),
   frameNumber: z.string().trim().max(120).optional().nullable(),
+  weekdayPriceCents: z.number().int().min(0).max(1_000_000_000).optional(),
+  weekendPriceCents: z.number().int().min(0).max(1_000_000_000).optional(),
   discountTextDe: z.string().trim().max(500).optional(),
   discountTextEn: z.string().trim().max(500).optional(),
 });
@@ -112,6 +114,8 @@ export async function POST(request: Request) {
   try {
     return runInImmediateTransaction(db, () => {
       if (input.data.type === "bike") {
+        const weekdayPriceCents = input.data.weekdayPriceCents ?? input.data.priceCents;
+        const weekendPriceCents = input.data.weekendPriceCents ?? input.data.priceCents;
         const contents = defaultBikeContent(input.data.title);
         const displayOrder =
           (db
@@ -127,7 +131,9 @@ export async function POST(request: Request) {
             title: input.data.title,
             nickname: input.data.nickname?.trim() || null,
             frameNumber: input.data.frameNumber?.trim() || null,
-            priceCentsPerDay: input.data.priceCents,
+            priceCentsPerDay: weekdayPriceCents,
+            weekdayPriceCentsPerDay: weekdayPriceCents,
+            weekendPriceCentsPerDay: weekendPriceCents,
             discountTextDe: input.data.discountTextDe ?? "",
             discountTextEn: input.data.discountTextEn ?? "",
             ...contents,
@@ -140,7 +146,16 @@ export async function POST(request: Request) {
           .values({ locationBikeId: inserted.id, size: input.data.size, isAvailable: true })
           .run();
         return NextResponse.json(
-          { item: { ...input.data, id: inserted.id, bikeKey: createBikeKey(input.data.title, input.data.size) } },
+          {
+            item: {
+              ...input.data,
+              id: inserted.id,
+              priceCents: weekdayPriceCents,
+              weekdayPriceCents,
+              weekendPriceCents,
+              bikeKey: createBikeKey(input.data.title, input.data.size),
+            },
+          },
           { status: 201 },
         );
       }
@@ -200,6 +215,8 @@ export async function PATCH(request: Request) {
   try {
     if (input.data.type === "bike") {
       const bikeInput = input.data;
+      const weekdayPriceCents = bikeInput.weekdayPriceCents ?? bikeInput.priceCents;
+      const weekendPriceCents = bikeInput.weekendPriceCents ?? bikeInput.priceCents;
       const bike = db
         .select({
           id: rentalLocationBikes.id,
@@ -237,7 +254,9 @@ export async function PATCH(request: Request) {
             title,
             nickname,
             frameNumber: bikeInput.frameNumber?.trim() || null,
-            priceCentsPerDay: bikeInput.priceCents,
+            priceCentsPerDay: weekdayPriceCents,
+            weekdayPriceCentsPerDay: weekdayPriceCents,
+            weekendPriceCentsPerDay: weekendPriceCents,
             discountTextDe: bikeInput.discountTextDe ?? bike.discountTextDe,
             discountTextEn: bikeInput.discountTextEn ?? bike.discountTextEn,
             isAvailable: bikeInput.isAvailable,
@@ -264,12 +283,22 @@ export async function PATCH(request: Request) {
             nickname: bikeInput.nickname?.trim() || null,
             displayName: formatBikeDisplayName(bikeInput.title, bikeInput.size),
             frameNumber: bikeInput.frameNumber?.trim() || null,
+            dailyPriceCents: weekdayPriceCents,
+            weekdayPriceCents,
+            weekendPriceCents,
             updatedAt: new Date(),
           })
           .where(eq(rentalAssets.id, linkedAsset.id))
           .run();
       }
-      return NextResponse.json({ item: bikeInput });
+      return NextResponse.json({
+        item: {
+          ...bikeInput,
+          priceCents: weekdayPriceCents,
+          weekdayPriceCents,
+          weekendPriceCents,
+        },
+      });
     }
 
     const existing = db

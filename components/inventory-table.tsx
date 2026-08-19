@@ -118,6 +118,8 @@ export function InventoryTable({
             frameNumber: item.frameNumber,
             size: item.size,
             priceCents: item.priceCents,
+            weekdayPriceCents: item.weekdayPriceCents,
+            weekendPriceCents: item.weekendPriceCents,
             discountTextDe: item.discountTextDe,
             discountTextEn: item.discountTextEn,
             isAvailable: !item.isAvailable,
@@ -246,7 +248,7 @@ export function InventoryTable({
                   <TableHead>Standort</TableHead>
                   <TableHead>Rabatt-Hinweis</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Preis / Tag</TableHead>
+                  <TableHead className="text-right">Preise / Tag</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -288,7 +290,8 @@ export function InventoryTable({
                         />
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
-                        {euroFormatter.format(bike.priceCents / 100)}
+                        <div>Mo-Fr {euroFormatter.format(bike.weekdayPriceCents / 100)}</div>
+                        <div>Sa-So {euroFormatter.format(bike.weekendPriceCents / 100)}</div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -425,6 +428,7 @@ function InventoryDialog({
   const [labelDe, setLabelDe] = useState(item?.kind === "equipment" ? item.labelDe : "");
   const [labelEn, setLabelEn] = useState(item?.kind === "equipment" ? item.labelEn : "");
   const [price, setPrice] = useState(item ? priceToInput(item.priceCents) : "");
+  const [weekendPrice, setWeekendPrice] = useState(item?.kind === "bike" ? priceToInput(item.weekendPriceCents) : "");
   const [availableQuantity, setAvailableQuantity] = useState(
     item?.kind === "equipment" ? String(item.availableQuantity) : "1",
   );
@@ -438,7 +442,12 @@ function InventoryDialog({
     setSaving(true);
     setError(null);
     const priceCents = Math.round(Number(price.replace(",", ".")) * 100);
-    if (!Number.isSafeInteger(priceCents) || priceCents < 0) {
+    const weekendPriceCents = Math.round(Number(weekendPrice.replace(",", ".")) * 100);
+    if (
+      !Number.isSafeInteger(priceCents) ||
+      priceCents < 0 ||
+      (kind === "bike" && (!Number.isSafeInteger(weekendPriceCents) || weekendPriceCents < 0))
+    ) {
       setError("Bitte gib einen gültigen Preis ein.");
       setSaving(false);
       return;
@@ -464,6 +473,8 @@ function InventoryDialog({
             size: size.trim(),
             frameNumber: frameNumber.trim() || null,
             priceCents,
+            weekdayPriceCents: priceCents,
+            weekendPriceCents,
             discountTextDe: discountTextDe.trim(),
             discountTextEn: discountTextEn.trim(),
             isAvailable,
@@ -517,6 +528,8 @@ function InventoryDialog({
           nickname: nickname.trim() || null,
           frameNumber: frameNumber.trim() || null,
           priceCents,
+          weekdayPriceCents: priceCents,
+          weekendPriceCents,
           discountTextDe: discountTextDe.trim(),
           discountTextEn: discountTextEn.trim(),
           size: size.trim(),
@@ -734,7 +747,9 @@ function InventoryDialog({
             )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="inventory-price">Preis in Euro</FieldLabel>
+                <FieldLabel htmlFor="inventory-price">
+                  {kind === "bike" ? "Preis Mo-Fr in Euro" : "Preis in Euro"}
+                </FieldLabel>
                 <Input
                   id="inventory-price"
                   required
@@ -746,6 +761,21 @@ function InventoryDialog({
                   onChange={(event) => setPrice(event.target.value)}
                 />
               </Field>
+              {kind === "bike" ? (
+                <Field>
+                  <FieldLabel htmlFor="inventory-weekend-price">Preis Sa-So in Euro</FieldLabel>
+                  <Input
+                    id="inventory-weekend-price"
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={weekendPrice}
+                    onChange={(event) => setWeekendPrice(event.target.value)}
+                  />
+                </Field>
+              ) : null}
               <Field>
                 <FieldLabel htmlFor="inventory-available">Buchungsstatus</FieldLabel>
                 <label className="flex h-9 items-center gap-2 text-sm">

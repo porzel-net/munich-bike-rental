@@ -149,6 +149,8 @@ describe("admin inventory API", () => {
         size: "M",
         frameNumber: "EDGE-1",
         priceCents: 4_500,
+        weekdayPriceCents: 4_500,
+        weekendPriceCents: 6_500,
         discountTextDe: "10%\nNur im Mai",
         discountTextEn: "10%\nMay only",
         isAvailable: true,
@@ -178,6 +180,16 @@ describe("admin inventory API", () => {
         .where(eq(rentalLocationBikes.id, bikeBody.item.id))
         .get(),
     ).toEqual({ nickname: "Blitz" });
+    expect(
+      db
+        .select({
+          weekday: rentalLocationBikes.weekdayPriceCentsPerDay,
+          weekend: rentalLocationBikes.weekendPriceCentsPerDay,
+        })
+        .from(rentalLocationBikes)
+        .where(eq(rentalLocationBikes.id, bikeBody.item.id))
+        .get(),
+    ).toEqual({ weekday: 4_500, weekend: 6_500 });
 
     importLegacyInventoryIntoBookingInventory(db);
     expect(
@@ -215,6 +227,8 @@ describe("admin inventory API", () => {
             size: "L",
             frameNumber: "EDGE-2",
             priceCents: 5_000,
+            weekdayPriceCents: 5_000,
+            weekendPriceCents: 7_000,
             isAvailable: true,
           }),
         )
@@ -227,6 +241,8 @@ describe("admin inventory API", () => {
       nickname: "Turbo",
       frameNumber: "EDGE-2",
       priceCentsPerDay: 5_000,
+      weekdayPriceCentsPerDay: 5_000,
+      weekendPriceCentsPerDay: 7_000,
       discountTextDe: "10%\nNur im Mai",
       discountTextEn: "10%\nMay only",
     });

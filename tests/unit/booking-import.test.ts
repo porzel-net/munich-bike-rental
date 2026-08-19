@@ -190,7 +190,7 @@ describe("historical booking e-mail import", () => {
     const repaired = connection.db.select().from(bookings).get();
     expect(repaired).toMatchObject({
       id: imported!.id,
-      quotedTotalCents: 12495,
+      quotedTotalCents: 14195,
       customerName: "Manually corrected",
       status: "confirmed",
     });

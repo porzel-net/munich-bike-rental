@@ -35,6 +35,8 @@ export type OfferQuote = {
     assetName: string;
     frameNumber: string | null;
     dailyPriceCents: number;
+    weekdayPriceCents?: number;
+    weekendPriceCents?: number;
     accessories: OfferAccessorySelection;
   }>;
 };
@@ -65,6 +67,19 @@ export type OfferAccessorySelection = {
   repairKitIncluded?: boolean;
   insuranceProtectionSelected?: boolean;
 };
+
+export function getAssetPriceSchedule(asset: {
+  dailyPriceCents: number;
+  weekdayPriceCents: number;
+  weekendPriceCents: number;
+}) {
+  // Test fixtures and older programmatic imports may only provide the legacy
+  // single price while SQLite fills the new columns with their defaults.
+  if (asset.weekdayPriceCents === 4_900 && asset.weekendPriceCents === 6_900 && asset.dailyPriceCents !== 4_900) {
+    return { weekdayPriceCents: asset.dailyPriceCents, weekendPriceCents: asset.dailyPriceCents };
+  }
+  return { weekdayPriceCents: asset.weekdayPriceCents, weekendPriceCents: asset.weekendPriceCents };
+}
 
 /** Public requests are always accepted; this is only their initial, non-binding estimate. */
 export function estimateInquiryQuote(db: AppDatabase, input: ContactInquiry) {
@@ -151,6 +166,7 @@ export function buildOfferQuote(
       throw new BookingCommandError(
         "Mindestens eines der ausgewählten Fahrräder ist an diesem Standort nicht aktiv. Wähle ein anderes Fahrrad.",
       );
+    const priceSchedule = getAssetPriceSchedule(asset.asset);
     return {
       requestedItemId: item.id,
       requestedLabel: item.requestedLabel,
@@ -158,7 +174,8 @@ export function buildOfferQuote(
       assetId,
       assetName: asset.asset.displayName,
       frameNumber: asset.asset.frameNumber,
-      dailyPriceCents: asset.asset.dailyPriceCents,
+      dailyPriceCents: priceSchedule.weekdayPriceCents,
+      ...priceSchedule,
       accessories: selectedAccessories(item, accessoriesByRequestedItem[item.id]),
     };
   });
@@ -175,12 +192,18 @@ export function buildOfferQuote(
   const periodFrom = periodOverride?.periodFrom ?? booking.periodFrom;
   const periodTo = periodOverride?.periodTo ?? booking.periodTo;
   const rentalDays = getRentalDays(periodFrom, periodTo);
-  const dailyBikePriceCents = offeredItems.reduce((sum, item) => sum + item.dailyPriceCents, 0);
-  const { discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(
-    getLocationInventory(db, booking.location),
-    { dailyBikePriceCents, periodFrom, rentalDays, isStudent },
+  const weekdayBikePriceCents = offeredItems.reduce(
+    (sum, item) => sum + (item.weekdayPriceCents ?? item.dailyPriceCents),
+    0,
   );
-  const bikeSubtotalCents = dailyBikePriceCents * rentalDays;
+  const weekendBikePriceCents = offeredItems.reduce(
+    (sum, item) => sum + (item.weekendPriceCents ?? item.dailyPriceCents),
+    0,
+  );
+  const { bikeSubtotalCents, discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(
+    getLocationInventory(db, booking.location),
+    { weekdayBikePriceCents, weekendBikePriceCents, periodFrom, rentalDays, isStudent },
+  );
   return {
     totalCents: bikeSubtotalCents + equipmentSubtotalCents - discountCents,
     bikeSubtotalCents,
