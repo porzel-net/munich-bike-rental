@@ -70,6 +70,7 @@ function transaction(
   amountCents: number,
   bookedAt = "2026-08-10",
   kind: "income" | "expense" | "refund" | "transfer" = amountCents > 0 ? "income" : "expense",
+  valueDate?: string,
 ) {
   return db
     .insert(financialTransactions)
@@ -83,6 +84,7 @@ function transaction(
       amountCents,
       currency: "EUR",
       bookedAt,
+      valueDate,
       description: "Edge-Case-Transaktion",
       importedAt: new Date(),
       createdAt: new Date(),
@@ -252,6 +254,18 @@ describe("financial edge cases", () => {
     expect(getEuerSummary(db, 2025)).toMatchObject({ incomeCents: 2_000, profitCents: 2_000 });
     expect(getEuerSummary(db, 2026)).toMatchObject({ incomeCents: 0, expenseCents: 0, profitCents: 0 });
     expect(getFinancialAccountReconciliation(db, bank.id).expectedBalanceCents).toBe(5_000);
+  });
+
+  it("uses the booking/credit date for the EÜR, not the bank value date", () => {
+    const { db, bank, category } = setup();
+    const bookedOnNewYearsEve = transaction(db, bank.id, 2_000, "2025-12-31", "income", "2026-01-01");
+    post(db, bookedOnNewYearsEve.id, category("rental_revenue").id);
+
+    const bookedInNewYear = transaction(db, bank.id, 3_000, "2026-01-01", "income", "2025-12-31");
+    post(db, bookedInNewYear.id, category("rental_revenue").id);
+
+    expect(getEuerSummary(db, 2025)).toMatchObject({ incomeCents: 2_000 });
+    expect(getEuerSummary(db, 2026)).toMatchObject({ incomeCents: 3_000 });
   });
 
   it("rolls back an asset purchase when gross amount and asset details disagree", () => {

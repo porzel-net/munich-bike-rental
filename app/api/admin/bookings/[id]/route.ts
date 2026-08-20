@@ -68,6 +68,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         : undefined,
     });
     const mailResult = result.mailId ? await dispatchNextOutboxMail(command.db, result.mailId) : null;
+    if (mailResult?.status === "failed")
+      return NextResponse.json(
+        {
+          message: "Die Buchung wurde gespeichert, aber die Änderungsmail konnte nicht versendet werden.",
+          mailStatus: mailResult.status,
+        },
+        { status: 502 },
+      );
     return NextResponse.json({ ...result, mailStatus: mailResult?.status ?? null });
   } catch (error) {
     return NextResponse.json(

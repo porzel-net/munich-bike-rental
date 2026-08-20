@@ -218,6 +218,9 @@ function importTransactions(db: AppDatabase, account: NevloAccount, transactions
         status: "needs_review",
         amountCents: amountToCents(transaction.amount),
         currency: transaction.currency || financialAccount.currency,
+        // bookingDate is the account booking/credit date used for the EÜR.
+        // valueDate is retained for reconciliation and display only: Valuta
+        // does not replace the date on which the account credit was posted.
         bookedAt: transaction.bookingDate,
         valueDate: transaction.valueDate || null,
         counterpartyNameSnapshot: counterpart,

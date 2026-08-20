@@ -99,6 +99,7 @@ export function BookingEditDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sendMail, setSendMail] = useState(notifyCustomer);
   const [values, setValues] = useState<BookingEditValues>(initialValues);
   const [quotedTotal, setQuotedTotal] = useState(
     initialValues.quotedTotalCents === undefined
@@ -130,7 +131,7 @@ export function BookingEditDialog({
         body: JSON.stringify({
           ...values,
           ...(priceEditingAllowed ? { quotedTotalCents } : {}),
-          notifyCustomer,
+          notifyCustomer: sendMail,
           ...(concreteBikeEditingAllowed ? { assetsByRequestedItem: selectedAssets } : {}),
           requestedItems: values.requestedItems.map((item) => ({
             ...item,
@@ -149,10 +150,10 @@ export function BookingEditDialog({
             "Die Buchung konnte nicht gespeichert werden. Prüfe Zeitraum, Übergabezeiten, Gesamtpreis und Fahrradauswahl.",
         );
       toast.success(
-        notifyCustomer
+        sendMail
           ? result?.mailStatus === "sent"
             ? "Buchung wurde geändert und die Änderungsmail wurde versendet."
-            : "Buchung wurde geändert. Die Änderungsmail wurde in die Outbox gelegt."
+            : "Buchung wurde geändert."
           : "Buchung wurde gespeichert.",
       );
       setOpen(false);
@@ -169,11 +170,27 @@ export function BookingEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setSendMail(notifyCustomer);
+      }}
+    >
       {trigger ? (
-        trigger(() => setOpen(true))
+        trigger(() => {
+          setSendMail(notifyCustomer);
+          setOpen(true);
+        })
       ) : (
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSendMail(notifyCustomer);
+            setOpen(true);
+          }}
+        >
           {notifyCustomer ? "Buchungsinformationen ändern" : "Buchung bearbeiten"}
         </Button>
       )}
@@ -188,6 +205,17 @@ export function BookingEditDialog({
               : `Kontaktdaten und interne Nachricht können jederzeit angepasst werden.${commercialEditingAllowed ? " Zeitraum, Fahrradwünsche und Zubehör sind in diesem Buchungsstatus ebenfalls editierbar." : " Zeitraum, Fahrräder und Zubehör sind nach der Bestätigung gesperrt."}${priceEditingAllowed ? " Der Mietbetrag kann bei importierten Buchungen weiterhin angepasst werden." : ""}`}
           </DialogDescription>
         </DialogHeader>
+        {notifyCustomer ? (
+          <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
+            <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
+            <span>
+              <span className="font-medium">Änderungsmail mitsenden</span>
+              <span className="block text-muted-foreground">
+                Deaktivieren, wenn die Buchung ohne Kund:innen-Mail gespeichert werden soll.
+              </span>
+            </span>
+          </label>
+        ) : null}
         <form className="space-y-6" onSubmit={submit}>
           <FieldGroup className="grid gap-4 sm:grid-cols-2">
             <Field>

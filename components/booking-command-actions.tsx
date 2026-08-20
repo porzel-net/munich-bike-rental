@@ -275,6 +275,7 @@ export function BookingCommandActions({
   const [rejectionReasonType, setRejectionReasonType] = useState<RejectionReasonType>("");
   const [customRejectionReason, setCustomRejectionReason] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
+  const [sendMail, setSendMail] = useState(true);
   const [customOfferPrice, setCustomOfferPrice] = useState("");
   const [offerPeriodFrom, setOfferPeriodFrom] = useState(periodFrom);
   const [offerPeriodTo, setOfferPeriodTo] = useState(periodTo);
@@ -390,6 +391,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setRejectionReasonType("");
     setCustomRejectionReason("");
     setPersonalMessage("");
+    setSendMail(true);
     setCustomOfferPrice("");
     setOfferPeriodFrom(periodFrom);
     setOfferPeriodTo(periodTo);
@@ -552,6 +554,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           alternative: isAlternativeOffer,
           alternativeReason: isAlternativeOffer ? alternativeReason : undefined,
           personalMessage: personalMessage.trim() || undefined,
+          sendMail,
           customTotalCents,
           periodFrom: offerPeriodFrom,
           periodTo: offerPeriodTo,
@@ -563,7 +566,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             ? isAlternativeOffer
               ? "Alternativangebot wurde versendet."
               : "Angebot wurde versendet."
-            : "Angebot wurde in die Outbox gelegt und wird später versendet.",
+            : sendMail
+              ? "Angebot wurde versendet."
+              : "Angebot wurde gespeichert. Es wurde keine Mail versendet.",
         );
       } else if (activeAction === "cancel") {
         if (!cancellationPeriod) throw new Error("Bitte wähle den Stornozeitraum aus.");
@@ -573,6 +578,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           command: "cancel",
           reason,
           personalMessage: personalMessage.trim() || undefined,
+          sendMail,
           cancellationPeriod,
           cancellationFeeCents,
           dueAt: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
@@ -604,6 +610,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           command: "assign_stripe_payment",
           offerId: Number(stripeOfferId),
           sessionId: stripeSessionId,
+          sendMail,
         });
         toast.success(
           result?.accountingWarning
@@ -616,6 +623,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           command: "reject",
           reason: rejectionReason,
           personalMessage: personalMessage.trim() || undefined,
+          sendMail,
         });
         toast.success("Anfrage wurde abgelehnt.");
       } else if (activeAction === "manual_confirm") {
@@ -788,7 +796,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     if (!confirmAction) return;
     try {
       setBusy(true);
-      await request({ command: confirmAction });
+      await request({ command: confirmAction, ...(confirmAction === "check_out" ? { sendMail } : {}) });
       if (confirmAction === "delete_permanently") {
         toast.success("Buchung wurde endgültig gelöscht.");
         router.push("/admin/bookings");
@@ -1073,6 +1081,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     beim Speichern nochmals geprüft.
                   </FieldDescription>
                 </Field>
+                <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
+                  <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
+                  <span>
+                    <span className="font-medium">Bestätigungsmail mitsenden</span>
+                    <span className="block text-muted-foreground">
+                      Deaktivieren, wenn die Zahlung nur intern zugeordnet werden soll.
+                    </span>
+                  </span>
+                </label>
               </>
             )}
             {(activeAction === "manual_confirm" || activeAction === "status") && (
@@ -1495,6 +1512,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     Dieser Text wird direkt oben nach der Anrede in die Angebotsmail eingefügt.
                   </FieldDescription>
                 </Field>
+                <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
+                  <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
+                  <span>
+                    <span className="font-medium">Angebotsmail mitsenden</span>
+                    <span className="block text-muted-foreground">
+                      Deaktivieren, wenn nur das Angebot gespeichert werden soll.
+                    </span>
+                  </span>
+                </label>
                 <Field>
                   <FieldLabel htmlFor="offer-custom-price">Individueller Gesamtpreis (optional)</FieldLabel>
                   <Input
@@ -1620,6 +1646,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   />
                   <FieldDescription>Dieser Text wird zusätzlich in die Stornomail eingefügt.</FieldDescription>
                 </Field>
+                <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
+                  <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
+                  <span>
+                    <span className="font-medium">Stornomail mitsenden</span>
+                    <span className="block text-muted-foreground">
+                      Deaktivieren, wenn keine Kund:innen-Mail versendet werden soll.
+                    </span>
+                  </span>
+                </label>
                 <Field>
                   <FieldLabel htmlFor="cancel-fee">Stornogebühr in Euro</FieldLabel>
                   <Input
@@ -1769,6 +1804,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     {rejectionMailPreview}
                   </pre>
                 </div>
+                <label className="mt-4 flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
+                  <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
+                  <span>
+                    <span className="font-medium">Absagemail mitsenden</span>
+                    <span className="block text-muted-foreground">
+                      Deaktivieren, wenn die Absage nur intern gespeichert werden soll.
+                    </span>
+                  </span>
+                </label>
               </Field>
             )}
           </FieldGroup>
@@ -1780,7 +1824,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               {busy
                 ? "Wird gesendet…"
                 : showOfferFields
-                  ? "Angebot versenden"
+                  ? sendMail
+                    ? "Angebot versenden"
+                    : "Angebot speichern"
                   : activeAction === "revoke_offer"
                     ? "Angebot zurückziehen"
                     : activeAction === "stripe_payment"
@@ -1788,7 +1834,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       : activeAction === "manual_confirm"
                         ? "Verbindlich buchen"
                         : activeAction === "reject"
-                          ? "Ablehnung schicken"
+                          ? sendMail
+                            ? "Ablehnung schicken"
+                            : "Ablehnung speichern"
                           : "Aktion speichern"}
             </Button>
           </DialogFooter>
@@ -1812,6 +1860,17 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   ? "Der Vorgang wird vollständig aus der Datenbank entfernt. Diese Aktion kann nicht rückgängig gemacht werden. Finanz-, Rechnungs- und Ausgabedaten verhindern die Löschung automatisch."
                   : "Nach dem Abschluss sind keine weiteren Statuswechsel möglich."}
             </AlertDialogDescription>
+            {confirmAction === "check_out" ? (
+              <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
+                <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
+                <span>
+                  <span className="font-medium">Feedback-Mail mitsenden</span>
+                  <span className="block text-muted-foreground">
+                    Deaktivieren, wenn keine Mail zur Bewertung versendet werden soll.
+                  </span>
+                </span>
+              </label>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Abbrechen</AlertDialogCancel>

@@ -1497,7 +1497,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     }> = [];
     let concreteBikeChanged = false;
     if (input.assetsByRequestedItem !== undefined) {
-      if (booking.status !== "confirmed" || input.notifyCustomer !== true)
+      if (booking.status !== "confirmed")
         throw new BookingCommandError("Konkrete Fahrräder können nur bei bestätigten Buchungen geändert werden");
       const itemIds = currentItems.map((item) => item.id);
       const selectedItemIds = Object.keys(input.assetsByRequestedItem).map(Number);
@@ -1567,7 +1567,11 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
       concreteBikeChanged;
     const quotedTotalChanged =
       input.quotedTotalCents !== undefined && input.quotedTotalCents !== booking.quotedTotalCents;
-    if (commercialChanged && !["inquiry_received", "offer_sent"].includes(booking.status) && !input.notifyCustomer)
+    if (
+      commercialChanged &&
+      !["inquiry_received", "offer_sent"].includes(booking.status) &&
+      booking.status !== "confirmed"
+    )
       throw new BookingCommandError(
         "Fahrrad- und Zeitraumdaten können nach der Bestätigung nicht mehr geändert werden",
       );
@@ -1643,7 +1647,6 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
     }
     const confirmedPeriodChanged =
       booking.status === "confirmed" &&
-      input.notifyCustomer === true &&
       (booking.periodFrom !== input.periodFrom ||
         booking.periodTo !== input.periodTo ||
         booking.pickupTime !== input.pickupTime ||
@@ -1983,7 +1986,12 @@ function confirmOfferRecord(
   actorUserId?: string | null,
   payment?: StripeOfferPayment,
   offerToken?: string,
-  options: { allowExpired?: boolean; initialChargeCents?: number; confirmationReason?: string } = {},
+  options: {
+    allowExpired?: boolean;
+    initialChargeCents?: number;
+    confirmationReason?: string;
+    sendMail?: boolean;
+  } = {},
 ) {
   if (offer.status === "accepted") return { bookingId: offer.bookingId, alreadyConfirmed: true };
   const offerExpired = offer.status === "expired" || offer.expiresAt.getTime() <= Date.now();
@@ -2099,14 +2107,15 @@ function confirmOfferRecord(
       return { name: asset?.displayName ?? "Bike", frameNumber: asset?.frameNumber };
     }),
   });
-  queueCustomerMail(db, booking, {
-    kind: "booking_confirmed",
-    subjectDe: notice.subject,
-    subjectEn: notice.subject,
-    textDe: notice.text,
-    textEn: notice.text,
-    html: notice.html,
-  });
+  if (options.sendMail !== false)
+    queueCustomerMail(db, booking, {
+      kind: "booking_confirmed",
+      subjectDe: notice.subject,
+      subjectEn: notice.subject,
+      textDe: notice.text,
+      textEn: notice.text,
+      html: notice.html,
+    });
   return { bookingId: booking.id, alreadyConfirmed: false };
 }
 
@@ -2151,7 +2160,14 @@ export function confirmOfferWithStripePayment(
  */
 export function assignStripePaymentToBooking(
   db: AppDatabase,
-  input: { bookingId: number; offerId: number; amountCents: number; sessionId: string; actorUserId: string },
+  input: {
+    bookingId: number;
+    offerId: number;
+    amountCents: number;
+    sessionId: string;
+    actorUserId: string;
+    sendMail?: boolean;
+  },
 ) {
   return runInImmediateTransaction(db, () => {
     const offer = db.select().from(bookingOffers).where(eq(bookingOffers.id, input.offerId)).get();
@@ -2207,7 +2223,11 @@ export function assignStripePaymentToBooking(
       input.actorUserId,
       { amountCents: input.amountCents, sessionId: input.sessionId },
       undefined,
-      { allowExpired: true, confirmationReason: "Manuelle Zuordnung einer Stripe-Zahlung" },
+      {
+        allowExpired: true,
+        confirmationReason: "Manuelle Zuordnung einer Stripe-Zahlung",
+        sendMail: input.sendMail,
+      },
     );
   });
 }
@@ -2222,6 +2242,7 @@ export function cancelBooking(
     cancellationPeriod?: string;
     dueAt?: Date | null;
     actorUserId?: string | null;
+    sendMail?: boolean;
   },
 ) {
   return runInImmediateTransaction(db, () => {
@@ -2276,6 +2297,7 @@ export function cancelBooking(
           { account: "cancellation_fee_revenue", amountCents: -input.cancellationFeeCents },
         ],
       });
+    if (input.sendMail === false) return null;
     const notice = renderBookingNotice({
       kind: "cancelled",
       locale: booking.communicationLocale,
@@ -2483,6 +2505,7 @@ export function advanceBooking(
   actorUserId?: string | null,
   reason = "",
   personalMessage?: string,
+  sendMail = true,
 ) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, bookingId)).get();
@@ -2517,7 +2540,7 @@ export function advanceBooking(
         });
     }
     let queuedMailId: number | null = null;
-    if (target === "checked_out") {
+    if (target === "checked_out" && sendMail) {
       const feedbackToken = randomBytes(32).toString("hex");
       const feedbackMail = renderFeedbackRequestMail({
         locale: booking.communicationLocale,
@@ -2543,7 +2566,7 @@ export function advanceBooking(
         html: feedbackMail.html,
       });
     }
-    if (target === "rejected") {
+    if (target === "rejected" && sendMail) {
       const notice = renderBookingNotice({
         kind: "rejected",
         locale: booking.communicationLocale,

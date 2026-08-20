@@ -52,6 +52,7 @@ const commandSchema = z.discriminatedUnion("command", [
     reason: z.string().trim().max(500).optional(),
     alternativeReason: z.string().trim().max(1000).optional(),
     personalMessage: z.string().trim().max(2000).optional(),
+    sendMail: z.boolean().optional(),
     customTotalCents: z.number().int().min(0).optional(),
     periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum").optional(),
     periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum").optional(),
@@ -63,6 +64,7 @@ const commandSchema = z.discriminatedUnion("command", [
     cancellationFeeCents: z.number().int().min(0),
     reason,
     personalMessage: z.string().trim().max(2000).optional(),
+    sendMail: z.boolean().optional(),
     cancellationPeriod: z.enum(["more_than_7_days", "between_7_days_and_24_hours", "less_than_24_hours"]),
     dueAt: z.string().datetime().optional(),
   }),
@@ -75,15 +77,25 @@ const commandSchema = z.discriminatedUnion("command", [
     idempotencyKey: z.string().uuid(),
   }),
   z.object({ command: z.literal("correct_journal"), entryId: z.number().int().positive(), reason }),
-  z.object({ command: z.literal("reject"), reason, personalMessage: z.string().trim().max(2000).optional() }),
+  z.object({
+    command: z.literal("reject"),
+    reason,
+    personalMessage: z.string().trim().max(2000).optional(),
+    sendMail: z.boolean().optional(),
+  }),
   z.object({ command: z.literal("expire"), reason: z.string().trim().max(500).optional() }),
   z.object({ command: z.literal("revoke_offer"), reason: z.string().trim().max(500).optional() }),
-  z.object({ command: z.literal("check_out"), reason: z.string().trim().max(500).optional() }),
+  z.object({
+    command: z.literal("check_out"),
+    reason: z.string().trim().max(500).optional(),
+    sendMail: z.boolean().optional(),
+  }),
   z.object({ command: z.literal("complete"), reason: z.string().trim().max(500).optional() }),
   z.object({
     command: z.literal("assign_stripe_payment"),
     offerId: z.number().int().positive(),
     sessionId: z.string().trim().min(10).max(200),
+    sendMail: z.boolean().optional(),
   }),
   z.object({
     command: z.literal("set_legacy_status"),
@@ -162,6 +174,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           reason: input.data.reason,
           alternativeReason: input.data.alternativeReason,
           personalMessage: input.data.personalMessage,
+          sendMail: input.data.sendMail,
           customTotalCents: input.data.customTotalCents,
           periodFrom: input.data.periodFrom,
           periodTo: input.data.periodTo,
@@ -191,7 +204,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             { status: 502 },
           );
         }
-        return NextResponse.json({ ...createdOffer, mailStatus: mailResult?.status ?? "queued" });
+        return NextResponse.json({ ...createdOffer, mailStatus: mailResult?.status ?? null });
       }
       case "cancel": {
         const mailId = cancelBooking(command.db, {
@@ -202,8 +215,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           cancellationPeriod: input.data.cancellationPeriod,
           dueAt: input.data.dueAt ? new Date(input.data.dueAt) : null,
           actorUserId: command.user.id,
+          sendMail: input.data.sendMail,
         });
-        if (mailId) await dispatchNextOutboxMail(command.db, mailId);
+        const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
+        if (mailResult?.status === "failed")
+          return NextResponse.json(
+            {
+              message: "Die Buchung wurde storniert, aber die Stornomail konnte nicht versendet werden.",
+              mailStatus: mailResult.status,
+            },
+            { status: 502 },
+          );
         break;
       }
       case "refund":
@@ -234,8 +256,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             command.user.id,
             input.data.reason,
             input.data.personalMessage,
+            input.data.sendMail,
           );
-          if (mailId) await dispatchNextOutboxMail(command.db, mailId);
+          const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
+          if (mailResult?.status === "failed")
+            return NextResponse.json(
+              {
+                message: "Die Anfrage wurde abgelehnt, aber die Absagemail konnte nicht versendet werden.",
+                mailStatus: mailResult.status,
+              },
+              { status: 502 },
+            );
         }
         break;
       case "expire":
@@ -246,8 +277,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "check_out":
         {
-          const mailId = advanceBooking(command.db, id, "checked_out", command.user.id, input.data.reason);
-          if (mailId) await dispatchNextOutboxMail(command.db, mailId);
+          const mailId =
+            input.data.sendMail === undefined
+              ? advanceBooking(command.db, id, "checked_out", command.user.id, input.data.reason)
+              : advanceBooking(
+                  command.db,
+                  id,
+                  "checked_out",
+                  command.user.id,
+                  input.data.reason,
+                  undefined,
+                  input.data.sendMail,
+                );
+          const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
+          if (mailResult?.status === "failed")
+            return NextResponse.json(
+              {
+                message: "Die Ausgabe wurde erfasst, aber die Feedback-Mail konnte nicht versendet werden.",
+                mailStatus: mailResult.status,
+              },
+              { status: 502 },
+            );
         }
         break;
       case "complete":
@@ -264,6 +314,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           amountCents,
           sessionId: session.id,
           actorUserId: command.user.id,
+          sendMail: input.data.sendMail,
         });
         let accountingWarning: string | null = null;
         try {
@@ -277,17 +328,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             error,
           });
         }
-        const confirmationMailId = command.db
-          .select({ id: mailOutbox.id })
-          .from(mailOutbox)
-          .where(
-            and(
-              eq(mailOutbox.bookingId, id),
-              eq(mailOutbox.kind, "booking_confirmed"),
-              eq(mailOutbox.status, "queued"),
-            ),
-          )
-          .get()?.id;
+        const confirmationMailId =
+          input.data.sendMail === false
+            ? undefined
+            : command.db
+                .select({ id: mailOutbox.id })
+                .from(mailOutbox)
+                .where(
+                  and(
+                    eq(mailOutbox.bookingId, id),
+                    eq(mailOutbox.kind, "booking_confirmed"),
+                    eq(mailOutbox.status, "queued"),
+                  ),
+                )
+                .get()?.id;
         const mailResult = confirmationMailId ? await dispatchNextOutboxMail(command.db, confirmationMailId) : null;
         if (mailResult?.status === "failed") {
           return NextResponse.json(

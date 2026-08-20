@@ -50,6 +50,10 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
   const transactionRows = db
     .select({
       id: financialTransactionAllocations.id,
+      // EÜR follows the cash principle: for bank movements the booking date
+      // is the date of the account credit/debit. Do not use valueDate here;
+      // that is the bank's value date (Valuta), which may differ from the
+      // date on which the credit was actually posted to the account.
       date: financialTransactions.bookedAt,
       categoryCode: financialCategories.code,
       category: sql<string>`coalesce(${financialCategories.name}, 'EÜR-Zuordnung fehlt')`,
