@@ -63,9 +63,7 @@ export async function generateRentalMetadata({ searchParams, location, locale }:
   const localizedPath = getLocalizedLocationPath(location, lang);
   const heroImageUrl = new URL(mainImage.src, siteConfig.url).toString();
 
-  const title = isGerman
-    ? `Canyon Carbon Rennrad & Gravel Leihen in ${district} | Your Bike Rental`
-    : `Rent Canyon Carbon Road & Gravel Bikes in ${district} | Your Bike Rental`;
+  const title = getLocationCopy(location, lang).heroTitle;
   const description = isGerman
     ? `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Räder, direkte Anfrage, persönliche Beratung und klare Preise.`
     : `Personal road and gravel bike rental in ${city} ${district} with serviced bikes, direct inquiry, personal advice and transparent pricing.`;

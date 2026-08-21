@@ -568,6 +568,13 @@
       "when": 1787139006000,
       "tag": "0081_allow_manual_account_corrections",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1787139007000,
+      "tag": "0082_repair_startup_data_integrity",
+      "breakpoints": true
     }
   ]
 }

@@ -500,7 +500,7 @@ button {
   margin: 0 0 24px;
   max-width: 630px;
   font-family: "Poppins", Arial, Helvetica, sans-serif;
-  font-size: clamp(3rem, 5.1vw, 4.15rem);
+  font-size: clamp(2.8rem, 4.5vw, 3.7rem);
   font-weight: 900;
   letter-spacing: 0.02em;
   line-height: 1.15;

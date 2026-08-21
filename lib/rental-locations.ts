@@ -130,7 +130,7 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
 
   if (locale === "en") {
     return {
-      heroTitle: `ROAD & GRAVEL BIKE RENTAL ${city.toUpperCase()}`,
+      heroTitle: `Canyon Carbon Road & Gravel Bike Rental in ${city}`,
       heroIntro: `Personal road and gravel bike rental in ${city} ${district}: serviced endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. You get direct contact, honest advice and transparent rates instead of anonymous mass rental.`,
       priceIntro: `Clear prices for your bike rental in ${city}: road bikes from €49, with discounts on top. Accessories from €0.`,
       pricePromise: `If you find a comparable road bike in ${city} with similar equipment for less elsewhere, you get the better price with us.`,
@@ -152,7 +152,7 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
   }
 
   return {
-    heroTitle: `RENNRAD-, GRAVEL-VERLEIH ${city.toUpperCase()}`,
+    heroTitle: `Canyon Carbon Rennrad & Gravel-Verleih ${city}`,
     heroIntro: `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.`,
     priceIntro: `Klare Preise für deinen Bike-Verleih in ${city}: Rennräder ab 49€ plus Rabatte obendrauf. Zubehör ab 0€.`,
     pricePromise: `Findest du in ${city} ein vergleichbares Rennrad mit ähnlicher Ausstattung günstiger, bekommst du bei uns den besseren Preis.`,
