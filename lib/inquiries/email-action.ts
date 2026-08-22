@@ -226,6 +226,17 @@ export function getLatestEmailActionReview(db: AppDatabase, bookingId: number) {
   );
 }
 
+export function isEmailQuestionsManuallyResolved(
+  latestEmailActionReview: Pick<typeof emailActionReviews.$inferSelect, "createdAt"> | null,
+  latestEmailQuestionsEvent: { eventType: string; occurredAt: Date } | null,
+) {
+  return (
+    latestEmailQuestionsEvent?.eventType === "email_questions_resolved" &&
+    (!latestEmailActionReview ||
+      latestEmailQuestionsEvent.occurredAt.getTime() >= latestEmailActionReview.createdAt.getTime())
+  );
+}
+
 export async function reviewLatestUnprocessedEmailThread(db: AppDatabase, bookingId: number) {
   const booking = db
     .select({ createdAt: bookings.createdAt, source: bookings.source })

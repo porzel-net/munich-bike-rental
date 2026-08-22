@@ -27,7 +27,12 @@ import { getBookingPaymentStatus } from "@/lib/bookings/service";
 import { formatEuro } from "@/lib/bookings/money";
 import { bookingPresentation, paymentPresentation } from "@/lib/bookings/presentation";
 import { getDatabase } from "@/lib/db/client";
-import { getLatestEmailActionReview, isEmailActionEligible, reviewQuestions } from "@/lib/inquiries/email-action";
+import {
+  getLatestEmailActionReview,
+  isEmailActionEligible,
+  isEmailQuestionsManuallyResolved,
+  reviewQuestions,
+} from "@/lib/inquiries/email-action";
 import { getLocationInventory } from "@/lib/inventory/repository";
 import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
 import {
@@ -200,10 +205,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .orderBy(desc(bookingEvents.occurredAt), desc(bookingEvents.id))
     .all()
     .find((event) => event.eventType === "email_questions_resolved" || event.eventType === "email_questions_reopened");
-  const emailQuestionsManuallyResolved =
-    latestEmailQuestionsEvent?.eventType === "email_questions_resolved" &&
-    (!latestEmailActionReview ||
-      latestEmailQuestionsEvent.occurredAt.getTime() >= latestEmailActionReview.createdAt.getTime());
+  const emailQuestionsManuallyResolved = isEmailQuestionsManuallyResolved(
+    latestEmailActionReview,
+    latestEmailQuestionsEvent ?? null,
+  );
   const hasPendingEmailAction =
     !emailQuestionsManuallyResolved &&
     (latestEmailActionReview?.status === "needs_action" ||

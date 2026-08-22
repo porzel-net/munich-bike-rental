@@ -7,6 +7,7 @@ import {
   buildEmailActionPrompt,
   isEmailActionEligible,
   isInitialInquiryMessage,
+  isEmailQuestionsManuallyResolved,
   reviewBookingEmailThread,
 } from "../../lib/inquiries/email-action";
 import { emailActionEvaluationCases } from "../fixtures/email-action-evaluation";
@@ -18,6 +19,29 @@ afterEach(() => {
 });
 
 describe("email action evaluation fixtures", () => {
+  it("honors manual resolution until a newer mail review exists", () => {
+    const reviewCreatedAt = new Date("2026-08-22T10:00:00.000Z");
+
+    expect(
+      isEmailQuestionsManuallyResolved(
+        { createdAt: reviewCreatedAt },
+        { eventType: "email_questions_resolved", occurredAt: new Date("2026-08-22T10:01:00.000Z") },
+      ),
+    ).toBe(true);
+    expect(
+      isEmailQuestionsManuallyResolved(
+        { createdAt: reviewCreatedAt },
+        { eventType: "email_questions_resolved", occurredAt: new Date("2026-08-22T09:59:00.000Z") },
+      ),
+    ).toBe(false);
+    expect(
+      isEmailQuestionsManuallyResolved(
+        { createdAt: reviewCreatedAt },
+        { eventType: "email_questions_reopened", occurredAt: new Date("2026-08-22T10:01:00.000Z") },
+      ),
+    ).toBe(false);
+  });
+
   it("contains twenty open and twenty closed conversations", () => {
     expect(emailActionEvaluationCases).toHaveLength(40);
     expect(emailActionEvaluationCases.filter((item) => item.expectedNeedsAction)).toHaveLength(20);

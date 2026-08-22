@@ -21,6 +21,7 @@ import {
   bikeModels,
   bikeVariants,
   bookingRequestedItems,
+  bookingEvents,
   bookings,
   emailActionReviews,
   journalEntries,
@@ -33,7 +34,7 @@ import { getBookingMigrationPreflight } from "@/lib/bookings/preflight";
 import { BookingStatusFilter } from "@/components/booking-status-filter";
 import type { BookingStatus } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
-import { EMAIL_ACTION_START_AT } from "@/lib/inquiries/email-action";
+import { EMAIL_ACTION_START_AT, isEmailQuestionsManuallyResolved } from "@/lib/inquiries/email-action";
 import { authUser } from "@/lib/db/schema";
 
 type BookingPeriod = "all" | "week" | "month" | "six_months" | "year";
@@ -196,14 +197,43 @@ export default async function BookingsPage({
   for (const review of actionReviews) {
     if (!latestActionReviewByBooking.has(review.bookingId)) latestActionReviewByBooking.set(review.bookingId, review);
   }
+  const emailQuestionsEvents = queriedRows.length
+    ? db
+        .select({
+          bookingId: bookingEvents.bookingId,
+          eventType: bookingEvents.eventType,
+          occurredAt: bookingEvents.occurredAt,
+          id: bookingEvents.id,
+        })
+        .from(bookingEvents)
+        .where(
+          and(
+            inArray(
+              bookingEvents.bookingId,
+              queriedRows.map((row) => row.id),
+            ),
+            inArray(bookingEvents.eventType, ["email_questions_resolved", "email_questions_reopened"]),
+          ),
+        )
+        .orderBy(desc(bookingEvents.occurredAt), desc(bookingEvents.id))
+        .all()
+    : [];
+  const latestEmailQuestionsEventByBooking = new Map<number, (typeof emailQuestionsEvents)[number]>();
+  for (const event of emailQuestionsEvents) {
+    if (!latestEmailQuestionsEventByBooking.has(event.bookingId)) {
+      latestEmailQuestionsEventByBooking.set(event.bookingId, event);
+    }
+  }
   const hasPendingEmailAction = (row: (typeof queriedRows)[number]) => {
     const latestActionReview = latestActionReviewByBooking.get(row.id);
+    const latestEmailQuestionsEvent = latestEmailQuestionsEventByBooking.get(row.id) ?? null;
     return (
-      latestActionReview?.status === "needs_action" ||
-      latestActionReview?.status === "error" ||
-      (!latestActionReview &&
-        row.status === "inquiry_received" &&
-        row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime())
+      !isEmailQuestionsManuallyResolved(latestActionReview ?? null, latestEmailQuestionsEvent) &&
+      (latestActionReview?.status === "needs_action" ||
+        latestActionReview?.status === "error" ||
+        (!latestActionReview &&
+          row.status === "inquiry_received" &&
+          row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime()))
     );
   };
   const receivableLines = queriedRows.length
