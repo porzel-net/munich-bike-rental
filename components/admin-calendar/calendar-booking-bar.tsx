@@ -43,6 +43,15 @@ export function CalendarBookingBar({
           {event.orderNumber} · {event.locationLabel}
         </span>
         <span>Bike: {event.selectedItems.join(" / ") || "unbekannt"}</span>
+        {event.selectedBikes.some((bike) => bike.nickname) ? (
+          <span>
+            Spitzname:{" "}
+            {event.selectedBikes
+              .map((bike) => bike.nickname)
+              .filter(Boolean)
+              .join(" / ")}
+          </span>
+        ) : null}
         <span>
           Zeiten: {event.pickupTime} – {event.dropoffTime} Uhr
         </span>

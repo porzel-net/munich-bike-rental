@@ -15,9 +15,22 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { ChevronRightIcon } from "lucide-react";
+import { calendarStatusPreferenceKey, calendarStatusPreferenceMaxAge } from "@/lib/calendar/filter-preferences";
 
 const NAV_OPEN_ITEMS_COOKIE = "admin_nav_open_items";
 const NAV_OPEN_ITEMS_MAX_AGE = 60 * 60 * 24 * 30;
+
+function migrateCalendarStatusPreference() {
+  const hasCookie = document.cookie
+    .split(";")
+    .some((cookie) => cookie.trim().startsWith(`${calendarStatusPreferenceKey}=`));
+  if (hasCookie) return;
+
+  const storedValue = window.localStorage.getItem(calendarStatusPreferenceKey);
+  if (storedValue === null) return;
+
+  document.cookie = `${calendarStatusPreferenceKey}=${encodeURIComponent(storedValue)}; path=/; max-age=${calendarStatusPreferenceMaxAge}; samesite=lax`;
+}
 
 export function NavMain({
   items,
@@ -56,7 +69,14 @@ export function NavMain({
                   <>
                     <SidebarMenuButton
                       render={
-                        item.items?.length ? <button type="button" onClick={toggleItem} /> : <a href={item.url} />
+                        item.items?.length ? (
+                          <button type="button" onClick={toggleItem} />
+                        ) : (
+                          <a
+                            href={item.url}
+                            onClick={item.url === "/admin/calendar" ? migrateCalendarStatusPreference : undefined}
+                          />
+                        )
                       }
                       tooltip={item.title}
                       isActive={

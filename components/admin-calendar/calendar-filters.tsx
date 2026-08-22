@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -14,13 +13,12 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { calendarStatusPreferenceKey, calendarStatusPreferenceMaxAge } from "@/lib/calendar/filter-preferences";
 
 export type CalendarFilterOption = {
   value: string;
   label: string;
 };
-
-const calendarStatusStorageKey = "munich-bike-rental.calendar.status-filter";
 
 export function CalendarFilters({
   locationItems,
@@ -40,7 +38,9 @@ export function CalendarFilters({
   function updateParam(key: "location" | "status", nextValue: string | string[] | null) {
     const params = new URLSearchParams(searchParams.toString());
     const value = Array.isArray(nextValue) ? nextValue.join(",") : nextValue;
-    if (key === "status") window.localStorage.setItem(calendarStatusStorageKey, value && value !== "all" ? value : "");
+    if (key === "status") {
+      document.cookie = `${calendarStatusPreferenceKey}=${encodeURIComponent(value && value !== "all" ? value : "")}; path=/; max-age=${calendarStatusPreferenceMaxAge}; samesite=lax`;
+    }
     if (!value || value === "all") params.delete(key);
     else params.set(key, value);
 
@@ -51,25 +51,6 @@ export function CalendarFilters({
   const selectedLocationLabel = locationItems.find((item) => item.value === locationValue)?.label ?? "Alle Standorte";
   const statusValues = statusItems.map((item) => item.value);
   const selectedStatusValues = statusValue.split(",").filter((value) => statusValues.includes(value));
-  const hasRestoredStatus = useRef(false);
-
-  useEffect(() => {
-    if (hasRestoredStatus.current) return;
-    hasRestoredStatus.current = true;
-
-    const storedValue = window.localStorage.getItem(calendarStatusStorageKey) ?? "";
-    if (statusValue) {
-      window.localStorage.setItem(calendarStatusStorageKey, selectedStatusValues.join(","));
-      return;
-    }
-
-    const storedStatuses = storedValue.split(",").filter((value) => statusValues.includes(value));
-    if (!storedStatuses.length) return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("status", storedStatuses.join(","));
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [pathname, router, searchParams, selectedStatusValues, statusValue, statusValues]);
 
   return (
     <div className="flex flex-wrap items-center gap-2">

@@ -37,10 +37,16 @@ export type CalendarBookingSource = {
   status: BookingStatus;
   requestedItems: string[];
   selectedItems?: string[];
+  selectedBikes?: CalendarBookingBike[];
   customerPhone: string;
   pickupTime: string;
   dropoffTime: string;
   requestedEquipment: string[];
+};
+
+export type CalendarBookingBike = {
+  displayName: string;
+  nickname: string | null;
 };
 
 export type CalendarBookingEvent = {
@@ -59,6 +65,7 @@ export type CalendarBookingEvent = {
   tooltip: string;
   requestedItems: string[];
   selectedItems: string[];
+  selectedBikes: CalendarBookingBike[];
   customerPhone: string;
   pickupTime: string;
   dropoffTime: string;
@@ -149,7 +156,18 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
   const locationCode = locationCodes[booking.location];
   const statusLabel = bookingPresentation[booking.status].label;
   const selectedItems = booking.selectedItems?.length ? booking.selectedItems : booking.requestedItems;
-  const selectedItemsLabel = selectedItems.length ? selectedItems.join(" / ") : "Fahrrad unbekannt";
+  const selectedBikes = booking.selectedBikes?.length
+    ? booking.selectedBikes
+    : selectedItems.map((displayName) => ({ displayName, nickname: null }));
+  const selectedItemsLabel = selectedBikes.length
+    ? selectedBikes.map((bike) => bike.nickname || bike.displayName).join(" / ")
+    : "Fahrrad unbekannt";
+  const selectedBikesLabel = selectedBikes.length
+    ? selectedBikes.map((bike) => bike.displayName).join(" / ")
+    : "Fahrrad unbekannt";
+  const selectedNicknames = selectedBikes
+    .map((bike) => bike.nickname?.trim())
+    .filter((nickname): nickname is string => Boolean(nickname));
 
   return {
     id: booking.id,
@@ -164,12 +182,12 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
     startDate,
     endDate,
     displayLabel: `${locationCode} · ${selectedItemsLabel}`,
-    tooltip: `${booking.customerName} · ${booking.orderNumber} · ${locationLabel} · ${selectedItemsLabel} · ${statusLabel} · ${formatCalendarRange(
-      startDate,
-      endDate,
-    )}`,
+    tooltip: `${booking.customerName} · ${booking.orderNumber} · ${locationLabel} · Bike: ${selectedBikesLabel}${
+      selectedNicknames.length ? ` · Spitzname: ${selectedNicknames.join(" / ")}` : ""
+    } · ${statusLabel} · ${formatCalendarRange(startDate, endDate)}`,
     requestedItems: booking.requestedItems,
-    selectedItems,
+    selectedItems: selectedBikes.map((bike) => bike.displayName),
+    selectedBikes,
     customerPhone: booking.customerPhone,
     pickupTime: booking.pickupTime,
     dropoffTime: booking.dropoffTime,

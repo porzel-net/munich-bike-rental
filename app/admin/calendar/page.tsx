@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CSSProperties } from "react";
 import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "date-fns";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -17,8 +18,10 @@ import {
   getCalendarYearLabel,
   parseCalendarMonthKey,
   toCalendarBookingEvent,
+  type CalendarBookingBike,
 } from "@/lib/calendar/admin-calendar";
 import { getDatabase } from "@/lib/db/client";
+import { calendarStatusPreferenceKey } from "@/lib/calendar/filter-preferences";
 import {
   bookingAssetAllocations,
   bookingOfferItems,
@@ -53,6 +56,15 @@ function resolveStatuses(value: string | undefined): BookingStatus[] {
     .filter((status): status is BookingStatus => (bookingStatuses as readonly string[]).includes(status));
 }
 
+function decodeCookieValue(value: string | undefined) {
+  if (!value) return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function calendarHref(month: Date, location: string, status: string) {
   const params = new URLSearchParams({ month: getCalendarMonthKey(month) });
   if (location !== "all") params.set("location", location);
@@ -77,7 +89,9 @@ export default async function CalendarPage({
   const params = await searchParams;
   const month = parseCalendarMonthKey(params.month);
   const location = resolveLocation(params.location, administrator, assignedLocation);
-  const statuses = resolveStatuses(params.status);
+  const statusPreference =
+    params.status ?? decodeCookieValue((await cookies()).get(calendarStatusPreferenceKey)?.value);
+  const statuses = resolveStatuses(statusPreference);
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
   const db = getDatabase();
@@ -142,28 +156,35 @@ export default async function CalendarPage({
   ];
   const assets = assetIds.length
     ? db
-        .select({ id: rentalAssets.id, displayName: rentalAssets.displayName })
+        .select({ id: rentalAssets.id, displayName: rentalAssets.displayName, nickname: rentalAssets.nickname })
         .from(rentalAssets)
         .where(inArray(rentalAssets.id, assetIds))
         .all()
     : [];
-  const assetNames = new Map(assets.map((asset) => [asset.id, asset.displayName]));
-  const allocatedAssetsByBooking = new Map<number, string[]>();
+  const assetDetails = new Map<number, CalendarBookingBike>(
+    assets.map((asset) => [asset.id, { displayName: asset.displayName, nickname: asset.nickname }]),
+  );
+  const allocatedAssetsByBooking = new Map<number, CalendarBookingBike[]>();
   for (const allocation of allocations) {
-    const name = assetNames.get(allocation.assetId);
-    if (name && !allocatedAssetsByBooking.get(allocation.bookingId)?.includes(name)) {
+    const bike = assetDetails.get(allocation.assetId);
+    if (
+      bike &&
+      !allocatedAssetsByBooking
+        .get(allocation.bookingId)
+        ?.some((selectedBike) => selectedBike.displayName === bike.displayName)
+    ) {
       allocatedAssetsByBooking.set(allocation.bookingId, [
         ...(allocatedAssetsByBooking.get(allocation.bookingId) ?? []),
-        name,
+        bike,
       ]);
     }
   }
-  const offeredAssetsByBooking = new Map<number, string[]>();
+  const offeredAssetsByBooking = new Map<number, CalendarBookingBike[]>();
   for (const item of offerItems) {
     const offer = offers.find((candidate) => candidate.id === item.offerId);
-    const name = assetNames.get(item.assetId);
-    if (offer && name)
-      offeredAssetsByBooking.set(offer.bookingId, [...(offeredAssetsByBooking.get(offer.bookingId) ?? []), name]);
+    const bike = assetDetails.get(item.assetId);
+    if (offer && bike)
+      offeredAssetsByBooking.set(offer.bookingId, [...(offeredAssetsByBooking.get(offer.bookingId) ?? []), bike]);
   }
   const events = rows.map((row) =>
     toCalendarBookingEvent({
@@ -175,7 +196,10 @@ export default async function CalendarPage({
       periodTo: row.periodTo,
       status: row.status,
       requestedItems: (itemsByBooking.get(row.id) ?? []).map((item) => item.requestedLabel),
-      selectedItems: allocatedAssetsByBooking.get(row.id) ?? offeredAssetsByBooking.get(row.id) ?? [],
+      selectedItems: (allocatedAssetsByBooking.get(row.id) ?? offeredAssetsByBooking.get(row.id) ?? []).map(
+        (bike) => bike.displayName,
+      ),
+      selectedBikes: allocatedAssetsByBooking.get(row.id) ?? offeredAssetsByBooking.get(row.id) ?? [],
       customerPhone: row.customerPhone,
       pickupTime: row.pickupTime,
       dropoffTime: row.dropoffTime,
