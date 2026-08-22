@@ -5,6 +5,7 @@ import { createDatabaseConnection } from "../../lib/db/client";
 import { communicationMessages, mailOutbox } from "../../lib/db/schema";
 import { getPublicBookingByToken, getPublicBookingContactEmail } from "../../lib/bookings/public";
 import { createBooking } from "../../lib/bookings/service";
+import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -16,6 +17,7 @@ describe("public booking link", () => {
   it("puts a durable status link into the initial customer confirmation", () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);
+    seedRentalInventoryIfEmpty(connection.db);
 
     const created = createBooking(connection.db, {
       customerName: "Test Kunde",
@@ -77,6 +79,10 @@ describe("public booking link", () => {
     expect(publicBooking?.booking).not.toHaveProperty("email");
     expect(publicBooking?.booking).not.toHaveProperty("phone");
     expect(publicBooking?.booking).not.toHaveProperty("message");
+    expect(publicBooking?.items[0]).toMatchObject({
+      weekdayPriceCents: 4_900,
+      weekendPriceCents: 6_900,
+    });
     expect(getPublicBookingContactEmail(connection.db, token!)).toBe("test@example.com");
   });
 });

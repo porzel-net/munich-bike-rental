@@ -145,8 +145,15 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
   const localPortfolioItems = inventory.portfolioItems;
   const localPriceItems = priceItems.flatMap((item, index) => {
     if (index === 0) {
-      const price = (inventory.minimumBikePriceCents / 100).toFixed(0);
-      return { ...item, cost: { de: `ab ${price}€`, en: `from ${price}€` } };
+      const weekdayPrice = (inventory.minimumBikePriceCents / 100).toFixed(0);
+      const weekendPrice = (inventory.minimumWeekendBikePriceCents / 100).toFixed(0);
+      return {
+        ...item,
+        cost: {
+          de: `Mo-Fr ab ${weekdayPrice}€ · Sa-So ab ${weekendPrice}€`,
+          en: `Mon-Fri from ${weekdayPrice}€ · Sat-Sun from ${weekendPrice}€`,
+        },
+      };
     }
     if (index === priceItems.length - 1) {
       const price = (inventory.accessoryFromCents / 100).toFixed(0);
@@ -294,7 +301,15 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
         <div className="container price-grid">
           <div className="price-grid__copy">
             <SectionHeading eyebrow={t.price.eyebrow} title={t.price.title} />
-            <p className="section-copy">{copy.priceIntro}</p>
+            <p className="section-copy">
+              {lang === "de"
+                ? `Klare Preise für deinen Bike-Verleih in ${location.city[lang]}: Rennräder ab ${(inventory.minimumBikePriceCents / 100).toFixed(0)}€ von Mo-Fr und ab ${(inventory.minimumWeekendBikePriceCents / 100).toFixed(0)}€ von Sa-So. Zubehör ab ${(inventory.accessoryFromCents / 100).toFixed(0)}€.`
+                : `Clear prices for your bike rental in ${location.city[lang]}: road bikes from ${(
+                    inventory.minimumBikePriceCents / 100
+                  ).toFixed(
+                    0,
+                  )}€ Mon-Fri and from ${(inventory.minimumWeekendBikePriceCents / 100).toFixed(0)}€ Sat-Sun. Accessories from ${(inventory.accessoryFromCents / 100).toFixed(0)}€.`}
+            </p>
           </div>
 
           <div className="price-grid__list">

@@ -9,6 +9,7 @@ vi.mock("../../lib/bookings/invoice-pdf", () => ({ renderInvoicePdf }));
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import {
+  authUser,
   bookingOffers,
   bookings,
   communicationMessages,
@@ -294,6 +295,101 @@ describe("booking mail threads", () => {
             content: Buffer.from("%PDF-test"),
             contentType: "application/pdf",
           }),
+        ]),
+      }),
+    );
+  });
+
+  it("attaches all location staff and all admins' contact cards to customer mail", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const timestamp = new Date();
+    db.insert(authUser)
+      .values({
+        id: "munich-staff",
+        name: "Max Mustermann",
+        email: "max@example.com",
+        role: "standortuser",
+        locationKey: "munich",
+        whatsappPhone: "+49 170 1234567",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .run();
+    db.insert(authUser)
+      .values({
+        id: "munich-staff-2",
+        name: "Erika Beispiel",
+        email: "erika@example.com",
+        role: "standortuser",
+        locationKey: "munich",
+        whatsappPhone: "+49 171 7654321",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .run();
+    db.insert(authUser)
+      .values({
+        id: "admin",
+        name: "Julius Porzel",
+        email: "julius@example.com",
+        role: "admin",
+        locationKey: null,
+        whatsappPhone: "+49 172 1122334",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .run();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260804180000",
+        assignedUserId: "munich-staff",
+        customerName: "Ada Lovelace",
+        customerEmail: "ada@example.com",
+        customerPhone: "+49 111",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        customerMessage: "",
+        communicationLocale: "de",
+        source: "web",
+        status: "offer_sent",
+        quotedTotalCents: 12_000,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .returning({ id: bookings.id })
+      .get();
+    const mail = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "offer:staff-contact-card",
+        kind: "offer",
+        locale: "de",
+        recipient: "ada@example.com",
+        subject: "Angebot #20260804180000",
+        plainText: "Wir können dir ein Fahrrad anbieten.",
+        status: "queued",
+        attempts: 0,
+        nextAttemptAt: timestamp,
+        createdAt: timestamp,
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+
+    await dispatchNextOutboxMail(db, mail.id);
+
+    expect(sendMail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ filename: "Max-Mustermann.vcf" }),
+          expect.objectContaining({ filename: "Erika-Beispiel.vcf" }),
+          expect.objectContaining({ filename: "Julius-Porzel.vcf" }),
         ]),
       }),
     );

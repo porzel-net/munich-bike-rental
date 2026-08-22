@@ -34,6 +34,8 @@ type TopbarTranslations = {
 type ModalTranslations = {
   bike: string;
   pricePerDay: string;
+  weekdayPrice: string;
+  weekendPrice: string;
   facts: string;
   reserve: string;
   checked: string;
@@ -648,8 +650,15 @@ function BikeModal({
             <p className="bike-modal__description">{bike.description[lang]}</p>
 
             <div className="bike-modal__pricing">
-              <span>{translations.pricePerDay}</span>
-              <strong>{bike.price[lang]}</strong>
+              <span className="sr-only">{translations.pricePerDay}</span>
+              <div className="bike-modal__pricing-row">
+                <span>{translations.weekdayPrice}</span>
+                <strong>{bike.weekdayPrice?.[lang] ?? bike.price[lang]}</strong>
+              </div>
+              <div className="bike-modal__pricing-row">
+                <span>{translations.weekendPrice}</span>
+                <strong>{bike.weekendPrice?.[lang] ?? bike.price[lang]}</strong>
+              </div>
             </div>
 
             <button

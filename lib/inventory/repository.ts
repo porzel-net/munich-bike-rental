@@ -34,6 +34,7 @@ export type LocationInventory = {
   repairKitIncluded: boolean;
   accessoryFromCents: number;
   minimumBikePriceCents: number;
+  minimumWeekendBikePriceCents: number;
   discounts: Array<{
     key: string;
     label: Record<Locale, string>;
@@ -233,10 +234,10 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       },
       discountText: {
         de:
-          bikes.find((candidate) => candidate.title === bike.title && candidate.discountTextDe.trim())
+          bikes.find((candidate) => candidate.title === bike.title && (candidate.discountTextDe ?? "").trim())
             ?.discountTextDe ?? "",
         en:
-          bikes.find((candidate) => candidate.title === bike.title && candidate.discountTextEn.trim())
+          bikes.find((candidate) => candidate.title === bike.title && (candidate.discountTextEn ?? "").trim())
             ?.discountTextEn ?? "",
       },
       description: { de: bike.descriptionDe, en: bike.descriptionEn },
@@ -259,6 +260,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     repairKitIncluded: equipment.some((item) => item.accessoryKey === "repair-kit"),
     accessoryFromCents: equipment.length ? Math.min(...equipment.map((item) => item.priceCents)) : 0,
     minimumBikePriceCents: bikes.length ? Math.min(...bikes.map((item) => item.weekdayPriceCentsPerDay)) : 0,
+    minimumWeekendBikePriceCents: bikes.length ? Math.min(...bikes.map((item) => item.weekendPriceCentsPerDay)) : 0,
     discounts: discounts.map((discount) => ({
       key: discount.discountKey,
       label: { de: discount.labelDe, en: discount.labelEn },

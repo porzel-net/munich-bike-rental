@@ -706,6 +706,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     dropoffTime={booking.dropoffTime}
                     status={booking.status}
                     customerName={booking.customerName}
+                    communicationLocale={booking.communicationLocale}
                     senderName={session.user.name}
                     paymentAccounts={paymentAccounts}
                     isLegacy={booking.source === "legacy"}

@@ -22,3 +22,20 @@ export const dashboardRevenueGoals = sqliteTable(
     check("dashboard_revenue_goals_monthly_cents_check", sql`${table.monthlyGoalCents} > 0`),
   ],
 );
+
+/** Activities dismissed by a user on the admin dashboard. */
+export const dashboardActivityDismissals = sqliteTable(
+  "dashboard_activity_dismissals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    activityId: text("activity_id").notNull(),
+    dismissedAt: integer("dismissed_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("dashboard_activity_dismissals_user_activity_unique").on(table.userId, table.activityId),
+    index("dashboard_activity_dismissals_user_idx").on(table.userId),
+  ],
+);

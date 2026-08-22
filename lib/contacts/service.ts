@@ -6,6 +6,7 @@ import { isAdmin, getVisibleLocationScope, type AuthorizedUser } from "@/lib/aut
 import type { AppDatabase } from "@/lib/db/client";
 import { bookings } from "@/lib/db/schema";
 import { carddavUsername } from "@/lib/carddav/config";
+import { escapeVCard } from "./contact-card";
 
 export type ContactBooking = {
   id: number;
@@ -103,13 +104,6 @@ export function getVisibleContacts(db: AppDatabase, user: AuthorizedUser & { id?
   }
 
   return [...grouped.values()].sort((left, right) => left.name.localeCompare(right.name, "de-DE"));
-}
-
-function escapeVCard(value: string) {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/([,;])/g, "\\$1")
-    .replace(/[\r\n]+/g, "\\n");
 }
 
 export function contactToVCard(contact: VisibleContact) {

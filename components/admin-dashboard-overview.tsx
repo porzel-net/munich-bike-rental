@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, Pie, PieChart, XAxis } from "recharts";
+import { CalendarX2, Check, CircleCheck, Inbox, Landmark } from "lucide-react";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,7 +44,16 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Item, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemTitle } from "@/components/ui/item";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
@@ -99,6 +110,102 @@ const trafficChartConfig = {
 const bookingFunnelChartConfig = {
   count: { label: "Buchungen", color: "var(--chart-1)" },
 } satisfies ChartConfig;
+
+type ActivityKind = "expired_booking" | "paid_booking" | "bank_transaction" | "incoming_booking_request";
+
+type ActivityItem = {
+  id: string;
+  kind: ActivityKind;
+  title: string;
+  entityName: string;
+  href: string;
+};
+
+function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
+  const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(() => new Set());
+  const activityIcons = {
+    expired_booking: CalendarX2,
+    paid_booking: CircleCheck,
+    bank_transaction: Landmark,
+    incoming_booking_request: Inbox,
+  } satisfies Record<ActivityKind, typeof CalendarX2>;
+  const visibleActivities = activities.filter((activity) => !dismissedIds.has(activity.id));
+
+  async function dismissActivity(id: string) {
+    setDismissedIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+
+    try {
+      const response = await fetch("/api/admin/dashboard/activity-dismissals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activityId: id }),
+      });
+      if (!response.ok) throw new Error("Aktivität konnte nicht gespeichert werden.");
+    } catch {
+      setDismissedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  return (
+    <Card className="gap-0">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Aktivität</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex flex-col">
+          {visibleActivities.length ? (
+            <ItemGroup className="max-h-[360px] gap-1 overflow-y-auto pr-1 text-muted-foreground" data-size="xs">
+              {visibleActivities.map((activity) => {
+                const Icon = activityIcons[activity.kind];
+                return (
+                  <Item
+                    key={activity.id}
+                    variant="default"
+                    size="xs"
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 border-0 px-2 py-2"
+                  >
+                    <ItemMedia variant="icon" className="text-muted-foreground">
+                      <Icon className="size-4" />
+                    </ItemMedia>
+                    <Link href={activity.href} className="min-w-0 flex-1 rounded-md hover:text-foreground">
+                      <ItemContent className="gap-0.5">
+                        <ItemTitle className="font-normal">{activity.title}</ItemTitle>
+                        <ItemDescription className="truncate text-xs" title={activity.entityName}>
+                          {activity.entityName}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Link>
+                    <ItemActions className="gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`${activity.title} als erledigt markieren`}
+                        onClick={() => void dismissActivity(activity.id)}
+                      >
+                        <Check />
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                );
+              })}
+            </ItemGroup>
+          ) : (
+            <div className="py-2 text-sm text-muted-foreground">Keine neuen Aktivitäten</div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function WeekdayBookingDays({ weekdayBookingDays }: { weekdayBookingDays: Array<{ day: string; days: number }> }) {
   return (
@@ -789,6 +896,7 @@ export function AdminDashboardOverview({
   bookingFunnelData,
   bookingFunnelSummary,
   potentialRevenueData,
+  activities,
 }: {
   userId: string;
   bankBalanceCents: number;
@@ -818,6 +926,7 @@ export function AdminDashboardOverview({
     open: number;
   };
   potentialRevenueData: Array<{ month: string; amount: number }>;
+  activities: ActivityItem[];
 }) {
   return (
     <div
@@ -838,16 +947,17 @@ export function AdminDashboardOverview({
           <MunichRequestCapacity requestCapacity={munichRequestCapacity} />
         </div>
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
+          <ActivityInformer activities={activities} />
+          <PowerUsage utilizationData={utilizationData} />
+          <TrafficChannels rentalDaysByLocation={rentalDaysByLocation} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
           <SavingsTargets
             activityData={activityData}
             currency={bankCurrency}
             currentMonthIndex={currentMonthIndex}
             initialRevenueGoals={initialRevenueGoals}
           />
-          <PowerUsage utilizationData={utilizationData} />
-          <TrafficChannels rentalDaysByLocation={rentalDaysByLocation} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
           <BookingDevelopment bookingDaysByLocation={bookingDaysByLocation} />
           <EnduraceRevenue revenueBySize={revenueBySize} currency={bankCurrency} />
           <BookingFunnel data={bookingFunnelData} summary={bookingFunnelSummary} />

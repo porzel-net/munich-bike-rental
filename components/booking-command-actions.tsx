@@ -130,6 +130,20 @@ function errorMessage(error: unknown) {
     : "Die Buchungsaktion konnte nicht ausgeführt werden. Prüfe den aktuellen Buchungsstatus und die Eingaben.";
 }
 
+function getAutomaticOfferMessage(locale: "de" | "en", alternative: boolean) {
+  if (alternative)
+    return locale === "de"
+      ? "das ursprünglich gewünschte Fahrrad können wir für deinen Zeitraum leider nicht anbieten. Wir können dir stattdessen Folgendes anbieten."
+      : "Unfortunately, the bike you requested is not available for your dates. We can offer the following alternative.";
+  return locale === "de" ? "wir können dir folgendes Angebot machen:" : "We can offer you the following:";
+}
+
+function getAutomaticRejectionMessage(locale: "de" | "en") {
+  return locale === "de"
+    ? "vielen Dank für deine Anfrage.\n\nLeider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!\n\nWir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt."
+    : "thank you for your inquiry.\n\nUnfortunately, we cannot offer you a suitable bike for this period.\n\nWe hope you find what you are looking for and wish you a good ride.";
+}
+
 function BikeOptionLabel({
   asset,
   includePrice = true,
@@ -201,6 +215,7 @@ export function BookingCommandActions({
   dropoffTime,
   status,
   customerName,
+  communicationLocale,
   senderName,
   canExecuteActions,
   isAdmin,
@@ -223,6 +238,7 @@ export function BookingCommandActions({
   dropoffTime: string;
   status: BookingStatus;
   customerName: string;
+  communicationLocale: "de" | "en";
   senderName: string;
   canExecuteActions: boolean;
   isAdmin: boolean;
@@ -295,6 +311,7 @@ export function BookingCommandActions({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewRequestId = useRef(0);
   const commandIdRef = useRef<string | null>(null);
+  const automaticOfferMessageRef = useRef("");
   const [preview, setPreview] = useState<{
     quote: {
       totalCents: number;
@@ -322,6 +339,8 @@ export function BookingCommandActions({
     const selectedAsset = availableAssets.find((asset) => String(asset.id) === assetsByRequestedItem[String(item.id)]);
     return Boolean(selectedAsset && !bikeMatchesRequestedLabel(selectedAsset, item.requestedLabel));
   });
+  const automaticOfferMessage = getAutomaticOfferMessage(communicationLocale, isAlternativeOffer);
+  const automaticRejectionMessage = getAutomaticRejectionMessage(communicationLocale);
   const alternativeReason =
     alternativeReasonType === "size"
       ? "Die andere Größe passt besser."
@@ -419,7 +438,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setAlternativeReasonType("");
     setCustomAlternativeReason("");
     setPreview(null);
-    setPersonalMessage("");
+    automaticOfferMessageRef.current = automaticOfferMessage;
+    setPersonalMessage(automaticOfferMessage);
     setCustomOfferPrice("");
     setOfferPeriodFrom(periodFrom);
     setOfferPeriodTo(periodTo);
@@ -466,7 +486,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setActiveAction("reject");
     setRejectionReasonType("");
     setCustomRejectionReason("");
-    setPersonalMessage("");
+    setPersonalMessage(automaticRejectionMessage);
     setPreviewError(null);
     setPreviewLoading(false);
   };
@@ -1352,7 +1372,28 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           <Select
                             value={assetsByRequestedItem[String(item.id)] ?? ""}
                             onValueChange={(value) => {
-                              setAssetsByRequestedItem((current) => ({ ...current, [String(item.id)]: value ?? "" }));
+                              const nextAssetsByRequestedItem = {
+                                ...assetsByRequestedItem,
+                                [String(item.id)]: value ?? "",
+                              };
+                              setAssetsByRequestedItem(nextAssetsByRequestedItem);
+                              const nextIsAlternativeOffer = requestedItems.some((requestedItem) => {
+                                const selectedAsset = availableAssets.find(
+                                  (asset) => String(asset.id) === nextAssetsByRequestedItem[String(requestedItem.id)],
+                                );
+                                return Boolean(
+                                  selectedAsset &&
+                                  !bikeMatchesRequestedLabel(selectedAsset, requestedItem.requestedLabel),
+                                );
+                              });
+                              const nextAutomaticOfferMessage = getAutomaticOfferMessage(
+                                communicationLocale,
+                                nextIsAlternativeOffer,
+                              );
+                              if (personalMessage === automaticOfferMessageRef.current) {
+                                automaticOfferMessageRef.current = nextAutomaticOfferMessage;
+                                setPersonalMessage(nextAutomaticOfferMessage);
+                              }
                               setPreview(null);
                               setPreviewLoading(false);
                             }}
@@ -1509,7 +1550,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     maxLength={2000}
                   />
                   <FieldDescription>
-                    Dieser Text wird direkt oben nach der Anrede in die Angebotsmail eingefügt.
+                    Die automatische Nachricht ist vorausgefüllt. Passe sie bei Bedarf direkt hier an.
                   </FieldDescription>
                 </Field>
                 <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
@@ -1795,7 +1836,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     maxLength={2000}
                   />
                   <FieldDescription>
-                    Wenn du hier etwas einträgst, ersetzt es den Standardtext der Absage vollständig.
+                    Die automatische Nachricht ist vorausgefüllt. Passe sie bei Bedarf direkt hier an.
                   </FieldDescription>
                 </div>
                 <div className="rounded-xl border bg-muted/40 p-4">

@@ -11,9 +11,9 @@ import {
   bookings,
   rentalAssets,
 } from "../db/schema";
-import { getDailyBikePriceCents, getRentalDays } from "../inventory/pricing";
+import { getBikePriceScheduleCents, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
-import type { OfferAccessorySelection, OfferQuote } from "./quotes";
+import { getAssetPriceSchedule, type OfferAccessorySelection, type OfferQuote } from "./quotes";
 
 export type PublicOffer = {
   offerId: number | null;
@@ -50,6 +50,8 @@ export type PublicOffer = {
     frameNumber: string | null;
     heightCm: number;
     dailyPriceCents: number;
+    weekdayPriceCents: number;
+    weekendPriceCents: number;
     accessories: OfferAccessorySelection;
   }>;
 };
@@ -81,8 +83,8 @@ function buildPublicBookingView(
   const offeredByRequestedId = new Map(offered.map(({ item, asset }) => [item.requestedItemId, { item, asset }]));
   const snapshotByRequestedId = new Map((snapshot.offeredItems ?? []).map((item) => [item.requestedItemId, item]));
   const locationInventory = getLocationInventory(db, booking.location);
-  const priceForRequestedBike = (requestedBike: string) =>
-    getDailyBikePriceCents(locationInventory, requestedBike) ?? 0;
+  const priceScheduleForRequestedBike = (requestedBike: string) =>
+    getBikePriceScheduleCents(locationInventory, requestedBike) ?? { weekdayPriceCents: 0, weekendPriceCents: 0 };
 
   return {
     offerId: offer?.id ?? null,
@@ -114,17 +116,37 @@ function buildPublicBookingView(
     items: requested.map((item) => {
       const selected = offeredByRequestedId.get(item.id);
       const snapshotItem = snapshotByRequestedId.get(item.id);
+      const requestedPriceSchedule = priceScheduleForRequestedBike(item.requestedLabel);
+      const selectedPriceSchedule = selected ? getAssetPriceSchedule(selected.asset) : null;
+      const snapshotWeekdayPriceCents =
+        typeof snapshotItem?.weekdayPriceCents === "number"
+          ? snapshotItem.weekdayPriceCents
+          : typeof snapshotItem?.dailyPriceCents === "number" && snapshotItem.dailyPriceCents > 0
+            ? snapshotItem.dailyPriceCents
+            : null;
+      const snapshotWeekendPriceCents =
+        typeof snapshotItem?.weekendPriceCents === "number" ? snapshotItem.weekendPriceCents : null;
+      const legacyItemPriceCents =
+        selected?.item.itemPriceCents && selected.item.itemPriceCents > 0 ? selected.item.itemPriceCents : null;
+      const weekdayPriceCents =
+        snapshotWeekdayPriceCents ??
+        selectedPriceSchedule?.weekdayPriceCents ??
+        legacyItemPriceCents ??
+        requestedPriceSchedule.weekdayPriceCents;
+      const weekendPriceCents =
+        snapshotWeekendPriceCents ??
+        selectedPriceSchedule?.weekendPriceCents ??
+        legacyItemPriceCents ??
+        requestedPriceSchedule.weekendPriceCents;
       return {
         position: item.position,
         requestedLabel: item.requestedLabel,
         offeredLabel: selected?.asset.displayName ?? snapshotItem?.assetName ?? item.requestedLabel,
         frameNumber: selected?.asset.frameNumber ?? snapshotItem?.frameNumber ?? null,
         heightCm: item.heightCm,
-        dailyPriceCents:
-          (selected?.item.itemPriceCents && selected.item.itemPriceCents > 0 ? selected.item.itemPriceCents : null) ??
-          selected?.asset.dailyPriceCents ??
-          (snapshotItem?.dailyPriceCents && snapshotItem.dailyPriceCents > 0 ? snapshotItem.dailyPriceCents : null) ??
-          priceForRequestedBike(item.requestedLabel),
+        dailyPriceCents: weekdayPriceCents,
+        weekdayPriceCents,
+        weekendPriceCents,
         accessories: snapshotItem?.accessories ?? {
           needsPedals: item.needsPedals,
           pedalType: item.pedalType,

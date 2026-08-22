@@ -12,6 +12,10 @@ function serializeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
+function parsePrice(value: string) {
+  return Number(value.replace(/[^\d,.-]/g, "").replace(",", "."));
+}
+
 function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
   const databaseItems = getLocationInventory(getDatabase(), location.key).portfolioItems;
   const items = databaseItems.length ? databaseItems : portfolioItems;
@@ -20,8 +24,22 @@ function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
     position: index + 1,
     name: item.title,
     description: item.description[locale],
-    price: Number(item.price[locale].replace(/[^\d,.-]/g, "").replace(",", ".")),
+    price: parsePrice(item.weekdayPrice?.[locale] ?? item.price[locale]),
     priceCurrency: "EUR",
+    priceSpecification: [
+      {
+        "@type": "UnitPriceSpecification",
+        price: parsePrice(item.weekdayPrice?.[locale] ?? item.price[locale]),
+        priceCurrency: "EUR",
+        unitText: locale === "de" ? "Tag Mo-Fr" : "day Mon-Fri",
+      },
+      {
+        "@type": "UnitPriceSpecification",
+        price: parsePrice(item.weekendPrice?.[locale] ?? item.price[locale]),
+        priceCurrency: "EUR",
+        unitText: locale === "de" ? "Tag Sa-So" : "day Sat-Sun",
+      },
+    ],
     availability: "https://schema.org/InStock",
   }));
 

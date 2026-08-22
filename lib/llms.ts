@@ -5,9 +5,16 @@ function toUsdStylePrice(value: string) {
   return value.replaceAll("€", " EUR");
 }
 
+function bikePriceText(bike: (typeof portfolioItems)[number]) {
+  if (bike.weekdayPrice && bike.weekendPrice) {
+    return `${toUsdStylePrice(bike.weekdayPrice.en)}; ${toUsdStylePrice(bike.weekendPrice.en)}`;
+  }
+  return toUsdStylePrice(bike.price.en);
+}
+
 function formatBikeLine(index: number) {
   const bike = portfolioItems[index];
-  return `- ${bike.title} (${bike.subtitle.en}) - ${toUsdStylePrice(bike.price.en)}. ${bike.description.en}`;
+  return `- ${bike.title} (${bike.subtitle.en}) - ${bikePriceText(bike)}. ${bike.description.en}`;
 }
 
 function formatFullBikeSection(index: number) {
@@ -19,7 +26,7 @@ function formatFullBikeSection(index: number) {
     `### ${bike.title}`,
     "",
     `- Sizes: ${bike.subtitle.en}`,
-    `- Price: ${toUsdStylePrice(bike.price.en)}`,
+    `- Price: ${bikePriceText(bike)}`,
     `- Summary: ${bike.description.en}`,
     `- Description:`,
     facts,

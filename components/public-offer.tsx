@@ -458,13 +458,23 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                             </p>
                           ) : null}
                         </div>
-                        <div className="public-offer-bike__price">
-                          <strong>
-                            {item.dailyPriceCents > 0
-                              ? formatEuro(item.dailyPriceCents, currentOffer.booking.locale)
-                              : "—"}
-                          </strong>
-                          <span>{de ? "pro Tag" : "per day"}</span>
+                        <div className="public-offer-bike__price" aria-label={de ? "Tagespreise" : "Daily prices"}>
+                          <div className="public-offer-bike__price-row">
+                            <span>{de ? "Mo-Fr" : "Mon-Fri"}</span>
+                            <strong>
+                              {item.weekdayPriceCents > 0
+                                ? formatEuro(item.weekdayPriceCents, currentOffer.booking.locale)
+                                : "—"}
+                            </strong>
+                          </div>
+                          <div className="public-offer-bike__price-row">
+                            <span>{de ? "Sa-So" : "Sat-Sun"}</span>
+                            <strong>
+                              {item.weekendPriceCents > 0
+                                ? formatEuro(item.weekendPriceCents, currentOffer.booking.locale)
+                                : "—"}
+                            </strong>
+                          </div>
                         </div>
                       </div>
                       <div className="public-offer-bike__facts">

@@ -119,6 +119,8 @@ export const portfolioItems: PortfolioItem[] = [
     title: "Endurace CF SL 8",
     subtitle: { de: "XS / S / M / L", en: "XS / S / M / L" },
     price: { de: "49€/Tag", en: "49€/day" },
+    weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
+    weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
       de: "Ausgewogenes Endurance-Rennrad für schnelle, lange Touren und entspannte Ausfahrten mit viel Komfort.",
       en: "Balanced endurance road bike for fast, long rides and relaxed outings with plenty of comfort.",
@@ -152,6 +154,8 @@ export const portfolioItems: PortfolioItem[] = [
     title: "Grail CF SL 7",
     subtitle: { de: "S / M / L", en: "S / M / L" },
     price: { de: "49€/Tag", en: "49€/day" },
+    weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
+    weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
       de: "Carbon-Gravelbike mit Shimano-Schaltung und hydraulischen Scheibenbremsen für gemischte Strecken und längere Ausfahrten.",
       en: "Carbon gravel bike with Shimano shifting and hydraulic disc brakes for mixed routes and longer rides.",
@@ -199,6 +203,8 @@ export const portfolioItems: PortfolioItem[] = [
     title: "Ultimate CF SL 7",
     subtitle: { de: "M / L", en: "M / L" },
     price: { de: "49€/Tag", en: "49€/day" },
+    weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
+    weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
       de: "Leichtes Allround-Rennrad für sportliche Ausfahrten, Training und flotte Touren in der Stadt.",
       en: "Light all-round road bike for sporty rides, training and quick city trips.",
@@ -236,6 +242,8 @@ export const portfolioItems: PortfolioItem[] = [
     title: "Aeroad CF SL 8",
     subtitle: { de: "S / M", en: "S / M" },
     price: { de: "49€/Tag", en: "49€/day" },
+    weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
+    weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
       de: "Aero-Rennrad für maximale Geschwindigkeit auf der Straße und ein direktes, sportliches Fahrgefühl.",
       en: "Aero road bike for maximum speed on the road and a direct, sporty ride feel.",
@@ -279,7 +287,7 @@ export const portfolioItems: PortfolioItem[] = [
 export const priceItems: PriceItem[] = [
   {
     title: { de: "Rennräder", en: "Road bikes" },
-    cost: { de: "ab 49€", en: "from 49€" },
+    cost: { de: "Mo-Fr ab 49€ · Sa-So ab 69€", en: "Mon-Fri from 49€ · Sat-Sun from 69€" },
     icon: Bike,
   },
   {
@@ -424,7 +432,8 @@ export const translations = {
     price: {
       eyebrow: "Preise",
       title: "Miete & Tarife",
-      intro: "Klare Preise für deinen Bike-Verleih in München: Rennräder ab 49€ plus Rabatte obendrauf. Zubehör ab 0€.",
+      intro:
+        "Klare Preise für deinen Bike-Verleih in München: getrennte Tarife für Werktage und Wochenende plus Rabatte obendrauf. Zubehör ab 0€.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -451,6 +460,8 @@ export const translations = {
     modal: {
       bike: "Verfügbares Rad",
       pricePerDay: "Preis pro Tag",
+      weekdayPrice: "Mo-Fr",
+      weekendPrice: "Sa-So",
       facts: "Beschreibung",
       equipment: "Ausrüstung",
       reserve: "Reservieren",
@@ -509,8 +520,8 @@ export const translations = {
         lead: "Dein Schutz ist uns wichtig.",
         body: "Wir gehören zu den wenigen Rennradverleihern in München, die – anders als fast alle Verleiher – Versicherungsschutz anbieten.",
         savings:
-          "Bei einem von dir verursachten Schaden zahlst du höchstens 100 € – statt für den gesamten Schaden aufzukommen. Bei Verlust zahlst du höchstens 300 € – statt das komplette Fahrrad ersetzen zu müssen.",
-        footer: "Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.",
+          "Bei einem von dir verursachten Schaden oder bei Verlust des Fahrrads greift unser Schutz und du musst nicht für den gesamten Schaden oder das komplette Fahrrad aufkommen.",
+        footer: "Für mehr Informationen: ",
       },
       glassesPreview: "Vorschau der Rennradbrille anzeigen",
       message: "Worum geht es?",
@@ -610,7 +621,7 @@ export const translations = {
       eyebrow: "Prices",
       title: "Rental & rates",
       intro:
-        "Clear prices for your bike rental in Munich: road bikes from €49, with discounts on top. Accessories from €0.",
+        "Clear prices for your bike rental in Munich: separate weekday and weekend rates, with discounts on top. Accessories from €0.",
     },
     faq: {
       eyebrow: "FAQ",
@@ -637,6 +648,8 @@ export const translations = {
     modal: {
       bike: "Available bike",
       pricePerDay: "Price per day",
+      weekdayPrice: "Mon-Fri",
+      weekendPrice: "Sat-Sun",
       facts: "Description",
       equipment: "Equipment",
       reserve: "Reserve",
@@ -695,8 +708,8 @@ export const translations = {
         lead: "Your protection matters to us.",
         body: "We are one of the few road-bike rental companies in Munich to offer insurance protection, unlike almost all other rental providers.",
         savings:
-          "For damage caused by you, you pay no more than €100 instead of the full cost of the damage. If the bike is lost, you pay no more than €300 instead of replacing the entire bike.",
-        footer: "Normal wear and tear from proper use is not charged to you.",
+          "If you cause damage or the bike is lost, our protection applies, so you do not have to cover the full cost of the damage or replace the entire bike.",
+        footer: "For more information: ",
       },
       glassesPreview: "Show a preview of the road cycling glasses",
       message: "What is it about?",

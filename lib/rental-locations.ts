@@ -132,7 +132,7 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
     return {
       heroTitle: `Canyon Carbon Road & Gravel Bike Rental in ${city}`,
       heroIntro: `Personal road and gravel bike rental in ${city} ${district}: serviced endurance, gravel, all-round and aero bikes for training, weekend rides and longer tours. You get direct contact, honest advice and transparent rates instead of anonymous mass rental.`,
-      priceIntro: `Clear prices for your bike rental in ${city}: road bikes from €49, with discounts on top. Accessories from €0.`,
+      priceIntro: `Clear prices for your bike rental in ${city}: separate weekday and weekend rates, with discounts on top. Accessories from €0.`,
       pricePromise: `If you find a comparable road bike in ${city} with similar equipment for less elsewhere, you get the better price with us.`,
       locationTitle: `Bike rental in ${city} ${district}`,
       locationIntro: `Pick up your road or gravel bike directly in ${city} ${district}. After your request, we will coordinate the exact handover with you by email.`,
@@ -145,8 +145,8 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
         lead: "Your protection matters to us.",
         body: `We are one of the few road-bike rental companies in ${city} to offer insurance protection, unlike almost all other rental providers.`,
         savings:
-          "For damage caused by you, you pay no more than €100 instead of the full cost of the damage. If the bike is lost, you pay no more than €300 instead of replacing the entire bike.",
-        footer: "Normal wear and tear from proper use is not charged to you.",
+          "If you cause damage or the bike is lost, our protection applies, so you do not have to cover the full cost of the damage or replace the entire bike.",
+        footer: "For more information: ",
       },
     };
   }
@@ -154,7 +154,7 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
   return {
     heroTitle: `Canyon Carbon Rennrad & Gravel-Verleih ${city}`,
     heroIntro: `Persönlicher Rennrad- und Gravel-Verleih in ${city}-${district}: gepflegte Endurance-, Gravel-, Allround- und Aero-Bikes für Training, Wochenendausfahrten und längere Touren. Statt Massenverleih bekommst du bei uns direkten Kontakt, ehrliche Beratung und klare Tarife.`,
-    priceIntro: `Klare Preise für deinen Bike-Verleih in ${city}: Rennräder ab 49€ plus Rabatte obendrauf. Zubehör ab 0€.`,
+    priceIntro: `Klare Preise für deinen Bike-Verleih in ${city}: getrennte Tarife für Werktage und Wochenende plus Rabatte obendrauf. Zubehör ab 0€.`,
     pricePromise: `Findest du in ${city} ein vergleichbares Rennrad mit ähnlicher Ausstattung günstiger, bekommst du bei uns den besseren Preis.`,
     locationTitle: `Rennradverleih in ${city}-${district}`,
     locationIntro: `Hole dein Rennrad oder Gravelbike direkt in ${city}-${district} ab. Den genauen Ablauf der Übergabe stimmen wir nach deiner Anfrage per E-Mail mit dir ab.`,
@@ -167,8 +167,8 @@ export function getLocationCopy(location: RentalLocationConfig, locale: Locale) 
       lead: "Dein Schutz ist uns wichtig.",
       body: `Wir gehören zu den wenigen Rennradverleihern in ${city}, die – anders als fast alle Verleiher – Versicherungsschutz anbieten.`,
       savings:
-        "Bei einem von dir verursachten Schaden zahlst du höchstens 100 € – statt für den gesamten Schaden aufzukommen. Bei Verlust zahlst du höchstens 300 € – statt das komplette Fahrrad ersetzen zu müssen.",
-      footer: "Normale, bestimmungsgemäße Gebrauchsspuren und üblicher Verschleiß werden dir nicht berechnet.",
+        "Bei einem von dir verursachten Schaden oder bei Verlust des Fahrrads greift unser Schutz und du musst nicht für den gesamten Schaden oder das komplette Fahrrad aufkommen.",
+      footer: "Für mehr Informationen: ",
     },
   };
 }
