@@ -107,8 +107,9 @@ export function ManualBookingForm({
   pricingByLocation: Record<string, ManualBookingPricing>;
   initialValues?: ManualBookingInitialValues;
 }) {
+  const availableLocations = locations.filter(([value]) => pricingByLocation[value]);
   const [mode, setMode] = useState<"inquiry" | "direct" | "historical">("inquiry");
-  const [location, setLocation] = useState(initialValues?.location ?? "munich");
+  const [location, setLocation] = useState(initialValues?.location ?? availableLocations[0]?.[0] ?? "munich");
   const [locale, setLocale] = useState<"de" | "en">(initialValues?.locale ?? "de");
   const [items, setItems] = useState<ManualBookingItem[]>(
     initialValues?.items?.length
@@ -123,6 +124,11 @@ export function ManualBookingForm({
     () => assets.filter((asset) => asset.location === location && (mode === "historical" || asset.state === "active")),
     [assets, location, mode],
   );
+  const availableBikeOptions = useMemo(() => {
+    const pricingOptions = pricingByLocation[location]?.bikePrices.map((bike) => bike.option) ?? [];
+    const assetOptions = availableAssets.map((asset) => asset.modelLabel);
+    return [...new Set([...pricingOptions, ...assetOptions])];
+  }, [availableAssets, location, pricingByLocation]);
   const calculatedEstimateCents = useMemo(() => {
     const pricing = pricingByLocation[location];
     if (!pricing) return 0;
@@ -292,14 +298,14 @@ export function ManualBookingForm({
                 value={location}
                 onValueChange={(value) => {
                   setLocation(value ?? "munich");
-                  setItems((current) => current.map((item) => ({ ...item, assetId: "" })));
+                  setItems((current) => current.map((item) => ({ ...item, requestedLabel: "", assetId: "" })));
                 }}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue>{locations.find(([value]) => value === location)?.[1] ?? "Standort"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map(([value, label]) => (
+                  {availableLocations.map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}
                     </SelectItem>
@@ -392,11 +398,29 @@ export function ManualBookingForm({
               <div className="grid gap-4 md:grid-cols-2">
                 <Field>
                   <FieldLabel>Gewünschtes Modell / Größe</FieldLabel>
-                  <Input
+                  <Select
                     value={item.requestedLabel}
-                    onChange={(event) => update(item.key, { requestedLabel: event.target.value })}
-                    required
-                  />
+                    onValueChange={(value) => update(item.key, { requestedLabel: value ?? "" })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Modell / Größe auswählen">
+                        {item.requestedLabel || "Modell / Größe auswählen"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableBikeOptions.length ? (
+                        availableBikeOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="__no-bike-option" disabled>
+                          Keine Modelle / Größen verfügbar
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field>
                   <FieldLabel>Körpergröße in cm</FieldLabel>
