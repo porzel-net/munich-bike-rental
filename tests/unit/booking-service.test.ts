@@ -625,6 +625,91 @@ describe("booking commands", () => {
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 5_000, status: "open" });
   });
 
+  it("uses the customer's English locale for every admin-triggered booking mail", () => {
+    const { db, assetId } = setup();
+    const mailFor = (bookingId: number, kind: string) =>
+      db
+        .select()
+        .from(mailOutbox)
+        .where(eq(mailOutbox.bookingId, bookingId))
+        .all()
+        .find((mail) => mail.kind === kind);
+
+    const cancelled = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, cancelled.id);
+    const cancelledOffer = createOffer(db, {
+      bookingId: cancelled.id,
+      assetsByRequestedItem: { [cancelled.itemId]: assetId },
+    });
+    confirmOffer(db, cancelledOffer.confirmationToken, "admin");
+    cancelBooking(db, {
+      bookingId: cancelled.id,
+      cancellationFeeCents: 0,
+      reason: "Customer cancelled",
+      actorUserId: "admin",
+    });
+
+    const rejected = inquiry(db, "2026-07-22", "2026-07-23");
+    assignAdminBooking(db, rejected.id);
+    advanceBooking(db, rejected.id, "rejected", "admin", "No availability");
+
+    const checkedOut = inquiry(db, "2026-07-24", "2026-07-25");
+    assignAdminBooking(db, checkedOut.id);
+    const checkedOutOffer = createOffer(db, {
+      bookingId: checkedOut.id,
+      assetsByRequestedItem: { [checkedOut.itemId]: assetId },
+    });
+    confirmOffer(db, checkedOutOffer.confirmationToken, "admin");
+    advanceBooking(db, checkedOut.id, "checked_out", "admin");
+
+    const changed = inquiry(db, "2026-07-26", "2026-07-27");
+    assignAdminBooking(db, changed.id);
+    const changedOffer = createOffer(db, {
+      bookingId: changed.id,
+      assetsByRequestedItem: { [changed.itemId]: assetId },
+    });
+    confirmOffer(db, changedOffer.confirmationToken, "admin");
+    const changedBooking = db.select().from(bookings).where(eq(bookings.id, changed.id)).get()!;
+    const changedItem = db
+      .select()
+      .from(bookingRequestedItems)
+      .where(eq(bookingRequestedItems.id, changed.itemId))
+      .get()!;
+    updateBooking(db, {
+      bookingId: changed.id,
+      expectedVersion: changedBooking.version,
+      actorUserId: "admin",
+      customerName: changedBooking.customerName,
+      customerEmail: changedBooking.customerEmail,
+      customerPhone: changedBooking.customerPhone,
+      periodFrom: changedBooking.periodFrom,
+      periodTo: "2026-07-28",
+      pickupTime: changedBooking.pickupTime,
+      dropoffTime: changedBooking.dropoffTime,
+      customerMessage: changedBooking.customerMessage,
+      communicationLocale: "en",
+      requestedItems: [changedItem],
+      notifyCustomer: true,
+    });
+
+    for (const [bookingId, kind, subjectMarker, textMarker] of [
+      [cancelled.id, "offer", "Offer", "offer"],
+      [cancelled.id, "booking_confirmed", "Booking confirmed", "confirmed"],
+      [cancelled.id, "booking_cancelled", "Cancellation", "cancelled"],
+      [rejected.id, "booking_rejected", "Inquiry", "Unfortunately"],
+      [checkedOut.id, "feedback_request", "How was your ride", "rate"],
+      [changed.id, "booking_information_changed", "Updated booking information", "updated"],
+    ] as const) {
+      const mail = mailFor(bookingId, kind);
+      expect(mail?.locale).toBe("en");
+      expect(mail?.subject).toContain(subjectMarker);
+      expect(mail?.plainText).toContain(textMarker);
+      expect(mail?.plainText).not.toContain("Buchung");
+      expect(mail?.plainText).not.toContain("Angebot");
+      expect(mail?.html).toContain("Kind regards");
+    }
+  });
+
   it("confirms an offer and settles the full total after a Stripe payment", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");

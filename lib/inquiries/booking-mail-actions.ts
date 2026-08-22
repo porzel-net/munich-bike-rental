@@ -6,6 +6,7 @@ import { parseMailMessageIds } from "./mail-thread";
 export type BookingMailAction = "confirmation" | "rejection";
 
 export type BookingMailActionInput = {
+  locale: "de" | "en";
   orderNumber: string;
   name: string;
   email: string;
@@ -34,12 +35,21 @@ export type BookingMailActionResult =
       mailbox: MailboxOperationResult | null;
     };
 
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
+function formatPrice(cents: number, locale: "de" | "en") {
+  return new Intl.NumberFormat(locale === "de" ? "de-DE" : "en-GB", {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
 }
 
-function getSubject(action: BookingMailAction, orderNumber: string) {
-  return action === "confirmation" ? `Buchungsbestätigung ${orderNumber}` : `Buchung abgelehnt ${orderNumber}`;
+function getSubject(action: BookingMailAction, orderNumber: string, locale: "de" | "en") {
+  return locale === "de"
+    ? action === "confirmation"
+      ? `Buchungsbestätigung ${orderNumber}`
+      : `Buchung abgelehnt ${orderNumber}`
+    : action === "confirmation"
+      ? `Booking confirmation ${orderNumber}`
+      : `Booking declined ${orderNumber}`;
 }
 
 function getRecipientFirstName(name: string) {
@@ -47,6 +57,64 @@ function getRecipientFirstName(name: string) {
 }
 
 function getText(action: BookingMailAction, booking: BookingMailActionInput) {
+  const de = booking.locale === "de";
+  const firstName = getRecipientFirstName(booking.name);
+  if (!de && action === "confirmation") {
+    const depositTotalEuro = booking.bikes.length * 100;
+    return [
+      `Hello ${firstName},`,
+      "",
+      "Thank you for your inquiry! Good news: the bike you requested is available.",
+      "",
+      "Here are the most important details:",
+      "",
+      `Bike: ${booking.bikes.join(" / ")}`,
+      "",
+      `Rental period: ${booking.rentalDays} ${booking.rentalDays === 1 ? "day" : "days"}`,
+      "",
+      `Total price: ${formatPrice(booking.totalPriceCents, booking.locale)}`,
+      "",
+      `Pickup: ${booking.periodFrom} at ${booking.pickupTime}`,
+      "",
+      `Return: ${booking.periodTo} at ${booking.dropoffTime}`,
+      "",
+      `Location: ${booking.locationAddress}`,
+      "",
+      "When you arrive, please call +49 89 54193577 if nobody is downstairs.",
+      "",
+      "If you would like to accept the offer, confirm your booking using this link:",
+      booking.confirmationLink ?? "",
+      "",
+      "Please then transfer 50% of the total price. The remaining 50% is due no later than when the bike is returned:",
+      "",
+      "Account holder: Julius Porzel",
+      "IBAN: DE50100123450750947701",
+      `Reference: ${booking.orderNumber}`,
+      "",
+      "The offer remains reserved for you for 24 hours. Please email us the transfer confirmation afterwards.",
+      "",
+      `Please also bring a €100 cash deposit per bike for pickup (€${depositTotalEuro} in total).`,
+      "",
+      "We look forward to seeing you on the bike soon!",
+      "",
+      "Kind regards,",
+      booking.senderFirstName,
+    ].join("\n");
+  }
+  if (!de) {
+    return [
+      `Hello ${firstName},`,
+      "",
+      "Thank you for your inquiry.",
+      "",
+      "Unfortunately, I cannot offer you a suitable bike for this period. Please feel free to ask again for another date. :)",
+      "",
+      "We hope you find what you are looking for and wish you a good ride.",
+      "",
+      "Kind regards",
+      booking.senderFirstName,
+    ].join("\n");
+  }
   if (action === "confirmation") {
     const depositTotalEuro = booking.bikes.length * 100;
     return [
@@ -60,7 +128,7 @@ function getText(action: BookingMailAction, booking: BookingMailActionInput) {
       "",
       `Mietdauer: ${booking.rentalDays} ${booking.rentalDays === 1 ? "Tag" : "Tage"}`,
       "",
-      `Gesamtpreis: ${formatPrice(booking.totalPriceCents)}`,
+      `Gesamtpreis: ${formatPrice(booking.totalPriceCents, booking.locale)}`,
       "",
       `Abholung: ${booking.periodFrom} um ${booking.pickupTime} Uhr`,
       "",
@@ -105,12 +173,42 @@ function getText(action: BookingMailAction, booking: BookingMailActionInput) {
 }
 
 function getHtml(action: BookingMailAction, booking: BookingMailActionInput) {
+  if (booking.locale === "en") {
+    const confirmation = action === "confirmation";
+    const firstName = getRecipientFirstName(booking.name);
+    const depositTotalEuro = booking.bikes.length * 100;
+    const details = confirmation
+      ? emailCard(
+          `${emailLabel("Booking details")}<strong style="display:block;color:#171a1d;font-size:15px">${escapeHtml(booking.bikes.join(" / "))}</strong><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px"><tr><td style="padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Rental period")}${escapeHtml(`${booking.rentalDays} ${booking.rentalDays === 1 ? "day" : "days"}`)}</td><td style="color:#697177;font-size:13px;line-height:1.5">${emailLabel("Total price")}${escapeHtml(formatPrice(booking.totalPriceCents, booking.locale))}</td></tr><tr><td style="padding-top:10px;padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Pickup")}${escapeHtml(`${booking.periodFrom} at ${booking.pickupTime}`)}</td><td style="padding-top:10px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Return")}${escapeHtml(`${booking.periodTo} at ${booking.dropoffTime}`)}</td></tr></table>`,
+        )
+      : emailCard(
+          emailParagraph(
+            "Unfortunately, I cannot offer you a suitable bike for this period. Please feel free to ask again for another date. :)",
+          ),
+        );
+    const intro = confirmation
+      ? "Thank you for your inquiry! Good news: the bike you requested is available."
+      : "Thank you for your inquiry.";
+    const content = `${booking.personalMessage?.trim() ? emailCard(emailParagraph(booking.personalMessage), "#eef2ff") : ""}${details}${confirmation ? emailCard(`${emailLabel("Next step")}${emailParagraph(`Confirm your booking using the link and then transfer 50% of the total price. The remaining 50% is due when the bike is returned; the offer remains reserved for 24 hours. Please also bring a €100 cash deposit per bike for pickup (€${depositTotalEuro} in total).`)}`, "#eef2ff") : emailParagraph("We hope you find what you are looking for and wish you a good ride.")}`;
+    return renderEmailLayout({
+      locale: "en",
+      preheader: getSubject(action, booking.orderNumber, booking.locale),
+      eyebrow: confirmation ? "Booking confirmation" : "Inquiry",
+      title: confirmation ? `Good news, ${firstName}` : `Thank you, ${firstName}`,
+      intro,
+      content,
+      cta:
+        confirmation && booking.confirmationLink
+          ? { label: "Confirm booking", href: booking.confirmationLink }
+          : undefined,
+    });
+  }
   const confirmation = action === "confirmation";
   const firstName = getRecipientFirstName(booking.name);
   const depositTotalEuro = booking.bikes.length * 100;
   const details = confirmation
     ? emailCard(
-        `${emailLabel("Buchungsdetails")}<strong style="display:block;color:#171a1d;font-size:15px">${escapeHtml(booking.bikes.join(" / "))}</strong><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px"><tr><td style="padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Mietdauer")}${escapeHtml(`${booking.rentalDays} ${booking.rentalDays === 1 ? "Tag" : "Tage"}`)}</td><td style="color:#697177;font-size:13px;line-height:1.5">${emailLabel("Gesamtpreis")}${escapeHtml(formatPrice(booking.totalPriceCents))}</td></tr><tr><td style="padding-top:10px;padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Abholung")}${escapeHtml(`${booking.periodFrom} um ${booking.pickupTime} Uhr`)}</td><td style="padding-top:10px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Rückgabe")}${escapeHtml(`${booking.periodTo} um ${booking.dropoffTime} Uhr`)}</td></tr></table>`,
+        `${emailLabel("Buchungsdetails")}<strong style="display:block;color:#171a1d;font-size:15px">${escapeHtml(booking.bikes.join(" / "))}</strong><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px"><tr><td style="padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Mietdauer")}${escapeHtml(`${booking.rentalDays} ${booking.rentalDays === 1 ? "Tag" : "Tage"}`)}</td><td style="color:#697177;font-size:13px;line-height:1.5">${emailLabel("Gesamtpreis")}${escapeHtml(formatPrice(booking.totalPriceCents, booking.locale))}</td></tr><tr><td style="padding-top:10px;padding-right:12px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Abholung")}${escapeHtml(`${booking.periodFrom} um ${booking.pickupTime} Uhr`)}</td><td style="padding-top:10px;color:#697177;font-size:13px;line-height:1.5">${emailLabel("Rückgabe")}${escapeHtml(`${booking.periodTo} um ${booking.dropoffTime} Uhr`)}</td></tr></table>`,
       )
     : emailCard(
         emailParagraph(
@@ -123,7 +221,7 @@ function getHtml(action: BookingMailAction, booking: BookingMailActionInput) {
   const content = `${booking.personalMessage?.trim() ? emailCard(emailParagraph(booking.personalMessage), "#eef2ff") : ""}${details}${confirmation ? emailCard(`${emailLabel("Nächster Schritt")}${emailParagraph(`Bestätige deine Buchung über den Link und überweise anschließend 50 % des Gesamtpreises. Die restlichen 50 % sind bei der Rückgabe fällig; das Angebot bleibt 24 Stunden reserviert. Bitte bringe zur Abholung außerdem 100 € Kaution pro Bike in bar mit (also insgesamt ${depositTotalEuro} €).`)}`, "#eef2ff") : emailParagraph("Wir hoffen, dass du noch fündig wirst und wünschen dir eine gute Fahrt.")}`;
   return renderEmailLayout({
     locale: "de",
-    preheader: getSubject(action, booking.orderNumber),
+    preheader: getSubject(action, booking.orderNumber, booking.locale),
     eyebrow: confirmation ? "Buchungsbestätigung" : "Anfrage",
     title: confirmation ? `Gute Nachrichten, ${firstName}` : `Danke, ${firstName}`,
     intro,
@@ -162,7 +260,7 @@ export async function sendBookingMailAction(
 
   const sent = await sendConfiguredMail({
     account: "main",
-    subject: getSubject(action, booking.orderNumber),
+    subject: getSubject(action, booking.orderNumber, booking.locale),
     text: getText(action, booking),
     html: getHtml(action, booking),
     to: booking.email,

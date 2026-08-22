@@ -50,6 +50,7 @@ import {
   renderFeedbackRequestMail,
   renderInquiryReceivedMail,
   renderOfferMail,
+  type RenderedMail,
 } from "./messages";
 import { applyCustomOfferPrice, buildOfferQuote, getAssetPriceSchedule, type OfferAccessorySelection } from "./quotes";
 import { allocateInvoiceNumber, invoiceNumberPattern } from "./invoice-number";
@@ -197,15 +198,10 @@ function queueCustomerMail(
   booking: typeof bookings.$inferSelect,
   input: {
     kind: string;
-    subjectDe: string;
-    subjectEn: string;
-    textDe: string;
-    textEn: string;
-    html?: string;
+    mail: RenderedMail;
     idempotencyKey?: string;
   },
 ) {
-  const locale = booking.communicationLocale;
   return (
     db
       .insert(mailOutbox)
@@ -213,11 +209,11 @@ function queueCustomerMail(
         bookingId: booking.id,
         idempotencyKey: input.idempotencyKey ?? `booking:${booking.id}:${input.kind}`,
         kind: input.kind,
-        locale,
+        locale: booking.communicationLocale,
         recipient: booking.customerEmail,
-        subject: locale === "de" ? input.subjectDe : input.subjectEn,
-        plainText: locale === "de" ? input.textDe : input.textEn,
-        html: input.html ?? null,
+        subject: input.mail.subject,
+        plainText: input.mail.text,
+        html: input.mail.html,
         status: "queued",
         attempts: 0,
         nextAttemptAt: now(),
@@ -1932,11 +1928,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         {
           kind: "booking_information_changed",
           idempotencyKey: `booking:${booking.id}:booking_information_changed:${booking.version + 1}`,
-          subjectDe: notice.subject,
-          subjectEn: notice.subject,
-          textDe: notice.text,
-          textEn: notice.text,
-          html: notice.html,
+          mail: notice,
         },
       );
     }
@@ -2110,11 +2102,7 @@ function confirmOfferRecord(
   if (options.sendMail !== false)
     queueCustomerMail(db, booking, {
       kind: "booking_confirmed",
-      subjectDe: notice.subject,
-      subjectEn: notice.subject,
-      textDe: notice.text,
-      textEn: notice.text,
-      html: notice.html,
+      mail: notice,
     });
   return { bookingId: booking.id, alreadyConfirmed: false };
 }
@@ -2313,11 +2301,7 @@ export function cancelBooking(
     });
     return queueCustomerMail(db, booking, {
       kind: "booking_cancelled",
-      subjectDe: notice.subject,
-      subjectEn: notice.subject,
-      textDe: notice.text,
-      textEn: notice.text,
-      html: notice.html,
+      mail: notice,
     });
   });
 }
@@ -2559,11 +2543,7 @@ export function advanceBooking(
         .run();
       queuedMailId = queueCustomerMail(db, booking, {
         kind: "feedback_request",
-        subjectDe: feedbackMail.subject,
-        subjectEn: feedbackMail.subject,
-        textDe: feedbackMail.text,
-        textEn: feedbackMail.text,
-        html: feedbackMail.html,
+        mail: feedbackMail,
       });
     }
     if (target === "rejected" && sendMail) {
@@ -2581,11 +2561,7 @@ export function advanceBooking(
       });
       queuedMailId = queueCustomerMail(db, booking, {
         kind: "booking_rejected",
-        subjectDe: notice.subject,
-        subjectEn: notice.subject,
-        textDe: notice.text,
-        textEn: notice.text,
-        html: notice.html,
+        mail: notice,
       });
     }
     return queuedMailId;
