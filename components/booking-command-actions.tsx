@@ -309,7 +309,11 @@ export function BookingCommandActions({
   const [legacyAssetsByRequestedItem, setLegacyAssetsByRequestedItem] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [dynamicUnavailableAssetIds, setDynamicUnavailableAssetIds] = useState(unavailableAssetIds);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const previewRequestId = useRef(0);
+  const availabilityRequestId = useRef(0);
   const commandIdRef = useRef<string | null>(null);
   const automaticOfferMessageRef = useRef("");
   const [preview, setPreview] = useState<{
@@ -330,11 +334,7 @@ export function BookingCommandActions({
     () => new Set(Object.values(assetsByRequestedItem).filter(Boolean)),
     [assetsByRequestedItem],
   );
-  const offerDateRangeChanged = offerPeriodFrom !== periodFrom || offerPeriodTo !== periodTo;
-  const unavailableAssetIdSet = useMemo(
-    () => new Set(offerDateRangeChanged ? [] : unavailableAssetIds),
-    [offerDateRangeChanged, unavailableAssetIds],
-  );
+  const unavailableAssetIdSet = useMemo(() => new Set(dynamicUnavailableAssetIds), [dynamicUnavailableAssetIds]);
   const isAlternativeOffer = requestedItems.some((item) => {
     const selectedAsset = availableAssets.find((asset) => String(asset.id) === assetsByRequestedItem[String(item.id)]);
     return Boolean(selectedAsset && !bikeMatchesRequestedLabel(selectedAsset, item.requestedLabel));
@@ -428,6 +428,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setLegacyAssetsByRequestedItem({});
     setPreviewError(null);
     setPreviewLoading(false);
+    setDynamicUnavailableAssetIds(unavailableAssetIds);
+    setAvailabilityError(null);
+    setAvailabilityLoading(false);
     commandIdRef.current = null;
   };
 
@@ -448,6 +451,9 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setIsStudent(false);
     setPreviewError(null);
     setPreviewLoading(false);
+    setDynamicUnavailableAssetIds(unavailableAssetIds);
+    setAvailabilityError(null);
+    setAvailabilityLoading(false);
   };
 
   const openStripePayment = () => {
@@ -524,6 +530,55 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     };
   }, [activeAction, bookingId]);
 
+  useEffect(() => {
+    if (activeAction !== "offer") {
+      availabilityRequestId.current += 1;
+      return;
+    }
+    if (!offerPeriodFrom || !offerPeriodTo || !offerPickupTime || !offerDropoffTime) {
+      availabilityRequestId.current += 1;
+      return;
+    }
+
+    const requestId = ++availabilityRequestId.current;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setAvailabilityLoading(true);
+      setAvailabilityError(null);
+      void fetch(`/api/admin/bookings/${bookingId}/availability`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          assetIds: availableAssets.map((asset) => asset.id),
+          periodFrom: offerPeriodFrom,
+          periodTo: offerPeriodTo,
+          pickupTime: offerPickupTime,
+          dropoffTime: offerDropoffTime,
+        }),
+      })
+        .then(async (response) => {
+          const result = (await response.json().catch(() => null)) as {
+            unavailableAssetIds?: number[];
+            message?: string;
+          } | null;
+          if (!response.ok) throw new Error(result?.message ?? "Die Fahrradverfügbarkeit konnte nicht geprüft werden.");
+          if (!cancelled && requestId === availabilityRequestId.current)
+            setDynamicUnavailableAssetIds(result?.unavailableAssetIds ?? []);
+        })
+        .catch((error) => {
+          if (!cancelled && requestId === availabilityRequestId.current) setAvailabilityError(errorMessage(error));
+        })
+        .finally(() => {
+          if (!cancelled && requestId === availabilityRequestId.current) setAvailabilityLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeAction, availableAssets, bookingId, offerDropoffTime, offerPeriodFrom, offerPeriodTo, offerPickupTime]);
+
   const request = async (body: object) => {
     const command = (body as { command?: string }).command;
     const idempotencyKey = command === "refund" ? (commandIdRef.current ??= crypto.randomUUID()) : undefined;
@@ -556,6 +611,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           throw new Error("Bitte vervollständige Zeitraum und Übergabezeiten.");
         if (offerPeriodFrom > offerPeriodTo)
           throw new Error("Das Rückgabedatum muss am oder nach dem Abholdatum liegen.");
+        if (availabilityLoading)
+          throw new Error("Die Fahrradverfügbarkeit für den neuen Zeitraum wird noch geprüft. Bitte warte kurz.");
+        if (availabilityError)
+          throw new Error("Die Fahrradverfügbarkeit konnte nicht geprüft werden. Bitte versuche es erneut.");
         if (requestedItems.some((item) => !assetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes angefragte Fahrrad ein konkretes verfügbares Fahrrad aus.");
         if (Object.values(assetsByRequestedItem).some((assetId) => unavailableAssetIdSet.has(Number(assetId))))
@@ -1291,6 +1350,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       value={offerPeriodFrom}
                       onChange={(event) => {
                         setOfferPeriodFrom(event.target.value);
+                        setAvailabilityLoading(true);
+                        setAvailabilityError(null);
                         setPreview(null);
                         setPreviewError(null);
                       }}
@@ -1305,6 +1366,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       value={offerPickupTime}
                       onChange={(event) => {
                         setOfferPickupTime(event.target.value);
+                        setAvailabilityLoading(true);
+                        setAvailabilityError(null);
                         setPreview(null);
                       }}
                       required
@@ -1318,6 +1381,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       value={offerPeriodTo}
                       onChange={(event) => {
                         setOfferPeriodTo(event.target.value);
+                        setAvailabilityLoading(true);
+                        setAvailabilityError(null);
                         setPreview(null);
                         setPreviewError(null);
                       }}
@@ -1332,12 +1397,21 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       value={offerDropoffTime}
                       onChange={(event) => {
                         setOfferDropoffTime(event.target.value);
+                        setAvailabilityLoading(true);
+                        setAvailabilityError(null);
                         setPreview(null);
                       }}
                       required
                     />
                   </Field>
                 </FieldGroup>
+                {availabilityLoading && offerPeriodFrom && offerPeriodTo && offerPickupTime && offerDropoffTime ? (
+                  <p className="text-sm text-muted-foreground">
+                    Fahrradverfügbarkeit für den neuen Zeitraum wird geprüft …
+                  </p>
+                ) : availabilityError && offerPeriodFrom && offerPeriodTo && offerPickupTime && offerDropoffTime ? (
+                  <p className="text-sm text-destructive">{availabilityError}</p>
+                ) : null}
                 <div className="space-y-4">
                   <label className="flex items-start gap-3 rounded-xl border bg-muted/30 p-4 text-sm">
                     <Checkbox
@@ -1371,6 +1445,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           <FieldLabel htmlFor={`asset-${item.id}`}>{item.label}</FieldLabel>
                           <Select
                             value={assetsByRequestedItem[String(item.id)] ?? ""}
+                            disabled={
+                              availabilityLoading ||
+                              Boolean(availabilityError) ||
+                              !offerPeriodFrom ||
+                              !offerPeriodTo ||
+                              !offerPickupTime ||
+                              !offerDropoffTime
+                            }
                             onValueChange={(value) => {
                               const nextAssetsByRequestedItem = {
                                 ...assetsByRequestedItem,
