@@ -1609,24 +1609,26 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
                   ) : null}
 
                   {inventory.bottleHolderIncluded ? (
-                    <label className="contact-form__checkbox">
+                    <label className="contact-form__checkbox contact-form__checkbox--fixed">
                       <input
                         type="checkbox"
                         name={"bikes." + index + ".bottleHolderIncluded"}
-                        checked={bike.bottleHolderIncluded}
-                        onChange={(event) => updateBike(index, "bottleHolderIncluded", event.target.checked)}
+                        checked
+                        disabled
+                        aria-label={translations.form.bottleHolder}
                       />
                       <span>{translations.form.bottleHolder}</span>
                     </label>
                   ) : null}
 
                   {inventory.repairKitIncluded ? (
-                    <label className="contact-form__checkbox">
+                    <label className="contact-form__checkbox contact-form__checkbox--fixed">
                       <input
                         type="checkbox"
                         name={"bikes." + index + ".repairKitIncluded"}
-                        checked={bike.repairKitIncluded}
-                        onChange={(event) => updateBike(index, "repairKitIncluded", event.target.checked)}
+                        checked
+                        disabled
+                        aria-label={translations.form.repairKit}
                       />
                       <span>{translations.form.repairKit}</span>
                     </label>
@@ -1634,12 +1636,13 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
 
                   <div className="contact-form__equipment-item">
                     <div className="contact-form__equipment-option">
-                      <label className="contact-form__checkbox">
+                      <label className="contact-form__checkbox contact-form__checkbox--fixed">
                         <input
                           type="checkbox"
                           name={"bikes." + index + ".insuranceProtectionSelected"}
-                          checked={bike.insuranceProtectionSelected}
-                          onChange={(event) => updateBike(index, "insuranceProtectionSelected", event.target.checked)}
+                          checked
+                          disabled
+                          aria-label={translations.form.insuranceProtection}
                         />
                         <span>{translations.form.insuranceProtection}</span>
                       </label>
