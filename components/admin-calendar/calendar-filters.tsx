@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -13,7 +14,6 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { calendarStatusPreferenceKey, calendarStatusPreferenceMaxAge } from "@/lib/calendar/filter-preferences";
 
 export type CalendarFilterOption = {
   value: string;
@@ -25,22 +25,29 @@ export function CalendarFilters({
   statusItems,
   locationValue,
   statusValue,
+  calendarFilterPreferenceSaved,
 }: {
   locationItems: CalendarFilterOption[];
   statusItems: CalendarFilterOption[];
   locationValue: string;
   statusValue: string;
+  calendarFilterPreferenceSaved: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  useEffect(() => {
+    void fetch("/api/admin/calendar/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ location: locationValue, status: statusValue }),
+    });
+  }, [calendarFilterPreferenceSaved, locationValue, statusValue]);
+
   function updateParam(key: "location" | "status", nextValue: string | string[] | null) {
     const params = new URLSearchParams(searchParams.toString());
     const value = Array.isArray(nextValue) ? nextValue.join(",") : nextValue;
-    if (key === "status") {
-      document.cookie = `${calendarStatusPreferenceKey}=${encodeURIComponent(value && value !== "all" ? value : "")}; path=/; max-age=${calendarStatusPreferenceMaxAge}; samesite=lax`;
-    }
     if (!value || value === "all") params.delete(key);
     else params.set(key, value);
 

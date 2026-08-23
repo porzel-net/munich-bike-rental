@@ -25,3 +25,18 @@ export const calendarAccounts = sqliteTable(
     uniqueIndex("calendar_accounts_username_unique").on(table.username),
   ],
 );
+
+/** Per-user calendar filter state shared across devices. */
+export const calendarFilterPreferences = sqliteTable(
+  "calendar_filter_preferences",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    location: text("location").notNull().default("all"),
+    status: text("status").notNull().default(""),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [uniqueIndex("calendar_filter_preferences_user_id_unique").on(table.userId)],
+);

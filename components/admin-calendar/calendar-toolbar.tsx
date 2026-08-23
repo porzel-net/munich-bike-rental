@@ -14,6 +14,7 @@ export function CalendarToolbar({
   statusValue,
   monthName,
   yearLabel,
+  calendarFilterPreferenceSaved,
 }: {
   previousMonthHref: string;
   nextMonthHref: string;
@@ -23,6 +24,7 @@ export function CalendarToolbar({
   statusValue: string;
   monthName: string;
   yearLabel: string;
+  calendarFilterPreferenceSaved: boolean;
 }) {
   return (
     <div className="calendar-toolbar">
@@ -60,6 +62,7 @@ export function CalendarToolbar({
           locationValue={locationValue}
           statusItems={statusItems}
           statusValue={statusValue}
+          calendarFilterPreferenceSaved={calendarFilterPreferenceSaved}
         />
       </div>
     </div>

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import { getVisibleContacts, contactToVCard } from "../../lib/contacts/service";
+import { companyToVCard } from "../../lib/contacts/contact-card";
 import { authUser, bookings, carddavSyncJobs } from "../../lib/db/schema";
 import { enqueueCarddavSync } from "../../lib/carddav/queue";
 
@@ -153,5 +154,17 @@ describe("visible contacts", () => {
     expect(vcard).toMatch(/^BEGIN:VCARD\r\n/);
     expect(vcard).toMatch(/\r\nEND:VCARD\r\n$/);
     expect(vcard).not.toContain("FN:Ada,\nLovelace");
+  });
+
+  it("builds one company card with the preferred business number and staff work numbers", () => {
+    const vcard = companyToVCard([{ name: "Julius Porzel", phone: "+49 176 24742317" }]);
+
+    expect(vcard).toContain("FN:Your Bike Rental");
+    expect(vcard).toContain("ORG:Your Bike Rental");
+    expect(vcard).toContain("TEL;TYPE=WORK,VOICE;PREF=1:+498954193577");
+    expect(vcard).toContain("EMAIL;TYPE=WORK;PREF=1:hallo@munich-bike-rental.de");
+    expect(vcard).toContain("item1.TEL;TYPE=WORK,VOICE:+49 176 24742317");
+    expect(vcard).toContain("item1.X-ABLabel:Julius Porzel");
+    expect(vcard).toContain("X-ABShowAs:COMPANY");
   });
 });

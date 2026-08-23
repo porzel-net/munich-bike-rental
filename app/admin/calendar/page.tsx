@@ -30,6 +30,7 @@ import {
   bookings,
   bookingStatuses,
   calendarAccounts,
+  calendarFilterPreferences,
   rentalAssets,
   type BookingStatus,
 } from "@/lib/db/schema";
@@ -88,13 +89,20 @@ export default async function CalendarPage({
 
   const params = await searchParams;
   const month = parseCalendarMonthKey(params.month);
-  const location = resolveLocation(params.location, administrator, assignedLocation);
+  const db = getDatabase();
+  const savedFilterPreference = db
+    .select({ location: calendarFilterPreferences.location, status: calendarFilterPreferences.status })
+    .from(calendarFilterPreferences)
+    .where(eq(calendarFilterPreferences.userId, session.user.id))
+    .get();
+  const location = resolveLocation(params.location ?? savedFilterPreference?.location, administrator, assignedLocation);
   const statusPreference =
-    params.status ?? decodeCookieValue((await cookies()).get(calendarStatusPreferenceKey)?.value);
+    params.status ??
+    savedFilterPreference?.status ??
+    decodeCookieValue((await cookies()).get(calendarStatusPreferenceKey)?.value);
   const statuses = resolveStatuses(statusPreference);
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
-  const db = getDatabase();
   const conditions = [
     location !== "all" ? inArray(bookings.location, [location]) : null,
     statuses.length ? inArray(bookings.status, statuses) : null,
@@ -287,6 +295,7 @@ export default async function CalendarPage({
               )}
               statusItems={statusItems}
               statusValue={queryStatus}
+              calendarFilterPreferenceSaved={Boolean(savedFilterPreference)}
               yearLabel={getCalendarYearLabel(month)}
               weeks={weeks}
               calendarAccount={calendarAccount}

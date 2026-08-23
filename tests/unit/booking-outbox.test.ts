@@ -300,7 +300,7 @@ describe("booking mail threads", () => {
     );
   });
 
-  it("attaches all location staff and all admins' contact cards to customer mail", async () => {
+  it("attaches one company contact card with location staff and admin phone numbers", async () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);
     const { db } = connection;
@@ -387,11 +387,21 @@ describe("booking mail threads", () => {
     expect(sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
         attachments: expect.arrayContaining([
-          expect.objectContaining({ filename: "Max-Mustermann.vcf" }),
-          expect.objectContaining({ filename: "Erika-Beispiel.vcf" }),
-          expect.objectContaining({ filename: "Julius-Porzel.vcf" }),
+          expect.objectContaining({
+            filename: "Your-Bike-Rental.vcf",
+            contentType: "text/vcard; charset=utf-8",
+            content: expect.any(Buffer),
+          }),
         ]),
       }),
     );
+    const attachment = sendMail.mock.calls
+      .at(-1)?.[0]
+      ?.attachments?.find((candidate: { filename?: string }) => candidate.filename === "Your-Bike-Rental.vcf");
+    expect(attachment?.content.toString("utf8")).toContain("FN:Your Bike Rental");
+    expect(attachment?.content.toString("utf8")).toContain("TEL;TYPE=WORK,VOICE;PREF=1:+498954193577");
+    expect(attachment?.content.toString("utf8")).toContain("item1.TEL;TYPE=WORK,VOICE:+49 172 1122334");
+    expect(attachment?.content.toString("utf8")).toContain("item2.TEL;TYPE=WORK,VOICE:+49 170 1234567");
+    expect(attachment?.content.toString("utf8")).toContain("item3.TEL;TYPE=WORK,VOICE:+49 171 7654321");
   });
 });

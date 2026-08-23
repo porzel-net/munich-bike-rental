@@ -9,7 +9,7 @@ import {
   communicationMessages,
   mailOutbox,
 } from "../db/schema";
-import { contactCardFileName, personToVCard } from "../contacts/contact-card";
+import { companyToVCard, contactCardFileName } from "../contacts/contact-card";
 import { renderInvoicePdf } from "./invoice-pdf";
 import { getBookingPaymentStatus } from "./service";
 import type { OfferQuote } from "./quotes";
@@ -74,9 +74,9 @@ async function buildPaidBookingInvoiceAttachment(db: AppDatabase, bookingId: num
   };
 }
 
-function buildStaffContactCardAttachments(db: AppDatabase, bookingId: number) {
+function buildCompanyContactCardAttachment(db: AppDatabase, bookingId: number) {
   const booking = db.select({ location: bookings.location }).from(bookings).where(eq(bookings.id, bookingId)).get();
-  if (!booking) return [];
+  if (!booking) return null;
 
   const staff = db
     .select({ name: authUser.name, phone: authUser.whatsappPhone })
@@ -84,13 +84,15 @@ function buildStaffContactCardAttachments(db: AppDatabase, bookingId: number) {
     .where(or(eq(authUser.role, "admin"), eq(authUser.locationKey, booking.location)))
     .all();
 
-  return staff
+  const staffPhones = staff
     .filter((person) => person.name.trim() && person.phone?.trim())
-    .map((person) => ({
-      filename: contactCardFileName(person.name),
-      content: Buffer.from(personToVCard({ name: person.name, phone: person.phone! }), "utf8"),
-      contentType: "text/vcard; charset=utf-8",
-    }));
+    .map((person) => ({ name: person.name, phone: person.phone! }));
+
+  return {
+    filename: contactCardFileName(),
+    content: Buffer.from(companyToVCard(staffPhones), "utf8"),
+    contentType: "text/vcard; charset=utf-8",
+  };
 }
 
 async function resolveThread(
@@ -170,8 +172,11 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
       .run();
     const invoiceAttachment =
       job.kind === "booking_confirmed" ? await buildPaidBookingInvoiceAttachment(db, job.bookingId) : null;
-    const contactCardAttachments = buildStaffContactCardAttachments(db, job.bookingId);
-    const attachments = [...contactCardAttachments, ...(invoiceAttachment ? [invoiceAttachment] : [])];
+    const contactCardAttachment = buildCompanyContactCardAttachment(db, job.bookingId);
+    const attachments = [
+      ...(contactCardAttachment ? [contactCardAttachment] : []),
+      ...(invoiceAttachment ? [invoiceAttachment] : []),
+    ];
     const sent = await sendConfiguredMail({
       account: usesRequestAccount(job.kind) ? "request" : "main",
       to: job.recipient,

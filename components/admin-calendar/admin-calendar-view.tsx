@@ -19,6 +19,7 @@ export function AdminCalendarView({
   calendarAllLocations,
   calendarUrl,
   calendarScopeLabel,
+  calendarFilterPreferenceSaved,
 }: {
   previousMonthHref: string;
   nextMonthHref: string;
@@ -34,6 +35,7 @@ export function AdminCalendarView({
   calendarAllLocations: boolean;
   calendarUrl: string;
   calendarScopeLabel: string;
+  calendarFilterPreferenceSaved: boolean;
 }) {
   return (
     <section className="calendar-shell">
@@ -46,6 +48,7 @@ export function AdminCalendarView({
           previousMonthHref={previousMonthHref}
           statusItems={statusItems}
           statusValue={statusValue}
+          calendarFilterPreferenceSaved={calendarFilterPreferenceSaved}
           yearLabel={yearLabel}
         />
 
