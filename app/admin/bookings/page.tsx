@@ -34,6 +34,7 @@ import type { BookingStatus } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
 import { getPendingEmailActionBookingIds } from "@/lib/bookings/pending-email-action";
 import { authUser } from "@/lib/db/schema";
+import { getRecommendedBikeSize, hasBikeSizeTable } from "@/lib/bikes/size-fit";
 
 type BookingPeriod = "all" | "week" | "month" | "six_months" | "year";
 
@@ -275,11 +276,19 @@ export default async function BookingsPage({
                       const requestedBikes = itemsByBooking.get(row.id) ?? [];
                       const requestedItems = requestedItemsByBooking.get(row.id) ?? [];
                       const requestedQuantities = new Map<string, number>();
-                      for (const item of requestedItems)
-                        requestedQuantities.set(
-                          item.requestedLabel,
-                          (requestedQuantities.get(item.requestedLabel) ?? 0) + 1,
-                        );
+                      for (const item of requestedItems) {
+                        const recommendedSize = getRecommendedBikeSize(item.requestedLabel, item.heightCm);
+                        const requestedModel = item.requestedLabel
+                          .replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*cm\s*\)\s*$/iu, "")
+                          .replace(/\s+-\s+(?:3XS|2XS|XS|S|M|L|XL|2XL|XXL)$/iu, "")
+                          .trim();
+                        const requestedBike = recommendedSize
+                          ? `${requestedModel} - ${recommendedSize}`
+                          : hasBikeSizeTable(item.requestedLabel) && item.heightCm > 0
+                            ? `${requestedModel} - __no_matching_size__`
+                            : item.requestedLabel;
+                        requestedQuantities.set(requestedBike, (requestedQuantities.get(requestedBike) ?? 0) + 1);
+                      }
                       const likelyUnavailable =
                         row.status === "inquiry_received" &&
                         [...requestedQuantities].some(([requestedLabel, quantity]) => {

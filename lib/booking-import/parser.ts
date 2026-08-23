@@ -6,6 +6,7 @@ import type {
   RequestedBikeImport,
 } from "./types";
 import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
+import { getRecommendedHeight } from "../bikes/size-fit";
 
 const DEFAULT_EMAIL = "unknown@example.invalid";
 const DEFAULTS = {
@@ -70,48 +71,6 @@ const HEIGHT_RE =
 const HEIGHT_FALLBACK_RE = /\b(\d{2,3})\s*cm\b/giu;
 const EMAIL_RE = /\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b/giu;
 const PHONE_RE = /(?<!\w)(?:\+?\d[\d ()/.-]{6,}\d)(?!\w)/gu;
-
-const CANYON_HEIGHT_RANGES: Record<string, Record<string, [number, number]>> = {
-  endurace: {
-    "3XS": [152, 158],
-    "2XS": [160, 166],
-    XS: [166, 172],
-    S: [172, 178],
-    M: [178, 184],
-    L: [184, 190],
-    XL: [190, 196],
-    "2XL": [196, 202],
-  },
-  grail: {
-    "2XS": [163, 169],
-    XS: [167, 175],
-    S: [172, 181],
-    M: [179, 187],
-    L: [185, 193],
-    XL: [190, 199],
-    "2XL": [196, 202],
-  },
-  ultimate: {
-    "3XS": [154, 160],
-    "2XS": [160, 166],
-    XS: [166, 172],
-    S: [172, 178],
-    M: [178, 184],
-    L: [184, 190],
-    XL: [190, 196],
-    "2XL": [196, 202],
-  },
-  aeroad: {
-    "3XS": [154, 160],
-    "2XS": [160, 166],
-    XS: [166, 172],
-    S: [172, 178],
-    M: [178, 184],
-    L: [184, 190],
-    XL: [190, 196],
-    "2XL": [196, 202],
-  },
-};
 
 const FIELD_LABELS = {
   name: ["full name", "name", "your name", "customer", "kunde", "kundename", "vorname", "nachname"],
@@ -430,10 +389,7 @@ function canonicalBikeLabel(model: string, size: string | undefined) {
 }
 
 function recommendedHeight(label: string) {
-  const size = label.match(/(?:^|\s)-\s*(XS|S|M|L|XL|2XL|3XS|2XS)\s*$/iu)?.[1]?.toUpperCase();
-  const family = Object.keys(CANYON_HEIGHT_RANGES).find((key) => label.toLocaleLowerCase().includes(key));
-  const range = family && size ? CANYON_HEIGHT_RANGES[family][size] : undefined;
-  return range ? Math.floor((range[0] + range[1] + 1) / 2) : null;
+  return getRecommendedHeight(label);
 }
 
 type BikeMention = { label: string; position: number };

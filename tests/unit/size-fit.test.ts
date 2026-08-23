@@ -1,0 +1,30 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  getBikeSizeWarning,
+  getRecommendedBikeSize,
+  getRecommendedHeight,
+  hasBikeSizeTable,
+} from "@/lib/bikes/size-fit";
+
+describe("bike size fit", () => {
+  it("recommends a size for every supported Canyon road bike model", () => {
+    expect(getRecommendedBikeSize("Aeroad CF SL 8", 180)).toBe("M");
+    expect(getRecommendedBikeSize("Grail CF SL 7", 170)).toBe("XS");
+    expect(getRecommendedBikeSize("Ultimate CF SL 7", 155)).toBe("3XS");
+    expect(getRecommendedBikeSize("Aeroad CF SL 8", 150)).toBeNull();
+    expect(hasBikeSizeTable("Aeroad CF SL 8")).toBe(true);
+  });
+
+  it("uses the same ranges to infer a missing height from a requested size", () => {
+    expect(getRecommendedHeight("Endurace CF SL 8 - M")).toBe(181);
+  });
+
+  it("warns when the selected size does not fit the rider", () => {
+    expect(getBikeSizeWarning("Aeroad CF SL 8 - S", 180)).toMatchObject({
+      selectedSize: "S",
+      recommendedRange: { size: "M" },
+    });
+    expect(getBikeSizeWarning("Aeroad CF SL 8 - M", 180)).toBeNull();
+  });
+});
