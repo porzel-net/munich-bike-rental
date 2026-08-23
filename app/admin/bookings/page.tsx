@@ -21,9 +21,7 @@ import {
   bikeModels,
   bikeVariants,
   bookingRequestedItems,
-  bookingEvents,
   bookings,
-  emailActionReviews,
   journalEntries,
   journalLines,
   rentalAssets,
@@ -34,7 +32,7 @@ import { getBookingMigrationPreflight } from "@/lib/bookings/preflight";
 import { BookingStatusFilter } from "@/components/booking-status-filter";
 import type { BookingStatus } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
-import { EMAIL_ACTION_START_AT, isEmailQuestionsManuallyResolved } from "@/lib/inquiries/email-action";
+import { getPendingEmailActionBookingIds } from "@/lib/bookings/pending-email-action";
 import { authUser } from "@/lib/db/schema";
 
 type BookingPeriod = "all" | "week" | "month" | "six_months" | "year";
@@ -180,62 +178,7 @@ export default async function BookingsPage({
     ? db.select({ id: authUser.id, name: authUser.name }).from(authUser).where(inArray(authUser.id, assigneeIds)).all()
     : [];
   const assigneeNames = new Map(assignees.map((assignee) => [assignee.id, assignee.name]));
-  const actionReviews = queriedRows.length
-    ? db
-        .select()
-        .from(emailActionReviews)
-        .where(
-          inArray(
-            emailActionReviews.bookingId,
-            queriedRows.map((row) => row.id),
-          ),
-        )
-        .orderBy(desc(emailActionReviews.createdAt), desc(emailActionReviews.id))
-        .all()
-    : [];
-  const latestActionReviewByBooking = new Map<number, (typeof actionReviews)[number]>();
-  for (const review of actionReviews) {
-    if (!latestActionReviewByBooking.has(review.bookingId)) latestActionReviewByBooking.set(review.bookingId, review);
-  }
-  const emailQuestionsEvents = queriedRows.length
-    ? db
-        .select({
-          bookingId: bookingEvents.bookingId,
-          eventType: bookingEvents.eventType,
-          occurredAt: bookingEvents.occurredAt,
-          id: bookingEvents.id,
-        })
-        .from(bookingEvents)
-        .where(
-          and(
-            inArray(
-              bookingEvents.bookingId,
-              queriedRows.map((row) => row.id),
-            ),
-            inArray(bookingEvents.eventType, ["email_questions_resolved", "email_questions_reopened"]),
-          ),
-        )
-        .orderBy(desc(bookingEvents.occurredAt), desc(bookingEvents.id))
-        .all()
-    : [];
-  const latestEmailQuestionsEventByBooking = new Map<number, (typeof emailQuestionsEvents)[number]>();
-  for (const event of emailQuestionsEvents) {
-    if (!latestEmailQuestionsEventByBooking.has(event.bookingId)) {
-      latestEmailQuestionsEventByBooking.set(event.bookingId, event);
-    }
-  }
-  const hasPendingEmailAction = (row: (typeof queriedRows)[number]) => {
-    const latestActionReview = latestActionReviewByBooking.get(row.id);
-    const latestEmailQuestionsEvent = latestEmailQuestionsEventByBooking.get(row.id) ?? null;
-    return (
-      !isEmailQuestionsManuallyResolved(latestActionReview ?? null, latestEmailQuestionsEvent) &&
-      (latestActionReview?.status === "needs_action" ||
-        latestActionReview?.status === "error" ||
-        (!latestActionReview &&
-          row.status === "inquiry_received" &&
-          row.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime()))
-    );
-  };
+  const pendingEmailActionBookingIds = getPendingEmailActionBookingIds(db, queriedRows);
   const receivableLines = queriedRows.length
     ? db
         .select({ bookingId: journalEntries.bookingId, amountCents: journalLines.amountCents })
@@ -278,7 +221,7 @@ export default async function BookingsPage({
     })
     .sort(
       (left, right) =>
-        Number(hasPendingEmailAction(right)) - Number(hasPendingEmailAction(left)) ||
+        Number(pendingEmailActionBookingIds.has(right.id)) - Number(pendingEmailActionBookingIds.has(left.id)) ||
         right.createdAt.getTime() - left.createdAt.getTime() ||
         right.id - left.id,
     );
@@ -348,7 +291,7 @@ export default async function BookingsPage({
                           ).length;
                           return availableQuantity < quantity;
                         });
-                      const rowHasPendingEmailAction = hasPendingEmailAction(row);
+                      const rowHasPendingEmailAction = pendingEmailActionBookingIds.has(row.id);
                       return (
                         <Item
                           className="transform-gpu bg-card cursor-pointer transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"

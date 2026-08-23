@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
@@ -31,6 +31,7 @@ import {
 import { getDatabase } from "@/lib/db/client";
 import { bookings, financialTransactions } from "@/lib/db/schema";
 import { getAssignedLocation } from "@/lib/auth/authorization";
+import { getPendingEmailActionBookingIds } from "@/lib/bookings/pending-email-action";
 
 const data = {
   navMain: [
@@ -144,17 +145,12 @@ export async function AppSidebar({
         )
         .get()?.value ?? 0)
     : 0;
-  const openBookingCount =
-    db
-      .select({ value: count() })
-      .from(bookings)
-      .where(
-        and(
-          inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out"]),
-          assignedLocation ? eq(bookings.location, assignedLocation) : undefined,
-        ),
-      )
-      .get()?.value ?? 0;
+  const openBookings = db
+    .select({ id: bookings.id, status: bookings.status, createdAt: bookings.createdAt })
+    .from(bookings)
+    .where(and(assignedLocation ? eq(bookings.location, assignedLocation) : undefined))
+    .all();
+  const openBookingCount = getPendingEmailActionBookingIds(db, openBookings).size;
   const navItems = data.navMain
     .filter((item) => !item.adminOnly || isAdmin)
     .map((item) =>
