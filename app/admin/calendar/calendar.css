@@ -418,6 +418,7 @@
   left: 0;
   z-index: 1000;
   display: none;
+  box-sizing: border-box;
   width: 13rem;
   padding: 1rem;
   border: 1px solid rgba(166, 168, 179, 0.2);
@@ -462,6 +463,26 @@
   left: auto;
 }
 
+.calendar-event-bar.is-tooltip-above .calendar-event-detail {
+  top: auto;
+  bottom: calc(100% + 0.6rem);
+}
+
+.calendar-event-bar.is-tooltip-above .calendar-event-detail::before,
+.calendar-event-bar.is-tooltip-above .calendar-event-detail::after {
+  top: 100%;
+  bottom: auto;
+  border-bottom-color: transparent;
+}
+
+.calendar-event-bar.is-tooltip-above .calendar-event-detail::before {
+  border-top-color: rgba(166, 168, 179, 0.2);
+}
+
+.calendar-event-bar.is-tooltip-above .calendar-event-detail::after {
+  border-top-color: #fff;
+}
+
 .calendar-event-detail strong,
 .calendar-event-detail > span {
   display: block;
@@ -480,7 +501,8 @@
 }
 
 .calendar-event-bar:hover .calendar-event-detail,
-.calendar-event-bar:focus-visible .calendar-event-detail {
+.calendar-event-bar:focus-visible .calendar-event-detail,
+.calendar-event-bar.is-tooltip-open .calendar-event-detail {
   display: block;
 }
 

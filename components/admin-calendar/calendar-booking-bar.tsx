@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import type { CalendarBookingEvent, CalendarStatusTone } from "@/lib/calendar/admin-calendar";
@@ -24,12 +27,48 @@ export function CalendarBookingBar({
   isRightEdge: boolean;
 }) {
   const tone = toneClasses[event.tone];
+  const barRef = useRef<HTMLAnchorElement>(null);
+  const detailRef = useRef<HTMLSpanElement>(null);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipAbove, setTooltipAbove] = useState(false);
+
+  useEffect(() => {
+    if (!tooltipOpen) return;
+
+    const updateTooltipPlacement = () => {
+      const detail = detailRef.current;
+      if (!detail) return;
+
+      const bar = barRef.current;
+      const detailRect = detail.getBoundingClientRect();
+      const viewportMargin = 12;
+      const hasRoomBelow = detailRect.bottom <= window.innerHeight - viewportMargin;
+      const hasRoomAbove = Boolean(bar && bar.getBoundingClientRect().top >= detailRect.height + viewportMargin);
+
+      setTooltipAbove(!hasRoomBelow && hasRoomAbove);
+    };
+
+    const frame = window.requestAnimationFrame(updateTooltipPlacement);
+    window.addEventListener("resize", updateTooltipPlacement);
+    window.addEventListener("scroll", updateTooltipPlacement, true);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updateTooltipPlacement);
+      window.removeEventListener("scroll", updateTooltipPlacement, true);
+    };
+  }, [tooltipOpen]);
 
   return (
     <Link
-      className={`calendar-event-bar ${tone} ${isSegmentStart ? "is-segment-start" : ""} ${isSegmentEnd ? "is-segment-end" : ""} ${isRightEdge ? "is-right-edge" : ""}`}
+      ref={barRef}
+      className={`calendar-event-bar ${tone} ${isSegmentStart ? "is-segment-start" : ""} ${isSegmentEnd ? "is-segment-end" : ""} ${isRightEdge ? "is-right-edge" : ""} ${tooltipOpen ? "is-tooltip-open" : ""} ${tooltipAbove ? "is-tooltip-above" : ""}`}
       href={`/admin/bookings/${event.id}`}
       aria-label={`Buchung ${event.displayLabel}, ${event.customerName}, ${event.pickupTime} bis ${event.dropoffTime} Uhr, ${event.statusLabel}`}
+      onPointerEnter={() => setTooltipOpen(true)}
+      onPointerLeave={() => setTooltipOpen(false)}
+      onFocus={() => setTooltipOpen(true)}
+      onBlur={() => setTooltipOpen(false)}
     >
       <span className="calendar-event-dot" aria-hidden="true" />
       <p className="min-w-0 flex-1 truncate text-[11px] font-medium leading-4">{event.displayLabel}</p>
@@ -37,7 +76,7 @@ export function CalendarBookingBar({
         {event.pickupTime}–{event.dropoffTime}
       </span>
       <span className="calendar-event-status">{event.statusLabel}</span>
-      <span className="calendar-event-detail" aria-hidden="true">
+      <span ref={detailRef} className="calendar-event-detail" aria-hidden="true">
         <strong>{event.customerName}</strong>
         <span>
           {event.orderNumber} · {event.locationLabel}
