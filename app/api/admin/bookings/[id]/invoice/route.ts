@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { renderInvoicePdf } from "@/lib/bookings/invoice-pdf";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
-import type { OfferQuote } from "@/lib/bookings/quotes";
+import { parseOfferQuoteSnapshot, type OfferQuote } from "@/lib/bookings/quotes";
 import { getDatabase } from "@/lib/db/client";
 import { bookingOffers, bookingRequestedItems, bookings } from "@/lib/db/schema";
 import { rentalLocationLabels } from "@/lib/inquiries/catalog";
@@ -49,7 +49,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     );
 
   const requestedItems = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, id)).all();
-  const quote = JSON.parse(offer.priceSnapshotJson) as OfferQuote;
+  const quote = parseOfferQuoteSnapshot(offer.priceSnapshotJson) as OfferQuote;
   const location =
     rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
   const pdf = await renderInvoicePdf({

@@ -1,6 +1,5 @@
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CSSProperties } from "react";
-import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "date-fns";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -13,6 +12,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import {
   buildCalendarWeeks,
+  getCalendarGridRange,
   getCalendarMonthKey,
   getCalendarMonthName,
   getCalendarYearLabel,
@@ -21,6 +21,7 @@ import {
   type CalendarBookingBike,
 } from "@/lib/calendar/admin-calendar";
 import { getDatabase } from "@/lib/db/client";
+import { berlinDateKey } from "@/lib/datetime";
 import { calendarStatusPreferenceKey } from "@/lib/calendar/filter-preferences";
 import {
   bookingAssetAllocations,
@@ -101,8 +102,7 @@ export default async function CalendarPage({
     savedFilterPreference?.status ??
     decodeCookieValue((await cookies()).get(calendarStatusPreferenceKey)?.value);
   const statuses = resolveStatuses(statusPreference);
-  const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+  const { gridStart, gridEnd } = getCalendarGridRange(month);
   const conditions = [
     location !== "all" ? inArray(bookings.location, [location]) : null,
     statuses.length ? inArray(bookings.status, statuses) : null,
@@ -284,12 +284,12 @@ export default async function CalendarPage({
               locationValue={queryLocation}
               monthName={getCalendarMonthName(month)}
               nextMonthHref={calendarHref(
-                new Date(month.getFullYear(), month.getMonth() + 1, 1),
+                new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1, 12)),
                 queryLocation,
                 queryStatus,
               )}
               previousMonthHref={calendarHref(
-                new Date(month.getFullYear(), month.getMonth() - 1, 1),
+                new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() - 1, 1, 12)),
                 queryLocation,
                 queryStatus,
               )}
@@ -311,5 +311,5 @@ export default async function CalendarPage({
 }
 
 function formatDateForQuery(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return berlinDateKey(date);
 }

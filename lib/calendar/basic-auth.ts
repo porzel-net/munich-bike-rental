@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
-import { canAccessAdmin, hasCompletedAdminSetup } from "../auth/authorization";
+import { canUseExternalCalendar } from "../auth/authorization";
 import { parseBasicAuthorization, verifyCarddavPassword } from "../carddav/auth";
 import type { AppDatabase } from "../db/client";
 import { authUser, calendarAccounts } from "../db/schema";
@@ -40,16 +40,18 @@ export async function authenticateCalendarRequest(
     .where(and(eq(calendarAccounts.username, credentials.username), eq(calendarAccounts.enabled, true)))
     .get();
 
-  if (!account || account.banned || (account.banExpires && account.banExpires.getTime() <= Date.now())) return null;
   if (
-    !hasCompletedAdminSetup({
+    !account ||
+    !canUseExternalCalendar({
+      role: account.role,
+      locationKey: account.locationKey,
+      banned: account.banned,
+      banExpires: account.banExpires,
       twoFactorEnabled: account.twoFactorEnabled,
       mustChangePassword: account.mustChangePassword,
-    }) ||
-    !canAccessAdmin({ role: account.role, locationKey: account.locationKey })
-  ) {
+    })
+  )
     return null;
-  }
 
   const validPassword = await verifyCarddavPassword(credentials.password, account.passwordHash);
   return validPassword ? { id: account.userId, role: account.role, locationKey: account.locationKey } : null;

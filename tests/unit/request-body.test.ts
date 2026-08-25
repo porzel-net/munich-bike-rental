@@ -23,6 +23,11 @@ describe("bounded request bodies", () => {
     await expect(readBoundedJson(request, 32)).resolves.toBeNull();
   });
 
+  it("returns null for malformed JSON instead of throwing", async () => {
+    const request = new Request("http://localhost/test", { method: "POST", body: "{not-json" });
+    await expect(readBoundedJson(request)).resolves.toBeNull();
+  });
+
   it("bounds non-JSON text bodies as well", async () => {
     const request = new Request("http://localhost/test", { method: "POST", body: "payload" });
     await expect(readBoundedText(request, 16)).resolves.toBe("payload");

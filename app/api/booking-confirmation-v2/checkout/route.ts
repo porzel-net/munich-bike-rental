@@ -68,6 +68,7 @@ export async function POST(request: Request) {
         booking_id: String(offer.booking.id),
         offer_total_cents: String(offer.totalCents),
       },
+      idempotencyKey: `booking-offer-checkout:${offer.offerId}`,
     });
 
     return NextResponse.json(

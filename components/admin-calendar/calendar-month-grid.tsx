@@ -10,7 +10,7 @@ function CalendarDayCell({ day, isLastColumn }: { day: CalendarDay; isLastColumn
     <div
       className={`calendar-day ${day.isCurrentMonth ? "is-current-month" : "is-outside-month"} ${isLastColumn ? "is-last-column" : ""}`}
     >
-      <span className={`calendar-day-number ${day.isToday ? "is-today" : ""}`}>{day.date.getDate()}</span>
+      <span className={`calendar-day-number ${day.isToday ? "is-today" : ""}`}>{day.date.getUTCDate()}</span>
     </div>
   );
 }

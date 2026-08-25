@@ -37,6 +37,16 @@ export type StripeCharge = {
   balance_transaction?: string | StripeBalanceTransaction | null;
 };
 
+export type StripeRefund = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_intent?: string | StripePaymentIntent | null;
+  charge?: string | StripeCharge | null;
+  balance_transaction?: string | StripeBalanceTransaction | null;
+};
+
 export type StripePaymentIntent = {
   id: string;
   latest_charge?: string | StripeCharge | null;
@@ -75,13 +85,19 @@ function getStripeSecretKey() {
   return secretKey;
 }
 
-async function stripeRequest<T>(path: string, params: URLSearchParams, method: "POST" | "GET" = "POST") {
+async function stripeRequest<T>(
+  path: string,
+  params: URLSearchParams,
+  method: "POST" | "GET" = "POST",
+  options: { idempotencyKey?: string } = {},
+) {
   const secretKey = getStripeSecretKey();
   const response = await fetch(`${STRIPE_API_URL}/${path}`, {
     method,
     headers: {
       Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
       ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
     },
     ...(method === "POST" ? { body: params.toString() } : {}),
     cache: "no-store",
@@ -104,6 +120,7 @@ export async function createStripeCheckoutSession(input: {
   successUrl: string;
   cancelUrl: string;
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }) {
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) {
     throw new Error("Der Stripe-Betrag muss eine positive Ganzzahl in Cent sein.");
@@ -125,12 +142,38 @@ export async function createStripeCheckoutSession(input: {
   if (input.clientReferenceId) params.set("client_reference_id", input.clientReferenceId);
   for (const [key, value] of Object.entries(input.metadata ?? {})) params.set(`metadata[${key}]`, value);
 
-  const session = await stripeRequest<StripeCheckoutSession>("checkout/sessions", params);
+  const session = await stripeRequest<StripeCheckoutSession>("checkout/sessions", params, "POST", {
+    idempotencyKey: input.idempotencyKey,
+  });
   if (!session.url) {
     throw new Error("Stripe hat keine Checkout-URL zurückgegeben.");
   }
 
   return session;
+}
+
+export async function createStripeRefund(input: {
+  paymentIntentId: string;
+  amountCents: number;
+  idempotencyKey: string;
+}) {
+  if (!/^pi_[A-Za-z0-9_]+$/.test(input.paymentIntentId)) throw new Error("Die Stripe-Zahlungsreferenz ist ungültig.");
+  if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0)
+    throw new Error("Der Stripe-Erstattungsbetrag muss eine positive Ganzzahl in Cent sein.");
+  if (!input.idempotencyKey.trim())
+    throw new Error("Für eine Stripe-Erstattung ist ein Idempotenzschlüssel erforderlich.");
+
+  const params = new URLSearchParams();
+  params.set("payment_intent", input.paymentIntentId);
+  params.set("amount", String(input.amountCents));
+  params.set("expand[]", "balance_transaction");
+  const refund = await stripeRequest<StripeRefund>("refunds", params, "POST", {
+    idempotencyKey: input.idempotencyKey,
+  });
+  if (refund.status !== "succeeded" && refund.status !== "pending")
+    throw new Error("Stripe hat die Erstattung nicht angenommen.");
+  if (refund.amount !== input.amountCents) throw new Error("Stripe hat einen anderen Erstattungsbetrag zurückgegeben.");
+  return refund;
 }
 
 export async function getStripeCheckoutSession(sessionId: string) {

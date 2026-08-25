@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAiAnalysisButton } from "@/components/booking-ai-analysis-button";
-import { BookingEmailQuestionsResolvedButton } from "@/components/booking-email-questions-resolved-button";
+import { BookingAttentionAcknowledgedButton } from "@/components/booking-attention-acknowledged-button";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAssigneeCard } from "@/components/booking-assignee-card";
 import { BookingCommandActions } from "@/components/booking-command-actions";
@@ -24,8 +24,10 @@ import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/sessi
 import { hasAssetConflict } from "@/lib/bookings/availability";
 import { getAssignableBookingUsers } from "@/lib/bookings/assignees";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
+import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
 import { formatEuro } from "@/lib/bookings/money";
 import { bookingPresentation, paymentPresentation } from "@/lib/bookings/presentation";
+import { formatDateTime } from "@/lib/datetime";
 import { getDatabase } from "@/lib/db/client";
 import {
   getLatestEmailActionReview,
@@ -214,6 +216,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     (latestEmailActionReview?.status === "needs_action" ||
       latestEmailActionReview?.status === "error" ||
       (!latestEmailActionReview && booking.status === "inquiry_received" && emailActionEligible));
+  const hasPendingBookingAttention = getPendingBookingAttentionBookingIds(db, [booking]).has(booking.id);
   const emailActionStatusLabel = emailQuestionsManuallyResolved
     ? "Telefonisch geklärt"
     : !latestEmailActionReview
@@ -313,7 +316,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const bookingInfoColumns: Array<Array<{ label: string; value: React.ReactNode }>> = [
     [
       { label: "Buchungsnummer", value: <Kbd>{booking.orderNumber}</Kbd> },
-      { label: "Eingang", value: formatReceivedAt(booking.orderNumber) ?? booking.createdAt.toLocaleString("de-DE") },
+      { label: "Eingang", value: formatReceivedAt(booking.orderNumber) ?? formatDateTime(booking.createdAt) },
       { label: "Kunde", value: booking.customerName },
       { label: "E-Mail", value: booking.customerEmail },
       { label: "Telefonnummer", value: booking.customerPhone },
@@ -363,9 +366,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </Button>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-2">
-                    {hasPendingEmailAction ? (
+                    {hasPendingBookingAttention ? (
                       <span
-                        aria-label="Offene Kundenfrage"
+                        aria-label="Offene Aufmerksamkeit"
                         className="size-3 rounded-full bg-red-500 ring-2 ring-red-100"
                       />
                     ) : null}
@@ -392,6 +395,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 {hasAssignedCaseworker && booking.source !== "legacy" && (
                   <BookingAiAnalysisButton bookingId={booking.id} />
                 )}
+                {(isAdmin(session.user) || hasAssignedCaseworker) && hasPendingBookingAttention ? (
+                  <BookingAttentionAcknowledgedButton bookingId={booking.id} />
+                ) : null}
                 {hasAssignedCaseworker ? (
                   <RepeatBookingDialog
                     assets={availableAssets}
@@ -466,12 +472,6 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   <CardTitle>Antwortstatus</CardTitle>
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <Badge variant={emailActionBadgeVariant}>{emailActionStatusLabel}</Badge>
-                    {hasAssignedCaseworker && booking.source !== "legacy" ? (
-                      <BookingEmailQuestionsResolvedButton
-                        bookingId={booking.id}
-                        resolved={emailQuestionsManuallyResolved}
-                      />
-                    ) : null}
                   </div>
                 </div>
               </CardHeader>
@@ -500,7 +500,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                         ? "Eingangsregel"
                         : (latestEmailActionReview.model ?? "KI-Fallback")}
                       {latestEmailActionReview.createdAt
-                        ? ` · geprüft am ${new Date(latestEmailActionReview.createdAt).toLocaleString("de-DE")}`
+                        ? ` · geprüft am ${formatDateTime(latestEmailActionReview.createdAt)}`
                         : ""}
                     </p>
                   ) : null}
@@ -552,8 +552,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       <p className="text-sm text-muted-foreground">Kein zusätzlicher Kommentar.</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Eingegangen am{" "}
-                      {feedback.submittedAt.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}
+                      Eingegangen am {formatDateTime(feedback.submittedAt)}
                     </p>
                   </CardContent>
                 ) : (
@@ -592,7 +591,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {items.map((item) => {
                       const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
-                      const requestedDailyPriceCents = getDailyBikePriceCents(locationInventory, item.requestedLabel);
+                      const requestedDailyPriceCents = getDailyBikePriceCents(
+                        locationInventory,
+                        item.requestedLabel,
+                        booking.periodFrom,
+                      );
                       const accessories = [
                         item.needsPedals ? (item.pedalType ? getPedalTypeLabel(item.pedalType, "de") : "Pedale") : null,
                         item.needsComputerMount

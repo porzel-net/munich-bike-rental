@@ -15,6 +15,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { berlinDateKey } from "@/lib/datetime";
 
 type Asset = {
   id: number;
@@ -26,7 +27,7 @@ type FinancialAccount = { id: number; code: string; name: string };
 const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return berlinDateKey();
 }
 
 export function FixedAssetDisposalLauncher({

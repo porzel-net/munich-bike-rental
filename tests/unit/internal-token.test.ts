@@ -22,6 +22,12 @@ describe("internal bearer tokens", () => {
     expect(
       hasValidInternalBearerToken(request(`Bearer ${expected.slice(0, -1)}x`), { JOB_TOKEN: expected }, "JOB_TOKEN"),
     ).toBe(false);
+    expect(hasValidInternalBearerToken(request(`bearer ${expected}`), { JOB_TOKEN: expected }, "JOB_TOKEN")).toBe(
+      false,
+    );
+    expect(hasValidInternalBearerToken(request(`Bearer  ${expected}`), { JOB_TOKEN: expected }, "JOB_TOKEN")).toBe(
+      false,
+    );
   });
 
   it("fails closed for missing or weak deployment configuration", () => {

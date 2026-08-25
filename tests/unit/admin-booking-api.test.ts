@@ -5,6 +5,7 @@ const bookingApiMocks = vi.hoisted(() => ({
   getBookingAdminContext: vi.fn(),
   isAdmin: vi.fn(),
   advanceBooking: vi.fn(),
+  acknowledgeBookingAttention: vi.fn(),
   assignStripePaymentToBooking: vi.fn(),
   cancelBooking: vi.fn(),
   confirmManualBooking: vi.fn(),
@@ -15,6 +16,7 @@ const bookingApiMocks = vi.hoisted(() => ({
   dispatchNextOutboxMail: vi.fn(),
   getStripeCheckoutSession: vi.fn(),
   importStripeCheckoutPayment: vi.fn(),
+  refundStripeBookingPayment: vi.fn(),
 }));
 
 vi.mock("@/lib/bookings/admin-guard", () => ({
@@ -23,6 +25,7 @@ vi.mock("@/lib/bookings/admin-guard", () => ({
 vi.mock("@/lib/auth/session", () => ({ isAdmin: bookingApiMocks.isAdmin }));
 vi.mock("@/lib/bookings/service", () => ({
   advanceBooking: bookingApiMocks.advanceBooking,
+  acknowledgeBookingAttention: bookingApiMocks.acknowledgeBookingAttention,
   assignStripePaymentToBooking: bookingApiMocks.assignStripePaymentToBooking,
   cancelBooking: bookingApiMocks.cancelBooking,
   confirmManualBooking: bookingApiMocks.confirmManualBooking,
@@ -35,6 +38,9 @@ vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: bookingApiMock
 vi.mock("@/lib/stripe", () => ({ getStripeCheckoutSession: bookingApiMocks.getStripeCheckoutSession }));
 vi.mock("@/lib/financial/stripe-payment", () => ({
   importStripeCheckoutPayment: bookingApiMocks.importStripeCheckoutPayment,
+}));
+vi.mock("@/lib/financial/stripe-refunds", () => ({
+  refundStripeBookingPayment: bookingApiMocks.refundStripeBookingPayment,
 }));
 
 import { POST as bookingCommandPost } from "../../app/api/admin/bookings/[id]/commands/route";
@@ -60,6 +66,7 @@ describe("admin booking command API", () => {
     bookingApiMocks.isAdmin.mockReset();
     bookingApiMocks.isAdmin.mockReturnValue(true);
     bookingApiMocks.advanceBooking.mockReset();
+    bookingApiMocks.acknowledgeBookingAttention.mockReset();
     bookingApiMocks.assignStripePaymentToBooking.mockReset();
     bookingApiMocks.cancelBooking.mockReset();
     bookingApiMocks.confirmManualBooking.mockReset();
@@ -72,6 +79,8 @@ describe("admin booking command API", () => {
     bookingApiMocks.getStripeCheckoutSession.mockReset();
     bookingApiMocks.importStripeCheckoutPayment.mockReset();
     bookingApiMocks.importStripeCheckoutPayment.mockResolvedValue(undefined);
+    bookingApiMocks.refundStripeBookingPayment.mockReset();
+    bookingApiMocks.refundStripeBookingPayment.mockResolvedValue({ alreadyRefunded: false, journalEntryId: 8 });
   });
 
   it("forwards refund commands with their financial metadata", async () => {
@@ -132,6 +141,16 @@ describe("admin booking command API", () => {
     expect(bookingApiMocks.setBookingEmailQuestionsResolved).toHaveBeenCalledWith(bookingApiMocks.context.db, {
       bookingId: 42,
       resolved: true,
+      actorUserId: "admin",
+    });
+  });
+
+  it("forwards booking-attention acknowledgements", async () => {
+    const response = await bookingCommandPost(request({ command: "acknowledge_booking_attention" }), context());
+
+    expect(response.status).toBe(200);
+    expect(bookingApiMocks.acknowledgeBookingAttention).toHaveBeenCalledWith(bookingApiMocks.context.db, {
+      bookingId: 42,
       actorUserId: "admin",
     });
   });
@@ -238,6 +257,46 @@ describe("admin booking command API", () => {
     const rejected = await bookingCommandPost(request({ command: "reject", reason: "Nicht verfügbar" }), context());
     expect(rejected.status).toBe(200);
     expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(bookingApiMocks.context.db, 12);
+  });
+
+  it("supports an idempotent partial Stripe refund directly from cancellation", async () => {
+    bookingApiMocks.cancelBooking.mockReturnValue(null);
+    const cancelled = await bookingCommandPost(
+      request({
+        command: "cancel",
+        cancellationFeeCents: 1_000,
+        reason: "Kunde storniert",
+        cancellationPeriod: "more_than_7_days",
+        stripeRefundAmountCents: 9_000,
+        stripeRefundIdempotencyKey: "33333333-3333-4333-8333-333333333333",
+      }),
+      context(),
+    );
+    expect(cancelled.status).toBe(200);
+    expect(bookingApiMocks.refundStripeBookingPayment).toHaveBeenCalledWith(bookingApiMocks.context.db, {
+      bookingId: 42,
+      amountCents: 9_000,
+      reason: "Stripe-Erstattung bei Stornierung: Kunde storniert",
+      actorUserId: "admin",
+      idempotencyKey: "33333333-3333-4333-8333-333333333333",
+    });
+  });
+
+  it("rejects a cancellation Stripe refund without an idempotency key before changing the booking", async () => {
+    const response = await bookingCommandPost(
+      request({
+        command: "cancel",
+        cancellationFeeCents: 1_000,
+        reason: "Kunde storniert",
+        cancellationPeriod: "more_than_7_days",
+        stripeRefundAmountCents: 9_000,
+      }),
+      context(),
+    );
+
+    expect(response.status).toBe(400);
+    expect(bookingApiMocks.cancelBooking).not.toHaveBeenCalled();
+    expect(bookingApiMocks.refundStripeBookingPayment).not.toHaveBeenCalled();
   });
 
   it("dispatches the confirmation mail after manually assigning a Stripe payment", async () => {

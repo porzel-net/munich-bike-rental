@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { BookingEditDialog, type EditableItem } from "@/components/booking-edit-dialog";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
+import { berlinDateKey, formatDateTime } from "@/lib/datetime";
 import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
 import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
 import { getComputerMountTypeLabel, getPedalTypeLabel } from "@/lib/inquiries/catalog";
@@ -274,7 +275,8 @@ export function BookingCommandActions({
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
-  const [bookedAt, setBookedAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [bookedAt, setBookedAt] = useState(() => berlinDateKey());
+  const [stripeRefundAmount, setStripeRefundAmount] = useState("");
   const [financialAccountId, setFinancialAccountId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [cancellationPeriod, setCancellationPeriod] = useState<CancellationPeriod | "">("");
@@ -393,7 +395,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setActiveAction(null);
     setReason("");
     setAmount("");
-    setBookedAt(new Date().toISOString().slice(0, 10));
+    setStripeRefundAmount("");
+    setBookedAt(berlinDateKey());
     setFinancialAccountId("");
     setDueDate("");
     setCancellationPeriod("");
@@ -581,7 +584,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
 
   const request = async (body: object) => {
     const command = (body as { command?: string }).command;
-    const idempotencyKey = command === "refund" ? (commandIdRef.current ??= crypto.randomUUID()) : undefined;
+    const idempotencyKey =
+      command === "refund" || command === "stripe_refund" || command === "cancel"
+        ? (commandIdRef.current ??= crypto.randomUUID())
+        : undefined;
     const response = await fetch(`/api/admin/bookings/${bookingId}/commands`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -653,6 +659,12 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         if (!cancellationPeriod) throw new Error("Bitte wähle den Stornozeitraum aus.");
         const cancellationFeeCents = euroToCents(amount || "0");
         if (cancellationFeeCents === null) throw new Error("Bitte gib die Stornogebühr als gültigen Euro-Betrag ein.");
+        const stripeRefundAmountCents = stripeRefundAmount.trim() ? euroToCents(stripeRefundAmount) : null;
+        if (stripeRefundAmount.trim() && (stripeRefundAmountCents === null || stripeRefundAmountCents <= 0))
+          throw new Error("Bitte gib für die Stripe-Erstattung einen positiven Euro-Betrag ein.");
+        const stripeRefundIdempotencyKey = stripeRefundAmountCents
+          ? (commandIdRef.current ??= crypto.randomUUID())
+          : undefined;
         await request({
           command: "cancel",
           reason,
@@ -661,6 +673,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           cancellationPeriod,
           cancellationFeeCents,
           dueAt: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
+          stripeRefundAmountCents: stripeRefundAmountCents ?? undefined,
+          stripeRefundIdempotencyKey,
         });
         toast.success("Buchung wurde storniert.");
       } else if (activeAction === "revoke_offer") {
@@ -1144,9 +1158,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           {stripePayments.map((payment) => (
                             <SelectItem key={payment.id} value={payment.id}>
                               {payment.id} · {formatEuro(payment.amountCents)}
-                              {payment.createdAt
-                                ? ` · ${new Date(payment.createdAt * 1_000).toLocaleString("de-DE")}`
-                                : ""}
+                              {payment.createdAt ? ` · ${formatDateTime(new Date(payment.createdAt * 1_000))}` : ""}
                               {payment.customerEmail ? ` · ${payment.customerEmail}` : ""}
                               {payment.offerMatchesBooking ? " · Angebot passt" : " · manuell prüfen"}
                             </SelectItem>
@@ -1788,6 +1800,20 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     onChange={(event) => setAmount(event.target.value)}
                   />
                   <FieldDescription>Zwischen 0,00 € und dem aktuellen Auftragswert.</FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="cancel-stripe-refund">Stripe-Erstattung in Euro (optional)</FieldLabel>
+                  <Input
+                    id="cancel-stripe-refund"
+                    inputMode="decimal"
+                    placeholder="z. B. 75,00"
+                    value={stripeRefundAmount}
+                    onChange={(event) => setStripeRefundAmount(event.target.value)}
+                  />
+                  <FieldDescription>
+                    Nur für eine bereits mit Stripe bezahlte Buchung. Der Betrag darf auch ein Teilbetrag sein und wird
+                    direkt bei Stripe ausgelöst.
+                  </FieldDescription>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="cancel-due">Fälligkeitsdatum (optional)</FieldLabel>

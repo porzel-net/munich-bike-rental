@@ -6,25 +6,11 @@ import { BookingCommandError, updateBooking } from "@/lib/bookings/service";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
+import { requestedBookingItemSchema } from "@/lib/bookings/input-schemas";
 
 export const runtime = "nodejs";
 
-const requestedItem = z.object({
-  id: z.number().int().positive(),
-  requestedLabel: z.string().trim().min(1).max(120),
-  heightCm: z.number().int().min(100).max(250),
-  needsPedals: z.boolean(),
-  pedalType: z.string().trim().max(32).nullable(),
-  needsComputerMount: z.boolean(),
-  computerMountType: z.string().trim().max(32).nullable(),
-  needsHelmet: z.boolean(),
-  needsClothing: z.boolean(),
-  needsBikepackingBag: z.boolean().default(false),
-  needsGlasses: z.boolean().default(false),
-  bottleHolderIncluded: z.boolean().default(true),
-  repairKitIncluded: z.boolean().default(true),
-  insuranceProtectionSelected: z.boolean().optional(),
-});
+const requestedItem = requestedBookingItemSchema.extend({ id: z.number().int().positive() });
 
 const schema = z.object({
   expectedVersion: z.number().int().positive(),

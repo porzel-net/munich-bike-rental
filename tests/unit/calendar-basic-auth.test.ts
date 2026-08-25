@@ -77,7 +77,7 @@ describe("calendar Basic Auth", () => {
     ).resolves.toBeNull();
   });
 
-  it("rejects banned, expired, and setup-incomplete users", async () => {
+  it("rejects banned and active temporary bans, but accepts expired bans", async () => {
     const setupResult = await setup();
     setupResult.db.update(authUser).set({ banned: true }).run();
     await expect(
@@ -86,11 +86,19 @@ describe("calendar Basic Auth", () => {
 
     setupResult.db
       .update(authUser)
-      .set({ banned: false, banExpires: new Date(Date.now() - 1_000) })
+      .set({ banned: false, banExpires: new Date(Date.now() + 60_000) })
       .run();
     await expect(
       authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
     ).resolves.toBeNull();
+
+    setupResult.db
+      .update(authUser)
+      .set({ banExpires: new Date(Date.now() - 1_000) })
+      .run();
+    await expect(
+      authenticateCalendarRequest(request(setupResult.username, setupResult.password), setupResult.db),
+    ).resolves.toMatchObject({ id: "calendar-user" });
 
     setupResult.db.update(authUser).set({ banExpires: null, twoFactorEnabled: false }).run();
     await expect(

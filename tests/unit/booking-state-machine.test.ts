@@ -21,4 +21,25 @@ describe("new booking state machine", () => {
     expect(canTransition("cancelled", "confirmed")).toBe(false);
     expect(canTransition("rejected", "offer_sent")).toBe(false);
   });
+
+  it("keeps every terminal status terminal and does not silently add a reverse path", () => {
+    const terminalStatuses = ["completed", "rejected", "cancelled"] as const;
+    const allStatuses = [
+      "inquiry_received",
+      "offer_sent",
+      "confirmed",
+      "checked_out",
+      "completed",
+      "rejected",
+      "cancelled",
+      "expired",
+    ] as const;
+
+    for (const terminalStatus of terminalStatuses) {
+      for (const target of allStatuses) expect(canTransition(terminalStatus, target)).toBe(false);
+    }
+    expect(canTransition("expired", "confirmed")).toBe(true);
+    expect(canTransition("expired", "offer_sent")).toBe(true);
+    expect(canTransition("expired", "cancelled")).toBe(false);
+  });
 });

@@ -1,23 +1,22 @@
+import { randomUUID } from "node:crypto";
+
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { and, eq, max } from "drizzle-orm";
 import { z } from "zod";
 
-import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canAccessLocation } from "../../../../lib/auth/authorization";
 import { canUseAdminApi, getServerSession } from "../../../../lib/auth/session";
+import { hasTrustedOrigin } from "../../../../lib/auth/request";
 import { getDatabase, runInImmediateTransaction } from "../../../../lib/db/client";
-import {
-  rentalAssets,
-  rentalLocationBikes,
-  rentalLocationBikeSizes,
-  rentalLocationEquipment,
-} from "../../../../lib/db/schema";
+import { accessoryInventory, bikeModels, bikeVariants, rentalAssets } from "../../../../lib/db/schema";
 import { rentalLocations } from "../../../../lib/inquiries/catalog";
-import { readBoundedJson } from "@/lib/security/request-body";
-import { formatBikeDisplayName } from "@/lib/inventory/display-name";
-import { createBikeKey, getBikeKeyForUpdate } from "@/lib/inventory/bike-key";
-import { syncLegacyEquipmentToAccessoryInventory } from "@/lib/inventory/accessory-sync";
-import { defaultUncountedEquipmentCategories, equipmentCategories } from "@/lib/inventory/equipment-categories";
+import {
+  defaultUncountedEquipmentCategories,
+  equipmentCategories,
+} from "../../../../lib/inventory/equipment-categories";
+import { formatBikeDisplayName } from "../../../../lib/inventory/display-name";
+import { createBikeKey } from "../../../../lib/inventory/bike-key";
+import { readBoundedJson } from "../../../../lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -36,6 +35,7 @@ const bikeSchema = baseSchema.extend({
   frameNumber: z.string().trim().max(120).optional().nullable(),
   weekdayPriceCents: z.number().int().min(0).max(1_000_000_000).optional(),
   weekendPriceCents: z.number().int().min(0).max(1_000_000_000).optional(),
+  // Kept in the request contract for compatibility; model-specific promos are presentation-only.
   discountTextDe: z.string().trim().max(500).optional(),
   discountTextEn: z.string().trim().max(500).optional(),
 });
@@ -60,8 +60,7 @@ const deleteSchema = z.object({
 async function getAuthorizedSession(request: Request) {
   if (!hasTrustedOrigin(request)) return null;
   const session = await getServerSession();
-  if (!session || !canUseAdminApi(session.user)) return null;
-  return session;
+  return session && canUseAdminApi(session.user) ? session : null;
 }
 
 function slug(value: string) {
@@ -71,6 +70,10 @@ function slug(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+function modelKey(title: string) {
+  return slug(title);
 }
 
 function equipmentKey(category: z.infer<typeof equipmentSchema>["category"], label: string) {
@@ -90,6 +93,46 @@ function defaultBikeContent(title: string) {
   };
 }
 
+function getOrCreateModel(db: ReturnType<typeof getDatabase>, location: string, title: string, createdAt: Date) {
+  const key = modelKey(title);
+  const existing = db
+    .select({ id: bikeModels.id })
+    .from(bikeModels)
+    .where(and(eq(bikeModels.location, location), eq(bikeModels.modelKey, key)))
+    .get();
+  if (existing) return existing.id;
+  return db
+    .insert(bikeModels)
+    .values({ location, modelKey: key, title, ...defaultBikeContent(title), createdAt })
+    .returning({ id: bikeModels.id })
+    .get()!.id;
+}
+
+function getOrCreateVariant(db: ReturnType<typeof getDatabase>, modelId: number, size: string, createdAt: Date) {
+  const existing = db
+    .select({ id: bikeVariants.id })
+    .from(bikeVariants)
+    .where(and(eq(bikeVariants.modelId, modelId), eq(bikeVariants.size, size)))
+    .get();
+  if (existing) return existing.id;
+  return db.insert(bikeVariants).values({ modelId, size, createdAt }).returning({ id: bikeVariants.id }).get()!.id;
+}
+
+function bikeResponse(input: z.infer<typeof bikeSchema>, id: number) {
+  const weekdayPriceCents = input.weekdayPriceCents ?? input.priceCents;
+  const weekendPriceCents = input.weekendPriceCents ?? input.priceCents;
+  return {
+    ...input,
+    id,
+    priceCents: weekdayPriceCents,
+    weekdayPriceCents,
+    weekendPriceCents,
+    bikeKey: createBikeKey(input.title, input.size),
+    discountTextDe: "",
+    discountTextEn: "",
+  };
+}
+
 function duplicateResponse() {
   return NextResponse.json(
     { message: "Dieser Eintrag existiert an diesem Standort bereits." },
@@ -104,92 +147,63 @@ export async function POST(request: Request) {
       { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
       { status: 401 },
     );
-
   const input = createSchema.safeParse(await readBoundedJson(request));
-  if (!input.success || !canAccessLocation(session.user, input.data.location)) {
+  if (!input.success || !canAccessLocation(session.user, input.data.location))
     return NextResponse.json({ message: "Ungültige Inventardaten oder fehlende Berechtigung." }, { status: 400 });
-  }
 
   const db = getDatabase();
   try {
     return runInImmediateTransaction(db, () => {
       if (input.data.type === "bike") {
+        const stamp = new Date();
+        const modelId = getOrCreateModel(db, input.data.location, input.data.title, stamp);
+        const variantId = getOrCreateVariant(db, modelId, input.data.size, stamp);
         const weekdayPriceCents = input.data.weekdayPriceCents ?? input.data.priceCents;
         const weekendPriceCents = input.data.weekendPriceCents ?? input.data.priceCents;
-        const contents = defaultBikeContent(input.data.title);
-        const displayOrder =
-          (db
-            .select({ value: max(rentalLocationBikes.displayOrder) })
-            .from(rentalLocationBikes)
-            .where(eq(rentalLocationBikes.location, input.data.location))
-            .get()?.value ?? 0) + 1;
         const inserted = db
-          .insert(rentalLocationBikes)
+          .insert(rentalAssets)
           .values({
+            variantId,
             location: input.data.location,
-            bikeKey: createBikeKey(input.data.title, input.data.size),
-            title: input.data.title,
+            assetCode: `${input.data.location}-${slug(input.data.title)}-${slug(input.data.size)}-${randomUUID()}`,
             nickname: input.data.nickname?.trim() || null,
             frameNumber: input.data.frameNumber?.trim() || null,
-            priceCentsPerDay: weekdayPriceCents,
-            weekdayPriceCentsPerDay: weekdayPriceCents,
-            weekendPriceCentsPerDay: weekendPriceCents,
-            discountTextDe: input.data.discountTextDe ?? "",
-            discountTextEn: input.data.discountTextEn ?? "",
-            ...contents,
-            displayOrder,
-            isAvailable: input.data.isAvailable,
+            displayName: formatBikeDisplayName(input.data.title, input.data.size),
+            dailyPriceCents: weekdayPriceCents,
+            weekdayPriceCents,
+            weekendPriceCents,
+            state: input.data.isAvailable ? "active" : "maintenance",
+            createdAt: stamp,
+            updatedAt: stamp,
           })
-          .returning({ id: rentalLocationBikes.id })
-          .get();
-        db.insert(rentalLocationBikeSizes)
-          .values({ locationBikeId: inserted.id, size: input.data.size, isAvailable: true })
-          .run();
-        return NextResponse.json(
-          {
-            item: {
-              ...input.data,
-              id: inserted.id,
-              priceCents: weekdayPriceCents,
-              weekdayPriceCents,
-              weekendPriceCents,
-              bikeKey: createBikeKey(input.data.title, input.data.size),
-            },
-          },
-          { status: 201 },
-        );
+          .returning({ id: rentalAssets.id })
+          .get()!;
+        return NextResponse.json({ item: bikeResponse(input.data, inserted.id) }, { status: 201 });
       }
 
       const key = equipmentKey(input.data.category, input.data.labelDe);
-      const displayOrder =
-        (db
-          .select({ value: max(rentalLocationEquipment.displayOrder) })
-          .from(rentalLocationEquipment)
-          .where(eq(rentalLocationEquipment.location, input.data.location))
-          .get()?.value ?? 0) + 1;
+      const quantityRelevant =
+        input.data.quantityRelevant ?? !defaultUncountedEquipmentCategories.has(input.data.category);
       const inserted = db
-        .insert(rentalLocationEquipment)
+        .insert(accessoryInventory)
         .values({
           location: input.data.location,
-          equipmentKey: key,
+          accessoryKey: key,
           category: input.data.category,
           labelDe: input.data.labelDe,
           labelEn: input.data.labelEn,
           priceCents: input.data.priceCents,
           availableQuantity: input.data.availableQuantity,
-          quantityRelevant:
-            input.data.quantityRelevant ?? !defaultUncountedEquipmentCategories.has(input.data.category),
-          displayOrder,
-          isAvailable: input.data.isAvailable,
+          quantityRelevant,
+          state:
+            input.data.isAvailable && (!quantityRelevant || input.data.availableQuantity > 0)
+              ? "active"
+              : "maintenance",
+          createdAt: new Date(),
+          updatedAt: new Date(),
         })
-        .returning({ id: rentalLocationEquipment.id })
-        .get();
-      const createdEquipment = db
-        .select()
-        .from(rentalLocationEquipment)
-        .where(eq(rentalLocationEquipment.id, inserted.id))
-        .get();
-      if (createdEquipment) syncLegacyEquipmentToAccessoryInventory(db, createdEquipment);
+        .returning({ id: accessoryInventory.id })
+        .get()!;
       return NextResponse.json({ item: { ...input.data, id: inserted.id, equipmentKey: key } }, { status: 201 });
     });
   } catch (error) {
@@ -205,131 +219,70 @@ export async function PATCH(request: Request) {
       { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
       { status: 401 },
     );
-
   const input = updateSchema.safeParse(await readBoundedJson(request));
-  if (!input.success || !canAccessLocation(session.user, input.data.location)) {
+  if (!input.success || !canAccessLocation(session.user, input.data.location))
     return NextResponse.json({ message: "Ungültige Inventardaten oder fehlende Berechtigung." }, { status: 400 });
-  }
 
   const db = getDatabase();
   try {
-    if (input.data.type === "bike") {
-      const bikeInput = input.data;
-      const weekdayPriceCents = bikeInput.weekdayPriceCents ?? bikeInput.priceCents;
-      const weekendPriceCents = bikeInput.weekendPriceCents ?? bikeInput.priceCents;
-      const bike = db
-        .select({
-          id: rentalLocationBikes.id,
-          bikeKey: rentalLocationBikes.bikeKey,
-          title: rentalLocationBikes.title,
-          nickname: rentalLocationBikes.nickname,
-          discountTextDe: rentalLocationBikes.discountTextDe,
-          discountTextEn: rentalLocationBikes.discountTextEn,
-        })
-        .from(rentalLocationBikes)
-        .where(and(eq(rentalLocationBikes.id, bikeInput.id), eq(rentalLocationBikes.location, bikeInput.location)))
-        .get();
-      if (!bike) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
-      const currentSize = db
-        .select({ size: rentalLocationBikeSizes.size })
-        .from(rentalLocationBikeSizes)
-        .where(eq(rentalLocationBikeSizes.locationBikeId, bikeInput.id))
-        .get()?.size;
-      const title = bikeInput.title.trim();
-      const size = bikeInput.size.trim();
-      const nextBikeKey = getBikeKeyForUpdate({
-        existingBikeKey: bike.bikeKey,
-        existingTitle: bike.title,
-        existingSize: currentSize ?? null,
-        nextTitle: title,
-        nextSize: size,
-      });
-      const nickname = bikeInput.nickname === undefined ? bike.nickname : bikeInput.nickname?.trim() || null;
-
-      db.transaction((transaction) => {
-        transaction
-          .update(rentalLocationBikes)
-          .set({
-            bikeKey: nextBikeKey,
-            title,
-            nickname,
-            frameNumber: bikeInput.frameNumber?.trim() || null,
-            priceCentsPerDay: weekdayPriceCents,
-            weekdayPriceCentsPerDay: weekdayPriceCents,
-            weekendPriceCentsPerDay: weekendPriceCents,
-            discountTextDe: bikeInput.discountTextDe ?? bike.discountTextDe,
-            discountTextEn: bikeInput.discountTextEn ?? bike.discountTextEn,
-            isAvailable: bikeInput.isAvailable,
-          })
-          .where(eq(rentalLocationBikes.id, bikeInput.id))
-          .run();
-        transaction
-          .delete(rentalLocationBikeSizes)
-          .where(eq(rentalLocationBikeSizes.locationBikeId, bikeInput.id))
-          .run();
-        transaction
-          .insert(rentalLocationBikeSizes)
-          .values({ locationBikeId: bikeInput.id, size, isAvailable: true })
-          .run();
-      });
-      const linkedAsset = db
-        .select({ id: rentalAssets.id })
-        .from(rentalAssets)
-        .where(eq(rentalAssets.legacyLocationBikeId, bikeInput.id))
-        .get();
-      if (linkedAsset) {
+    return runInImmediateTransaction(db, () => {
+      if (input.data.type === "bike") {
+        const current = db
+          .select({ asset: rentalAssets, model: bikeModels, variant: bikeVariants })
+          .from(rentalAssets)
+          .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+          .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+          .where(and(eq(rentalAssets.id, input.data.id), eq(rentalAssets.location, input.data.location)))
+          .get();
+        if (!current) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
+        const stamp = new Date();
+        const modelId = getOrCreateModel(db, input.data.location, input.data.title, stamp);
+        const variantId = getOrCreateVariant(db, modelId, input.data.size, stamp);
+        const weekdayPriceCents = input.data.weekdayPriceCents ?? input.data.priceCents;
+        const weekendPriceCents = input.data.weekendPriceCents ?? input.data.priceCents;
         db.update(rentalAssets)
           .set({
-            nickname: bikeInput.nickname?.trim() || null,
-            displayName: formatBikeDisplayName(bikeInput.title, bikeInput.size),
-            frameNumber: bikeInput.frameNumber?.trim() || null,
+            variantId,
+            nickname: input.data.nickname?.trim() || null,
+            frameNumber: input.data.frameNumber?.trim() || null,
+            displayName: formatBikeDisplayName(input.data.title, input.data.size),
             dailyPriceCents: weekdayPriceCents,
             weekdayPriceCents,
             weekendPriceCents,
-            updatedAt: new Date(),
+            state: input.data.isAvailable ? "active" : "maintenance",
+            updatedAt: stamp,
           })
-          .where(eq(rentalAssets.id, linkedAsset.id))
+          .where(eq(rentalAssets.id, input.data.id))
           .run();
+        return NextResponse.json({ item: bikeResponse(input.data, input.data.id) });
       }
-      return NextResponse.json({
-        item: {
-          ...bikeInput,
-          priceCents: weekdayPriceCents,
-          weekdayPriceCents,
-          weekendPriceCents,
-        },
-      });
-    }
 
-    const existing = db
-      .select()
-      .from(rentalLocationEquipment)
-      .where(
-        and(eq(rentalLocationEquipment.id, input.data.id), eq(rentalLocationEquipment.location, input.data.location)),
-      )
-      .get();
-    if (!existing) return NextResponse.json({ message: "Ausrüstung nicht gefunden." }, { status: 404 });
-    const quantityRelevant = input.data.quantityRelevant ?? existing.quantityRelevant;
-    db.update(rentalLocationEquipment)
-      .set({
-        category: input.data.category,
-        labelDe: input.data.labelDe,
-        labelEn: input.data.labelEn,
-        priceCents: input.data.priceCents,
-        availableQuantity: input.data.availableQuantity,
-        quantityRelevant,
-        isAvailable: input.data.isAvailable,
-        equipmentKey: equipmentKey(input.data.category, input.data.labelDe),
-      })
-      .where(eq(rentalLocationEquipment.id, input.data.id))
-      .run();
-    const updatedEquipment = db
-      .select()
-      .from(rentalLocationEquipment)
-      .where(eq(rentalLocationEquipment.id, input.data.id))
-      .get();
-    if (updatedEquipment) syncLegacyEquipmentToAccessoryInventory(db, updatedEquipment);
-    return NextResponse.json({ item: { ...input.data, quantityRelevant } });
+      const existing = db
+        .select({ quantityRelevant: accessoryInventory.quantityRelevant })
+        .from(accessoryInventory)
+        .where(and(eq(accessoryInventory.id, input.data.id), eq(accessoryInventory.location, input.data.location)))
+        .get();
+      if (!existing) return NextResponse.json({ message: "Ausrüstung nicht gefunden." }, { status: 404 });
+      const quantityRelevant = input.data.quantityRelevant ?? existing.quantityRelevant;
+      db.update(accessoryInventory)
+        .set({
+          category: input.data.category,
+          labelDe: input.data.labelDe,
+          labelEn: input.data.labelEn,
+          priceCents: input.data.priceCents,
+          availableQuantity: input.data.availableQuantity,
+          quantityRelevant,
+          state:
+            input.data.isAvailable && (!quantityRelevant || input.data.availableQuantity > 0)
+              ? "active"
+              : "maintenance",
+          accessoryKey: equipmentKey(input.data.category, input.data.labelDe),
+          updatedAt: new Date(),
+        })
+        .where(eq(accessoryInventory.id, input.data.id))
+        .run();
+      return NextResponse.json({ item: { ...input.data, quantityRelevant } });
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("UNIQUE")) return duplicateResponse();
     throw error;
@@ -343,41 +296,32 @@ export async function DELETE(request: Request) {
       { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
       { status: 401 },
     );
-
   const input = deleteSchema.safeParse(await readBoundedJson(request));
-  if (!input.success || !canAccessLocation(session.user, input.data.location)) {
+  if (!input.success || !canAccessLocation(session.user, input.data.location))
     return NextResponse.json({ message: "Ungültige Inventardaten oder fehlende Berechtigung." }, { status: 400 });
-  }
 
   const db = getDatabase();
   if (input.data.type === "bike") {
-    const result = runInImmediateTransaction(db, () => {
-      const updated = db
-        .update(rentalLocationBikes)
-        .set({ isAvailable: false })
-        .where(and(eq(rentalLocationBikes.id, input.data.id), eq(rentalLocationBikes.location, input.data.location)))
-        .run();
-      if (updated.changes)
-        db.update(rentalLocationBikeSizes)
-          .set({ isAvailable: false })
-          .where(eq(rentalLocationBikeSizes.locationBikeId, input.data.id))
-          .run();
-      return updated.changes;
-    });
+    const result = runInImmediateTransaction(
+      db,
+      () =>
+        db
+          .update(rentalAssets)
+          .set({ state: "retired", updatedAt: new Date() })
+          .where(and(eq(rentalAssets.id, input.data.id), eq(rentalAssets.location, input.data.location)))
+          .run().changes,
+    );
     if (!result) return NextResponse.json({ message: "Bike nicht gefunden." }, { status: 404 });
   } else {
-    const result = runInImmediateTransaction(db, () => {
-      const updatedEquipment = db
-        .update(rentalLocationEquipment)
-        .set({ isAvailable: false })
-        .where(
-          and(eq(rentalLocationEquipment.id, input.data.id), eq(rentalLocationEquipment.location, input.data.location)),
-        )
-        .returning()
-        .get();
-      if (updatedEquipment) syncLegacyEquipmentToAccessoryInventory(db, updatedEquipment);
-      return updatedEquipment ? 1 : 0;
-    });
+    const result = runInImmediateTransaction(
+      db,
+      () =>
+        db
+          .update(accessoryInventory)
+          .set({ state: "retired", updatedAt: new Date() })
+          .where(and(eq(accessoryInventory.id, input.data.id), eq(accessoryInventory.location, input.data.location)))
+          .run().changes,
+    );
     if (!result) return NextResponse.json({ message: "Ausrüstung nicht gefunden." }, { status: 404 });
   }
   return NextResponse.json({ ok: true });

@@ -80,6 +80,12 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
           offerId,
           amountCents: session.amount_total as number,
           sessionId: session.id,
+          paymentIntentId:
+            typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent && typeof session.payment_intent === "object"
+                ? session.payment_intent.id
+                : null,
         });
         const imported = await importStripeCheckoutPayment(db, {
           sessionId: session.id,

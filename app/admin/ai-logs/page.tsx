@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getDatabase } from "@/lib/db/client";
+import { formatDateTime } from "@/lib/datetime";
 import { communicationMessages, emailActionReviews, bookings } from "@/lib/db/schema";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { aiLogAgentLabel, aiLogSourceLabel, aiLogStatusView } from "@/lib/ai-logs/presentation";
@@ -155,9 +156,7 @@ export default async function AiLogsPage({
                         ) : null}
                         <div className="flex min-w-28 flex-col items-end gap-0.5">
                           <span className="text-xs tracking-wider text-muted-foreground uppercase">Gestartet</span>
-                          <span className="font-medium tabular-nums">
-                            {new Date(review.createdAt).toLocaleString("de-DE")}
-                          </span>
+                          <span className="font-medium tabular-nums">{formatDateTime(review.createdAt)}</span>
                         </div>
                       </div>
                     </Item>

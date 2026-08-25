@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { formatDateTime } from "@/lib/datetime";
 import { bookings, communicationMessages, emailActionReviews } from "@/lib/db/schema";
 import { aiLogAgentLabel, aiLogSourceLabel, aiLogStatusView } from "@/lib/ai-logs/presentation";
 import { reviewQuestions } from "@/lib/inquiries/email-action";
@@ -115,7 +116,7 @@ export default async function AiLogDetailPage({ params }: { params: Promise<{ id
                 <DetailRow label="Modell" value={log.review.model ?? "—"} />
                 <DetailRow label="Reasoning" value={log.review.reasoningEffort ?? "—"} />
                 <DetailRow label="Prompt-Version" value={log.review.promptVersion} />
-                <DetailRow label="Gestartet" value={new Date(log.review.createdAt).toLocaleString("de-DE")} />
+                <DetailRow label="Gestartet" value={formatDateTime(log.review.createdAt)} />
                 <DetailRow label="Ausgelöste Mail" value={log.message.subject} />
                 <Button
                   nativeButton={false}

@@ -32,9 +32,10 @@ import { getBookingMigrationPreflight } from "@/lib/bookings/preflight";
 import { BookingStatusFilter } from "@/components/booking-status-filter";
 import type { BookingStatus } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
-import { getPendingEmailActionBookingIds } from "@/lib/bookings/pending-email-action";
+import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
 import { authUser } from "@/lib/db/schema";
 import { getRecommendedBikeSize, hasBikeSizeTable } from "@/lib/bikes/size-fit";
+import { addDateOnlyDays, addDateOnlyMonths, berlinDateKey } from "@/lib/datetime";
 
 type BookingPeriod = "all" | "week" | "month" | "six_months" | "year";
 
@@ -43,20 +44,17 @@ function resolveLocationFilter(value: string | undefined) {
   return rentalLocations.includes(value as RentalLocation) ? (value as RentalLocation) : "all";
 }
 
-function getBookingPeriod(period: string | undefined) {
+export function getBookingPeriod(period: string | undefined) {
   const validPeriods: BookingPeriod[] = ["all", "week", "month", "six_months", "year"];
   const selected = validPeriods.includes(period as BookingPeriod) ? (period as BookingPeriod) : "all";
   if (selected === "all") return { selected, from: "", to: "" };
 
-  const today = new Date();
-  const from = new Date(today);
-  if (selected === "week") from.setDate(from.getDate() - 7);
-  if (selected === "month") from.setMonth(from.getMonth() - 1);
-  if (selected === "six_months") from.setMonth(from.getMonth() - 6);
-  if (selected === "year") from.setFullYear(from.getFullYear() - 1);
-  const format = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  return { selected, from: format(from), to: format(today) };
+  const today = berlinDateKey();
+  const from =
+    selected === "week"
+      ? addDateOnlyDays(today, -7)
+      : addDateOnlyMonths(today, selected === "month" ? -1 : selected === "six_months" ? -6 : -12);
+  return { selected, from, to: today };
 }
 
 function bookingShortId(orderNumber: string) {
@@ -179,7 +177,7 @@ export default async function BookingsPage({
     ? db.select({ id: authUser.id, name: authUser.name }).from(authUser).where(inArray(authUser.id, assigneeIds)).all()
     : [];
   const assigneeNames = new Map(assignees.map((assignee) => [assignee.id, assignee.name]));
-  const pendingEmailActionBookingIds = getPendingEmailActionBookingIds(db, queriedRows);
+  const pendingBookingAttentionIds = getPendingBookingAttentionBookingIds(db, queriedRows);
   const receivableLines = queriedRows.length
     ? db
         .select({ bookingId: journalEntries.bookingId, amountCents: journalLines.amountCents })
@@ -222,7 +220,7 @@ export default async function BookingsPage({
     })
     .sort(
       (left, right) =>
-        Number(pendingEmailActionBookingIds.has(right.id)) - Number(pendingEmailActionBookingIds.has(left.id)) ||
+        Number(pendingBookingAttentionIds.has(right.id)) - Number(pendingBookingAttentionIds.has(left.id)) ||
         right.createdAt.getTime() - left.createdAt.getTime() ||
         right.id - left.id,
     );
@@ -300,7 +298,7 @@ export default async function BookingsPage({
                           ).length;
                           return availableQuantity < quantity;
                         });
-                      const rowHasPendingEmailAction = pendingEmailActionBookingIds.has(row.id);
+                      const rowHasPendingAttention = pendingBookingAttentionIds.has(row.id);
                       return (
                         <Item
                           className="transform-gpu bg-card cursor-pointer transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"
@@ -310,9 +308,9 @@ export default async function BookingsPage({
                         >
                           <ItemMedia>
                             <div className="relative flex size-12 items-center justify-center rounded-lg border text-xs font-semibold">
-                              {rowHasPendingEmailAction ? (
+                              {rowHasPendingAttention ? (
                                 <span
-                                  aria-label="Offene Kundenfrage"
+                                  aria-label="Offene Aufmerksamkeit"
                                   className="absolute -top-1 -left-1 size-3 rounded-full bg-red-500 ring-2 ring-background"
                                 />
                               ) : null}

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BUSINESS_TIME_ZONE, formatDateOnly } from "@/lib/datetime";
 
 export type AccountingExpense = {
   id: number;
@@ -27,6 +28,7 @@ const euroFormatter = new Intl.NumberFormat("de-DE", {
 
 const dateFormatter = new Intl.DateTimeFormat("de-DE", {
   dateStyle: "medium",
+  timeZone: BUSINESS_TIME_ZONE,
 });
 
 export function AccountingExpensesTable({ expenses }: { expenses: AccountingExpense[] }) {
@@ -111,9 +113,7 @@ export function AccountingExpensesTable({ expenses }: { expenses: AccountingExpe
                 <TableRow key={expense.id}>
                   <TableCell className="font-medium">{expense.description}</TableCell>
                   <TableCell>{expense.payeeName}</TableCell>
-                  <TableCell>
-                    {expense.paymentDate ? dateFormatter.format(new Date(`${expense.paymentDate}T00:00:00`)) : "—"}
-                  </TableCell>
+                  <TableCell>{expense.paymentDate ? formatDateOnly(expense.paymentDate) : "—"}</TableCell>
                   <TableCell>
                     {expense.depreciationDurationMonths
                       ? `${expense.depreciationDurationMonths} Monate`

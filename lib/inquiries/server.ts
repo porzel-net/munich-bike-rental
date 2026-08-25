@@ -8,14 +8,19 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 
-import { siteConfig } from "../site";
+import {
+  consumeBoundedRateLimit,
+  consumeRequestRateLimit,
+  resetRateLimitsForTests as resetSharedRateLimits,
+} from "../security/rate-limit";
+import { BUSINESS_TIME_ZONE } from "../datetime";
 import { readBoundedText } from "../security/request-body";
+import { siteConfig } from "../site";
 import { EMAIL_LOGO_CID, emailCard, emailParagraph, renderEmailLayout } from "./email-template";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
 const RATE_LIMIT_MAX_REQUESTS = 3;
-const RATE_LIMIT_MAX_ENTRIES = 10_000;
 
 type ApiErrorCode =
   | "bot_detected"
@@ -27,9 +32,6 @@ type ApiErrorCode =
   | "send_failed"
   | "unsupported_content_type"
   | "validation_error";
-
-type RateLimitEntry = { count: number; resetAt: number };
-const rateLimitEntries = new Map<string, RateLimitEntry>();
 
 export function jsonError(status: number, code: ApiErrorCode, error: string) {
   return NextResponse.json({ ok: false, code, error }, { status, headers: { "Cache-Control": "no-store" } });
@@ -64,45 +66,12 @@ function getExpectedOrigin(request: Request) {
   return localOrigins.has(forwardedOrigin) ? forwardedOrigin : configuredOrigin;
 }
 
-function getClientIp(request: Request) {
-  const realIp = request.headers.get("x-real-ip")?.trim();
-  // X-Forwarded-For is client-spoofable unless every proxy hop is tightly
-  // controlled. Nginx overwrites X-Real-IP in the documented deployment.
-  return realIp || "unknown";
-}
-
 export function consumeRateLimit(key: string, now = Date.now()) {
-  if (rateLimitEntries.size >= RATE_LIMIT_MAX_ENTRIES) {
-    for (const [entryKey, entry] of rateLimitEntries) {
-      if (entry.resetAt <= now) {
-        rateLimitEntries.delete(entryKey);
-      }
-    }
-
-    if (rateLimitEntries.size >= RATE_LIMIT_MAX_ENTRIES) {
-      const oldestKey = rateLimitEntries.keys().next().value;
-      if (oldestKey) {
-        rateLimitEntries.delete(oldestKey);
-      }
-    }
-  }
-
-  const current = rateLimitEntries.get(key);
-  if (!current || current.resetAt <= now) {
-    rateLimitEntries.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-
-  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  current.count += 1;
-  return true;
+  return consumeBoundedRateLimit(key, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS, now);
 }
 
 export function resetRateLimitsForTests() {
-  rateLimitEntries.clear();
+  resetSharedRateLimits();
 }
 
 export async function parseInquiryRequest<T extends { website?: unknown }>(
@@ -115,7 +84,7 @@ export async function parseInquiryRequest<T extends { website?: unknown }>(
     return { error: jsonError(403, "invalid_origin", "Invalid request origin") };
   }
 
-  if (!consumeRateLimit(`${endpoint}:${getClientIp(request)}`)) {
+  if (!consumeRequestRateLimit(request, endpoint, { max: RATE_LIMIT_MAX_REQUESTS, windowMs: RATE_LIMIT_WINDOW_MS })) {
     return { error: jsonError(429, "rate_limited", "Too many requests") };
   }
 
@@ -284,7 +253,7 @@ export async function verifyMailConnection(
 
 export function createOrderNumber(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Berlin",
+    timeZone: BUSINESS_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

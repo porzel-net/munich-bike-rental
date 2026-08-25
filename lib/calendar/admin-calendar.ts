@@ -1,18 +1,8 @@
-import {
-  addDays,
-  differenceInCalendarDays,
-  endOfMonth,
-  endOfWeek,
-  format,
-  isSameDay,
-  isSameMonth,
-  startOfMonth,
-  startOfWeek,
-} from "date-fns";
-import { de } from "date-fns/locale";
+import { differenceInCalendarDays } from "date-fns";
 
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import type { BookingStatus } from "@/lib/db/schema";
+import { berlinDateKey, BUSINESS_TIME_ZONE } from "@/lib/datetime";
 import { rentalLocationLabels, type RentalLocation } from "@/lib/inquiries/catalog";
 
 export const calendarWeekdayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
@@ -108,15 +98,22 @@ function parseCalendarDate(value: string) {
   const year = Number(match[1]);
   const month = Number(match[2]) - 1;
   const day = Number(match[3]);
-  return new Date(year, month, day);
+  // Date-only booking values represent a Berlin calendar day, not a browser-local instant.
+  return new Date(Date.UTC(year, month, day, 12));
+}
+
+function calendarLabel(value: Date, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat("de-DE", { ...options, timeZone: BUSINESS_TIME_ZONE }).format(value);
 }
 
 function formatCalendarRange(startDate: Date, endDate: Date) {
-  if (isSameDay(startDate, endDate)) return format(startDate, "d. MMMM", { locale: de });
-  if (startDate.getFullYear() === endDate.getFullYear() && startDate.getMonth() === endDate.getMonth()) {
-    return `${format(startDate, "d. MMMM", { locale: de })} – ${format(endDate, "d.", { locale: de })}`;
+  const start = calendarLabel(startDate, { day: "numeric", month: "long" });
+  const end = calendarLabel(endDate, { day: "numeric", month: "long" });
+  if (berlinDateKey(startDate) === berlinDateKey(endDate)) return start;
+  if (berlinDateKey(startDate).slice(0, 7) === berlinDateKey(endDate).slice(0, 7)) {
+    return `${start} – ${calendarLabel(endDate, { day: "numeric" })}`;
   }
-  return `${format(startDate, "d. MMMM", { locale: de })} – ${format(endDate, "d. MMMM", { locale: de })}`;
+  return `${start} – ${end}`;
 }
 
 export function getCalendarStatusTone(status: BookingStatus): CalendarStatusTone {
@@ -124,29 +121,46 @@ export function getCalendarStatusTone(status: BookingStatus): CalendarStatusTone
 }
 
 export function getCalendarMonthKey(date: Date) {
-  return format(date, "yyyy-MM");
+  return berlinDateKey(date).slice(0, 7);
 }
 
 export function getCalendarMonthLabel(date: Date) {
-  return format(date, "MMMM yyyy", { locale: de });
+  return calendarLabel(date, { month: "long", year: "numeric" });
 }
 
 export function getCalendarMonthName(date: Date) {
-  return format(date, "MMMM", { locale: de });
+  return calendarLabel(date, { month: "long" });
 }
 
 export function getCalendarYearLabel(date: Date) {
-  return format(date, "yyyy");
+  return calendarLabel(date, { year: "numeric" });
 }
 
 export function parseCalendarMonthKey(value: string | undefined, fallback = new Date()) {
-  if (!value) return startOfMonth(fallback);
+  const fallbackKey = berlinDateKey(fallback).slice(0, 7);
+  if (!value) value = fallbackKey;
   const match = /^(\d{4})-(\d{2})$/.exec(value);
-  if (!match) return startOfMonth(fallback);
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 0 || month > 11) return startOfMonth(fallback);
-  return startOfMonth(new Date(year, month, 1));
+  if (!match) value = fallbackKey;
+  const resolved = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!resolved) return new Date(Date.UTC(fallback.getUTCFullYear(), fallback.getUTCMonth(), 1, 12));
+  const year = Number(resolved[1]);
+  const month = Number(resolved[2]) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 0 || month > 11)
+    return new Date(Date.UTC(fallback.getUTCFullYear(), fallback.getUTCMonth(), 1, 12));
+  return new Date(Date.UTC(year, month, 1, 12));
+}
+
+export function getCalendarGridRange(monthDate: Date) {
+  const monthStart = parseCalendarMonthKey(getCalendarMonthKey(monthDate));
+  const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0, 12));
+  const daysFromMonday = (monthStart.getUTCDay() + 6) % 7;
+  const daysUntilSunday = (7 - monthEnd.getUTCDay()) % 7;
+  return {
+    monthStart,
+    monthEnd,
+    gridStart: new Date(monthStart.getTime() - daysFromMonday * 86_400_000),
+    gridEnd: new Date(monthEnd.getTime() + daysUntilSunday * 86_400_000),
+  };
 }
 
 export function toCalendarBookingEvent(booking: CalendarBookingSource): CalendarBookingEvent {
@@ -236,11 +250,9 @@ function packWeekPlacements(events: CalendarBookingEvent[], weekStart: Date, wee
 }
 
 export function buildCalendarWeeks(bookings: CalendarBookingEvent[], monthDate: Date, today = new Date()) {
-  const monthStart = startOfMonth(monthDate);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 });
-  const dayCount = differenceInCalendarDays(gridEnd, gridStart) + 1;
-  const allDays = Array.from({ length: dayCount }, (_, index) => addDays(gridStart, index));
+  const { monthStart, monthEnd, gridStart, gridEnd } = getCalendarGridRange(monthDate);
+  const dayCount = Math.round((gridEnd.getTime() - gridStart.getTime()) / 86_400_000) + 1;
+  const allDays = Array.from({ length: dayCount }, (_, index) => new Date(gridStart.getTime() + index * 86_400_000));
 
   const weeks: CalendarWeek[] = [];
   for (let index = 0; index < allDays.length; index += 7) {
@@ -249,8 +261,9 @@ export function buildCalendarWeeks(bookings: CalendarBookingEvent[], monthDate: 
     weeks.push({
       days: weekDays.map((date) => ({
         date,
-        isCurrentMonth: isSameMonth(date, monthStart),
-        isToday: isSameDay(date, today),
+        isCurrentMonth:
+          date.getUTCFullYear() === monthStart.getUTCFullYear() && date.getUTCMonth() === monthStart.getUTCMonth(),
+        isToday: berlinDateKey(date) === berlinDateKey(today),
       })),
       events,
       eventLaneCount: events.length ? Math.max(...events.map((event) => event.lane)) + 1 : 0,
@@ -259,7 +272,7 @@ export function buildCalendarWeeks(bookings: CalendarBookingEvent[], monthDate: 
 
   return {
     monthStart,
-    monthEnd: endOfMonth(monthStart),
+    monthEnd,
     weeks,
   };
 }

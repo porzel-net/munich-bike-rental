@@ -93,7 +93,6 @@ export const rentalAssets = sqliteTable(
     weekdayPriceCents: integer("weekday_price_cents").notNull().default(4900),
     weekendPriceCents: integer("weekend_price_cents").notNull().default(6900),
     state: text("state", { enum: assetStates }).notNull().default("active"),
-    legacyLocationBikeId: integer("legacy_location_bike_id").unique(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -120,7 +119,6 @@ export const accessoryInventory = sqliteTable(
     availableQuantity: integer("available_quantity").notNull().default(0),
     quantityRelevant: integer("quantity_relevant", { mode: "boolean" }).notNull().default(true),
     state: text("state", { enum: assetStates }).notNull().default("active"),
-    legacyEquipmentId: integer("legacy_equipment_id").unique(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -248,6 +246,9 @@ export const bookingOffers = sqliteTable(
     acceptedAt: integer("accepted_at", { mode: "timestamp_ms" }),
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
     replacesOfferId: integer("replaces_offer_id"),
+    /** The one Checkout Session that accepted this offer, if any. */
+    stripeSessionId: text("stripe_session_id"),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
     /** Immutable commercial snapshot for this particular offer version. */
     totalCents: integer("total_cents").notNull().default(0),
     priceSnapshotJson: text("price_snapshot_json").notNull().default("{}"),
@@ -257,6 +258,7 @@ export const bookingOffers = sqliteTable(
   (table) => [
     uniqueIndex("booking_offers_booking_number_unique").on(table.bookingId, table.offerNumber),
     uniqueIndex("booking_offers_token_hash_unique").on(table.tokenHash),
+    uniqueIndex("booking_offers_stripe_session_unique").on(table.stripeSessionId),
     index("booking_offers_booking_status_idx").on(table.bookingId, table.status),
     index("booking_offers_expiry_idx").on(table.expiresAt),
   ],

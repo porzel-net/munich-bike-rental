@@ -16,9 +16,10 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { berlinDateKey } from "@/lib/datetime";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return berlinDateKey();
 }
 
 export function PrivateAssetContributionDialog({

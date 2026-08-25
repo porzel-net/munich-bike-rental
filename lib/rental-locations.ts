@@ -1,5 +1,24 @@
 import type { Locale } from "./home-content";
-import type { RentalLocation } from "./inquiries/catalog";
+
+export const rentalLocations = ["munich", "regensburg", "lindau", "friedrichshafen", "konstanz"] as const;
+export type RentalLocation = (typeof rentalLocations)[number];
+
+export const rentalLocationLabels: Record<Locale, Record<RentalLocation, string>> = {
+  de: {
+    munich: "München",
+    regensburg: "Regensburg",
+    lindau: "Lindau Bodensee",
+    friedrichshafen: "Friedrichshafen",
+    konstanz: "Konstanz",
+  },
+  en: {
+    munich: "Munich",
+    regensburg: "Regensburg",
+    lindau: "Lindau (Lake Constance)",
+    friedrichshafen: "Friedrichshafen",
+    konstanz: "Constance",
+  },
+};
 
 export type RentalLocationConfig = {
   key: RentalLocation;

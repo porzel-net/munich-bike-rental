@@ -5,6 +5,7 @@ import { bookingRequestedItems, bookings } from "./db/schema";
 import { getRentalDays } from "./inventory/pricing";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "./inquiries/catalog";
 import { receivedAtFromOrderNumber } from "./bookings/order-number";
+import { berlinDateKey, BUSINESS_TIME_ZONE } from "./datetime";
 
 const weekdayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
@@ -90,25 +91,6 @@ function parseCalendarDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
-function dateKey(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
-
-function berlinDateKey(value: Date) {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Berlin",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-      .formatToParts(value)
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-
 function daysBetween(start: string, end: string) {
   return getRentalDays(start, end);
 }
@@ -149,37 +131,13 @@ function normalizeBikeSize(value: string) {
   return suffix?.[1] ?? "Nicht angegeben";
 }
 
-function getOpeningDates(db: AppDatabase) {
-  try {
-    const rows = db.all(
-      sql`
-        select location, location_opening_date as openingDate
-        from legacy_bike_requests
-        where location_opening_date is not null
-      `,
-    ) as Array<{ location: string | null; openingDate: string | null }>;
-    const openingDates = new Map<RentalLocation, string>();
-    for (const row of rows) {
-      if (!row.location || !row.openingDate) continue;
-      const location = normalizeLocation(row.location);
-      if (!location) continue;
-      const existing = openingDates.get(location);
-      if (!existing || row.openingDate < existing) openingDates.set(location, row.openingDate);
-    }
-    return openingDates;
-  } catch {
-    // The legacy import table is optional. The current inquiry history remains a valid fallback.
-    return new Map<RentalLocation, string>();
-  }
-}
-
 function weekSinceOpening(submittedAt: Date, openingDate: string) {
   const difference = parseCalendarDate(berlinDateKey(submittedAt)).getTime() - parseCalendarDate(openingDate).getTime();
   return Math.max(1, Math.floor(difference / (7 * 86_400_000)) + 1);
 }
 
 function weekdayIndexFromDate(value: Date) {
-  const day = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", weekday: "short" }).format(value);
+  const day = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TIME_ZONE, weekday: "short" }).format(value);
   return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(day);
 }
 
@@ -262,7 +220,6 @@ export function getFinancialAnalyticsData(db: AppDatabase): FinancialAnalyticsDa
     return [{ ...inquiry, location, bikes }];
   });
 
-  const openingDates = getOpeningDates(db);
   const firstInquiryDates = new Map<RentalLocation, string>();
   for (const inquiry of normalizedInquiries) {
     const submittedDate = berlinDateKey(inquiry.submittedAt);
@@ -270,8 +227,7 @@ export function getFinancialAnalyticsData(db: AppDatabase): FinancialAnalyticsDa
     if (!current || submittedDate < current) firstInquiryDates.set(inquiry.location, submittedDate);
   }
 
-  const getOpeningDate = (location: RentalLocation) =>
-    openingDates.get(location) ?? firstInquiryDates.get(location) ?? dateKey(new Date());
+  const getOpeningDate = (location: RentalLocation) => firstInquiryDates.get(location) ?? berlinDateKey(new Date());
   const weeklyMap = new Map<string, FinancialAnalyticsData["weekly"][number]>();
   const locationMap = new Map<RentalLocation, { revenue: number; inquiries: number }>();
   const allBikeRows: Array<{ inquiry: (typeof normalizedInquiries)[number]; bike: BikeRow }> = [];
@@ -336,7 +292,7 @@ export function getFinancialAnalyticsData(db: AppDatabase): FinancialAnalyticsDa
       allBikeRows.push({ inquiry, bike });
       for (let offset = 0; offset < daysBetween(inquiry.periodFrom, inquiry.periodTo); offset += 1) {
         const rentalDate = new Date(rentalStart.getTime() + offset * 86_400_000);
-        const rentalDay = weekdayLabels[weekdayIndex(dateKey(rentalDate))];
+        const rentalDay = weekdayLabels[weekdayIndex(berlinDateKey(rentalDate))];
         rentalWeekdayCounts.set(rentalDay, (rentalWeekdayCounts.get(rentalDay) ?? 0) + 1);
       }
     }
@@ -403,8 +359,6 @@ export function getFinancialAnalyticsData(db: AppDatabase): FinancialAnalyticsDa
     revenue: roundEuros(normalizedInquiries.reduce((sum, inquiry) => sum + inquiry.totalPriceCents / 100, 0)),
     firstSubmittedAt,
     lastSubmittedAt,
-    openingDateSource: normalizedInquiries.some((inquiry) => openingDates.has(inquiry.location))
-      ? "legacy"
-      : "first-inquiry",
+    openingDateSource: "first-inquiry",
   };
 }

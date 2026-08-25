@@ -9,10 +9,11 @@ type BookingForEmailAction = {
   id: number;
   status: BookingStatus;
   createdAt: Date;
+  updatedAt: Date;
 };
 
-/** Returns bookings that should display the open customer-question indicator. */
-export function getPendingEmailActionBookingIds(db: AppDatabase, bookingRows: BookingForEmailAction[]) {
+/** Returns bookings that should display the red attention indicator. */
+export function getPendingBookingAttentionBookingIds(db: AppDatabase, bookingRows: BookingForEmailAction[]) {
   if (!bookingRows.length) return new Set<number>();
 
   const bookingIds = bookingRows.map((booking) => booking.id);
@@ -38,15 +39,32 @@ export function getPendingEmailActionBookingIds(db: AppDatabase, bookingRows: Bo
     .where(
       and(
         inArray(bookingEvents.bookingId, bookingIds),
-        inArray(bookingEvents.eventType, ["email_questions_resolved", "email_questions_reopened"]),
+        inArray(bookingEvents.eventType, [
+          "booking_attention_acknowledged",
+          "email_questions_resolved",
+          "email_questions_reopened",
+          "offer_expired",
+        ]),
       ),
     )
     .orderBy(desc(bookingEvents.occurredAt), desc(bookingEvents.id))
     .all();
   const latestEmailQuestionEventByBooking = new Map<number, (typeof emailQuestionEvents)[number]>();
+  const latestAttentionAcknowledgedEventByBooking = new Map<number, (typeof emailQuestionEvents)[number]>();
+  const latestOfferExpiredEventByBooking = new Map<number, (typeof emailQuestionEvents)[number]>();
   for (const event of emailQuestionEvents) {
-    if (!latestEmailQuestionEventByBooking.has(event.bookingId))
+    if (
+      (event.eventType === "email_questions_resolved" || event.eventType === "email_questions_reopened") &&
+      !latestEmailQuestionEventByBooking.has(event.bookingId)
+    )
       latestEmailQuestionEventByBooking.set(event.bookingId, event);
+    if (
+      event.eventType === "booking_attention_acknowledged" &&
+      !latestAttentionAcknowledgedEventByBooking.has(event.bookingId)
+    )
+      latestAttentionAcknowledgedEventByBooking.set(event.bookingId, event);
+    if (event.eventType === "offer_expired" && !latestOfferExpiredEventByBooking.has(event.bookingId))
+      latestOfferExpiredEventByBooking.set(event.bookingId, event);
   }
 
   return new Set(
@@ -54,15 +72,29 @@ export function getPendingEmailActionBookingIds(db: AppDatabase, bookingRows: Bo
       .filter((booking) => {
         const latestActionReview = latestActionReviewByBooking.get(booking.id);
         const latestEmailQuestionEvent = latestEmailQuestionEventByBooking.get(booking.id) ?? null;
-        return (
+        const latestAcknowledgedAt =
+          latestAttentionAcknowledgedEventByBooking.get(booking.id)?.occurredAt.getTime() ?? 0;
+        const emailQuestionIsPending =
           !isEmailQuestionsManuallyResolved(latestActionReview ?? null, latestEmailQuestionEvent) &&
           (latestActionReview?.status === "needs_action" ||
             latestActionReview?.status === "error" ||
             (!latestActionReview &&
               booking.status === "inquiry_received" &&
-              booking.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime()))
+              booking.createdAt.getTime() >= EMAIL_ACTION_START_AT.getTime()));
+        const emailQuestionTriggerAt = Math.max(
+          latestActionReview?.createdAt.getTime() ?? booking.createdAt.getTime(),
+          latestEmailQuestionEvent?.occurredAt.getTime() ?? 0,
         );
+        const offerExpiredTriggerAt =
+          latestOfferExpiredEventByBooking.get(booking.id)?.occurredAt.getTime() ?? booking.updatedAt.getTime();
+        const hasUnacknowledgedEmailQuestion = emailQuestionIsPending && emailQuestionTriggerAt > latestAcknowledgedAt;
+        const hasUnacknowledgedOfferExpiry =
+          booking.status === "expired" && offerExpiredTriggerAt > latestAcknowledgedAt;
+        return hasUnacknowledgedEmailQuestion || hasUnacknowledgedOfferExpiry;
       })
       .map((booking) => booking.id),
   );
 }
+
+/** Backwards-compatible name for callers that only care about email-question attention. */
+export const getPendingEmailActionBookingIds = getPendingBookingAttentionBookingIds;

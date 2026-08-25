@@ -1,40 +1,92 @@
 import type { LocationInventory } from "./repository";
 import type { ContactInquiry } from "../inquiries/schemas";
 import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
+import { berlinDateKey, parseDateOnly } from "../datetime";
 
-export type RentalPriceInput = {
+export const MAX_DAILY_DISCOUNT_PERCENTAGE = 25;
+
+export type BikePriceScheduleInput = {
   dailyPriceCents?: number;
   weekdayPriceCents?: number;
   weekendPriceCents?: number;
-  rentalDays: number;
-  pickupDate: Date;
-  isStudent?: boolean;
 };
 
-export type InquiryPrice = {
+export type DailyPriceBreakdown = {
+  date: string;
+  rentalDay: number;
+  baseCents: number;
+  discountPercentage: number;
+  discountCents: number;
+  totalCents: number;
+  appliedDiscountKeys: string[];
+};
+
+export type BikePriceBreakdown = {
+  bikeIndex: number;
+  baseCents: number;
+  discountCents: number;
+  totalCents: number;
+};
+
+export type RentalPriceCalculation = {
   rentalDays: number;
   bikeSubtotalCents: number;
   equipmentSubtotalCents: number;
   discountCents: number;
   totalCents: number;
   appliedDiscountKeys: string[];
+  dailyBreakdown: DailyPriceBreakdown[];
+  bikeBreakdown: BikePriceBreakdown[];
 };
 
-type BikePriceRecord = {
-  option: string;
-  dailyPriceCents: number;
-  weekdayPriceCents?: number;
-  weekendPriceCents?: number;
+export type InquiryPrice = RentalPriceCalculation;
+
+type DiscountRecord = {
+  key: string;
+  percentage: number;
+  weekdayFrom: number | null;
+  weekdayTo: number | null;
+  minimumRentalDays: number | null;
+  requiresStudent: boolean;
+  isStackable: boolean;
 };
 
-export type BikePriceSchedule = {
+type DiscountInventory = { discounts: DiscountRecord[] };
+
+type CentralPriceInput = {
+  bikes: BikePriceScheduleInput[];
+  equipmentSubtotalCents?: number;
+  periodFrom: string;
+  rentalDays: number;
+  isStudent?: boolean;
+};
+
+export type EquipmentPriceSelection = {
+  needsPedals?: boolean;
+  pedalType?: string | null;
+  needsComputerMount?: boolean;
+  computerMountType?: string | null;
+  needsHelmet?: boolean;
+  needsClothing?: boolean;
+  needsBikepackingBag?: boolean;
+  needsGlasses?: boolean;
+};
+
+type BikePriceSchedule = {
   weekdayPriceCents: number;
   weekendPriceCents: number;
 };
 
 /** Inventory prices are stored by model; historical requests often include a frame size suffix. */
 export function getBikePriceScheduleCents(
-  inventory: { bikePrices: BikePriceRecord[] },
+  inventory: {
+    bikePrices: Array<{
+      option: string;
+      dailyPriceCents: number;
+      weekdayPriceCents?: number;
+      weekendPriceCents?: number;
+    }>;
+  },
   requestedBike: string,
 ): BikePriceSchedule | undefined {
   const exactPrice = inventory.bikePrices.find((bike) => bike.option === requestedBike);
@@ -53,8 +105,48 @@ export function getBikePriceScheduleCents(
   };
 }
 
-export function getDailyBikePriceCents(inventory: { bikePrices: BikePriceRecord[] }, requestedBike: string) {
-  return getBikePriceScheduleCents(inventory, requestedBike)?.weekdayPriceCents;
+export function getDailyBikePriceCents(
+  inventory: {
+    bikePrices: Array<{
+      option: string;
+      dailyPriceCents: number;
+      weekdayPriceCents?: number;
+      weekendPriceCents?: number;
+    }>;
+  },
+  requestedBike: string,
+  date?: string,
+) {
+  const schedule = getBikePriceScheduleCents(inventory, requestedBike);
+  if (!schedule) return undefined;
+  return date === undefined ? schedule.weekdayPriceCents : priceForDate(schedule, parseDateOnly(date));
+}
+
+function getBikeSchedule(input: BikePriceScheduleInput): BikePriceSchedule {
+  return {
+    weekdayPriceCents: input.weekdayPriceCents ?? input.dailyPriceCents ?? 0,
+    weekendPriceCents: input.weekendPriceCents ?? input.dailyPriceCents ?? 0,
+  };
+}
+
+export function calculateEquipmentSubtotalCents(
+  inventory: { equipmentPrices: Array<{ key: string; priceCents: number }> },
+  items: EquipmentPriceSelection[],
+) {
+  const prices = new Map(inventory.equipmentPrices.map((item) => [item.key, item.priceCents]));
+  return items.reduce((total, item) => {
+    const pedalType = normalizePedalType(item.pedalType);
+    const computerMountType = normalizeComputerMountType(item.computerMountType);
+    return (
+      total +
+      (item.needsPedals && pedalType ? (prices.get(`pedal-${pedalType}`) ?? 0) : 0) +
+      (item.needsComputerMount && computerMountType ? (prices.get(`mount-${computerMountType}`) ?? 0) : 0) +
+      (item.needsHelmet ? (prices.get("helmet") ?? 0) : 0) +
+      (item.needsClothing ? (prices.get("clothing") ?? 0) : 0) +
+      (item.needsBikepackingBag ? (prices.get("bikepacking-bag") ?? 0) : 0) +
+      (item.needsGlasses ? (prices.get("glasses") ?? 0) : 0)
+    );
+  }, 0);
 }
 
 function priceForDate(schedule: BikePriceSchedule, date: Date) {
@@ -62,12 +154,25 @@ function priceForDate(schedule: BikePriceSchedule, date: Date) {
   return weekday === 0 || weekday === 6 ? schedule.weekendPriceCents : schedule.weekdayPriceCents;
 }
 
-function applicableDiscounts(inventory: LocationInventory, input: RentalPriceInput, date: Date) {
+function getApplicableDiscounts(
+  inventory: DiscountInventory,
+  input: { rentalDays: number; isStudent?: boolean },
+  date: Date,
+  rentalDay: number,
+) {
   const weekday = date.getUTCDay() || 7;
   const applicable = inventory.discounts.filter((discount) => {
     if (discount.requiresStudent && !input.isStudent) return false;
-    if (discount.minimumRentalDays && input.rentalDays < discount.minimumRentalDays) return false;
-    if (discount.weekdayFrom && discount.weekdayTo && (weekday < discount.weekdayFrom || weekday > discount.weekdayTo))
+    if (discount.minimumRentalDays !== null && input.rentalDays < discount.minimumRentalDays) return false;
+    // A duration discount configured as “from 3 days” starts on day 4.
+    // Discounts without a duration threshold, such as the student discount,
+    // apply to every rental day.
+    if (discount.minimumRentalDays !== null && rentalDay <= discount.minimumRentalDays) return false;
+    if (
+      discount.weekdayFrom !== null &&
+      discount.weekdayTo !== null &&
+      (weekday < discount.weekdayFrom || weekday > discount.weekdayTo)
+    )
       return false;
     return true;
   });
@@ -77,7 +182,10 @@ function applicableDiscounts(inventory: LocationInventory, input: RentalPriceInp
   const stackablePercentage = applicable
     .filter((discount) => discount.isStackable)
     .reduce((total, discount) => total + discount.percentage, 0);
-  const discountPercentage = Math.min(100, (exclusive?.percentage ?? 0) + stackablePercentage);
+  const discountPercentage = Math.min(
+    MAX_DAILY_DISCOUNT_PERCENTAGE,
+    (exclusive?.percentage ?? 0) + stackablePercentage,
+  );
 
   return {
     discountPercentage,
@@ -87,141 +195,98 @@ function applicableDiscounts(inventory: LocationInventory, input: RentalPriceInp
   };
 }
 
-export function calculateRentalPrice(inventory: LocationInventory, input: RentalPriceInput) {
-  const { bikeSubtotalCents, discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(inventory, {
-    dailyBikePriceCents: input.dailyPriceCents,
-    weekdayBikePriceCents: input.weekdayPriceCents,
-    weekendBikePriceCents: input.weekendPriceCents,
-    periodFrom: input.pickupDate.toISOString().slice(0, 10),
-    rentalDays: input.rentalDays,
-    isStudent: input.isStudent,
-  });
-  const discountPercentage = bikeSubtotalCents ? Math.round((discountCents * 100) / bikeSubtotalCents) : 0;
+/**
+ * Canonical rental price calculation used by estimates, offers, manual
+ * bookings and invoices. Prices are calculated per bike and per calendar day
+ * so weekday/weekend rates and daily discount caps remain transparent.
+ */
+export function calculatePrice(inventory: DiscountInventory, input: CentralPriceInput): RentalPriceCalculation {
+  const pickupDate = parseDateOnly(input.periodFrom);
+  const bikeBreakdown = input.bikes.map((_, bikeIndex) => ({
+    bikeIndex,
+    baseCents: 0,
+    discountCents: 0,
+    totalCents: 0,
+  }));
+  const dailyBreakdown: DailyPriceBreakdown[] = [];
+  const appliedDiscountKeys = new Set<string>();
 
+  for (let dayOffset = 0; dayOffset < input.rentalDays; dayOffset += 1) {
+    const date = new Date(pickupDate.getTime() + dayOffset * 86_400_000);
+    const rentalDay = dayOffset + 1;
+    const discount = getApplicableDiscounts(inventory, input, date, rentalDay);
+    const dateValue = berlinDateKey(date);
+    let baseCents = 0;
+    let discountCents = 0;
+
+    input.bikes.forEach((bike, bikeIndex) => {
+      const dailyBaseCents = priceForDate(getBikeSchedule(bike), date);
+      const dailyDiscountCents = Math.round((dailyBaseCents * discount.discountPercentage) / 100);
+      baseCents += dailyBaseCents;
+      discountCents += dailyDiscountCents;
+      bikeBreakdown[bikeIndex].baseCents += dailyBaseCents;
+      bikeBreakdown[bikeIndex].discountCents += dailyDiscountCents;
+      bikeBreakdown[bikeIndex].totalCents += dailyBaseCents - dailyDiscountCents;
+    });
+
+    discount.appliedDiscountKeys.forEach((key) => appliedDiscountKeys.add(key));
+    dailyBreakdown.push({
+      date: dateValue,
+      rentalDay,
+      baseCents,
+      discountPercentage: discount.discountPercentage,
+      discountCents,
+      totalCents: baseCents - discountCents,
+      appliedDiscountKeys: discount.appliedDiscountKeys,
+    });
+  }
+
+  const bikeSubtotalCents = bikeBreakdown.reduce((sum, bike) => sum + bike.baseCents, 0);
+  const discountCents = bikeBreakdown.reduce((sum, bike) => sum + bike.discountCents, 0);
+  const equipmentSubtotalCents = input.equipmentSubtotalCents ?? 0;
   return {
-    subtotalCents: bikeSubtotalCents,
-    discountPercentage,
+    rentalDays: input.rentalDays,
+    bikeSubtotalCents,
+    equipmentSubtotalCents,
     discountCents,
-    totalCents: bikeSubtotalCents - discountCents,
-    appliedDiscountKeys,
+    totalCents: bikeSubtotalCents + equipmentSubtotalCents - discountCents,
+    appliedDiscountKeys: [...appliedDiscountKeys],
+    dailyBreakdown,
+    bikeBreakdown,
   };
 }
 
-/** Shared discount calculation for both public estimates and concrete offers. */
-export function calculateBikePriceWithDiscounts(
-  inventory: {
-    discounts: Array<{
-      key: string;
-      percentage: number;
-      weekdayFrom: number | null;
-      weekdayTo: number | null;
-      minimumRentalDays: number | null;
-      requiresStudent: boolean;
-      isStackable: boolean;
-    }>;
-  },
-  input: {
-    dailyBikePriceCents?: number;
-    weekdayBikePriceCents?: number;
-    weekendBikePriceCents?: number;
-    periodFrom: string;
-    rentalDays: number;
-    isStudent?: boolean;
-  },
-) {
-  const pickupDate = parseCalendarDate(input.periodFrom);
-  const weekdayBikePriceCents = input.weekdayBikePriceCents ?? input.dailyBikePriceCents ?? 0;
-  const weekendBikePriceCents = input.weekendBikePriceCents ?? input.dailyBikePriceCents ?? 0;
-  let bikeSubtotalCents = 0;
-  let discountCents = 0;
-  const appliedDiscountKeys = new Set<string>();
-  for (let dayOffset = 0; dayOffset < input.rentalDays; dayOffset += 1) {
-    const rentalDate = new Date(pickupDate.getTime() + dayOffset * 86_400_000);
-    const dailyBikePriceCents = priceForDate(
-      { weekdayPriceCents: weekdayBikePriceCents, weekendPriceCents: weekendBikePriceCents },
-      rentalDate,
-    );
-    bikeSubtotalCents += dailyBikePriceCents;
-    const applicable = applicableDiscounts(
-      inventory as LocationInventory,
-      {
-        dailyPriceCents: dailyBikePriceCents,
-        rentalDays: input.rentalDays,
-        pickupDate: rentalDate,
-        isStudent: input.isStudent,
-      },
-      rentalDate,
-    );
-    discountCents += Math.round((dailyBikePriceCents * applicable.discountPercentage) / 100);
-    applicable.appliedDiscountKeys.forEach((key) => appliedDiscountKeys.add(key));
-  }
-  return { bikeSubtotalCents, discountCents, appliedDiscountKeys: [...appliedDiscountKeys] };
-}
-
-function parseCalendarDate(value: string) {
-  return new Date(`${value}T00:00:00.000Z`);
-}
-
-export function calculateBikeSubtotalCents(input: {
-  dailyBikePriceCents?: number;
-  weekdayBikePriceCents?: number;
-  weekendBikePriceCents?: number;
-  periodFrom: string;
-  rentalDays: number;
-}) {
-  const pickupDate = parseCalendarDate(input.periodFrom);
-  const weekdayBikePriceCents = input.weekdayBikePriceCents ?? input.dailyBikePriceCents ?? 0;
-  const weekendBikePriceCents = input.weekendBikePriceCents ?? input.dailyBikePriceCents ?? 0;
+export function calculateBikeSubtotalCents(input: BikePriceScheduleInput & { periodFrom: string; rentalDays: number }) {
+  const pickupDate = parseDateOnly(input.periodFrom);
+  const schedule = getBikeSchedule(input);
   let subtotalCents = 0;
   for (let dayOffset = 0; dayOffset < input.rentalDays; dayOffset += 1) {
-    subtotalCents += priceForDate(
-      { weekdayPriceCents: weekdayBikePriceCents, weekendPriceCents: weekendBikePriceCents },
-      new Date(pickupDate.getTime() + dayOffset * 86_400_000),
-    );
+    subtotalCents += priceForDate(schedule, new Date(pickupDate.getTime() + dayOffset * 86_400_000));
   }
   return subtotalCents;
 }
 
 /** Rental periods include both the pickup and return date. */
 export function getRentalDays(periodFrom: string, periodTo: string) {
-  const milliseconds = parseCalendarDate(periodTo).getTime() - parseCalendarDate(periodFrom).getTime();
+  const milliseconds = parseDateOnly(periodTo).getTime() - parseDateOnly(periodFrom).getTime();
   return Math.max(1, Math.round(milliseconds / 86_400_000) + 1);
 }
 
 export function calculateInquiryPrice(inventory: LocationInventory, payload: ContactInquiry): InquiryPrice {
   const rentalDays = getRentalDays(payload.periodFrom, payload.periodTo);
-  const equipmentPrices = new Map(inventory.equipmentPrices.map((item) => [item.key, item.priceCents]));
-  const priceForRequestedBike = (requestedBike: string) =>
-    getBikePriceScheduleCents(inventory, requestedBike) ?? { weekdayPriceCents: 0, weekendPriceCents: 0 };
-  const bikePriceSchedules = payload.bikes.map((bike) => priceForRequestedBike(bike.bikeSize));
-  const weekdayBikePriceCents = bikePriceSchedules.reduce((total, price) => total + price.weekdayPriceCents, 0);
-  const weekendBikePriceCents = bikePriceSchedules.reduce((total, price) => total + price.weekendPriceCents, 0);
-  const equipmentSubtotalCents = payload.bikes.reduce((total, bike) => {
-    const pedalType = normalizePedalType(bike.pedalType);
-    const computerMountType = normalizeComputerMountType(bike.computerMountType);
-    const pedals = pedalType && bike.needsPedals ? (equipmentPrices.get(`pedal-${pedalType}`) ?? 0) : 0;
-    const mount =
-      computerMountType && bike.needsComputerMount ? (equipmentPrices.get(`mount-${computerMountType}`) ?? 0) : 0;
-    const helmet = bike.needsHelmet ? (equipmentPrices.get("helmet") ?? 0) : 0;
-    const clothing = bike.needsClothing ? (equipmentPrices.get("clothing") ?? 0) : 0;
-    const bikepackingBag = bike.needsBikepackingBag ? (equipmentPrices.get("bikepacking-bag") ?? 0) : 0;
-    const glasses = bike.needsGlasses ? (equipmentPrices.get("glasses") ?? 0) : 0;
-    return total + pedals + mount + helmet + clothing + bikepackingBag + glasses;
-  }, 0);
+  const bikes = payload.bikes.map(
+    (bike) =>
+      getBikePriceScheduleCents(inventory, bike.bikeSize) ?? {
+        weekdayPriceCents: 0,
+        weekendPriceCents: 0,
+      },
+  );
+  const equipmentSubtotalCents = calculateEquipmentSubtotalCents(inventory, payload.bikes);
 
-  const { bikeSubtotalCents, discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(inventory, {
-    weekdayBikePriceCents,
-    weekendBikePriceCents,
+  return calculatePrice(inventory, {
+    bikes,
+    equipmentSubtotalCents,
     periodFrom: payload.periodFrom,
     rentalDays,
   });
-
-  return {
-    rentalDays,
-    bikeSubtotalCents,
-    equipmentSubtotalCents,
-    discountCents,
-    totalCents: bikeSubtotalCents + equipmentSubtotalCents - discountCents,
-    appliedDiscountKeys,
-  };
 }

@@ -6,6 +6,7 @@ import { FixedAssetDisposalLauncher } from "@/components/fixed-asset-disposal-di
 import { PrivateAssetContributionLauncher } from "@/components/private-asset-contribution-dialog";
 import { Card, CardDescription, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDateOnly } from "@/lib/datetime";
 
 export type FixedAssetRow = {
   id: number;
@@ -24,10 +25,8 @@ export type FixedAssetRow = {
 type FinancialAccountOption = { id: number; code: string; name: string };
 
 const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const date = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" });
-
 function formatDate(value: string) {
-  return date.format(new Date(`${value.slice(0, 10)}T00:00:00`));
+  return formatDateOnly(value.slice(0, 10));
 }
 
 function assetTypeLabel(value: string) {

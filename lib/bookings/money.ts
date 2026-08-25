@@ -14,12 +14,7 @@ export function euroToCents(value: string | number) {
   return Number.isSafeInteger(cents) ? cents : null;
 }
 
-/** The first receivable due after a booking is confirmed is half of its total. */
+/** The complete rental amount becomes due when a booking is confirmed. */
 export function confirmedBookingChargeCents(totalCents: number) {
-  return Math.round(totalCents / 2);
-}
-
-/** The remaining half becomes a receivable when the rental is completed. */
-export function remainingBookingChargeCents(totalCents: number) {
-  return totalCents - confirmedBookingChargeCents(totalCents);
+  return totalCents;
 }

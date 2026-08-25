@@ -1,9 +1,62 @@
 import { describe, expect, it } from "vitest";
 
-import { renderInvoicePdf } from "../../lib/bookings/invoice-pdf";
+import { getInvoicePriceSummary, renderInvoicePdf } from "../../lib/bookings/invoice-pdf";
 import { applyCustomOfferPrice } from "../../lib/bookings/quotes";
 
 describe("invoice PDF rendering", () => {
+  it("separates the canonical rental discount from an individual discount", () => {
+    const summary = getInvoicePriceSummary({
+      periodFrom: "2026-08-20",
+      quote: {
+        totalCents: 12_000,
+        standardTotalCents: 15_000,
+        bikeSubtotalCents: 14_000,
+        equipmentSubtotalCents: 2_000,
+        discountCents: 1_000,
+        customDiscountCents: 3_000,
+        customSurchargeCents: 0,
+        rentalDays: 3,
+        appliedDiscountKeys: ["long-term"],
+        bikePriceLines: [{ assetId: 1, baseCents: 14_000, discountCents: 1_000, totalCents: 13_000 }],
+        offeredItems: [],
+      },
+    });
+
+    expect(summary).toEqual({
+      bikeSubtotalCents: 14_000,
+      equipmentSubtotalCents: 2_000,
+      standardDiscountCents: 1_000,
+      customDiscountCents: 3_000,
+      customSurchargeCents: 0,
+      standardTotalCents: 15_000,
+      totalCents: 12_000,
+    });
+  });
+
+  it("derives an individual surcharge when an imported quote is above standard price", () => {
+    const summary = getInvoicePriceSummary({
+      periodFrom: "2026-08-20",
+      quote: {
+        totalCents: 17_000,
+        standardTotalCents: 15_000,
+        bikeSubtotalCents: 14_000,
+        equipmentSubtotalCents: 2_000,
+        discountCents: 1_000,
+        rentalDays: 3,
+        appliedDiscountKeys: ["long-term"],
+        offeredItems: [],
+      },
+    });
+
+    expect(summary).toMatchObject({
+      standardDiscountCents: 1_000,
+      customDiscountCents: 0,
+      customSurchargeCents: 2_000,
+      standardTotalCents: 15_000,
+      totalCents: 17_000,
+    });
+  });
+
   it("derives the negotiated discount from the line-item subtotal", () => {
     const quote = applyCustomOfferPrice(
       {
@@ -21,8 +74,11 @@ describe("invoice PDF rendering", () => {
     expect(quote).toMatchObject({
       totalCents: 12_000,
       calculatedTotalCents: 28_320,
-      discountCents: 23_400,
+      discountCents: 7_080,
       customPriceCents: 12_000,
+      standardTotalCents: 28_320,
+      customDiscountCents: 16_320,
+      customSurchargeCents: 0,
     });
   });
 

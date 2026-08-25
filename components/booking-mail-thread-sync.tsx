@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { splitMailThreadBody } from "@/lib/inquiries/mail-thread";
 import { repairMojibake } from "@/lib/inquiries/text";
+import { formatDateTime } from "@/lib/datetime";
 
 type MailMessage = {
   id: number;
@@ -183,9 +184,7 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
                     </Badge>
                     <p className="font-medium">{formatMailSubject(message.subject)}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(message.sentAt).toLocaleString("de-DE")}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{formatDateTime(message.sentAt)}</span>
                 </div>
                 <div className="mt-3 space-y-3">
                   {visibleText ? (

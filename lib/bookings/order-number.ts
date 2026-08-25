@@ -1,3 +1,5 @@
+import { BUSINESS_TIME_ZONE, formatDateTime } from "../datetime";
+
 const ORDER_NUMBER_PATTERN = /^#?(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/;
 
 /** Reads the local Europe/Berlin timestamp encoded in #YYYYMMDDHHMMSS. */
@@ -15,7 +17,7 @@ export function receivedAtFromOrderNumber(orderNumber: string) {
   );
   const berlinParts = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {
-      timeZone: "Europe/Berlin",
+      timeZone: BUSINESS_TIME_ZONE,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -47,7 +49,5 @@ export function receivedAtFromOrderNumber(orderNumber: string) {
 
 export function formatReceivedAt(orderNumber: string) {
   const receivedAt = receivedAtFromOrderNumber(orderNumber);
-  return (
-    receivedAt?.toLocaleString("de-DE", { timeZone: "Europe/Berlin", dateStyle: "medium", timeStyle: "short" }) ?? null
-  );
+  return receivedAt ? formatDateTime(receivedAt) : null;
 }

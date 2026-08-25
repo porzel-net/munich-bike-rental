@@ -12,7 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
-import { calculateBikePriceWithDiscounts, getBikePriceScheduleCents, getRentalDays } from "@/lib/inventory/pricing";
+import {
+  calculateEquipmentSubtotalCents,
+  calculatePrice,
+  getBikePriceScheduleCents,
+  getRentalDays,
+} from "@/lib/inventory/pricing";
 
 export type ManualBookingAsset = {
   id: number;
@@ -134,7 +139,6 @@ export function ManualBookingForm({
     if (!pricing) return 0;
     if (!periodFrom || !periodTo) return 0;
     const rentalDays = getRentalDays(periodFrom, periodTo);
-    const pricingDate = periodFrom;
     const bikePriceSchedules = items.map(
       (item) =>
         getBikePriceScheduleCents(pricing, item.requestedLabel) ?? {
@@ -142,25 +146,14 @@ export function ManualBookingForm({
           weekendPriceCents: 0,
         },
     );
-    const weekdayBikePriceCents = bikePriceSchedules.reduce((total, price) => total + price.weekdayPriceCents, 0);
-    const weekendBikePriceCents = bikePriceSchedules.reduce((total, price) => total + price.weekendPriceCents, 0);
-    const equipmentPrices = new Map(pricing.equipmentPrices.map((item) => [item.key, item.priceCents]));
-    const equipmentSubtotalCents = items.reduce(
-      (total, item) =>
-        total +
-        (item.needsPedals ? (equipmentPrices.get(`pedal-${item.pedalType}`) ?? 0) : 0) +
-        (item.needsComputerMount ? (equipmentPrices.get(`mount-${item.computerMountType}`) ?? 0) : 0) +
-        (item.needsHelmet ? (equipmentPrices.get("helmet") ?? 0) : 0) +
-        (item.needsClothing ? (equipmentPrices.get("clothing") ?? 0) : 0),
-      0,
-    );
-    const { bikeSubtotalCents, discountCents } = calculateBikePriceWithDiscounts(pricing, {
-      weekdayBikePriceCents,
-      weekendBikePriceCents,
-      periodFrom: pricingDate,
+    const equipmentSubtotalCents = calculateEquipmentSubtotalCents(pricing, items);
+    const price = calculatePrice(pricing, {
+      bikes: bikePriceSchedules,
+      equipmentSubtotalCents,
+      periodFrom,
       rentalDays,
     });
-    return bikeSubtotalCents + equipmentSubtotalCents - discountCents;
+    return price.totalCents;
   }, [items, location, periodFrom, periodTo, pricingByLocation]);
   const update = (key: number, updateItem: Partial<ManualBookingItem>) =>
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...updateItem } : item)));

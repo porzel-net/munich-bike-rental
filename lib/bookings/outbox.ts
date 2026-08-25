@@ -12,7 +12,7 @@ import {
 import { companyToVCard, contactCardFileName } from "../contacts/contact-card";
 import { renderInvoicePdf } from "./invoice-pdf";
 import { getBookingPaymentStatus } from "./service";
-import type { OfferQuote } from "./quotes";
+import { parseOfferQuoteSnapshot, type OfferQuote } from "./quotes";
 import { findLatestBookingThreadMessage } from "../inquiries/mailbox";
 import { reviewBookingEmailThread } from "../inquiries/email-action";
 import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mail-thread";
@@ -44,7 +44,7 @@ async function buildPaidBookingInvoiceAttachment(db: AppDatabase, bookingId: num
     .from(bookingRequestedItems)
     .where(eq(bookingRequestedItems.bookingId, bookingId))
     .all();
-  const quote = JSON.parse(offer.priceSnapshotJson) as OfferQuote;
+  const quote = parseOfferQuoteSnapshot(offer.priceSnapshotJson) as OfferQuote;
   const location =
     rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
   const content = await renderInvoicePdf({

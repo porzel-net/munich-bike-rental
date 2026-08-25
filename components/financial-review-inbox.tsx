@@ -23,6 +23,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { bookingPresentation } from "@/lib/bookings/presentation";
+import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
 import { getFinancialReviewState } from "@/lib/financial/review-status";
 
 export type FinancialReviewCategory = {
@@ -88,7 +89,7 @@ function formatBookedDate(value: string) {
   }
   const date = new Date(normalized);
   return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(date)
+    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: BUSINESS_TIME_ZONE }).format(date)
     : "Datum unbekannt";
 }
 

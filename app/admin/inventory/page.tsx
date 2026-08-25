@@ -1,4 +1,4 @@
-import { asc, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { InventoryTable } from "@/components/inventory-table";
@@ -8,9 +8,10 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, isAdmin } from "@/lib/auth/authorization";
 import { getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import { rentalLocationBikes, rentalLocationBikeSizes, rentalLocationEquipment } from "@/lib/db/schema";
+import { accessoryInventory, bikeModels, bikeVariants, rentalAssets } from "@/lib/db/schema";
 import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
 import type { EquipmentCategory } from "@/lib/inventory/equipment-categories";
+import { createBikeKey } from "@/lib/inventory/bike-key";
 
 export type AdminInventoryBike = {
   id: number;
@@ -51,53 +52,46 @@ export default async function InventoryPage() {
     : ([getAssignedLocation(session.user)].filter(Boolean) as RentalLocation[]);
   const db = getDatabase();
   const bikeRows = db
-    .select()
-    .from(rentalLocationBikes)
-    .where(inArray(rentalLocationBikes.location, locations))
-    .orderBy(asc(rentalLocationBikes.location), asc(rentalLocationBikes.displayOrder))
+    .select({ asset: rentalAssets, model: bikeModels, variant: bikeVariants })
+    .from(rentalAssets)
+    .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+    .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+    .where(inArray(rentalAssets.location, locations))
+    .orderBy(asc(rentalAssets.location), asc(rentalAssets.displayName))
     .all();
-  const bikeIds = bikeRows.map((bike) => bike.id);
-  const sizeRows = bikeIds.length
-    ? db
-        .select()
-        .from(rentalLocationBikeSizes)
-        .where(inArray(rentalLocationBikeSizes.locationBikeId, bikeIds))
-        .orderBy(asc(rentalLocationBikeSizes.id))
-        .all()
-    : [];
   const equipmentRows = db
     .select()
-    .from(rentalLocationEquipment)
-    .where(inArray(rentalLocationEquipment.location, locations))
-    .orderBy(asc(rentalLocationEquipment.location), asc(rentalLocationEquipment.displayOrder))
+    .from(accessoryInventory)
+    .where(inArray(accessoryInventory.location, locations))
+    .orderBy(asc(accessoryInventory.location), asc(accessoryInventory.category), asc(accessoryInventory.accessoryKey))
     .all();
 
-  const bikes: AdminInventoryBike[] = bikeRows.map((bike) => ({
-    id: bike.id,
-    location: bike.location as RentalLocation,
-    bikeKey: bike.bikeKey,
-    title: bike.title,
-    nickname: bike.nickname,
-    frameNumber: bike.frameNumber,
-    priceCents: bike.weekdayPriceCentsPerDay,
-    weekdayPriceCents: bike.weekdayPriceCentsPerDay,
-    weekendPriceCents: bike.weekendPriceCentsPerDay,
-    discountTextDe: bike.discountTextDe,
-    discountTextEn: bike.discountTextEn,
-    size: sizeRows.find((size) => size.locationBikeId === bike.id)?.size ?? "",
-    isAvailable: bike.isAvailable,
+  const bikes: AdminInventoryBike[] = bikeRows.map(({ asset, model, variant }) => ({
+    id: asset.id,
+    location: asset.location as RentalLocation,
+    bikeKey: createBikeKey(model.title, variant.size),
+    title: model.title,
+    nickname: asset.nickname,
+    frameNumber: asset.frameNumber,
+    priceCents: asset.weekdayPriceCents,
+    weekdayPriceCents: asset.weekdayPriceCents,
+    weekendPriceCents: asset.weekendPriceCents,
+    discountTextDe: "",
+    discountTextEn: "",
+    size: variant.size,
+    isAvailable: asset.state === "active",
   }));
   const equipment: AdminInventoryEquipment[] = equipmentRows.map((item) => ({
     id: item.id,
     location: item.location as RentalLocation,
-    equipmentKey: item.equipmentKey,
+    equipmentKey: item.accessoryKey,
     category: item.category as AdminInventoryEquipment["category"],
     labelDe: item.labelDe,
     labelEn: item.labelEn,
     priceCents: item.priceCents,
     availableQuantity: item.availableQuantity,
     quantityRelevant: item.quantityRelevant,
-    isAvailable: item.isAvailable,
+    isAvailable: item.state === "active",
   }));
   const locationOptions = locations.map((key) => ({ key, label: rentalLocationLabels.de[key] }));
 

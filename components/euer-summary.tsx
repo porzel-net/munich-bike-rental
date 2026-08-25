@@ -11,6 +11,7 @@ import type {
   FinancialReviewCategory,
 } from "@/components/financial-review-inbox";
 import type { EuerRow, EuerSummary } from "@/lib/financial/euer";
+import { formatDateOnly } from "@/lib/datetime";
 
 function formatAmount(amountCents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amountCents / 100);
@@ -23,8 +24,7 @@ function formatPercentage(value: number) {
 function formatDate(value: string) {
   const dateOnly = value.trim().match(/^\d{4}-\d{2}-\d{2}/)?.[0];
   if (!dateOnly) return value;
-  const [year, month, day] = dateOnly.split("-");
-  return `${day}.${month}.${year}`;
+  return formatDateOnly(dateOnly);
 }
 
 function treatmentLabel(treatment: string) {

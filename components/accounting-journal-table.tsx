@@ -2,17 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  endOfMonth,
-  endOfWeek,
-  endOfYear,
-  format,
-  startOfMonth,
-  startOfWeek,
-  startOfYear,
-  subMonths,
-  subWeeks,
-} from "date-fns";
 import { de } from "date-fns/locale";
 import {
   ArrowDownLeftIcon,
@@ -49,6 +38,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatAccountLabel } from "@/lib/bookings/presentation";
+import {
+  addDateOnlyDays,
+  addDateOnlyMonths,
+  berlinDateKey,
+  dateOnlyToLocalDate,
+  parseDateOnly,
+  BUSINESS_TIME_ZONE,
+} from "@/lib/datetime";
 import { formatJournalEntryKind } from "@/lib/financial/presentation";
 
 export type JournalLine = {
@@ -76,8 +73,12 @@ export type JournalEntry = {
 type EntryFilter = "all" | "revenue" | "expense";
 
 const euroFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-const dateFormatter = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" });
-const dateTimeFormatter = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" });
+const dateFormatter = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: BUSINESS_TIME_ZONE });
+const dateTimeFormatter = new Intl.DateTimeFormat("de-DE", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: BUSINESS_TIME_ZONE,
+});
 const entryFilterItems = [
   { value: "all", label: "Alle Vorgänge" },
   { value: "revenue", label: "Erträge" },
@@ -93,30 +94,43 @@ function formatDate(date: Date) {
 }
 
 function dateKey(date: Date) {
-  return format(date, "yyyy-MM-dd");
+  return berlinDateKey(date);
 }
+
+const dateRangeFormatter = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: BUSINESS_TIME_ZONE,
+});
 
 function formatDateRange(range: DateRange | undefined) {
   if (!range?.from) return "Alle Zeiträume";
-  const from = format(range.from, "dd.MM.yyyy", { locale: de });
-  return range.to ? `${from} – ${format(range.to, "dd.MM.yyyy", { locale: de })}` : from;
+  const from = dateRangeFormatter.format(parseDateOnly(berlinDateKey(range.from)));
+  const to = range.to ? dateRangeFormatter.format(parseDateOnly(berlinDateKey(range.to))) : null;
+  return to ? `${from} – ${to}` : from;
 }
 
 function previousWeekRange(today: Date): DateRange {
-  const previousWeek = subWeeks(today, 1);
+  const previousWeek = addDateOnlyDays(berlinDateKey(today), -7);
+  const weekday = parseDateOnly(previousWeek).getUTCDay();
+  const monday = addDateOnlyDays(previousWeek, -((weekday + 6) % 7));
   return {
-    from: startOfWeek(previousWeek, { weekStartsOn: 1 }),
-    to: endOfWeek(previousWeek, { weekStartsOn: 1 }),
+    from: dateOnlyToLocalDate(monday),
+    to: dateOnlyToLocalDate(addDateOnlyDays(monday, 6)),
   };
 }
 
 function previousMonthRange(today: Date): DateRange {
-  const previousMonth = subMonths(today, 1);
-  return { from: startOfMonth(previousMonth), to: endOfMonth(previousMonth) };
+  const previousMonth = addDateOnlyMonths(berlinDateKey(today), -1);
+  const from = `${previousMonth.slice(0, 7)}-01`;
+  const to = addDateOnlyDays(addDateOnlyMonths(from, 1), -1);
+  return { from: dateOnlyToLocalDate(from), to: dateOnlyToLocalDate(to) };
 }
 
 function currentYearRange(today: Date): DateRange {
-  return { from: startOfYear(today), to: endOfYear(today) };
+  const year = berlinDateKey(today).slice(0, 4);
+  return { from: dateOnlyToLocalDate(`${year}-01-01`), to: dateOnlyToLocalDate(`${year}-12-31`) };
 }
 
 function statusFor(entry: JournalEntry) {
@@ -215,7 +229,7 @@ export function AccountingJournalTable({ entries }: { entries: JournalEntry[] })
   const [search, setSearch] = useState("");
   const [entryFilter, setEntryFilter] = useState<EntryFilter>("all");
   const [dateRange, setDateRange] = useState<DateRange>();
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [calendarMonth, setCalendarMonth] = useState(dateOnlyToLocalDate(berlinDateKey()));
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const [createExpenseOpen, setCreateExpenseOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
@@ -227,7 +241,7 @@ export function AccountingJournalTable({ entries }: { entries: JournalEntry[] })
 
   function selectDateRange(nextRange: DateRange | undefined) {
     setDateRange(nextRange);
-    if (nextRange?.from) setCalendarMonth(nextRange.from);
+    if (nextRange?.from) setCalendarMonth(dateOnlyToLocalDate(berlinDateKey(nextRange.from)));
   }
 
   function applyDatePreset(nextRange: DateRange) {

@@ -3,7 +3,6 @@ import { AnySQLiteColumn, check, index, integer, sqliteTable, text, uniqueIndex 
 
 import { authUser } from "./auth";
 import { bookingRequestedItems, bookings, journalEntries, rentalAssets } from "./booking";
-import { rentalInquiries } from "./rentals";
 
 /** The single persisted Nevlo OAuth token set. Token values are encrypted before storage. */
 export const nevloOAuthTokens = sqliteTable("nevlo_oauth_tokens", {
@@ -463,7 +462,7 @@ export const financialDocumentLinks = sqliteTable(
   ],
 );
 
-/** Legacy rows retained during the migration to the financial transaction model. */
+/** Legacy expense rows retained during the migration to the financial transaction model. */
 export const accountingExpenses = sqliteTable("accounting_expenses", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   description: text("description").notNull(),
@@ -475,42 +474,3 @@ export const accountingExpenses = sqliteTable("accounting_expenses", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
-
-export const accountingRevenues = sqliteTable(
-  "accounting_revenues",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    inquiryId: integer("inquiry_id")
-      .notNull()
-      .references(() => rentalInquiries.id, { onDelete: "cascade" }),
-    amountCents: integer("amount_cents").notNull(),
-    paidAmountCents: integer("paid_amount_cents").notNull().default(0),
-    paymentReceivedAt: text("payment_received_at"),
-    payerName: text("payer_name").notNull(),
-    notes: text("notes").notNull().default(""),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-  },
-  (table) => [
-    uniqueIndex("accounting_revenues_inquiry_id_unique").on(table.inquiryId),
-    check("accounting_revenues_amount_cents_check", sql`${table.amountCents} >= 0`),
-    check("accounting_revenues_paid_amount_cents_check", sql`${table.paidAmountCents} >= 0`),
-  ],
-);
-
-export const accountingRevenuePayments = sqliteTable(
-  "accounting_revenue_payments",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    revenueId: integer("revenue_id")
-      .notNull()
-      .references(() => accountingRevenues.id, { onDelete: "cascade" }),
-    amountCents: integer("amount_cents").notNull(),
-    receivedAt: text("received_at").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  },
-  (table) => [
-    index("accounting_revenue_payments_revenue_id_idx").on(table.revenueId),
-    check("accounting_revenue_payments_amount_cents_check", sql`${table.amountCents} > 0`),
-  ],
-);

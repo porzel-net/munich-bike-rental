@@ -54,12 +54,24 @@ export async function POST(request: Request) {
       );
     }
     const amountCents = session.amount_total;
+    if (session.metadata?.booking_offer_id !== String(offerId)) {
+      return NextResponse.json(
+        { message: "Die Stripe-Zahlung gehört nicht zu diesem Angebot." },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
     const database = getDatabase();
     const result = confirmOfferWithStripePayment(database, {
       offerId,
       amountCents,
       sessionId: session.id,
+      paymentIntentId:
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent && typeof session.payment_intent === "object"
+            ? session.payment_intent.id
+            : null,
       offerToken: session.metadata?.offer_token,
     });
 

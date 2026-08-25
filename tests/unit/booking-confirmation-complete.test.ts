@@ -136,6 +136,7 @@ describe("booking confirmation completion API", () => {
       offerId: 7,
       amountCents: 10_000,
       sessionId: "cs_test_confirmation",
+      paymentIntentId: null,
       offerToken: token,
     });
     expect(confirmationMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(

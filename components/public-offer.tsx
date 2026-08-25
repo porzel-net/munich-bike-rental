@@ -19,6 +19,7 @@ import type { LucideIcon } from "lucide-react";
 
 import type { PublicOffer } from "@/lib/bookings/public";
 import { formatEuro } from "@/lib/bookings/money";
+import { formatDateOnly, formatDateTime } from "@/lib/datetime";
 import {
   getComputerMountTypeLabel,
   getPedalTypeLabel,
@@ -27,17 +28,11 @@ import {
 } from "@/lib/inquiries/catalog";
 
 function formatDate(value: string, locale: "de" | "en") {
-  return new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", { dateStyle: "medium" }).format(
-    new Date(`${value}T00:00:00`),
-  );
+  return formatDateOnly(value, locale);
 }
 
 function formatUpdatedAt(value: string, locale: "de" | "en") {
-  return new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Berlin",
-  }).format(new Date(value));
+  return formatDateTime(value, locale);
 }
 
 function accessoryLabels(item: PublicOffer["items"][number], locale: "de" | "en") {

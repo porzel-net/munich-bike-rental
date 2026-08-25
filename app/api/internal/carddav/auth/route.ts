@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
+import { canUseExternalCalendar } from "@/lib/auth/authorization";
 import { parseBasicAuthorization, verifyCarddavPassword } from "@/lib/carddav/auth";
 import { getDatabase } from "@/lib/db/client";
 import { authUser, carddavAccounts } from "@/lib/db/schema";
-import { rentalLocations } from "@/lib/inquiries/catalog";
 
 export const runtime = "nodejs";
 
@@ -27,6 +27,7 @@ export async function GET(request: Request) {
       passwordHash: carddavAccounts.passwordHash,
       enabled: carddavAccounts.enabled,
       banned: authUser.banned,
+      banExpires: authUser.banExpires,
       twoFactorEnabled: authUser.twoFactorEnabled,
       mustChangePassword: authUser.mustChangePassword,
       role: authUser.role,
@@ -36,14 +37,16 @@ export async function GET(request: Request) {
     .innerJoin(authUser, eq(carddavAccounts.userId, authUser.id))
     .where(eq(carddavAccounts.username, credentials.username))
     .get();
-  const validLocation =
-    account?.locationKey && rentalLocations.includes(account.locationKey as (typeof rentalLocations)[number]);
   const eligible =
     account &&
-    !account.banned &&
-    account.twoFactorEnabled &&
-    !account.mustChangePassword &&
-    (account.role === "admin" || (account.role === "standortuser" && Boolean(validLocation)));
+    canUseExternalCalendar({
+      role: account.role,
+      locationKey: account.locationKey,
+      banned: account.banned,
+      banExpires: account.banExpires,
+      twoFactorEnabled: account.twoFactorEnabled,
+      mustChangePassword: account.mustChangePassword,
+    });
   if (!eligible || !account.enabled || !(await verifyCarddavPassword(credentials.password, account.passwordHash)))
     return unauthorized();
 

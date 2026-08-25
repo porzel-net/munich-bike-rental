@@ -7,6 +7,7 @@ import { canUseAdminApi, getServerSession, getVisibleLocationScope } from "@/lib
 import { getDatabase } from "@/lib/db/client";
 import { dashboardRevenueGoals } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
 
 const revenueGoalsSchema = z.object({
   annualGoalCents: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -14,7 +15,7 @@ const revenueGoalsSchema = z.object({
 });
 
 function currentYear() {
-  return Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric" }).format(new Date()));
+  return Number(new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, year: "numeric" }).format(new Date()));
 }
 
 async function getScope() {

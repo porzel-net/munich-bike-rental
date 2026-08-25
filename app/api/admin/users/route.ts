@@ -14,57 +14,15 @@ import {
   hashInvitationToken,
   invitationBaseUrl,
 } from "../../../../lib/auth/invitations";
-import { rentalLocations } from "../../../../lib/inquiries/catalog";
 import { recordAdminAuditEvent } from "../../../../lib/auth/audit";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { adminRoleLocationSchema } from "../../../../lib/bookings/input-schemas";
 
 export const runtime = "nodejs";
 
-const createInvitationSchema = z
-  .object({
-    name: z.string().trim().min(2).max(120),
-    role: z.enum(["admin", "standortuser"]),
-    locationKey: z.enum(rentalLocations).nullable(),
-  })
-  .superRefine((value, context) => {
-    if (value.role === "standortuser" && !value.locationKey) {
-      context.addIssue({
-        code: "custom",
-        message: "Für einen Standortbenutzer musst du einen Standort auswählen.",
-        path: ["locationKey"],
-      });
-    }
-    if (value.role === "admin" && value.locationKey) {
-      context.addIssue({
-        code: "custom",
-        message: "Ein Administrator darf keinem einzelnen Standort zugeordnet werden.",
-        path: ["locationKey"],
-      });
-    }
-  });
+const createInvitationSchema = z.object({ name: z.string().trim().min(2).max(120) }).and(adminRoleLocationSchema);
 
-const updateUserSchema = z
-  .object({
-    userId: z.string().min(1),
-    role: z.enum(["admin", "standortuser"]),
-    locationKey: z.enum(rentalLocations).nullable(),
-  })
-  .superRefine((value, context) => {
-    if (value.role === "standortuser" && !value.locationKey) {
-      context.addIssue({
-        code: "custom",
-        message: "Für einen Standortbenutzer musst du einen Standort auswählen.",
-        path: ["locationKey"],
-      });
-    }
-    if (value.role === "admin" && value.locationKey) {
-      context.addIssue({
-        code: "custom",
-        message: "Ein Administrator darf keinem einzelnen Standort zugeordnet werden.",
-        path: ["locationKey"],
-      });
-    }
-  });
+const updateUserSchema = z.object({ userId: z.string().min(1) }).and(adminRoleLocationSchema);
 
 const userIdSchema = z.object({ userId: z.string().min(1) });
 

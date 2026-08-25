@@ -25,6 +25,7 @@ import {
 } from "../../lib/db/schema";
 import {
   BookingCommandError,
+  acknowledgeBookingAttention,
   advanceBooking,
   assignStripePaymentToBooking,
   assignBooking,
@@ -43,10 +44,12 @@ import {
   previewOffer,
   revokeOffer,
   recordPayment,
+  recordRefund,
   setBookingEmailQuestionsResolved,
   updateBooking,
   setLegacyBookingStatus,
 } from "../../lib/bookings/service";
+import { berlinYear } from "../../lib/datetime";
 import { renderBookingNotice, renderOfferMail } from "../../lib/bookings/messages";
 import { appendJournalEntry } from "../../lib/bookings/ledger";
 import { assignNevloTransactionToBooking } from "../../lib/financial/reconciliation";
@@ -90,6 +93,8 @@ function setup() {
       assetCode: "TEST-1",
       displayName: "Test Bike - M",
       dailyPriceCents: 5_000,
+      weekdayPriceCents: 5_000,
+      weekendPriceCents: 5_000,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -185,6 +190,24 @@ describe("booking commands", () => {
     ]);
   });
 
+  it("records a general acknowledgement for booking attention", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+
+    expect(acknowledgeBookingAttention(db, { bookingId: booking.id, actorUserId: "admin" })).toMatchObject({
+      acknowledged: true,
+      occurredAt: expect.any(Date),
+    });
+    expect(
+      db
+        .select({ eventType: bookingEvents.eventType, reason: bookingEvents.reason })
+        .from(bookingEvents)
+        .where(eq(bookingEvents.bookingId, booking.id))
+        .all()
+        .slice(-1),
+    ).toEqual([{ eventType: "booking_attention_acknowledged", reason: "Kenntnis genommen" }]);
+  });
+
   it("creates a completed historical booking without sending customer mail", () => {
     const { db, assetId } = setup();
     const created = createHistoricalBooking(db, {
@@ -220,7 +243,7 @@ describe("booking commands", () => {
   it("allocates the next free invoice number for a historical booking", () => {
     const { db, assetId } = setup();
     const existing = inquiry(db, "2026-07-20", "2026-07-21");
-    const year = new Date().getFullYear();
+    const year = berlinYear();
     db.update(bookings)
       .set({ invoiceNumber: `YBR-${year}-0001`, invoiceIssuedAt: new Date() })
       .where(eq(bookings.id, existing.id))
@@ -288,7 +311,7 @@ describe("booking commands", () => {
     expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toBeDefined();
   });
 
-  it("rejects impossible dates and makes manual payments retry-safe", () => {
+  it("rejects impossible dates and makes full manual payments retry-safe", () => {
     const { db, assetId } = setup();
     expect(() => inquiry(db, "2026-02-30", "2026-03-01")).toThrow("Zeitraum und Uhrzeiten sind ungültig");
 
@@ -299,16 +322,16 @@ describe("booking commands", () => {
 
     const firstEntry = recordPayment(db, {
       bookingId: booking.id,
-      amountCents: 5_000,
-      reason: "Anzahlung",
+      amountCents: 10_000,
+      reason: "Gesamtzahlung",
       actorUserId: "admin",
       idempotencyKey: "manual-payment-test-1",
     });
     expect(
       recordPayment(db, {
         bookingId: booking.id,
-        amountCents: 5_000,
-        reason: "Anzahlung wiederholt",
+        amountCents: 10_000,
+        reason: "Gesamtzahlung wiederholt",
         actorUserId: "admin",
         idempotencyKey: "manual-payment-test-1",
       }),
@@ -316,17 +339,17 @@ describe("booking commands", () => {
     expect(() =>
       recordPayment(db, {
         bookingId: booking.id,
-        amountCents: 5_001,
-        reason: "Zu viel",
+        amountCents: 10_001,
+        reason: "Falscher Betrag",
         actorUserId: "admin",
       }),
-    ).toThrow("Gesamtpreis");
+    ).toThrow("vollständig bezahlt");
 
     expect(
-      recordPayment(db, {
+      recordRefund(db, {
         bookingId: booking.id,
-        amountCents: -1_000,
-        reason: "Stornierung der Anzahlung",
+        amountCents: 1_000,
+        reason: "Teilerstattung",
         actorUserId: "admin",
       }),
     ).toBeTypeOf("number");
@@ -427,6 +450,45 @@ describe("booking commands", () => {
     ).toEqual({
       status: "posted",
     });
+  });
+
+  it("allows manual bookings to reconcile several transfers from different accounts", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOffer(db, offer.confirmationToken, "admin");
+    const privateAccount = db
+      .insert(financialAccounts)
+      .values({
+        code: "private_transfer_account",
+        name: "Privates Überweisungskonto",
+        type: "bank",
+        provider: "manual",
+        currency: "EUR",
+        notes: "Manuelle historische Zahlung",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: financialAccounts.id })
+      .get();
+
+    recordPayment(db, {
+      bookingId: booking.id,
+      amountCents: 4_000,
+      financialAccountId: privateAccount.id,
+      reason: "Erste Überweisung",
+      actorUserId: "admin",
+    });
+    recordPayment(db, {
+      bookingId: booking.id,
+      amountCents: 6_000,
+      financialAccountId: privateAccount.id,
+      reason: "Zweite Überweisung",
+      actorUserId: "admin",
+    });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(3);
   });
 
   it("confirms an expired offer when a paid Stripe session is assigned manually", () => {
@@ -622,7 +684,7 @@ describe("booking commands", () => {
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
       status: "confirmed",
     });
-    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 5_000, status: "open" });
+    expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 10_000, status: "open" });
   });
 
   it("uses the customer's English locale for every admin-triggered booking mail", () => {
@@ -753,6 +815,58 @@ describe("booking commands", () => {
       db.select({ invoiceNumber: bookings.invoiceNumber }).from(bookings).where(eq(bookings.id, booking.id)).get(),
     ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-\d{4}$/) });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+    expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(2);
+  });
+
+  it("accepts only the original Stripe session when confirmation is retried", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+
+    expect(
+      confirmOfferWithStripePayment(db, {
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_original_session",
+        paymentIntentId: "pi_test_original_intent",
+      }),
+    ).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
+    expect(
+      db
+        .select({
+          stripeSessionId: bookingOffers.stripeSessionId,
+          stripePaymentIntentId: bookingOffers.stripePaymentIntentId,
+        })
+        .from(bookingOffers)
+        .where(eq(bookingOffers.id, offer.offerId))
+        .get(),
+    ).toEqual({ stripeSessionId: "cs_test_original_session", stripePaymentIntentId: "pi_test_original_intent" });
+
+    expect(
+      confirmOfferWithStripePayment(db, {
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_original_session",
+        paymentIntentId: "pi_test_original_intent",
+      }),
+    ).toEqual({ bookingId: booking.id, alreadyConfirmed: true });
+    expect(() =>
+      confirmOfferWithStripePayment(db, {
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_second_session",
+        paymentIntentId: "pi_test_second_intent",
+      }),
+    ).toThrow("zweite Stripe-Zahlung");
+    expect(() =>
+      confirmOfferWithStripePayment(db, {
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents - 1,
+        sessionId: "cs_test_original_session",
+        paymentIntentId: "pi_test_original_intent",
+      }),
+    ).toThrow("Betrag");
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(2);
   });
 
@@ -998,7 +1112,7 @@ describe("booking commands", () => {
       db.select({ assignedUserId: bookings.assignedUserId }).from(bookings).where(eq(bookings.id, created.id)).get(),
     ).toEqual({ assignedUserId: "admin" });
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, created.id)).all()).toHaveLength(1);
-    expect(getBookingPaymentStatus(db, created.id)).toEqual({ openCents: 5_000, status: "open" });
+    expect(getBookingPaymentStatus(db, created.id)).toEqual({ openCents: 10_000, status: "open" });
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, created.id)).get()?.kind).toBe(
       "booking_confirmed",
     );
@@ -1061,13 +1175,13 @@ describe("booking commands", () => {
       dropoffTime: "16:30",
     });
 
-    expect(offer.quote).toMatchObject({ rentalDays: 3, bikeSubtotalCents: 15_000, totalCents: 12_750 });
+    expect(offer.quote).toMatchObject({ rentalDays: 3, bikeSubtotalCents: 15_000, totalCents: 15_000 });
     expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toMatchObject({
       periodFrom: "2026-07-22",
       periodTo: "2026-07-24",
       pickupTime: "11:30",
       dropoffTime: "16:30",
-      quotedTotalCents: 12_750,
+      quotedTotalCents: 15_000,
     });
     expect(db.select().from(mailOutbox).where(eq(mailOutbox.offerId, offer.offerId)).get()?.plainText).toContain(
       "Rental period: 2026-07-22 11:30 – 2026-07-24 16:30",
@@ -1126,6 +1240,39 @@ describe("booking commands", () => {
         .where(eq(bookingOffers.bookingId, created.id))
         .get(),
     ).toEqual({ status: "revoked" });
+  });
+
+  it("rejects a stale booking update before changing any commercial data", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.id, booking.itemId)).get()!;
+    const current = db.select().from(bookings).where(eq(bookings.id, booking.id)).get()!;
+
+    assignAdminBooking(db, booking.id);
+    const afterAssignment = db.select().from(bookings).where(eq(bookings.id, booking.id)).get()!;
+
+    expect(() =>
+      updateBooking(db, {
+        bookingId: booking.id,
+        expectedVersion: current.version,
+        actorUserId: "admin",
+        customerName: "Changed name",
+        customerEmail: afterAssignment.customerEmail,
+        customerPhone: afterAssignment.customerPhone,
+        periodFrom: afterAssignment.periodFrom,
+        periodTo: afterAssignment.periodTo,
+        pickupTime: afterAssignment.pickupTime,
+        dropoffTime: afterAssignment.dropoffTime,
+        customerMessage: afterAssignment.customerMessage,
+        communicationLocale: afterAssignment.communicationLocale,
+        requestedItems: [item],
+      }),
+    ).toThrow("zwischenzeitlich geändert");
+
+    expect(db.select().from(bookings).where(eq(bookings.id, booking.id)).get()).toMatchObject({
+      customerName: "Ada Lovelace",
+      version: afterAssignment.version,
+    });
   });
 
   it("withdraws an issued offer without queueing another customer mail", () => {
@@ -1340,6 +1487,52 @@ describe("booking commands", () => {
     ).toEqual({ eventType: "manual_booking_confirmed" });
   });
 
+  it("keeps manual records editable even after completion, while web records cannot use the manual override", () => {
+    const { db, assetId } = setup();
+    const manual = inquiry(db, "2026-08-20", "2026-08-21");
+    assignAdminBooking(db, manual.id);
+    const details = {
+      periodFrom: "2026-08-20",
+      periodTo: "2026-08-21",
+      pickupTime: "09:00",
+      dropoffTime: "17:00",
+      quotedTotalCents: 10_000,
+      assetsByRequestedItem: { [manual.itemId]: assetId },
+    };
+    confirmManualBooking(db, { bookingId: manual.id, actorUserId: "admin", details });
+    advanceBooking(db, manual.id, "checked_out", "admin");
+    advanceBooking(db, manual.id, "completed", "admin");
+    expect(() => confirmManualBooking(db, { bookingId: manual.id, actorUserId: "admin", details })).not.toThrow();
+    expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, manual.id)).get()).toEqual({
+      status: "confirmed",
+    });
+
+    const web = createBooking(db, {
+      customerName: "Web Customer",
+      customerEmail: "web@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-08-20",
+      periodTo: "2026-08-21",
+      pickupTime: "09:00",
+      dropoffTime: "17:00",
+      customerMessage: "",
+      communicationLocale: "de",
+      source: "web",
+      quotedTotalCents: 0,
+      requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
+    });
+    assignAdminBooking(db, web.id);
+    const webItem = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, web.id)).get()!;
+    expect(() =>
+      confirmManualBooking(db, {
+        bookingId: web.id,
+        actorUserId: "admin",
+        details: { ...details, assetsByRequestedItem: { [webItem.id]: assetId } },
+      }),
+    ).toThrow("importierten oder manuell angelegten Buchungen");
+  });
+
   it("updates confirmed booking times and queues a highlighted change mail", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");
@@ -1381,6 +1574,11 @@ describe("booking commands", () => {
     expect(mail?.html).toContain("<strong>2026-08-01</strong>");
     expect(mail?.plainText).toContain("NEW 2026-08-01");
     expect(mail?.plainText).toContain("Bikes and equipment: NEW Test Bike - L");
+    const acceptedOffer = db.select().from(bookingOffers).where(eq(bookingOffers.bookingId, booking.id)).get()!;
+    expect(JSON.parse(acceptedOffer.priceSnapshotJson)).toMatchObject({
+      equipmentSubtotalCents: 1_000,
+      offeredItems: [{ requestedLabel: "Test Bike - L", accessories: { needsHelmet: true } }],
+    });
   });
 
   it("changes the concrete bike of a confirmed booking and updates its allocation and offer snapshot", () => {
@@ -1404,6 +1602,8 @@ describe("booking commands", () => {
         displayName: "Test Bike - M 2",
         nickname: "Bike 2",
         dailyPriceCents: 5_500,
+        weekdayPriceCents: 5_500,
+        weekendPriceCents: 5_500,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -1448,7 +1648,7 @@ describe("booking commands", () => {
     expect(JSON.parse(acceptedOffer.priceSnapshotJson)).toMatchObject({
       offeredItems: [{ assetId: replacement.id, assetName: "Test Bike - M 2", dailyPriceCents: 5_500 }],
       bikeSubtotalCents: 11_000,
-      discountCents: 1_000,
+      discountCents: 0,
     });
     const mail = db.select().from(mailOutbox).where(eq(mailOutbox.id, result.mailId!)).get();
     expect(mail?.plainText).toContain("Bikes: NEW Replacement Bike - M");
@@ -1465,6 +1665,8 @@ describe("booking commands", () => {
         assetCode: "TEST-2",
         displayName: "Test Bike - M 2",
         dailyPriceCents: 5_000,
+        weekdayPriceCents: 5_000,
+        weekendPriceCents: 5_000,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -1581,6 +1783,52 @@ describe("booking commands", () => {
           .get(),
       ).toEqual({ totalCents: 14_000 });
     }
+  });
+
+  it("allows manually entered historical bookings to correct the rental amount after confirmation", () => {
+    const { db, assetId } = setup();
+    const created = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, created.id);
+    confirmManualBooking(db, {
+      bookingId: created.id,
+      actorUserId: "admin",
+      details: {
+        periodFrom: "2026-07-20",
+        periodTo: "2026-07-21",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        quotedTotalCents: 12_500,
+        assetsByRequestedItem: { [created.itemId]: assetId },
+      },
+    });
+    const current = db.select().from(bookings).where(eq(bookings.id, created.id)).get()!;
+    const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, created.id)).get()!;
+    updateBooking(db, {
+      bookingId: created.id,
+      expectedVersion: current.version,
+      actorUserId: "admin",
+      customerName: current.customerName,
+      customerEmail: current.customerEmail,
+      customerPhone: current.customerPhone,
+      periodFrom: current.periodFrom,
+      periodTo: current.periodTo,
+      pickupTime: current.pickupTime,
+      dropoffTime: current.dropoffTime,
+      customerMessage: current.customerMessage,
+      communicationLocale: current.communicationLocale,
+      requestedItems: [item],
+      quotedTotalCents: 14_000,
+    });
+
+    expect(
+      db
+        .select({ quotedTotalCents: bookings.quotedTotalCents })
+        .from(bookings)
+        .where(eq(bookings.id, created.id))
+        .get(),
+    ).toEqual({
+      quotedTotalCents: 14_000,
+    });
   });
 
   it("reconciles an imported rental charge when a completed booking is corrected after payment", () => {
@@ -1730,5 +1978,42 @@ describe("booking commands", () => {
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()?.status).toBe(
       "offer_sent",
     );
+  });
+
+  it("expires or revokes open offers together with the booking lifecycle", () => {
+    const { db, assetId } = setup();
+    const expired = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, expired.id);
+    const expiredOffer = createOffer(db, {
+      bookingId: expired.id,
+      assetsByRequestedItem: { [expired.itemId]: assetId },
+    });
+    advanceBooking(db, expired.id, "expired", "admin", "Manuell abgelaufen");
+    expect(
+      db
+        .select({ status: bookingOffers.status })
+        .from(bookingOffers)
+        .where(eq(bookingOffers.id, expiredOffer.offerId))
+        .get(),
+    ).toEqual({
+      status: "expired",
+    });
+
+    const cancelled = inquiry(db, "2026-09-20", "2026-09-21");
+    assignAdminBooking(db, cancelled.id);
+    const cancelledOffer = createOffer(db, {
+      bookingId: cancelled.id,
+      assetsByRequestedItem: { [cancelled.itemId]: assetId },
+    });
+    cancelBooking(db, { bookingId: cancelled.id, cancellationFeeCents: 0, reason: "Nicht mehr benötigt" });
+    expect(
+      db
+        .select({ status: bookingOffers.status })
+        .from(bookingOffers)
+        .where(eq(bookingOffers.id, cancelledOffer.offerId))
+        .get(),
+    ).toEqual({
+      status: "revoked",
+    });
   });
 });

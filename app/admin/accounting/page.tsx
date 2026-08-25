@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { berlinYear } from "@/lib/datetime";
 import { getEuerSummary } from "@/lib/financial/euer";
 import { bookings, financialAccounts, financialCategories } from "@/lib/db/schema";
 
@@ -18,7 +19,7 @@ export default async function AccountingPage() {
   if (!isAdmin(session.user)) redirect("/admin");
 
   const db = getDatabase();
-  const euer = getEuerSummary(db, new Date().getFullYear());
+  const euer = getEuerSummary(db, berlinYear());
   const categories = db
     .select({
       id: financialCategories.id,

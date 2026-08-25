@@ -8,7 +8,21 @@ export type AuthorizedUser = {
   role?: string | null;
   twoFactorEnabled?: boolean | null;
   mustChangePassword?: boolean;
+  banned?: boolean | null;
+  banExpires?: Date | string | number | null;
 };
+
+/**
+ * A session can outlive a later administrative ban. All authorization paths
+ * therefore re-check the current user flags instead of trusting the session
+ * only because it is cryptographically valid.
+ */
+export function isAccountBlocked(user: AuthorizedUser, now = Date.now()) {
+  if (user.banned === true) return true;
+  if (user.banExpires == null) return false;
+  const expiresAt = user.banExpires instanceof Date ? user.banExpires.getTime() : new Date(user.banExpires).getTime();
+  return Number.isFinite(expiresAt) && expiresAt > now;
+}
 
 export function hasRole(user: AuthorizedUser, role: AdminRole) {
   return user.role === role;
@@ -28,11 +42,11 @@ export function getAssignedLocation(user: AuthorizedUser): RentalLocation | null
 }
 
 export function canAccessAdmin(user: AuthorizedUser) {
-  return isAdmin(user) || getAssignedLocation(user) !== null;
+  return !isAccountBlocked(user) && (isAdmin(user) || getAssignedLocation(user) !== null);
 }
 
 export function canAccessLocation(user: AuthorizedUser, location: RentalLocation) {
-  return isAdmin(user) || getAssignedLocation(user) === location;
+  return !isAccountBlocked(user) && (isAdmin(user) || getAssignedLocation(user) === location);
 }
 
 /**
@@ -60,4 +74,13 @@ export function canUseAdminApi(user: AuthorizedUser) {
 
 export function canUseAdminApiAsAdmin(user: AuthorizedUser) {
   return canUseAdminApi(user) && isAdmin(user);
+}
+
+/**
+ * Calendar and CardDAV credentials are external admin capabilities. They use
+ * the same completed-setup, role, location and current-ban rules as the
+ * normal admin API, even though they authenticate with their own credentials.
+ */
+export function canUseExternalCalendar(user: AuthorizedUser) {
+  return hasCompletedAdminSetup(user) && canAccessAdmin(user);
 }

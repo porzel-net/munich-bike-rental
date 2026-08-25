@@ -79,16 +79,14 @@ import {
   financialCategories,
   financialTransactions,
   fixedAssets,
+  bikeModels,
+  bikeVariants,
   rentalAssets,
-  rentalLocationBikeSizes,
-  rentalLocationBikes,
-  rentalLocationEquipment,
 } from "../../lib/db/schema";
 import { createDatabaseConnection } from "../../lib/db/client";
 import { hashInvitationToken } from "../../lib/auth/invitations";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 import { createFixedAsset } from "../../lib/financial/fixed-assets";
-import { importLegacyInventoryIntoBookingInventory } from "../../lib/bookings/inventory-bootstrap";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 let testDb: ReturnType<typeof createDatabaseConnection>["db"];
@@ -161,44 +159,20 @@ describe("admin inventory API", () => {
     expect(bikeBody.item.bikeKey).toBe("edge-bike-m");
     expect(
       db
-        .select()
-        .from(rentalLocationBikeSizes)
-        .where(eq(rentalLocationBikeSizes.locationBikeId, bikeBody.item.id))
-        .all(),
-    ).toHaveLength(1);
-    expect(
-      db
-        .select({ de: rentalLocationBikes.discountTextDe, en: rentalLocationBikes.discountTextEn })
-        .from(rentalLocationBikes)
-        .where(eq(rentalLocationBikes.id, bikeBody.item.id))
+        .select({ asset: rentalAssets, model: bikeModels, variant: bikeVariants })
+        .from(rentalAssets)
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
+        .where(eq(rentalAssets.id, bikeBody.item.id))
         .get(),
-    ).toEqual({ de: "10%\nNur im Mai", en: "10%\nMay only" });
+    ).toMatchObject({ asset: { nickname: "Blitz" }, model: { title: "Edge Bike" }, variant: { size: "M" } });
     expect(
       db
-        .select({ nickname: rentalLocationBikes.nickname })
-        .from(rentalLocationBikes)
-        .where(eq(rentalLocationBikes.id, bikeBody.item.id))
-        .get(),
-    ).toEqual({ nickname: "Blitz" });
-    expect(
-      db
-        .select({
-          weekday: rentalLocationBikes.weekdayPriceCentsPerDay,
-          weekend: rentalLocationBikes.weekendPriceCentsPerDay,
-        })
-        .from(rentalLocationBikes)
-        .where(eq(rentalLocationBikes.id, bikeBody.item.id))
+        .select({ weekday: rentalAssets.weekdayPriceCents, weekend: rentalAssets.weekendPriceCents })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.id, bikeBody.item.id))
         .get(),
     ).toEqual({ weekday: 4_500, weekend: 6_500 });
-
-    importLegacyInventoryIntoBookingInventory(db);
-    expect(
-      db
-        .select({ nickname: rentalAssets.nickname, displayName: rentalAssets.displayName })
-        .from(rentalAssets)
-        .where(eq(rentalAssets.legacyLocationBikeId, bikeBody.item.id))
-        .get(),
-    ).toMatchObject({ nickname: "Blitz", displayName: "Edge Bike - M" });
 
     expect(
       (
@@ -213,7 +187,7 @@ describe("admin inventory API", () => {
           }),
         )
       ).status,
-    ).toBe(409);
+    ).toBe(201);
 
     expect(
       (
@@ -235,31 +209,20 @@ describe("admin inventory API", () => {
       ).status,
     ).toBe(200);
     expect(
-      db.select().from(rentalLocationBikes).where(eq(rentalLocationBikes.id, bikeBody.item.id)).get(),
-    ).toMatchObject({
-      title: "Edge Bike Updated",
-      nickname: "Turbo",
-      frameNumber: "EDGE-2",
-      priceCentsPerDay: 5_000,
-      weekdayPriceCentsPerDay: 5_000,
-      weekendPriceCentsPerDay: 7_000,
-      discountTextDe: "10%\nNur im Mai",
-      discountTextEn: "10%\nMay only",
-    });
-    expect(
       db
         .select({ nickname: rentalAssets.nickname, displayName: rentalAssets.displayName })
         .from(rentalAssets)
-        .where(eq(rentalAssets.legacyLocationBikeId, bikeBody.item.id))
+        .where(eq(rentalAssets.id, bikeBody.item.id))
         .get(),
     ).toMatchObject({ nickname: "Turbo", displayName: "Edge Bike Updated - L" });
     expect(
       db
-        .select()
-        .from(rentalLocationBikeSizes)
-        .where(eq(rentalLocationBikeSizes.locationBikeId, bikeBody.item.id))
+        .select({ size: bikeVariants.size })
+        .from(rentalAssets)
+        .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
+        .where(eq(rentalAssets.id, bikeBody.item.id))
         .get(),
-    ).toMatchObject({ size: "L", isAvailable: true });
+    ).toMatchObject({ size: "L" });
 
     const equipmentResponse = await inventoryPost(
       request("/api/admin/inventory", "POST", {
@@ -277,10 +240,7 @@ describe("admin inventory API", () => {
     const equipmentBody = (await equipmentResponse.json()) as { item: { id: number; equipmentKey: string } };
     expect(equipmentBody.item.equipmentKey).toBe("pedal-edge-pedal");
     expect(
-      db.select().from(rentalLocationEquipment).where(eq(rentalLocationEquipment.id, equipmentBody.item.id)).get(),
-    ).toMatchObject({ availableQuantity: 3, isAvailable: true });
-    expect(
-      db.select().from(accessoryInventory).where(eq(accessoryInventory.legacyEquipmentId, equipmentBody.item.id)).get(),
+      db.select().from(accessoryInventory).where(eq(accessoryInventory.id, equipmentBody.item.id)).get(),
     ).toMatchObject({ accessoryKey: "pedal-edge-pedal", availableQuantity: 3, state: "active" });
     expect(
       (
@@ -300,7 +260,7 @@ describe("admin inventory API", () => {
       ).status,
     ).toBe(200);
     expect(
-      db.select().from(accessoryInventory).where(eq(accessoryInventory.legacyEquipmentId, equipmentBody.item.id)).get(),
+      db.select().from(accessoryInventory).where(eq(accessoryInventory.id, equipmentBody.item.id)).get(),
     ).toMatchObject({ availableQuantity: 4 });
     expect(
       (
@@ -313,12 +273,12 @@ describe("admin inventory API", () => {
         )
       ).status,
     ).toBe(200);
+    expect(db.select().from(rentalAssets).where(eq(rentalAssets.id, bikeBody.item.id)).get()?.state).toBe("retired");
     expect(
-      db.select().from(rentalLocationBikes).where(eq(rentalLocationBikes.id, bikeBody.item.id)).get()?.isAvailable,
-    ).toBe(false);
-    expect(
-      db.select().from(rentalLocationEquipment).where(eq(rentalLocationEquipment.id, equipmentBody.item.id)).get(),
-    ).toBeDefined();
+      db.select().from(accessoryInventory).where(eq(accessoryInventory.id, equipmentBody.item.id)).get(),
+    ).toMatchObject({
+      state: "active",
+    });
   });
 
   it("enforces origin, role setup and location scope", async () => {

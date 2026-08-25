@@ -64,6 +64,12 @@ export async function POST(request: Request) {
       offerId: offer.offerId,
       amountCents: session.amount_total,
       sessionId: session.id,
+      paymentIntentId:
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent && typeof session.payment_intent === "object"
+            ? session.payment_intent.id
+            : null,
       offerToken: input.data.token,
     });
     await importStripeCheckoutPayment(database, { sessionId: session.id, bookingId: result.bookingId });

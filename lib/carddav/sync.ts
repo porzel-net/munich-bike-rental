@@ -1,29 +1,13 @@
 import { eq } from "drizzle-orm";
 
+import { canUseExternalCalendar } from "@/lib/auth/authorization";
 import { getDatabase } from "@/lib/db/client";
 import { authUser, carddavAccounts } from "@/lib/db/schema";
-import { rentalLocations, type RentalLocation } from "@/lib/inquiries/catalog";
 import { getVisibleContacts } from "@/lib/contacts/service";
 
 import { syncContactsToRadicale } from "./client";
 
 let syncInProgress = false;
-
-function isEligibleUser(user: {
-  role: string;
-  locationKey: string | null;
-  banned: boolean;
-  twoFactorEnabled: boolean;
-  mustChangePassword: boolean;
-}) {
-  const validLocation = user.locationKey && rentalLocations.includes(user.locationKey as RentalLocation);
-  return (
-    !user.banned &&
-    user.twoFactorEnabled &&
-    !user.mustChangePassword &&
-    (user.role === "admin" || (user.role === "standortuser" && Boolean(validLocation)))
-  );
-}
 
 export async function syncAllEnabledCarddavAccounts() {
   if (syncInProgress) return { busy: true, syncedAccounts: 0, failedAccounts: 0, disabledAccounts: 0 };
@@ -39,6 +23,7 @@ export async function syncAllEnabledCarddavAccounts() {
         role: authUser.role,
         locationKey: authUser.locationKey,
         banned: authUser.banned,
+        banExpires: authUser.banExpires,
         twoFactorEnabled: authUser.twoFactorEnabled,
         mustChangePassword: authUser.mustChangePassword,
       })
@@ -52,7 +37,16 @@ export async function syncAllEnabledCarddavAccounts() {
     let disabledAccounts = 0;
 
     for (const account of accounts) {
-      if (!isEligibleUser(account)) {
+      if (
+        !canUseExternalCalendar({
+          role: account.role,
+          locationKey: account.locationKey,
+          banned: account.banned,
+          banExpires: account.banExpires,
+          twoFactorEnabled: account.twoFactorEnabled,
+          mustChangePassword: account.mustChangePassword,
+        })
+      ) {
         db.update(carddavAccounts)
           .set({
             enabled: false,

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, Pie, PieChart, XAxis } from "recharts";
 import { CalendarX2, Check, CircleCheck, Inbox, Landmark } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,7 @@ type ActivityItem = {
 };
 
 function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
+  const router = useRouter();
   const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(() => new Set());
   const activityIcons = {
     expired_booking: CalendarX2,
@@ -145,6 +147,7 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
         body: JSON.stringify({ activityId: id }),
       });
       if (!response.ok) throw new Error("Aktivität konnte nicht gespeichert werden.");
+      router.refresh();
     } catch {
       setDismissedIds((current) => {
         const next = new Set(current);
@@ -157,7 +160,16 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
   return (
     <Card className="gap-0">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Aktivität</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Aktivität</CardTitle>
+          <span
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3b30] px-1.5 text-[11px] leading-none font-semibold tracking-[-0.01em] text-white shadow-sm tabular-nums"
+            aria-label={`${visibleActivities.length} offene Aktivitäten`}
+            title={`${visibleActivities.length} offene Aktivitäten`}
+          >
+            {visibleActivities.length}
+          </span>
+        </div>
       </CardHeader>
       <CardContent className="pt-0">
         <div className="flex flex-col">
@@ -170,10 +182,13 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
                     key={activity.id}
                     variant="default"
                     size="xs"
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 border-0 px-2 py-2"
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 border-0 px-4 py-2 hover:bg-muted"
                   >
-                    <ItemMedia variant="icon" className="text-muted-foreground">
-                      <Icon className="size-4" />
+                    <ItemMedia
+                      variant="icon"
+                      className="self-center! rounded-lg bg-muted p-1.5! translate-y-0! text-muted-foreground group-hover/item:bg-card"
+                    >
+                      <Icon className="size-5" />
                     </ItemMedia>
                     <Link href={activity.href} className="min-w-0 flex-1 rounded-md hover:text-foreground">
                       <ItemContent className="gap-0.5">
@@ -186,12 +201,14 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
                     <ItemActions className="gap-2">
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="icon-xs"
+                        variant="outline"
+                        size="icon-sm"
+                        className="rounded-full border-border/70 text-muted-foreground hover:border-foreground/35 hover:text-foreground"
                         aria-label={`${activity.title} als erledigt markieren`}
+                        title="Als erledigt markieren"
                         onClick={() => void dismissActivity(activity.id)}
                       >
-                        <Check />
+                        <Check className="size-4" />
                       </Button>
                     </ItemActions>
                   </Item>

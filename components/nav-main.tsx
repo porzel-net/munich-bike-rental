@@ -42,6 +42,7 @@ export function NavMain({
     icon?: React.ReactNode;
     adminOnly?: boolean;
     badge?: number;
+    badgeLabel?: string;
     items?: { title: string; url: string; badge?: number }[];
   }[];
   initialOpenItems?: Record<string, boolean>;
@@ -88,8 +89,8 @@ export function NavMain({
                       {item.badge ? (
                         <span
                           className="ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#ff3b30] px-1.5 text-[11px] leading-none font-semibold tracking-[-0.01em] text-white shadow-sm tabular-nums"
-                          aria-label={`${item.badge} offene Buchungen`}
-                          title={`${item.badge} offene Buchungen`}
+                          aria-label={`${item.badge} ${item.badgeLabel ?? "offene Buchungen"}`}
+                          title={`${item.badge} ${item.badgeLabel ?? "offene Buchungen"}`}
                         >
                           {item.badge}
                         </span>

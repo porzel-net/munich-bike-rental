@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { berlinDateKey } from "@/lib/datetime";
 import { financialAccounts, fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
 import { postDueFixedAssetDepreciation } from "@/lib/financial/fixed-assets";
 
@@ -18,7 +19,7 @@ export default async function FixedAssetsPage() {
 
   const db = getDatabase();
   postDueFixedAssetDepreciation(db, {
-    throughMonth: new Date().toISOString().slice(0, 7),
+    throughMonth: berlinDateKey().slice(0, 7),
     actorUserId: session.user.id,
   });
   const depreciationRows = db.select().from(fixedAssetDepreciationEntries).all();

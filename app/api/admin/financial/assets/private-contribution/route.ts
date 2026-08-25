@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasTrustedOrigin } from "@/lib/auth/request";
-import { canAccessAdmin, getServerSession, isAdmin } from "@/lib/auth/session";
+import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { createPrivateAssetContribution } from "@/lib/financial/fixed-assets";
@@ -27,12 +27,7 @@ export async function POST(request: Request) {
       { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
       { status: 401 },
     );
-  if (
-    !hasTrustedOrigin(request) ||
-    !session.user.twoFactorEnabled ||
-    !canAccessAdmin(session.user) ||
-    !isAdmin(session.user)
-  )
+  if (!hasTrustedOrigin(request) || !canUseAdminApiAsAdmin(session.user))
     return NextResponse.json(
       { message: "Du hast keine Berechtigung, eine Privateinlage zu erfassen." },
       { status: 401 },

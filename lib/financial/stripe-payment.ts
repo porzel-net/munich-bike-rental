@@ -10,20 +10,10 @@ import {
 } from "../db/schema";
 import { getStripeCheckoutPaymentDetails } from "../stripe";
 import { getBookingRevenueCategory } from "./categories";
+import { berlinDateKey } from "../datetime";
 
 function dateInBerlin(timestampSeconds: number) {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Berlin",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-      .formatToParts(new Date(timestampSeconds * 1_000))
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-  return `${parts.year}-${parts.month}-${parts.day}`;
+  return berlinDateKey(new Date(timestampSeconds * 1_000));
 }
 
 /**

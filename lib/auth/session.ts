@@ -9,6 +9,7 @@ export {
   getAssignedLocation,
   getVisibleLocationScope,
   hasCompletedAdminSetup,
+  isAccountBlocked,
   isAdmin,
   isLocationUser,
 } from "./authorization";

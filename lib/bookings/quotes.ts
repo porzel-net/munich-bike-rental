@@ -9,7 +9,7 @@ import {
   bookings,
   rentalAssets,
 } from "../db/schema";
-import { calculateBikePriceWithDiscounts, calculateInquiryPrice, getRentalDays } from "../inventory/pricing";
+import { calculateInquiryPrice, calculatePrice, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
 import type { ContactInquiry } from "../inquiries/schemas";
 import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
@@ -19,14 +19,28 @@ import { isHistoricalAssetSelectableForBooking } from "./historical-availability
 
 export type OfferQuote = {
   totalCents: number;
+  /** Eligibility context needed when an accepted offer is recalculated later. */
+  isStudent?: boolean;
   /** Set only when the sent offer uses an individually agreed total price. */
   calculatedTotalCents?: number;
   customPriceCents?: number;
+  /** Standard total before an individually agreed price is applied. */
+  standardTotalCents?: number;
+  /** Additional saving created by an individually agreed lower price. */
+  customDiscountCents?: number;
+  /** Difference to the standard price when an individual price is higher. */
+  customSurchargeCents?: number;
   bikeSubtotalCents: number;
   equipmentSubtotalCents: number;
   discountCents: number;
   rentalDays: number;
   appliedDiscountKeys: string[];
+  bikePriceLines?: Array<{
+    assetId: number;
+    baseCents: number;
+    discountCents: number;
+    totalCents: number;
+  }>;
   offeredItems: Array<{
     requestedItemId: number;
     requestedLabel: string;
@@ -41,15 +55,44 @@ export type OfferQuote = {
   }>;
 };
 
+export function parseOfferQuoteSnapshot(value: string): Partial<OfferQuote> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new BookingCommandError("Der gespeicherte Angebotspreis ist beschädigt. Erstelle das Angebot bitte neu.");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+    throw new BookingCommandError("Der gespeicherte Angebotspreis ist ungültig. Erstelle das Angebot bitte neu.");
+  const snapshot = parsed as Partial<OfferQuote>;
+  if (snapshot.offeredItems !== undefined && !Array.isArray(snapshot.offeredItems))
+    throw new BookingCommandError(
+      "Die gespeicherten Angebotspositionen sind ungültig. Erstelle das Angebot bitte neu.",
+    );
+  return snapshot;
+}
+
+export function tryParseOfferQuoteSnapshot(value: string) {
+  try {
+    return parseOfferQuoteSnapshot(value);
+  } catch {
+    return null;
+  }
+}
+
 export function applyCustomOfferPrice(quote: OfferQuote, customTotalCents?: number) {
   if (customTotalCents === undefined) return quote;
   if (!Number.isSafeInteger(customTotalCents) || customTotalCents < 0)
     throw new BookingCommandError("Der individuelle Gesamtpreis muss ein gültiger Euro-Betrag sein.");
+  const standardTotalCents = quote.standardTotalCents ?? quote.totalCents;
+  const adjustmentCents = standardTotalCents - customTotalCents;
   return {
     ...quote,
     totalCents: customTotalCents,
-    discountCents: quote.bikeSubtotalCents + quote.equipmentSubtotalCents - customTotalCents,
-    calculatedTotalCents: quote.totalCents,
+    standardTotalCents,
+    customDiscountCents: Math.max(0, adjustmentCents),
+    customSurchargeCents: Math.max(0, -adjustmentCents),
+    calculatedTotalCents: standardTotalCents,
     customPriceCents: customTotalCents,
   };
 }
@@ -73,11 +116,6 @@ export function getAssetPriceSchedule(asset: {
   weekdayPriceCents: number;
   weekendPriceCents: number;
 }) {
-  // Test fixtures and older programmatic imports may only provide the legacy
-  // single price while SQLite fills the new columns with their defaults.
-  if (asset.weekdayPriceCents === 4_900 && asset.weekendPriceCents === 6_900 && asset.dailyPriceCents !== 4_900) {
-    return { weekdayPriceCents: asset.dailyPriceCents, weekendPriceCents: asset.dailyPriceCents };
-  }
   return { weekdayPriceCents: asset.weekdayPriceCents, weekendPriceCents: asset.weekendPriceCents };
 }
 
@@ -192,25 +230,26 @@ export function buildOfferQuote(
   const periodFrom = periodOverride?.periodFrom ?? booking.periodFrom;
   const periodTo = periodOverride?.periodTo ?? booking.periodTo;
   const rentalDays = getRentalDays(periodFrom, periodTo);
-  const weekdayBikePriceCents = offeredItems.reduce(
-    (sum, item) => sum + (item.weekdayPriceCents ?? item.dailyPriceCents),
-    0,
-  );
-  const weekendBikePriceCents = offeredItems.reduce(
-    (sum, item) => sum + (item.weekendPriceCents ?? item.dailyPriceCents),
-    0,
-  );
-  const { bikeSubtotalCents, discountCents, appliedDiscountKeys } = calculateBikePriceWithDiscounts(
-    getLocationInventory(db, booking.location),
-    { weekdayBikePriceCents, weekendBikePriceCents, periodFrom, rentalDays, isStudent },
-  );
-  return {
-    totalCents: bikeSubtotalCents + equipmentSubtotalCents - discountCents,
-    bikeSubtotalCents,
+  const price = calculatePrice(getLocationInventory(db, booking.location), {
+    bikes: offeredItems,
     equipmentSubtotalCents,
-    discountCents,
+    periodFrom,
     rentalDays,
-    appliedDiscountKeys,
+    isStudent,
+  });
+  return {
+    totalCents: price.totalCents,
+    isStudent,
+    standardTotalCents: price.totalCents,
+    bikeSubtotalCents: price.bikeSubtotalCents,
+    equipmentSubtotalCents: price.equipmentSubtotalCents,
+    discountCents: price.discountCents,
+    rentalDays,
+    appliedDiscountKeys: price.appliedDiscountKeys,
+    bikePriceLines: offeredItems.map((item, index) => ({
+      assetId: item.assetId,
+      ...price.bikeBreakdown[index],
+    })),
     offeredItems,
   };
 }

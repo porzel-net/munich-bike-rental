@@ -36,11 +36,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getBankTransactionSaveMode } from "@/lib/financial/transaction-save-mode";
+import { berlinDateKey } from "@/lib/datetime";
 
 type Mode = "bank" | "manual";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return berlinDateKey();
 }
 
 function formatAmount(amountCents: number, currency = "EUR") {

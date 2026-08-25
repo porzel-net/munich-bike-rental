@@ -13,7 +13,12 @@ import {
 } from "../db/schema";
 import { getBikePriceScheduleCents, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
-import { getAssetPriceSchedule, type OfferAccessorySelection, type OfferQuote } from "./quotes";
+import {
+  getAssetPriceSchedule,
+  tryParseOfferQuoteSnapshot,
+  type OfferAccessorySelection,
+  type OfferQuote,
+} from "./quotes";
 
 export type PublicOffer = {
   offerId: number | null;
@@ -42,6 +47,9 @@ export type PublicOffer = {
     | "rentalDays"
     | "calculatedTotalCents"
     | "customPriceCents"
+    | "standardTotalCents"
+    | "customDiscountCents"
+    | "customSurchargeCents"
   >;
   items: Array<{
     position: number;
@@ -79,18 +87,18 @@ function buildPublicBookingView(
         .where(eq(bookingOfferItems.offerId, offer.id))
         .all()
     : [];
-  const snapshot = offer ? (JSON.parse(offer.priceSnapshotJson) as Partial<OfferQuote>) : {};
+  const snapshot = offer ? tryParseOfferQuoteSnapshot(offer.priceSnapshotJson) : {};
   const offeredByRequestedId = new Map(offered.map(({ item, asset }) => [item.requestedItemId, { item, asset }]));
-  const snapshotByRequestedId = new Map((snapshot.offeredItems ?? []).map((item) => [item.requestedItemId, item]));
+  const snapshotByRequestedId = new Map((snapshot?.offeredItems ?? []).map((item) => [item.requestedItemId, item]));
   const locationInventory = getLocationInventory(db, booking.location);
   const priceScheduleForRequestedBike = (requestedBike: string) =>
     getBikePriceScheduleCents(locationInventory, requestedBike) ?? { weekdayPriceCents: 0, weekendPriceCents: 0 };
 
   return {
-    offerId: offer?.id ?? null,
+    offerId: snapshot === null ? null : (offer?.id ?? null),
     offerNumber: offer?.offerNumber ?? null,
-    status: offer?.status ?? null,
-    expiresAt: offer?.expiresAt.toISOString() ?? null,
+    status: snapshot === null ? "revoked" : (offer?.status ?? null),
+    expiresAt: snapshot === null ? null : (offer?.expiresAt.toISOString() ?? null),
     booking: {
       id: booking.id,
       orderNumber: booking.orderNumber,
@@ -104,14 +112,17 @@ function buildPublicBookingView(
       status: booking.status,
       updatedAt: booking.updatedAt.toISOString(),
     },
-    totalCents: offer?.totalCents ?? booking.quotedTotalCents,
+    totalCents: snapshot === null ? 0 : (offer?.totalCents ?? booking.quotedTotalCents),
     quote: {
-      bikeSubtotalCents: snapshot.bikeSubtotalCents ?? 0,
-      equipmentSubtotalCents: snapshot.equipmentSubtotalCents ?? 0,
-      discountCents: snapshot.discountCents ?? 0,
-      rentalDays: snapshot.rentalDays ?? getRentalDays(booking.periodFrom, booking.periodTo),
-      calculatedTotalCents: snapshot.calculatedTotalCents,
-      customPriceCents: snapshot.customPriceCents,
+      bikeSubtotalCents: snapshot?.bikeSubtotalCents ?? 0,
+      equipmentSubtotalCents: snapshot?.equipmentSubtotalCents ?? 0,
+      discountCents: snapshot?.discountCents ?? 0,
+      rentalDays: snapshot?.rentalDays ?? getRentalDays(booking.periodFrom, booking.periodTo),
+      calculatedTotalCents: snapshot?.calculatedTotalCents,
+      customPriceCents: snapshot?.customPriceCents,
+      standardTotalCents: snapshot?.standardTotalCents,
+      customDiscountCents: snapshot?.customDiscountCents,
+      customSurchargeCents: snapshot?.customSurchargeCents,
     },
     items: requested.map((item) => {
       const selected = offeredByRequestedId.get(item.id);

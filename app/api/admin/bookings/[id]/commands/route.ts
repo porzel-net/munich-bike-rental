@@ -6,6 +6,7 @@ import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { isAdmin } from "@/lib/auth/session";
 import {
   advanceBooking,
+  acknowledgeBookingAttention,
   assignStripePaymentToBooking,
   cancelBooking,
   confirmManualBooking,
@@ -24,6 +25,7 @@ import { readBoundedJson } from "@/lib/security/request-body";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 import { getStripeCheckoutSession } from "@/lib/stripe";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
+import { refundStripeBookingPayment } from "@/lib/financial/stripe-refunds";
 
 export const runtime = "nodejs";
 
@@ -67,12 +69,20 @@ const commandSchema = z.discriminatedUnion("command", [
     sendMail: z.boolean().optional(),
     cancellationPeriod: z.enum(["more_than_7_days", "between_7_days_and_24_hours", "less_than_24_hours"]),
     dueAt: z.string().datetime().optional(),
+    stripeRefundAmountCents: z.number().int().positive().optional(),
+    stripeRefundIdempotencyKey: z.string().uuid().optional(),
   }),
   z.object({
     command: z.literal("refund"),
     amountCents: z.number().int().positive(),
     bookedAt: z.string().refine(isValidIsoDate, "Ungültiges Erstattungsdatum"),
     financialAccountId: z.number().int().positive(),
+    reason,
+    idempotencyKey: z.string().uuid(),
+  }),
+  z.object({
+    command: z.literal("stripe_refund"),
+    amountCents: z.number().int().positive(),
     reason,
     idempotencyKey: z.string().uuid(),
   }),
@@ -136,6 +146,7 @@ const commandSchema = z.discriminatedUnion("command", [
     command: z.literal("set_email_questions_resolved"),
     resolved: z.boolean(),
   }),
+  z.object({ command: z.literal("acknowledge_booking_attention") }),
 ]);
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -150,6 +161,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       },
       { status: 400 },
     );
+  if (
+    input.data.command === "cancel" &&
+    input.data.stripeRefundAmountCents !== undefined &&
+    !input.data.stripeRefundIdempotencyKey
+  ) {
+    return NextResponse.json(
+      { message: "Für eine Stripe-Erstattung bei der Stornierung ist ein Idempotenzschlüssel erforderlich." },
+      { status: 400 },
+    );
+  }
   if (["correct_journal", "delete_permanently"].includes(input.data.command) && !isAdmin(command.user)) {
     return NextResponse.json({ message: "Für diese Aktion brauchst du Administratorrechte." }, { status: 403 });
   }
@@ -217,6 +238,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           actorUserId: command.user.id,
           sendMail: input.data.sendMail,
         });
+        const stripeRefund = input.data.stripeRefundAmountCents
+          ? await refundStripeBookingPayment(command.db, {
+              bookingId: id,
+              amountCents: input.data.stripeRefundAmountCents,
+              reason: `Stripe-Erstattung bei Stornierung: ${input.data.reason}`,
+              actorUserId: command.user.id,
+              idempotencyKey: input.data.stripeRefundIdempotencyKey ?? "",
+            })
+          : null;
         const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
         if (mailResult?.status === "failed")
           return NextResponse.json(
@@ -226,7 +256,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             },
             { status: 502 },
           );
-        break;
+        return NextResponse.json({ ok: true, stripeRefund });
       }
       case "refund":
         recordRefund(command.db, {
@@ -239,6 +269,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           actorUserId: command.user.id,
         });
         break;
+      case "stripe_refund":
+        return NextResponse.json({
+          ok: true,
+          stripeRefund: await refundStripeBookingPayment(command.db, {
+            bookingId: id,
+            amountCents: input.data.amountCents,
+            reason: input.data.reason,
+            actorUserId: command.user.id,
+            idempotencyKey: input.data.idempotencyKey,
+          }),
+        });
       case "correct_journal":
         correctJournalEntry(command.db, {
           bookingId: id,
@@ -313,6 +354,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           offerId: input.data.offerId,
           amountCents,
           sessionId: session.id,
+          paymentIntentId:
+            typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent && typeof session.payment_intent === "object"
+                ? session.payment_intent.id
+                : null,
           actorUserId: command.user.id,
           sendMail: input.data.sendMail,
         });
@@ -392,6 +439,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           resolved: input.data.resolved,
           actorUserId: command.user.id,
         });
+        break;
+      case "acknowledge_booking_attention":
+        acknowledgeBookingAttention(command.db, { bookingId: id, actorUserId: command.user.id });
         break;
     }
     return NextResponse.json({ ok: true });

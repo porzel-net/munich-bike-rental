@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
 
 type ContactBooking = {
   id: number;
@@ -66,7 +67,9 @@ type Credentials = {
 };
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(value));
+  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: BUSINESS_TIME_ZONE }).format(
+    new Date(value),
+  );
 }
 
 function contactInitials(name: string) {

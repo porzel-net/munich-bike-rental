@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -15,30 +15,17 @@ import {
   dashboardRevenueGoals,
   financialAccounts,
   financialTransactions,
-  journalEntries,
   rentalAssets,
 } from "@/lib/db/schema";
 import { getRentalDays } from "@/lib/inventory/pricing";
 import { receivedAtFromOrderNumber } from "@/lib/bookings/order-number";
+import { berlinDateKey, BUSINESS_TIME_ZONE } from "@/lib/datetime";
+import { getDashboardActivities } from "@/lib/dashboard/activities";
 
 function bookingIncomingAt(booking: { source: string; orderNumber: string; createdAt: Date }) {
   return booking.source === "legacy"
     ? (receivedAtFromOrderNumber(booking.orderNumber) ?? booking.createdAt)
     : booking.createdAt;
-}
-
-function parseActivityDate(value: Date | string) {
-  const date =
-    value instanceof Date
-      ? value
-      : /^\d{4}-\d{2}-\d{2}$/.test(value)
-        ? new Date(`${value}T12:00:00Z`)
-        : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function activityTimestamp(value: Date | string) {
-  return parseActivityDate(value)?.getTime() ?? 0;
 }
 
 export default async function AdminPage() {
@@ -91,10 +78,10 @@ export default async function AdminPage() {
   );
   const bankCurrency = bankAccounts[0]?.currency ?? "EUR";
   const currentYear = Number(
-    new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric" }).format(new Date()),
+    new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, year: "numeric" }).format(new Date()),
   );
   const currentMonthIndex =
-    Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", month: "2-digit" }).format(new Date())) - 1;
+    Number(new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, month: "2-digit" }).format(new Date())) - 1;
   const revenueGoals = db
     .select({
       annualGoalCents: dashboardRevenueGoals.annualGoalCents,
@@ -208,7 +195,7 @@ export default async function AdminPage() {
     .all().length;
   const utilizationData = monthLabels.map((month, monthIndex) => {
     const monthStart = `${currentYear}-${String(monthIndex + 1).padStart(2, "0")}-01`;
-    const monthEnd = new Date(Date.UTC(currentYear, monthIndex + 1, 0)).toISOString().slice(0, 10);
+    const monthEnd = berlinDateKey(new Date(Date.UTC(currentYear, monthIndex + 1, 0, 12)));
     const daysInMonth = new Date(Date.UTC(currentYear, monthIndex + 1, 0)).getUTCDate();
     const bookedBikeDays = currentYearBookings.reduce((total, booking) => {
       if (booking.periodTo < monthStart || booking.periodFrom > monthEnd) return total;
@@ -228,7 +215,7 @@ export default async function AdminPage() {
     const date = new Date(Date.UTC(currentYear, currentMonthIndex - (5 - index), 1));
     return {
       key: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`,
-      label: new Intl.DateTimeFormat("de-DE", { month: "short", timeZone: "Europe/Berlin" })
+      label: new Intl.DateTimeFormat("de-DE", { month: "short", timeZone: BUSINESS_TIME_ZONE })
         .format(date)
         .replace(".", ""),
     };
@@ -291,7 +278,7 @@ export default async function AdminPage() {
   );
   for (const booking of demandBookings) {
     const bookingMonthKey = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Berlin",
+      timeZone: BUSINESS_TIME_ZONE,
       year: "numeric",
       month: "2-digit",
     })
@@ -359,88 +346,7 @@ export default async function AdminPage() {
     .where(visibleLocation ? eq(bookings.location, visibleLocation) : undefined)
     .all()
     .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
-  const paidBookingRows = db
-    .select({ bookingId: journalEntries.bookingId, occurredAt: journalEntries.occurredAt })
-    .from(journalEntries)
-    .innerJoin(bookings, eq(journalEntries.bookingId, bookings.id))
-    .where(
-      and(
-        eq(journalEntries.kind, "payment_received"),
-        visibleLocation ? eq(bookings.location, visibleLocation) : undefined,
-      ),
-    )
-    .all();
-  const paidAtByBooking = new Map<number, Date>();
-  for (const row of paidBookingRows) {
-    if (row.bookingId === null) continue;
-    const previous = paidAtByBooking.get(row.bookingId);
-    if (!previous || row.occurredAt > previous) paidAtByBooking.set(row.bookingId, row.occurredAt);
-  }
-  const bankTransactionsToReview = administrator
-    ? db
-        .select({
-          id: financialTransactions.id,
-          counterpartyName: financialTransactions.counterpartyNameSnapshot,
-          description: financialTransactions.description,
-          reference: financialTransactions.reference,
-          bookedAt: financialTransactions.bookedAt,
-        })
-        .from(financialTransactions)
-        .where(
-          and(
-            eq(financialTransactions.source, "bank"),
-            eq(financialTransactions.provider, "nevlo"),
-            ne(financialTransactions.status, "posted"),
-            ne(financialTransactions.status, "ignored"),
-          ),
-        )
-        .orderBy(desc(financialTransactions.bookedAt), desc(financialTransactions.id))
-        .all()
-    : [];
-  const activities = [
-    ...allBookingMetrics
-      .filter((booking) => booking.status === "expired")
-      .map((booking) => ({
-        id: `expired-booking-${booking.id}`,
-        kind: "expired_booking" as const,
-        title: "Buchung ausgelaufen",
-        entityName: booking.customerName,
-        href: `/admin/bookings/${booking.id}`,
-        occurredAt: activityTimestamp(booking.periodTo),
-      })),
-    ...allBookingMetrics
-      .filter((booking) => paidAtByBooking.has(booking.id))
-      .map((booking) => ({
-        id: `paid-booking-${booking.id}`,
-        kind: "paid_booking" as const,
-        title: "Zahlung erhalten",
-        entityName: booking.customerName,
-        href: `/admin/bookings/${booking.id}`,
-        occurredAt: paidAtByBooking.get(booking.id)!.getTime(),
-      })),
-    ...bankTransactionsToReview.map((transaction) => ({
-      id: `bank-transaction-${transaction.id}`,
-      kind: "bank_transaction" as const,
-      title: "Neue Banktransaktion prüfen",
-      entityName:
-        transaction.counterpartyName?.trim() ||
-        transaction.description?.trim() ||
-        transaction.reference?.trim() ||
-        "Banktransaktion",
-      href: `/admin/accounting/transactions?transaction=${transaction.id}`,
-      occurredAt: activityTimestamp(transaction.bookedAt),
-    })),
-    ...allBookingMetrics
-      .filter((booking) => booking.status === "inquiry_received")
-      .map((booking) => ({
-        id: `incoming-booking-${booking.id}`,
-        kind: "incoming_booking_request" as const,
-        title: "Neue Buchungsanfrage",
-        entityName: booking.customerName,
-        href: `/admin/bookings/${booking.id}`,
-        occurredAt: booking.createdAt.getTime(),
-      })),
-  ].sort((left, right) => right.occurredAt - left.occurredAt);
+  const activities = getDashboardActivities(db, { isAdmin: administrator, location: visibleLocation });
   const dismissedActivityIds = new Set(
     db
       .select({ activityId: dashboardActivityDismissals.activityId })
@@ -495,7 +401,7 @@ export default async function AdminPage() {
     .map((booking) => booking.createdAt)
     .sort((left, right) => left.getTime() - right.getTime())[0];
   const firstRequestMonthKey = firstRequest
-    ? new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit" })
+    ? new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, year: "numeric", month: "2-digit" })
         .format(firstRequest)
         .replace("/", "-")
     : null;
@@ -511,7 +417,7 @@ export default async function AdminPage() {
     const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
     return {
       key,
-      month: new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric", timeZone: "Europe/Berlin" })
+      month: new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric", timeZone: BUSINESS_TIME_ZONE })
         .format(date)
         .replace(".", ""),
       amount: 0,
@@ -520,7 +426,7 @@ export default async function AdminPage() {
   const potentialRevenueByMonth = new Map(potentialRevenueData.map((point) => [point.key, point]));
   for (const booking of allBookingMetrics) {
     const bookingMonthKey = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Europe/Berlin",
+      timeZone: BUSINESS_TIME_ZONE,
       year: "numeric",
       month: "2-digit",
     })

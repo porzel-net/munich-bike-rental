@@ -2,11 +2,15 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import { eq } from "drizzle-orm";
-import { accessoryInventory, rentalLocationBikes, rentalLocationEquipment } from "../../lib/db/schema";
+import { accessoryInventory, bikeModels, rentalAssets } from "../../lib/db/schema";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
-import { calculateInquiryPrice, calculateRentalPrice } from "../../lib/inventory/pricing";
+import {
+  calculateEquipmentSubtotalCents,
+  calculateInquiryPrice,
+  calculatePrice,
+  getDailyBikePriceCents,
+} from "../../lib/inventory/pricing";
 import { getLocationInventory, isRequestAvailable } from "../../lib/inventory/repository";
-import { syncLegacyEquipmentToAccessoryInventory } from "../../lib/inventory/accessory-sync";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -22,6 +26,12 @@ function createTestDatabase() {
 }
 
 describe("location inventory", () => {
+  it("seeds the normalized physical rental assets used by bookings", () => {
+    const db = createTestDatabase();
+
+    expect(db.select().from(rentalAssets).where(eq(rentalAssets.location, "munich")).all()).toHaveLength(13);
+  });
+
   it("seeds the current bike, size and equipment offering by location", () => {
     const db = createTestDatabase();
     const munich = getLocationInventory(db, "munich");
@@ -151,36 +161,39 @@ describe("location inventory", () => {
     expect(inventory.pedalTypes.map((item) => item.value)).toContain("platform");
   });
 
-  it("repairs stale and missing counted accessory rows from the legacy equipment catalog", () => {
+  it("uses the normalized accessory inventory as the single equipment source", () => {
     const db = createTestDatabase();
-    const equipment = db
-      .select()
-      .from(rentalLocationEquipment)
-      .where(eq(rentalLocationEquipment.equipmentKey, "pedal-platform"))
-      .get()!;
     const counted = db
       .select()
       .from(accessoryInventory)
-      .where(eq(accessoryInventory.legacyEquipmentId, equipment.id))
+      .where(eq(accessoryInventory.accessoryKey, "pedal-platform"))
       .get()!;
 
-    db.update(accessoryInventory)
-      .set({ accessoryKey: "pedal-flat", availableQuantity: 0, state: "maintenance" })
-      .where(eq(accessoryInventory.id, counted.id))
-      .run();
-    syncLegacyEquipmentToAccessoryInventory(db, { ...equipment, isAvailable: true });
-
-    expect(db.select().from(accessoryInventory).where(eq(accessoryInventory.id, counted.id)).get()).toMatchObject({
+    expect(counted).toMatchObject({
       accessoryKey: "pedal-platform",
       availableQuantity: 1,
       state: "active",
     });
+  });
 
-    db.delete(accessoryInventory).where(eq(accessoryInventory.id, counted.id)).run();
-    syncLegacyEquipmentToAccessoryInventory(db, equipment);
+  it("calculates paid equipment centrally for every booking flow", () => {
+    const db = createTestDatabase();
+    const inventory = getLocationInventory(db, "munich");
+
     expect(
-      db.select().from(accessoryInventory).where(eq(accessoryInventory.legacyEquipmentId, equipment.id)).get(),
-    ).toMatchObject({ accessoryKey: "pedal-platform", availableQuantity: 1, state: "active" });
+      calculateEquipmentSubtotalCents(inventory, [
+        {
+          needsPedals: true,
+          pedalType: "spdSl",
+          needsComputerMount: true,
+          computerMountType: "garmin",
+          needsHelmet: true,
+          needsClothing: true,
+          needsBikepackingBag: true,
+          needsGlasses: true,
+        },
+      ]),
+    ).toBe(6_500);
   });
 
   it("applies the configured location discounts to future rental calculations", () => {
@@ -188,13 +201,13 @@ describe("location inventory", () => {
     const inventory = getLocationInventory(db, "munich");
 
     expect(
-      calculateRentalPrice(inventory, {
-        dailyPriceCents: 4900,
+      calculatePrice(inventory, {
+        bikes: [{ dailyPriceCents: 4900 }],
+        periodFrom: "2026-07-20",
         rentalDays: 3,
-        pickupDate: new Date("2026-07-20T12:00:00Z"),
         isStudent: true,
       }),
-    ).toMatchObject({ subtotalCents: 14700, discountPercentage: 15, discountCents: 2205, totalCents: 12495 });
+    ).toMatchObject({ bikeSubtotalCents: 14700, discountCents: 1470, totalCents: 13230 });
   });
 
   it("uses the configured weekday and weekend bike prices for each rental date", () => {
@@ -205,20 +218,27 @@ describe("location inventory", () => {
     expect(bike?.weekdayPrice?.de).toBe("Mo-Fr: 49€/Tag");
     expect(bike?.weekendPrice?.de).toBe("Sa-So: 69€/Tag");
     expect(
-      calculateRentalPrice(inventory, {
-        weekdayPriceCents: 4_900,
-        weekendPriceCents: 6_900,
+      calculatePrice(inventory, {
+        bikes: [{ weekdayPriceCents: 4_900, weekendPriceCents: 6_900 }],
+        periodFrom: "2026-07-24",
         rentalDays: 3,
-        pickupDate: new Date("2026-07-24T12:00:00Z"), // Friday through Sunday
       }),
-    ).toMatchObject({ subtotalCents: 18_700, discountPercentage: 15, discountCents: 2_805, totalCents: 15_895 });
+    ).toMatchObject({ bikeSubtotalCents: 18_700, discountCents: 0, totalCents: 18_700 });
+  });
+
+  it("returns the date-specific daily price used by the canonical calculation", () => {
+    const db = createTestDatabase();
+    const inventory = getLocationInventory(db, "munich");
+
+    expect(getDailyBikePriceCents(inventory, "Endurace CF SL 8", "2026-07-24")).toBe(4_900);
+    expect(getDailyBikePriceCents(inventory, "Endurace CF SL 8", "2026-07-25")).toBe(6_900);
   });
 
   it("handles malformed catalog JSON without crashing and keeps the real minimum bike price", () => {
     const db = createTestDatabase();
-    db.update(rentalLocationBikes)
+    db.update(bikeModels)
       .set({ galleryJson: "not-json", factsJson: "{}", equipmentJson: '{"de":"broken"}' })
-      .where(eq(rentalLocationBikes.location, "munich"))
+      .where(eq(bikeModels.location, "munich"))
       .run();
 
     const inventory = getLocationInventory(db, "munich");
@@ -266,10 +286,57 @@ describe("location inventory", () => {
       rentalDays: 5,
       bikeSubtotalCents: 24_500,
       equipmentSubtotalCents: 3_500,
-      discountCents: 3_675,
-      totalCents: 24_325,
+      discountCents: 1_470,
+      totalCents: 26_530,
       appliedDiscountKeys: ["long-term"],
     });
+  });
+
+  it("starts duration discounts on the day after the threshold and caps combined daily discounts at 25%", () => {
+    const inventory = {
+      discounts: [
+        {
+          key: "long-term",
+          percentage: 15,
+          weekdayFrom: null,
+          weekdayTo: null,
+          minimumRentalDays: 3,
+          requiresStudent: false,
+          isStackable: false,
+        },
+        {
+          key: "student",
+          percentage: 10,
+          weekdayFrom: null,
+          weekdayTo: null,
+          minimumRentalDays: null,
+          requiresStudent: true,
+          isStackable: true,
+        },
+        {
+          key: "campaign",
+          percentage: 20,
+          weekdayFrom: null,
+          weekdayTo: null,
+          minimumRentalDays: null,
+          requiresStudent: true,
+          isStackable: true,
+        },
+      ],
+    };
+
+    const result = calculatePrice(inventory, {
+      bikes: [{ weekdayPriceCents: 10_000, weekendPriceCents: 12_000 }],
+      periodFrom: "2026-07-20",
+      rentalDays: 4,
+      isStudent: true,
+    });
+
+    expect(result.dailyBreakdown.map((day) => day.discountPercentage)).toEqual([25, 25, 25, 25]);
+    expect(result.dailyBreakdown[0]?.appliedDiscountKeys).toEqual(["student", "campaign"]);
+    expect(result.dailyBreakdown[3]?.appliedDiscountKeys).toEqual(["long-term", "student", "campaign"]);
+    expect(result.discountCents).toBe(10_000);
+    expect(result.totalCents).toBe(30_000);
   });
 
   it("charges paid new extras once and never charges included equipment", () => {

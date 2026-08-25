@@ -29,9 +29,10 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { getDatabase } from "@/lib/db/client";
-import { bookings, financialTransactions } from "@/lib/db/schema";
+import { bookings, dashboardActivityDismissals, financialTransactions } from "@/lib/db/schema";
 import { getAssignedLocation } from "@/lib/auth/authorization";
-import { getPendingEmailActionBookingIds } from "@/lib/bookings/pending-email-action";
+import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
+import { getDashboardActivities } from "@/lib/dashboard/activities";
 
 const data = {
   navMain: [
@@ -120,6 +121,7 @@ export async function AppSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: {
+    id: string;
     name: string;
     email: string;
     locationKey?: string | null;
@@ -131,6 +133,18 @@ export async function AppSidebar({
   const initialOpenItems = readOpenItemsCookie(cookieStore.get(NAV_OPEN_ITEMS_COOKIE)?.value);
   const db = getDatabase();
   const assignedLocation = getAssignedLocation(user);
+  const dashboardActivities = getDashboardActivities(db, { isAdmin, location: assignedLocation });
+  const dismissedDashboardActivityIds = new Set(
+    db
+      .select({ activityId: dashboardActivityDismissals.activityId })
+      .from(dashboardActivityDismissals)
+      .where(eq(dashboardActivityDismissals.userId, user.id))
+      .all()
+      .map((row) => row.activityId),
+  );
+  const dashboardActivityCount = dashboardActivities.filter(
+    (activity) => !dismissedDashboardActivityIds.has(activity.id),
+  ).length;
   const openBankTransactionCount = isAdmin
     ? (db
         .select({ value: count() })
@@ -146,24 +160,26 @@ export async function AppSidebar({
         .get()?.value ?? 0)
     : 0;
   const openBookings = db
-    .select({ id: bookings.id, status: bookings.status, createdAt: bookings.createdAt })
+    .select({ id: bookings.id, status: bookings.status, createdAt: bookings.createdAt, updatedAt: bookings.updatedAt })
     .from(bookings)
     .where(and(assignedLocation ? eq(bookings.location, assignedLocation) : undefined))
     .all();
-  const openBookingCount = getPendingEmailActionBookingIds(db, openBookings).size;
+  const openBookingCount = getPendingBookingAttentionBookingIds(db, openBookings).size;
   const navItems = data.navMain
     .filter((item) => !item.adminOnly || isAdmin)
     .map((item) =>
-      item.title === "Buchungen"
-        ? { ...item, badge: openBookingCount }
-        : item.title === "Buchhaltung"
-          ? {
-              ...item,
-              items: item.items?.map((subItem) =>
-                subItem.title === "Banktransaktionen" ? { ...subItem, badge: openBankTransactionCount } : subItem,
-              ),
-            }
-          : item,
+      item.title === "Dashboard"
+        ? { ...item, badge: dashboardActivityCount, badgeLabel: "offene Aktivitäten" }
+        : item.title === "Buchungen"
+          ? { ...item, badge: openBookingCount }
+          : item.title === "Buchhaltung"
+            ? {
+                ...item,
+                items: item.items?.map((subItem) =>
+                  subItem.title === "Banktransaktionen" ? { ...subItem, badge: openBankTransactionCount } : subItem,
+                ),
+              }
+            : item,
     );
   const secondaryNavItems = data.navSecondary.filter((item) => !item.adminOnly || isAdmin);
 

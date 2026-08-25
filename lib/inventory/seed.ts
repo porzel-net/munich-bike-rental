@@ -1,15 +1,9 @@
-import { count, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-import { portfolioItems } from "../home-content";
-import { bikeOptionsByLocation } from "../inquiries/catalog";
 import type { AppDatabase } from "../db/client";
-import {
-  rentalLocationBikes,
-  rentalLocationBikeSizes,
-  rentalLocationDiscounts,
-  rentalLocationEquipment,
-} from "../db/schema";
-import { syncAllLegacyEquipmentToAccessoryInventory } from "./accessory-sync";
+import { bikeModels, bikeVariants, rentalAssets, accessoryInventory, rentalLocationDiscounts } from "../db/schema";
+import { portfolioItems } from "../home-content";
+import { bikeOptionsByLocation } from "./seed-catalog";
 
 const locationPrices = {
   munich: { weekday: 4900, weekend: 6900 },
@@ -18,10 +12,11 @@ const locationPrices = {
   friedrichshafen: { weekday: 4900, weekend: 6900 },
   konstanz: { weekday: 4900, weekend: 6900 },
 } as const;
+
 const equipment = [
   ["pedal-platform", "pedal", "Plattformpedale", "Platform pedals", 500],
   ["pedal-spdSl", "pedal", "SPD-SL", "SPD-SL", 500],
-  ["pedal-lookKeo2Max", "pedal", "Look Keo2 Max", "Look Keo2 Max", 500],
+  ["pedal-lookKeo2Max", "pedal", "Look Keo 2 Max", "Look Keo 2 Max", 500],
   ["pedal-other", "pedal", "Andere", "Other", 500],
   ["mount-garmin", "computer-mount", "Garmin", "Garmin", 500],
   ["mount-wahoo", "computer-mount", "Wahoo", "Wahoo", 500],
@@ -45,180 +40,155 @@ const discounts = [
   },
 ] as const;
 
+type InventoryDb = Omit<AppDatabase, "$client">;
+
+function slug(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function imagePath(image: (typeof portfolioItems)[number]["image"]) {
   return typeof image === "string" ? image : image.src;
 }
 
-function bikeKey(title: string, size: string, occurrence: number) {
-  const base = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  return `${base}-${sizeKey(size)}${occurrence > 1 ? `-${occurrence}` : ""}`;
+function getOrCreateModel(db: InventoryDb, location: string, title: string, createdAt: Date) {
+  const modelKey = slug(title);
+  const current = db
+    .select({ id: bikeModels.id })
+    .from(bikeModels)
+    .where(and(eq(bikeModels.location, location), eq(bikeModels.modelKey, modelKey)))
+    .get();
+  if (current) return current.id;
+
+  const content = portfolioItems.find((item) => item.title === title);
+  if (!content) throw new Error(`Kein Katalogeintrag für ${title} gefunden`);
+  return db
+    .insert(bikeModels)
+    .values({
+      location,
+      modelKey,
+      title,
+      descriptionDe: content.description.de,
+      descriptionEn: content.description.en,
+      image: imagePath(content.image),
+      galleryJson: JSON.stringify(content.gallery.map(imagePath)),
+      factsJson: JSON.stringify(content.facts),
+      equipmentJson: JSON.stringify(content.equipment),
+      createdAt,
+    })
+    .returning({ id: bikeModels.id })
+    .get()!.id;
 }
 
-function sizeKey(size: string) {
-  return size
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+function getOrCreateVariant(db: InventoryDb, modelId: number, size: string, createdAt: Date) {
+  const current = db
+    .select({ id: bikeVariants.id })
+    .from(bikeVariants)
+    .where(and(eq(bikeVariants.modelId, modelId), eq(bikeVariants.size, size)))
+    .get();
+  if (current) return current.id;
+  return db.insert(bikeVariants).values({ modelId, size, createdAt }).returning({ id: bikeVariants.id }).get()!.id;
 }
 
-function bikeDiscountText(title: string) {
-  if (title === "Aeroad CF SL 8") {
-    return {
-      discountTextDe: "25%\nDauerhafter\nJuli – August\nRabatt",
-      discountTextEn: "25%\nPermanent\nJuly – August\nDiscount",
-    };
+function ensureBikeAssets(db: InventoryDb, location: string, offeredBikes: readonly string[], createdAt: Date) {
+  const sizeOccurrences = new Map<string, number>();
+  for (const option of offeredBikes) {
+    const separator = option.lastIndexOf(" - ");
+    const title = separator === -1 ? option : option.slice(0, separator);
+    const size = separator === -1 ? "Standard" : option.slice(separator + 3);
+    const occurrenceKey = `${title} - ${size}`;
+    const occurrence = (sizeOccurrences.get(occurrenceKey) ?? 0) + 1;
+    sizeOccurrences.set(occurrenceKey, occurrence);
+    const modelId = getOrCreateModel(db, location, title, createdAt);
+    const variantId = getOrCreateVariant(db, modelId, size, createdAt);
+    const assetCode = `${location}-${slug(title)}-${slug(size)}-${occurrence}`;
+    const existing = db
+      .select({ id: rentalAssets.id })
+      .from(rentalAssets)
+      .where(and(eq(rentalAssets.location, location), eq(rentalAssets.assetCode, assetCode)))
+      .get();
+    if (existing) continue;
+
+    const prices = locationPrices[location as keyof typeof locationPrices];
+    db.insert(rentalAssets)
+      .values({
+        variantId,
+        location,
+        assetCode,
+        nickname: null,
+        frameNumber: null,
+        displayName: `${title} - ${size}`,
+        dailyPriceCents: prices.weekday,
+        weekdayPriceCents: prices.weekday,
+        weekendPriceCents: prices.weekend,
+        state: location === "munich" ? "active" : "maintenance",
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .run();
   }
-  return { discountTextDe: "", discountTextEn: "" };
 }
 
-function normalizeExistingBikeSizes(db: AppDatabase) {
-  const bikes = db.select().from(rentalLocationBikes).all();
-  db.transaction((transaction) => {
-    for (const bike of bikes) {
-      const sizes = transaction
-        .select()
-        .from(rentalLocationBikeSizes)
-        .where(eq(rentalLocationBikeSizes.locationBikeId, bike.id))
-        .all();
-      if (sizes.length <= 1) {
-        if (sizes[0] && !bike.bikeKey.endsWith(`-${sizeKey(sizes[0].size)}`)) {
-          transaction
-            .update(rentalLocationBikes)
-            .set({ bikeKey: `${bike.bikeKey}-${sizeKey(sizes[0].size)}` })
-            .where(eq(rentalLocationBikes.id, bike.id))
-            .run();
-        }
-        continue;
-      }
-      for (const [sizeIndex, size] of sizes.entries()) {
-        const newBike = transaction
-          .insert(rentalLocationBikes)
-          .values({
-            location: bike.location,
-            bikeKey: `${bike.bikeKey}-${sizeKey(size.size)}`,
-            title: bike.title,
-            nickname: bike.nickname,
-            frameNumber: bike.frameNumber,
-            priceCentsPerDay: bike.priceCentsPerDay,
-            weekdayPriceCentsPerDay: bike.weekdayPriceCentsPerDay,
-            weekendPriceCentsPerDay: bike.weekendPriceCentsPerDay,
-            discountTextDe: bike.discountTextDe,
-            discountTextEn: bike.discountTextEn,
-            descriptionDe: bike.descriptionDe,
-            descriptionEn: bike.descriptionEn,
-            image: bike.image,
-            galleryJson: bike.galleryJson,
-            factsJson: bike.factsJson,
-            equipmentJson: bike.equipmentJson,
-            displayOrder: bike.displayOrder + sizeIndex,
-            isAvailable: bike.isAvailable,
-          })
-          .returning({ id: rentalLocationBikes.id })
-          .get();
-        transaction
-          .insert(rentalLocationBikeSizes)
-          .values({ locationBikeId: newBike.id, size: size.size, isAvailable: size.isAvailable })
-          .run();
-      }
-      transaction.delete(rentalLocationBikes).where(eq(rentalLocationBikes.id, bike.id)).run();
-    }
-  });
+function ensureEquipment(db: InventoryDb, location: string, stamp: Date) {
+  const existing = new Set(
+    db
+      .select({ accessoryKey: accessoryInventory.accessoryKey })
+      .from(accessoryInventory)
+      .where(eq(accessoryInventory.location, location))
+      .all()
+      .map((item) => item.accessoryKey),
+  );
+  const missing = equipment.filter(([key]) => !existing.has(key));
+  if (!missing.length) return;
+  db.insert(accessoryInventory)
+    .values(
+      missing.map(([accessoryKey, category, labelDe, labelEn, priceCents]) => ({
+        location,
+        accessoryKey,
+        category,
+        labelDe,
+        labelEn,
+        priceCents,
+        availableQuantity: 1,
+        quantityRelevant: category !== "bottle-holder" && category !== "repair-kit",
+        state: (location === "munich" ? "active" : "maintenance") as "active" | "maintenance",
+        createdAt: stamp,
+        updatedAt: stamp,
+      })),
+    )
+    .run();
 }
 
+function ensureDiscounts(db: InventoryDb, location: string) {
+  const existing = db
+    .select({ discountKey: rentalLocationDiscounts.discountKey })
+    .from(rentalLocationDiscounts)
+    .where(eq(rentalLocationDiscounts.location, location))
+    .all();
+  if (existing.length) return;
+  db.insert(rentalLocationDiscounts)
+    .values(
+      discounts.map((discount, index) => ({
+        location,
+        ...discount,
+        displayOrder: index + 1,
+      })),
+    )
+    .run();
+}
+
+/** Seeds only the normalized booking inventory. The function is idempotent and repairs missing seed rows. */
 export function seedRentalInventoryIfEmpty(db: AppDatabase) {
-  const needsInventory = (db.select({ value: count() }).from(rentalLocationBikes).get()?.value ?? 0) === 0;
-  const needsDiscounts = (db.select({ value: count() }).from(rentalLocationDiscounts).get()?.value ?? 0) === 0;
+  const stamp = new Date();
   db.transaction((transaction) => {
     for (const [location, offeredBikes] of Object.entries(bikeOptionsByLocation)) {
-      if (needsInventory) {
-        const offers = portfolioItems.filter((item) => offeredBikes.some((bike) => bike.startsWith(item.title)));
-        for (const [index, item] of offers.entries()) {
-          const sizes = offeredBikes
-            .filter((bike) => bike.startsWith(item.title + " - "))
-            .map((bike) => bike.slice(item.title.length + 3));
-          const sizeOccurrences = new Map<string, number>();
-          for (const [sizeIndex, size] of sizes.entries()) {
-            const occurrence = (sizeOccurrences.get(size) ?? 0) + 1;
-            sizeOccurrences.set(size, occurrence);
-            const inserted = transaction
-              .insert(rentalLocationBikes)
-              .values({
-                location,
-                bikeKey: bikeKey(item.title, size, occurrence),
-                title: item.title,
-                isAvailable: location === "munich",
-                priceCentsPerDay: locationPrices[location as keyof typeof locationPrices].weekday,
-                weekdayPriceCentsPerDay: locationPrices[location as keyof typeof locationPrices].weekday,
-                weekendPriceCentsPerDay: locationPrices[location as keyof typeof locationPrices].weekend,
-                ...bikeDiscountText(item.title),
-                descriptionDe: item.description.de,
-                descriptionEn: item.description.en,
-                image: imagePath(item.image),
-                galleryJson: JSON.stringify(item.gallery.map(imagePath)),
-                factsJson: JSON.stringify(item.facts),
-                equipmentJson: JSON.stringify(item.equipment),
-                displayOrder: index + sizeIndex,
-              })
-              .returning({ id: rentalLocationBikes.id })
-              .get();
-            transaction.insert(rentalLocationBikeSizes).values({ locationBikeId: inserted.id, size }).run();
-          }
-        }
-        transaction
-          .insert(rentalLocationEquipment)
-          .values(
-            equipment.map(([equipmentKey, category, labelDe, labelEn, priceCents], index) => ({
-              location,
-              equipmentKey,
-              category,
-              labelDe,
-              labelEn,
-              priceCents,
-              displayOrder: index + 1,
-              availableQuantity: 1,
-              quantityRelevant: category !== "bottle-holder" && category !== "repair-kit",
-            })),
-          )
-          .run();
-      }
-
-      if (needsDiscounts) {
-        transaction
-          .insert(rentalLocationDiscounts)
-          .values(discounts.map((discount, index) => ({ location, ...discount, displayOrder: index + 1 })))
-          .run();
-      }
-
-      const existingEquipment = transaction
-        .select({ equipmentKey: rentalLocationEquipment.equipmentKey })
-        .from(rentalLocationEquipment)
-        .where(eq(rentalLocationEquipment.location, location))
-        .all();
-      const existingEquipmentKeys = new Set(existingEquipment.map((item) => item.equipmentKey));
-      const missingEquipment = equipment.filter(([equipmentKey]) => !existingEquipmentKeys.has(equipmentKey));
-      if (missingEquipment.length > 0) {
-        transaction
-          .insert(rentalLocationEquipment)
-          .values(
-            missingEquipment.map(([equipmentKey, category, labelDe, labelEn, priceCents], index) => ({
-              location,
-              equipmentKey,
-              category,
-              labelDe,
-              labelEn,
-              priceCents,
-              displayOrder: equipment.length + index + 1,
-              availableQuantity: 1,
-              quantityRelevant: category !== "bottle-holder" && category !== "repair-kit",
-            })),
-          )
-          .run();
-      }
+      ensureBikeAssets(transaction, location, offeredBikes, stamp);
+      ensureEquipment(transaction, location, stamp);
+      ensureDiscounts(transaction, location);
     }
   });
-  syncAllLegacyEquipmentToAccessoryInventory(db);
-  normalizeExistingBikeSizes(db);
 }

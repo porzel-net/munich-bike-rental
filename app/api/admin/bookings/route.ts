@@ -12,74 +12,21 @@ import {
 } from "../../../../lib/bookings/service";
 import { dispatchNextOutboxMail } from "../../../../lib/bookings/outbox";
 import { mailOutbox } from "../../../../lib/db/schema";
-import { isValidIsoDate, isValidTime } from "../../../../lib/bookings/validation";
+import { adminBookingFieldsSchema } from "../../../../lib/bookings/input-schemas";
 import { getDatabase } from "../../../../lib/db/client";
-import { rentalLocations, type RentalLocation } from "../../../../lib/inquiries/catalog";
+import type { RentalLocation } from "../../../../lib/rental-locations";
 import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
-const item = z.object({
-  requestedLabel: z.string().trim().min(1).max(120),
-  heightCm: z.number().int().min(100).max(250),
-  needsPedals: z.boolean().default(false),
-  pedalType: z.string().trim().max(32).nullable().default(null),
-  needsComputerMount: z.boolean().default(false),
-  computerMountType: z.string().trim().max(32).nullable().default(null),
-  needsHelmet: z.boolean().default(false),
-  needsClothing: z.boolean().default(false),
-  needsBikepackingBag: z.boolean().default(false),
-  needsGlasses: z.boolean().default(false),
-  bottleHolderIncluded: z.boolean().default(true),
-  repairKitIncluded: z.boolean().default(true),
-  insuranceProtectionSelected: z.boolean().default(true),
-});
 const schema = z.discriminatedUnion("mode", [
-  z.object({
-    mode: z.literal("inquiry"),
-    name: z.string().trim().min(1).max(120),
-    email: z.string().trim().email(),
-    phone: z.string().trim().min(1).max(64),
-    location: z.enum(rentalLocations),
-    periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
-    periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
-    pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
-    dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
-    message: z.string().trim().max(5000).default(""),
-    locale: z.enum(["de", "en"]),
-    quotedTotalCents: z.number().int().min(0),
-    requestedItems: z.array(item).min(1).max(10),
-  }),
-  z.object({
+  adminBookingFieldsSchema.extend({ mode: z.literal("inquiry") }),
+  adminBookingFieldsSchema.extend({
     mode: z.literal("direct"),
-    name: z.string().trim().min(1).max(120),
-    email: z.string().trim().email(),
-    phone: z.string().trim().min(1).max(64),
-    location: z.enum(rentalLocations),
-    periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
-    periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
-    pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
-    dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
-    message: z.string().trim().max(5000).default(""),
-    locale: z.enum(["de", "en"]),
-    quotedTotalCents: z.number().int().min(0),
-    requestedItems: z.array(item).min(1).max(10),
     assetsByPosition: z.record(z.string(), z.number().int().positive()),
   }),
-  z.object({
+  adminBookingFieldsSchema.extend({
     mode: z.literal("historical"),
-    name: z.string().trim().min(1).max(120),
-    email: z.string().trim().email(),
-    phone: z.string().trim().min(1).max(64),
-    location: z.enum(rentalLocations),
-    periodFrom: z.string().refine(isValidIsoDate, "Ungültiges Startdatum"),
-    periodTo: z.string().refine(isValidIsoDate, "Ungültiges Enddatum"),
-    pickupTime: z.string().refine(isValidTime, "Ungültige Abholzeit"),
-    dropoffTime: z.string().refine(isValidTime, "Ungültige Rückgabezeit"),
-    message: z.string().trim().max(5000).default(""),
-    locale: z.enum(["de", "en"]),
-    quotedTotalCents: z.number().int().min(0),
-    requestedItems: z.array(item).min(1).max(10),
     assetsByPosition: z.record(z.string(), z.number().int().positive()),
   }),
 ]);
