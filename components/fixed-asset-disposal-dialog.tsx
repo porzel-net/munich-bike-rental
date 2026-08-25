@@ -169,7 +169,12 @@ function FixedAssetDisposalDialog({
               <FieldLabel htmlFor="asset-disposal-account">Eingangskonto</FieldLabel>
               <Select value={financialAccountId} onValueChange={(value) => setFinancialAccountId(value ?? "")}>
                 <SelectTrigger id="asset-disposal-account" className="w-full">
-                  <SelectValue placeholder="Konto auswählen" />
+                  <SelectValue placeholder="Konto auswählen">
+                    {(value) => {
+                      const account = financialAccounts.find((item) => String(item.id) === String(value));
+                      return account ? `${account.name} · ${account.code}` : "Konto auswählen";
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {financialAccounts.map((account) => (
