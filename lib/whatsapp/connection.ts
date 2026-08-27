@@ -43,6 +43,8 @@ type DisconnectError = {
 
 class WhatsAppConnection {
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private startPromise: Promise<WhatsAppConnectionSnapshot> | null = null;
+  private socket: ReturnType<typeof makeWASocket> | null = null;
   private snapshot: WhatsAppConnectionSnapshot = {
     status: "idle",
     qrDataUrl: null,
@@ -63,6 +65,25 @@ class WhatsAppConnection {
       return this.snapshot;
     }
 
+    if (this.startPromise) return this.startPromise;
+
+    this.startPromise = this.connect();
+    try {
+      return await this.startPromise;
+    } catch (error) {
+      this.snapshot = {
+        status: "error",
+        qrDataUrl: null,
+        phone: null,
+        error: error instanceof Error ? error.message : "WhatsApp-Verbindung konnte nicht gestartet werden.",
+      };
+      throw error;
+    } finally {
+      this.startPromise = null;
+    }
+  }
+
+  private async connect() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -70,8 +91,8 @@ class WhatsAppConnection {
 
     await mkdir(authDirectory, { recursive: true, mode: 0o700 });
     const { state, saveCreds } = await loadMultiFileAuthState(authDirectory);
-    const { version } = await fetchLatestBaileysVersion({ timeout: 10_000 });
     this.snapshot = { status: "connecting", qrDataUrl: null, phone: null, error: null };
+    const { version } = await fetchLatestBaileysVersion({ timeout: 10_000 });
 
     const socket = makeWASocket({
       auth: state,
@@ -86,6 +107,7 @@ class WhatsAppConnection {
       // 6.x line until the deployment is migrated to Baileys 7.x.
       shouldSyncHistoryMessage: () => false,
     });
+    this.socket = socket;
     socket.ev.on("creds.update", saveCreds);
     socket.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
@@ -106,6 +128,7 @@ class WhatsAppConnection {
       const disconnectError = lastDisconnect?.error as DisconnectError | undefined;
       const statusCode = disconnectError?.output?.statusCode;
       if (statusCode === DisconnectReason.loggedOut) {
+        this.socket = null;
         this.snapshot = {
           status: "logged_out",
           qrDataUrl: null,
@@ -124,10 +147,20 @@ class WhatsAppConnection {
             ? "WhatsApp hat die Verbindung geschlossen (428). Neuer Verbindungsversuch folgt."
             : `Die Verbindung zu WhatsApp wurde unterbrochen${statusCode ? ` (${statusCode})` : ""}. Neuer Verbindungsversuch folgt.`,
       };
+      this.socket = null;
       this.reconnectTimer = setTimeout(() => void this.start(), 3000);
     });
 
     return this.snapshot;
+  }
+
+  async sendTextMessage(phone: string, text: string) {
+    if (this.snapshot.status !== "connected" || !this.socket) {
+      throw new Error("WhatsApp ist derzeit nicht verbunden.");
+    }
+    const digits = phone.replace(/\D/g, "").replace(/^00/, "");
+    if (digits.length < 8) throw new Error("Die WhatsApp-Nummer des Empfängers ist ungültig.");
+    await this.socket.sendMessage(`${digits}@s.whatsapp.net`, { text });
   }
 }
 

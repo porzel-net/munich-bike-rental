@@ -6,6 +6,7 @@ import { dispatchOutboxForBooking } from "../../../lib/bookings/outbox";
 import { estimateInquiryQuote } from "../../../lib/bookings/quotes";
 import { contactInquirySchema } from "../../../lib/inquiries/schemas";
 import { jsonError, parseInquiryRequest } from "../../../lib/inquiries/server";
+import { runWhatsAppNotificationCycle } from "../../../lib/whatsapp/notifications";
 
 export const runtime = "nodejs";
 
@@ -54,6 +55,11 @@ export async function POST(request: Request) {
     if (!mailSent) {
       return jsonError(502, "send_failed", "Unable to send message");
     }
+    // Queue the activity immediately as well as through the background
+    // scheduler. WhatsApp failures must never make a valid inquiry fail.
+    void runWhatsAppNotificationCycle(database).catch((error) => {
+      console.error("Failed to notify WhatsApp about new inquiry", error);
+    });
     return NextResponse.json(
       { ok: true, orderNumber: created.orderNumber, totalPriceCents },
       { headers: { "Cache-Control": "no-store" } },

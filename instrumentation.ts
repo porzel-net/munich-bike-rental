@@ -57,5 +57,29 @@ export async function register() {
     void syncNevlo();
     const nevloTimer = setInterval(() => void syncNevlo(), 5 * 60_000);
     nevloTimer.unref?.();
+
+    // WhatsApp notifications must be processed by the server itself, not by
+    // an open admin browser tab. The durable outbox and idempotency keys make
+    // this safe alongside the optional deployment-host endpoint.
+    const { whatsappConnection } = await import("./lib/whatsapp/connection");
+    const { runWhatsAppNotificationCycle } = await import("./lib/whatsapp/notifications");
+    void whatsappConnection.start().catch((error) => {
+      console.error("Failed to start WhatsApp connection", error);
+    });
+    let whatsappCycleInFlight = false;
+    const runWhatsAppCycle = async () => {
+      if (whatsappCycleInFlight) return;
+      whatsappCycleInFlight = true;
+      try {
+        await runWhatsAppNotificationCycle();
+      } catch (error) {
+        console.error("Failed to process WhatsApp notifications", error);
+      } finally {
+        whatsappCycleInFlight = false;
+      }
+    };
+    void runWhatsAppCycle();
+    const whatsappTimer = setInterval(() => void runWhatsAppCycle(), 60_000);
+    whatsappTimer.unref?.();
   }
 }

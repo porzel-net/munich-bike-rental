@@ -39,3 +39,41 @@ export const dashboardActivityDismissals = sqliteTable(
     index("dashboard_activity_dismissals_user_idx").on(table.userId),
   ],
 );
+
+export const whatsappNotificationStatuses = ["queued", "leased", "sent", "failed"] as const;
+export type WhatsAppNotificationStatus = (typeof whatsappNotificationStatuses)[number];
+
+/** Durable WhatsApp delivery queue for dashboard activity notifications. */
+export const whatsappNotificationOutbox = sqliteTable(
+  "whatsapp_notification_outbox",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    recipientUserId: text("recipient_user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    kind: text("kind").notNull(),
+    activityId: text("activity_id"),
+    messageText: text("message_text").notNull(),
+    status: text("status", { enum: whatsappNotificationStatuses }).notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: integer("next_attempt_at", { mode: "timestamp_ms" }).notNull(),
+    leasedAt: integer("leased_at", { mode: "timestamp_ms" }),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    lastError: text("last_error"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("whatsapp_notification_outbox_idempotency_unique").on(table.idempotencyKey),
+    index("whatsapp_notification_outbox_status_due_idx").on(table.status, table.nextAttemptAt),
+    index("whatsapp_notification_outbox_recipient_idx").on(table.recipientUserId, table.createdAt),
+  ],
+);
+
+/** Cursor used to avoid replaying historical booking events on first startup. */
+export const whatsappNotificationState = sqliteTable("whatsapp_notification_state", {
+  id: integer("id").primaryKey(),
+  lastBookingEventId: integer("last_booking_event_id").notNull().default(0),
+  initializedAt: integer("initialized_at", { mode: "timestamp_ms" }).notNull(),
+});

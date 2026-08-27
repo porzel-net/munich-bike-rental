@@ -67,6 +67,7 @@ BETTER_AUTH_URL=https://www.deine-domain.tld
 BETTER_AUTH_SECRET=sehr-langes-zufälliges-geheimnis
 MAIL_SYNC_TOKEN=separates-langes-zufälliges-mail-token
 OUTBOX_DISPATCH_TOKEN=separates-langes-zufälliges-outbox-token
+WHATSAPP_DISPATCH_TOKEN=separates-langes-zufälliges-whatsapp-token
 # Der einmalige Bootstrap-Link für den ersten Admin wird beim Serverstart geloggt.
 # Lokal: ./data/bikerental.db. Im Docker-Stack ist der feste, persistente Pfad /data/bikerental.db gesetzt.
 DATABASE_URL=./data/bikerental.db
@@ -111,7 +112,7 @@ Wichtig:
 
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - `SITE_URL`, `APP_ORIGIN` und `BETTER_AUTH_URL` müssen zur echten HTTPS-Domain passen; Compose verweigert den Start, wenn sie fehlen
-- `BETTER_AUTH_SECRET`, `MAIL_SYNC_TOKEN` und `OUTBOX_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
+- `BETTER_AUTH_SECRET`, `MAIL_SYNC_TOKEN`, `OUTBOX_DISPATCH_TOKEN` und `WHATSAPP_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
 - Wenn die Datenbank noch keinen Benutzer enthält, wird der einmalige Ersteinladungslink nach dem Start als `BOOTSTRAP_ADMIN_INVITATION=...` im App-Log ausgegeben. Lies ihn mit `docker compose ... logs app` aus. Der Link ist ein Secret und sollte nicht dauerhaft in zentralen Logs gespeichert oder weitergegeben werden.
 - Apple-Kalender-Feeds verwenden keine globalen Zugangsdaten aus `.env`. Jeder berechtigte Admin- oder Standortbenutzer kann im Adminbereich unter `Kalender` einen persönlichen read-only-Zugang erzeugen. Der zufällige Benutzername und das Passwort werden nur einmalig angezeigt; in der Datenbank bleibt ausschließlich ein scrypt-Hash. Rotation und Widerruf werden im Audit-Log protokolliert. Administratoren kopieren einen Gesamtlink für alle Standorte; Standortbenutzer erhalten serverseitig nur ihren zugewiesenen Standort. Jeder Feed enthält nur die Status `Anfrage eingegangen`, `Angebot versendet`, `Verbindlich gebucht` und `Abgeschlossen`; bei Änderungen aktualisieren `LAST-MODIFIED`, `SEQUENCE` und ETag den bestehenden Kalendereintrag.
 - Der Kalender-Feed enthält nur die für die Einsatzplanung nötigen Daten (Name, Auftrag, Zeitraum, Standort, Fahrrad-/Ausstattungsdaten und Status). E-Mail, Telefonnummer, Kundennachricht, Rechnungs- und Preisdaten bleiben außerhalb des geschützten Feeds.
@@ -131,6 +132,7 @@ Wichtig:
 - `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID` und `NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL` sind optional. Sind beide gesetzt, aktiviert die Einwilligung in den Zweck „Marketing“ die direkte Google-Ads-Conversion für das Lead-Event.
 - Der öffentliche Angebotslink startet unter `/api/booking-confirmation-v2/checkout` eine Checkout-Session mit dem unveränderlichen Gesamtbetrag des versendeten Angebots. Die verbindliche Buchung und die vollständige Zahlung werden erst durch den signaturgeprüften Webhook `/api/stripe/webhook` verarbeitet. Dafür `STRIPE_WEBHOOK_SECRET` setzen.
 - Der Nevlo-Sync läuft bei konfigurierten `NEVLO_*`-Zugangsdaten automatisch beim Serverstart und anschließend alle fünf Minuten. Wiederholte Läufe sind sicher; der Admin-Button bleibt für einen manuellen Sofortlauf verfügbar.
+- WhatsApp wird serverseitig beim Start verbunden und prüft die Dashboard-Aktivitäten unabhängig von geöffneten Admin-Seiten minütlich. Neue oder geänderte Aktivitäten werden an den zuständigen Sachbearbeiter gesendet; nicht zugewiesene Buchungen gehen an Admins und den jeweiligen Standort. Banktransaktionen zur Prüfung gehen an Admins. Ab 12:00 Uhr Europe/Berlin wird pro Nutzer und Tag eine Übersicht aller nicht erledigten Aktivitäten inklusive „offen seit“ versendet. Dazu muss jeder Empfänger seine WhatsApp-Nummer unter `Einstellungen` hinterlegen und das WhatsApp-Konto einmalig unter `Einstellungen → WhatsApp` per QR-Code verbinden.
 - Nevlo verwendet rotierende Refresh-Tokens. Nach dem einmaligen Bootstrap-Paar erneuert die Anwendung Access-Tokens automatisch vor Ablauf, speichert Access- und Refresh-Token nach jedem erfolgreichen Refresh verschlüsselt in `nevlo_oauth_tokens` und verwendet sie nach Neustarts weiter. Dafür wird `NEVLO_TOKEN_ENCRYPTION_KEY` oder `BETTER_AUTH_SECRET` verwendet; das SQLite-Volume muss persistent bleiben. Nur bei einer abgelaufenen oder widerrufenen Verbindung ist einmalig eine neue OAuth-Autorisierung nötig.
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
@@ -421,6 +423,16 @@ Der Outbox-Dispatcher wird minütlich vom Host ausgelöst. Setze `OUTBOX_DISPATC
 ```
 
 Der Dispatcher verwendet Leasing und Backoff. Bei IMAP-Ausfall bleibt der archivierte Plain-Text-Verlauf in der Buchungsansicht sichtbar.
+
+Der WhatsApp-Dispatcher läuft zusätzlich als Teil des App-Servers. Für eine unabhängige Auslösung vom Deployment-Host kann derselbe Zyklus minütlich über den geschützten Endpoint angestoßen werden:
+
+```bash
+* * * * * curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $WHATSAPP_DISPATCH_TOKEN" \
+  https://deine-domain.tld/api/internal/dispatch-whatsapp-notifications >/dev/null
+```
+
+Nachrichten werden persistent geleast und mit Backoff wiederholt. Der tägliche Versand holt einen verpassten 12-Uhr-Lauf beim nächsten Scheduler-Aufruf am selben Tag nach.
 
 Die AfA wird beim Aufruf des Anlageverzeichnisses automatisch bis zum aktuellen Monat nachgebucht. Für einen vollständig unabhängigen Hintergrundlauf setze `FIXED_ASSET_DEPRECIATION_TOKEN` und rufe den Endpoint täglich auf:
 
