@@ -169,6 +169,18 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
           left.asset.id - right.asset.id,
       )[0],
   );
+  // The legacy-to-normalized migration can leave more than one internal model
+  // row for the same public title. Portfolio cards represent model families,
+  // not individual database rows, so prefer active models and collapse
+  // duplicate titles before rendering the public catalog.
+  const portfolioSource = activeBikes.length ? models.filter(({ asset }) => asset.state === "active") : models;
+  const portfolioModels = new Map<string, (typeof models)[number]>();
+  for (const row of portfolioSource) {
+    const existing = portfolioModels.get(row.model.title);
+    if (!existing || (existing.model.modelKey.startsWith("legacy-") && !row.model.modelKey.startsWith("legacy-"))) {
+      portfolioModels.set(row.model.title, row);
+    }
+  }
   const modelTitles = new Set(models.map(({ model }) => model.title));
   const activeModelTitles = new Set(activeBikes.map(({ model }) => model.title));
   const allEquipment = db
@@ -256,7 +268,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       }));
 
   return {
-    portfolioItems: models.map(({ model, asset }) => ({
+    portfolioItems: [...portfolioModels.values()].map(({ model, asset }) => ({
       title: model.title,
       frameNumber: asset.frameNumber,
       subtitle: {
