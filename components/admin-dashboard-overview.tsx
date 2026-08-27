@@ -615,10 +615,17 @@ function SavingsTargets({
   );
 }
 
-function PowerUsage({ utilizationData }: { utilizationData: Array<{ month: string; utilization: number }> }) {
-  const currentUtilization = utilizationData.at(-1)?.utilization ?? 0;
-  const averageUtilization = utilizationData.length
-    ? Math.round(utilizationData.reduce((total, point) => total + point.utilization, 0) / utilizationData.length)
+function PowerUsage({
+  utilizationData,
+  currentMonthIndex,
+}: {
+  utilizationData: Array<{ month: string; utilization: number }>;
+  currentMonthIndex: number;
+}) {
+  const currentUtilization = utilizationData[currentMonthIndex]?.utilization ?? 0;
+  const elapsedMonths = utilizationData.slice(0, currentMonthIndex + 1);
+  const averageUtilization = elapsedMonths.length
+    ? Math.round(elapsedMonths.reduce((total, point) => total + point.utilization, 0) / elapsedMonths.length)
     : 0;
 
   return (
@@ -965,7 +972,7 @@ export function AdminDashboardOverview({
         </div>
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
           <ActivityInformer activities={activities} />
-          <PowerUsage utilizationData={utilizationData} />
+          <PowerUsage utilizationData={utilizationData} currentMonthIndex={currentMonthIndex} />
           <TrafficChannels rentalDaysByLocation={rentalDaysByLocation} />
         </div>
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">

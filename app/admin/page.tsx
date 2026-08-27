@@ -21,6 +21,7 @@ import { getRentalDays } from "@/lib/inventory/pricing";
 import { receivedAtFromOrderNumber } from "@/lib/bookings/order-number";
 import { berlinDateKey, BUSINESS_TIME_ZONE } from "@/lib/datetime";
 import { getDashboardActivities } from "@/lib/dashboard/activities";
+import { allocateAmountByMonthCents } from "@/lib/dashboard/metrics";
 
 function bookingIncomingAt(booking: { source: string; orderNumber: string; createdAt: Date }) {
   return booking.source === "legacy"
@@ -120,12 +121,15 @@ export default async function AdminPage() {
     .all()
     .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   for (const booking of revenueBookings) {
-    const bookingYear = Number(booking.periodFrom.slice(0, 4));
-    if (bookingYear !== currentYear) continue;
-    const bookingMonth = Number(booking.periodFrom.slice(5, 7));
-    if (bookingMonth >= 1 && bookingMonth <= 12) {
-      activityData[bookingMonth - 1].amount += booking.quotedTotalCents / 100;
-    }
+    const monthlyAmounts = allocateAmountByMonthCents(
+      booking.quotedTotalCents,
+      booking.periodFrom,
+      booking.periodTo,
+      currentYear,
+    );
+    monthlyAmounts.forEach((amountCents, monthIndex) => {
+      activityData[monthIndex].amount += amountCents / 100;
+    });
   }
 
   const enduraceRevenueBySize = new Map(["XS", "S", "M", "L"].map((size) => [size, 0]));
@@ -152,8 +156,7 @@ export default async function AdminPage() {
     .all()
     .map((booking) => ({ ...booking, createdAt: bookingIncomingAt(booking) }));
   const currentYearBookings = enduraceBookings.filter((booking) => {
-    const bookingYear = Number(booking.periodFrom.slice(0, 4));
-    return bookingYear === currentYear;
+    return booking.periodTo >= `${currentYear}-01-01` && booking.periodFrom <= `${currentYear}-12-31`;
   });
   const bookingIds = currentYearBookings.map((booking) => booking.id);
   const requestedItems = bookingIds.length
@@ -177,10 +180,15 @@ export default async function AdminPage() {
       const size = item.requestedLabel.match(/^Endurace CF SL 8\s*-\s*(XS|S|M|L)$/i)?.[1]?.toUpperCase();
       if (!size) continue;
       enduraceRevenueBySize.set(size, (enduraceRevenueBySize.get(size) ?? 0) + revenuePerItem);
-      const bookingMonth = Number(booking.periodFrom.slice(5, 7));
-      if (bookingMonth >= 1 && bookingMonth <= 12) {
-        monthlyEnduraceRevenueBySize.get(size)![bookingMonth - 1].amount += revenuePerItem / 100;
-      }
+      const monthlyAmounts = allocateAmountByMonthCents(
+        revenuePerItem,
+        booking.periodFrom,
+        booking.periodTo,
+        currentYear,
+      );
+      monthlyAmounts.forEach((amountCents, monthIndex) => {
+        monthlyEnduraceRevenueBySize.get(size)![monthIndex].amount += amountCents / 100;
+      });
     }
   }
   const revenueBySize = ["XS", "S", "M", "L"].map((size) => ({
