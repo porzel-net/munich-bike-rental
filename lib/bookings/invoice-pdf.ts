@@ -7,6 +7,7 @@ import { execFile } from "node:child_process";
 import { BUSINESS_TIME_ZONE } from "../datetime";
 import { calculateBikeSubtotalCents } from "../inventory/pricing";
 import type { OfferQuote } from "./quotes";
+import { getOfferItemPriceSchedule } from "./quotes";
 
 const execFileAsync = promisify(execFile);
 
@@ -64,22 +65,21 @@ function row(description: string, amountCents: number) {
   return `\\textbf{${latex(description)}} & ${latex(euro(amountCents))} \\\\[1.7ex]\\hline`;
 }
 
+function getBikeBaseCents(input: Pick<InvoiceInput, "periodFrom" | "quote">, item: OfferQuote["offeredItems"][number]) {
+  const line = input.quote.bikePriceLines?.find((candidate) => candidate.assetId === item.assetId);
+  if (line) return line.baseCents;
+  const schedule = getOfferItemPriceSchedule(item);
+  if (!schedule) throw new Error("Für die Rechnungsposition fehlt der kanonische Preis-Snapshot.");
+  return calculateBikeSubtotalCents({
+    ...schedule,
+    periodFrom: input.periodFrom,
+    rentalDays: input.quote.rentalDays,
+  });
+}
+
 export function getInvoicePriceSummary(input: Pick<InvoiceInput, "periodFrom" | "quote">): InvoicePriceSummary {
-  const priceLinesByAssetId = new Map(input.quote.bikePriceLines?.map((line) => [line.assetId, line]) ?? []);
   const bikeSubtotalCents = input.quote.offeredItems.length
-    ? input.quote.offeredItems.reduce(
-        (total, item) =>
-          total +
-          (priceLinesByAssetId.get(item.assetId)?.baseCents ??
-            calculateBikeSubtotalCents({
-              dailyPriceCents: item.dailyPriceCents,
-              weekdayPriceCents: item.weekdayPriceCents,
-              weekendPriceCents: item.weekendPriceCents,
-              periodFrom: input.periodFrom,
-              rentalDays: input.quote.rentalDays,
-            })),
-        0,
-      )
+    ? input.quote.offeredItems.reduce((total, item) => total + getBikeBaseCents(input, item), 0)
     : input.quote.bikeSubtotalCents;
   const equipmentSubtotalCents = input.quote.equipmentSubtotalCents;
   const standardTotalCents =
@@ -104,18 +104,10 @@ export function getInvoicePriceSummary(input: Pick<InvoiceInput, "periodFrom" | 
 }
 
 function renderTex(input: InvoiceInput) {
-  const priceLinesByAssetId = new Map(input.quote.bikePriceLines?.map((line) => [line.assetId, line]) ?? []);
-  const getBaseCents = (item: OfferQuote["offeredItems"][number]) =>
-    priceLinesByAssetId.get(item.assetId)?.baseCents ??
-    calculateBikeSubtotalCents({
-      dailyPriceCents: item.dailyPriceCents,
-      weekdayPriceCents: item.weekdayPriceCents,
-      weekendPriceCents: item.weekendPriceCents,
-      periodFrom: input.periodFrom,
-      rentalDays: input.quote.rentalDays,
-    });
   const bikeRows = input.quote.offeredItems
-    .map((item) => row(`Fahrradmiete: ${item.assetName} (${input.quote.rentalDays} Tage)`, getBaseCents(item)))
+    .map((item) =>
+      row(`Fahrradmiete: ${item.assetName} (${input.quote.rentalDays} Tage)`, getBikeBaseCents(input, item)),
+    )
     .join("\n");
   const accessoryRow = input.quote.equipmentSubtotalCents ? row("Zubehör", input.quote.equipmentSubtotalCents) : "";
   const priceSummary = getInvoicePriceSummary(input);

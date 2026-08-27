@@ -15,6 +15,7 @@ import {
   journalLines,
 } from "../../lib/db/schema";
 import {
+  assignNevloTransactionToBooking,
   getFinancialAccountReconciliation,
   ignoreFinancialTransaction,
   postFinancialTransaction,
@@ -96,6 +97,7 @@ function bookingWithReceivable(
   amountCents: number,
   orderNumber: string,
   status: "confirmed" | "completed" = "completed",
+  source: "web" | "legacy" = "legacy",
 ) {
   const booking = db
     .insert(bookings)
@@ -109,7 +111,7 @@ function bookingWithReceivable(
       periodTo: "2026-08-11",
       pickupTime: "10:00",
       dropoffTime: "10:00",
-      source: "legacy",
+      source,
       status,
       quotedTotalCents: amountCents,
       createdAt: new Date(),
@@ -357,9 +359,50 @@ describe("financial reconciliation", () => {
     ).toHaveLength(2);
   });
 
+  it("splits one historical bank transfer over multiple bookings and leaves no remainder", () => {
+    const { db, bank } = setup();
+    const firstBooking = bookingWithReceivable(db, 7_000, "#202608080000041");
+    const secondBooking = bookingWithReceivable(db, 7_000, "#202608080000042");
+    const imported = transaction(db, bank.id, 10_000, "nevlo");
+
+    expect(
+      assignNevloTransactionToBooking(db, {
+        transactionId: imported.id,
+        bookingId: firstBooking.id,
+        amountCents: 4_000,
+        actorUserId: "admin",
+      }),
+    ).toMatchObject({ transactionId: imported.id, bookingId: firstBooking.id });
+    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get()).toEqual({
+      status: "matched",
+    });
+
+    assignNevloTransactionToBooking(db, {
+      transactionId: imported.id,
+      bookingId: secondBooking.id,
+      amountCents: 6_000,
+      actorUserId: "admin",
+    });
+
+    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get()).toEqual({
+      status: "posted",
+    });
+    expect(
+      db
+        .select({ bookingId: financialTransactionAllocations.bookingId, amountCents: financialTransactionAllocations.amountCents })
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, imported.id))
+        .all()
+        .sort((left, right) => (left.bookingId ?? 0) - (right.bookingId ?? 0)),
+    ).toEqual([
+      { bookingId: firstBooking.id, amountCents: 4_000 },
+      { bookingId: secondBooking.id, amountCents: 6_000 },
+    ]);
+  });
+
   it("rejects an incoming payment that exceeds the remaining booking amount", () => {
     const { db, bank, income } = setup();
-    const booking = bookingWithReceivable(db, 7_500, "#20260808000005");
+    const booking = bookingWithReceivable(db, 7_500, "#20260808000005", "completed", "web");
     const imported = transaction(db, bank.id, 7_501, "nevlo");
 
     expect(() =>
@@ -370,7 +413,7 @@ describe("financial reconciliation", () => {
         note: "Überzahlung",
         actorUserId: "admin",
       }),
-    ).toThrow("höher als der noch offene Auftragsbetrag");
+    ).toThrow("höher als der noch offene Buchungsbetrag");
     expect(getReceivableStatus(db, booking.id)).toEqual({ openCents: 7_500, status: "open" });
     expect(
       db.select().from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get(),
@@ -738,6 +781,7 @@ describe("financial reconciliation", () => {
       bookingId: booking.id,
       categoryId: income.id,
       description: "Alte Überweisung",
+      idempotencyKey: "manual-booking-payment-1",
       actorUserId: "admin",
     });
 
@@ -758,6 +802,19 @@ describe("financial reconciliation", () => {
       allocationKind: "booking_payment",
     });
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
+    expect(() =>
+      createAndPostManualTransaction(db, {
+        source: "manual",
+        bookedAt: "2026-08-12",
+        amountCents: 1_000,
+        accountId: bank.id,
+        bookingId: booking.id,
+        categoryId: income.id,
+        description: "Manipulierter Retry",
+        idempotencyKey: "manual-booking-payment-1",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Idempotenzschlüssel");
   });
 
   it("keeps a manual payment correct when the booking charge is posted later", () => {

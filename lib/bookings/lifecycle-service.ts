@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 
 import { BookingCommandError } from "./errors";
+import { calculateCancellationFeeCents, isCancellationPeriod } from "./cancellation";
 import { allocateInvoiceNumber } from "./invoice-number";
 import { appendJournalEntry, getReceivedPaymentCents } from "./ledger";
 import { renderBookingNotice, renderFeedbackRequestMail } from "./messages";
@@ -41,6 +42,13 @@ export function cancelBooking(
       throw new BookingCommandError(
         "Für die Stornierung musst du einen Grund und eine Gebühr zwischen 0 € und dem Gesamtpreis angeben.",
       );
+    if (input.cancellationPeriod && isCancellationPeriod(input.cancellationPeriod)) {
+      const expectedFeeCents = calculateCancellationFeeCents(booking.quotedTotalCents, input.cancellationPeriod);
+      if (input.cancellationFeeCents !== expectedFeeCents)
+        throw new BookingCommandError(
+          `Die Stornogebühr passt nicht zur gewählten Stornierungsfrist. Erwartet werden ${expectedFeeCents} Cent.`,
+        );
+    }
     const paidCents = getReceivedPaymentCents(db, booking.id);
     const refundCents = Math.max(0, paidCents - input.cancellationFeeCents);
     transition(db, booking, "cancelled", "booking_cancelled", input.actorUserId, input.reason, {

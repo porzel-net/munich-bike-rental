@@ -7,6 +7,7 @@ import {
   financialCategories,
   financialTransactionAllocations,
   financialTransactions,
+  bookingOffers,
 } from "../db/schema";
 import { getStripeCheckoutPaymentDetails } from "../stripe";
 import { getBookingRevenueCategory } from "./categories";
@@ -28,6 +29,21 @@ function dateInBerlin(timestampSeconds: number) {
 export async function importStripeCheckoutPayment(db: AppDatabase, input: { sessionId: string; bookingId: number }) {
   const details = await getStripeCheckoutPaymentDetails(input.sessionId);
   const balance = details.balanceTransaction;
+  const offer = db.select().from(bookingOffers).where(eq(bookingOffers.stripeSessionId, input.sessionId)).get();
+  if (
+    !offer ||
+    offer.bookingId !== input.bookingId ||
+    details.session.metadata?.booking_offer_id !== String(offer.id) ||
+    details.session.metadata?.booking_id !== String(input.bookingId) ||
+    details.session.amount_total !== offer.totalCents ||
+    details.session.currency?.toLowerCase() !== "eur" ||
+    !details.paymentIntentId ||
+    !/^pi_[A-Za-z0-9_]+$/.test(details.paymentIntentId) ||
+    (offer.stripePaymentIntentId && details.paymentIntentId !== offer.stripePaymentIntentId) ||
+    balance.currency.toLowerCase() !== "eur" ||
+    balance.amount !== offer.totalCents
+  )
+    throw new Error("Die Stripe-Zahlung gehört nicht sicher zu dieser Buchung.");
   const existing = db
     .select({ id: financialTransactions.id })
     .from(financialTransactions)

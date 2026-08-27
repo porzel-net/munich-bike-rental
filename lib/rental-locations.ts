@@ -26,7 +26,6 @@ export type RentalLocationConfig = {
   districtSlug: string;
   path: string;
   enPath: string;
-  legacyPath: string;
   city: Record<Locale, string>;
   district: Record<Locale, string>;
   address: string;
@@ -44,7 +43,6 @@ export const rentalLocationConfigs = [
     districtSlug: "maxvorstadt",
     path: "/de/rennradverleih/münchen/maxvorstadt",
     enPath: "/en/rennradverleih/münchen/maxvorstadt",
-    legacyPath: "/rennradverleih/münchen/maxvorstadt",
     city: { de: "München", en: "Munich" },
     district: { de: "Maxvorstadt", en: "Maxvorstadt" },
     address: "Gabelsbergerstraße 79a, 80333 München, Maxvorstadt",
@@ -60,7 +58,6 @@ export const rentalLocationConfigs = [
     districtSlug: "altstadt",
     path: "/de/rennradverleih/regensburg/altstadt",
     enPath: "/en/rennradverleih/regensburg/altstadt",
-    legacyPath: "/rennradverleih/regensburg/altstadt",
     city: { de: "Regensburg", en: "Regensburg" },
     district: { de: "Altstadt", en: "Old Town" },
     address: "Rote Hahnen Gasse 12, 93047 Regensburg, Altstadt",
@@ -79,7 +76,6 @@ export const rentalLocationConfigs = [
     districtSlug: "aeschach",
     path: "/de/rennradverleih/lindau/aeschach",
     enPath: "/en/rennradverleih/lindau/aeschach",
-    legacyPath: "/rennradverleih/lindau/aeschach",
     city: { de: "Lindau Bodensee", en: "Lindau (Lake Constance)" },
     district: { de: "Aeschach", en: "Aeschach" },
     address: "Lärchenweg 3a, 88131 Lindau Bodensee-Aeschach",
@@ -94,7 +90,6 @@ export const rentalLocationConfigs = [
     districtSlug: "innenstadt",
     path: "/de/rennradverleih/friedrichshafen/innenstadt",
     enPath: "/en/rennradverleih/friedrichshafen/innenstadt",
-    legacyPath: "/rennradverleih/friedrichshafen/innenstadt",
     city: { de: "Friedrichshafen", en: "Friedrichshafen" },
     district: { de: "Innenstadt", en: "City Centre" },
     address: "Katharinenstraße 2/3, 88045 Friedrichshafen",
@@ -109,7 +104,6 @@ export const rentalLocationConfigs = [
     districtSlug: "altstadt",
     path: "/de/rennradverleih/konstanz/altstadt",
     enPath: "/en/rennradverleih/konstanz/altstadt",
-    legacyPath: "/rennradverleih/konstanz/altstadt",
     city: { de: "Konstanz", en: "Constance" },
     district: { de: "Altstadt", en: "Old Town" },
     address: "Wessenbergstraße 12, 78462 Konstanz-Altstadt",

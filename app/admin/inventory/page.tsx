@@ -20,11 +20,8 @@ export type AdminInventoryBike = {
   title: string;
   nickname: string | null;
   frameNumber: string | null;
-  priceCents: number;
   weekdayPriceCents: number;
   weekendPriceCents: number;
-  discountTextDe: string;
-  discountTextEn: string;
   size: string;
   isAvailable: boolean;
 };
@@ -73,11 +70,8 @@ export default async function InventoryPage() {
     title: model.title,
     nickname: asset.nickname,
     frameNumber: asset.frameNumber,
-    priceCents: asset.weekdayPriceCents,
     weekdayPriceCents: asset.weekdayPriceCents,
     weekendPriceCents: asset.weekendPriceCents,
-    discountTextDe: "",
-    discountTextEn: "",
     size: variant.size,
     isAvailable: asset.state === "active",
   }));

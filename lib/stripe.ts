@@ -13,6 +13,7 @@ export type StripeCheckoutSession = {
   id: string;
   created?: number;
   url: string | null;
+  status?: "open" | "complete" | "expired" | string;
   payment_status: string;
   amount_total: number | null;
   currency: string | null;
@@ -42,6 +43,8 @@ export type StripeRefund = {
   amount: number;
   currency: string;
   status: string;
+  created?: number;
+  metadata?: Record<string, string>;
   payment_intent?: string | StripePaymentIntent | null;
   charge?: string | StripeCharge | null;
   balance_transaction?: string | StripeBalanceTransaction | null;
@@ -156,6 +159,7 @@ export async function createStripeRefund(input: {
   paymentIntentId: string;
   amountCents: number;
   idempotencyKey: string;
+  metadata?: Record<string, string>;
 }) {
   if (!/^pi_[A-Za-z0-9_]+$/.test(input.paymentIntentId)) throw new Error("Die Stripe-Zahlungsreferenz ist ungültig.");
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0)
@@ -167,6 +171,7 @@ export async function createStripeRefund(input: {
   params.set("payment_intent", input.paymentIntentId);
   params.set("amount", String(input.amountCents));
   params.set("expand[]", "balance_transaction");
+  for (const [key, value] of Object.entries(input.metadata ?? {})) params.set(`metadata[${key}]`, value);
   const refund = await stripeRequest<StripeRefund>("refunds", params, "POST", {
     idempotencyKey: input.idempotencyKey,
   });
@@ -174,6 +179,20 @@ export async function createStripeRefund(input: {
     throw new Error("Stripe hat die Erstattung nicht angenommen.");
   if (refund.amount !== input.amountCents) throw new Error("Stripe hat einen anderen Erstattungsbetrag zurückgegeben.");
   return refund;
+}
+
+/** Lists all refunds for one PaymentIntent so dashboard-created refunds are reconciled too. */
+export async function listStripeRefundsForPaymentIntent(
+  paymentIntentId: string,
+  input: { startingAfter?: string; limit?: number } = {},
+) {
+  if (!/^pi_[A-Za-z0-9_]+$/.test(paymentIntentId)) throw new Error("Die Stripe-Zahlungsreferenz ist ungültig.");
+  const params = new URLSearchParams();
+  params.set("payment_intent", paymentIntentId);
+  params.set("limit", String(Math.min(100, Math.max(1, input.limit ?? 100))));
+  params.set("expand[]", "data.balance_transaction");
+  if (input.startingAfter) params.set("starting_after", input.startingAfter);
+  return stripeRequest<StripeListResponse<StripeRefund>>(`refunds?${params.toString()}`, new URLSearchParams(), "GET");
 }
 
 export async function getStripeCheckoutSession(sessionId: string) {

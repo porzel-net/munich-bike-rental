@@ -16,6 +16,7 @@ import {
   bookingRequestedItems,
   bookings,
   financialAccounts,
+  financialCategories,
   financialTransactionAllocations,
   financialTransactions,
   journalEntries,
@@ -43,16 +44,16 @@ import {
   getBookingPaymentStatus,
   previewOffer,
   revokeOffer,
-  recordPayment,
   recordRefund,
   setBookingEmailQuestionsResolved,
   updateBooking,
-  setLegacyBookingStatus,
+  setHistoricalBookingStatus,
 } from "../../lib/bookings/service";
 import { berlinYear } from "../../lib/datetime";
 import { renderBookingNotice, renderOfferMail } from "../../lib/bookings/messages";
 import { appendJournalEntry } from "../../lib/bookings/ledger";
 import { assignNevloTransactionToBooking } from "../../lib/financial/reconciliation";
+import { createAndPostManualTransaction } from "../../lib/financial/manual-transactions";
 import { getPublicFeedbackByToken, submitPublicFeedback } from "../../lib/bookings/feedback";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -92,7 +93,6 @@ function setup() {
       location: "munich",
       assetCode: "TEST-1",
       displayName: "Test Bike - M",
-      dailyPriceCents: 5_000,
       weekdayPriceCents: 5_000,
       weekendPriceCents: 5_000,
       createdAt: new Date(),
@@ -142,7 +142,12 @@ function setup() {
   return { db, assetId: asset.id, variantId: variant.id };
 }
 
-function inquiry(db: ReturnType<typeof setup>["db"], periodFrom: string, periodTo: string) {
+function inquiry(
+  db: ReturnType<typeof setup>["db"],
+  periodFrom: string,
+  periodTo: string,
+  source: "manual" | "web" = "manual",
+) {
   const created = createBooking(db, {
     customerName: "Ada Lovelace",
     customerEmail: "ada@example.com",
@@ -154,7 +159,7 @@ function inquiry(db: ReturnType<typeof setup>["db"], periodFrom: string, periodT
     dropoffTime: "10:00",
     customerMessage: "",
     communicationLocale: "en",
-    source: "manual",
+    source,
     quotedTotalCents: 0,
     requestedItems: [{ requestedLabel: "Test Bike - M", heightCm: 170 }],
   });
@@ -164,6 +169,35 @@ function inquiry(db: ReturnType<typeof setup>["db"], periodFrom: string, periodT
 
 function assignAdminBooking(db: ReturnType<typeof setup>["db"], bookingId: number) {
   assignBooking(db, { bookingId, assigneeUserId: "admin", actorUserId: "admin" });
+}
+
+function recordManualPayment(
+  db: ReturnType<typeof setup>["db"],
+  input: {
+    bookingId: number;
+    amountCents: number;
+    reason: string;
+    actorUserId?: string;
+    financialAccountId?: number;
+    idempotencyKey?: string;
+  },
+) {
+  const categoryId = db
+    .select({ id: financialCategories.id })
+    .from(financialCategories)
+    .where(eq(financialCategories.code, "rental_revenue"))
+    .get()!.id;
+  return createAndPostManualTransaction(db, {
+    source: "manual",
+    bookedAt: "2026-08-01",
+    amountCents: input.amountCents,
+    categoryId,
+    bookingId: input.bookingId,
+    accountId: input.financialAccountId,
+    note: input.reason,
+    actorUserId: input.actorUserId ?? "admin",
+    idempotencyKey: input.idempotencyKey,
+  }).journalEntryId;
 }
 
 describe("booking commands", () => {
@@ -315,12 +349,12 @@ describe("booking commands", () => {
     const { db, assetId } = setup();
     expect(() => inquiry(db, "2026-02-30", "2026-03-01")).toThrow("Zeitraum und Uhrzeiten sind ungültig");
 
-    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    const booking = inquiry(db, "2026-07-20", "2026-07-21", "web");
     assignAdminBooking(db, booking.id);
     const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
     confirmOffer(db, offer.confirmationToken, "admin");
 
-    const firstEntry = recordPayment(db, {
+    const firstEntry = recordManualPayment(db, {
       bookingId: booking.id,
       amountCents: 10_000,
       reason: "Gesamtzahlung",
@@ -328,7 +362,7 @@ describe("booking commands", () => {
       idempotencyKey: "manual-payment-test-1",
     });
     expect(
-      recordPayment(db, {
+      recordManualPayment(db, {
         bookingId: booking.id,
         amountCents: 10_000,
         reason: "Gesamtzahlung wiederholt",
@@ -337,7 +371,7 @@ describe("booking commands", () => {
       }),
     ).toBe(firstEntry);
     expect(() =>
-      recordPayment(db, {
+      recordManualPayment(db, {
         bookingId: booking.id,
         amountCents: 10_001,
         reason: "Falscher Betrag",
@@ -473,14 +507,14 @@ describe("booking commands", () => {
       .returning({ id: financialAccounts.id })
       .get();
 
-    recordPayment(db, {
+    recordManualPayment(db, {
       bookingId: booking.id,
       amountCents: 4_000,
       financialAccountId: privateAccount.id,
       reason: "Erste Überweisung",
       actorUserId: "admin",
     });
-    recordPayment(db, {
+    recordManualPayment(db, {
       bookingId: booking.id,
       amountCents: 6_000,
       financialAccountId: privateAccount.id,
@@ -508,6 +542,8 @@ describe("booking commands", () => {
         offerId: offer.offerId,
         amountCents: offer.quote.totalCents,
         sessionId: "cs_test_manual_assignment_123",
+        paymentIntentId: "pi_test_manual_assignment_123",
+        metadata: { bookingId: String(booking.id), bookingOfferId: String(offer.offerId), currency: "eur" },
         actorUserId: "admin",
       }),
     ).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
@@ -520,6 +556,67 @@ describe("booking commands", () => {
       status: "accepted",
     });
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
+  });
+
+  it("rejects an existing Stripe transaction whose booking metadata is malformed", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    const stripeAccount = db.select().from(financialAccounts).where(eq(financialAccounts.code, "stripe_main")).get()!;
+    const timestamp = new Date();
+    db.insert(financialTransactions)
+      .values({
+        financialAccountId: stripeAccount.id,
+        source: "stripe",
+        provider: "stripe",
+        kind: "payment",
+        status: "posted",
+        amountCents: offer.quote.totalCents,
+        currency: "EUR",
+        bookedAt: "2026-08-20",
+        reference: "cs_test_malformed_metadata_123",
+        description: "Stripe-Zahlung",
+        metadataJson: "{nicht-json",
+        importedAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .run();
+
+    expect(() =>
+      assignStripePaymentToBooking(db, {
+        bookingId: booking.id,
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_malformed_metadata_123",
+        paymentIntentId: "pi_test_malformed_metadata_123",
+        metadata: { bookingId: String(booking.id), bookingOfferId: String(offer.offerId), currency: "eur" },
+        actorUserId: "admin",
+      }),
+    ).toThrow("ungültige Zuordnungsdaten");
+  });
+
+  it("does not accept a second PaymentIntent for an already accepted offer", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21", "web");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    confirmOfferWithStripePayment(db, {
+      offerId: offer.offerId,
+      amountCents: offer.quote.totalCents,
+      sessionId: "cs_test_payment_intent_binding_123",
+      paymentIntentId: "pi_test_payment_intent_binding_123",
+    });
+
+    expect(() =>
+      confirmOfferWithStripePayment(db, {
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_payment_intent_binding_123",
+        paymentIntentId: "pi_test_payment_intent_other_123",
+      }),
+    ).toThrow("anderen Zahlung");
   });
 
   it("maps the legacy flat pedal value when confirming an expired paid offer", () => {
@@ -574,6 +671,8 @@ describe("booking commands", () => {
         offerId: offer.offerId,
         amountCents: offer.quote.totalCents,
         sessionId: "cs_test_legacy_flat_pedal_123",
+        paymentIntentId: "pi_test_legacy_flat_pedal_123",
+        metadata: { bookingId: String(created.id), bookingOfferId: String(offer.offerId), currency: "eur" },
         actorUserId: "admin",
       }),
     ).toEqual({ bookingId: created.id, alreadyConfirmed: false });
@@ -783,6 +882,7 @@ describe("booking commands", () => {
         offerId: offer.offerId,
         amountCents: offer.quote.totalCents,
         sessionId: "cs_test_booking",
+        paymentIntentId: "pi_test_booking",
       }),
     ).toEqual({ bookingId: booking.id, alreadyConfirmed: false });
     expect(
@@ -868,6 +968,27 @@ describe("booking commands", () => {
       }),
     ).toThrow("Betrag");
     expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(2);
+  });
+
+  it("does not accept a second Stripe session after a Checkout Session was persisted", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    db.update(bookingOffers)
+      .set({ stripeSessionId: "cs_test_persisted_session" })
+      .where(eq(bookingOffers.id, offer.offerId))
+      .run();
+
+    expect(() =>
+      confirmOfferWithStripePayment(db, {
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_second_session",
+        paymentIntentId: "pi_test_second_intent",
+      }),
+    ).toThrow("zweite Stripe-Zahlung");
+    expect(db.select().from(journalEntries).where(eq(journalEntries.bookingId, booking.id)).all()).toHaveLength(0);
   });
 
   it("starts invoice numbering at 0001", () => {
@@ -1326,11 +1447,11 @@ describe("booking commands", () => {
     });
     const item = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, created.id)).get()!;
 
-    expect(() => setLegacyBookingStatus(db, { bookingId: created.id, status: "confirmed" })).toThrow(
+    expect(() => setHistoricalBookingStatus(db, { bookingId: created.id, status: "confirmed" })).toThrow(
       "Zeitraum, Uhrzeiten und Preis",
     );
 
-    setLegacyBookingStatus(db, {
+    setHistoricalBookingStatus(db, {
       bookingId: created.id,
       status: "confirmed",
       details: {
@@ -1380,7 +1501,7 @@ describe("booking commands", () => {
     });
     const nextItem = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, next.id)).get()!;
     expect(() =>
-      setLegacyBookingStatus(db, {
+      setHistoricalBookingStatus(db, {
         bookingId: next.id,
         status: "confirmed",
         details: {
@@ -1395,7 +1516,7 @@ describe("booking commands", () => {
       }),
     ).toThrow("Format YBR-JJJJ-NNNN");
     expect(() =>
-      setLegacyBookingStatus(db, {
+      setHistoricalBookingStatus(db, {
         bookingId: next.id,
         status: "confirmed",
         details: {
@@ -1601,7 +1722,6 @@ describe("booking commands", () => {
         assetCode: "TEST-2",
         displayName: "Test Bike - M 2",
         nickname: "Bike 2",
-        dailyPriceCents: 5_500,
         weekdayPriceCents: 5_500,
         weekendPriceCents: 5_500,
         createdAt: new Date(),
@@ -1646,7 +1766,14 @@ describe("booking commands", () => {
     ).toEqual({ assetId: replacement.id });
     const acceptedOffer = db.select().from(bookingOffers).where(eq(bookingOffers.id, offer.offerId)).get()!;
     expect(JSON.parse(acceptedOffer.priceSnapshotJson)).toMatchObject({
-      offeredItems: [{ assetId: replacement.id, assetName: "Test Bike - M 2", dailyPriceCents: 5_500 }],
+      offeredItems: [
+        {
+          assetId: replacement.id,
+          assetName: "Test Bike - M 2",
+          weekdayPriceCents: 5_500,
+          weekendPriceCents: 5_500,
+        },
+      ],
       bikeSubtotalCents: 11_000,
       discountCents: 0,
     });
@@ -1664,7 +1791,6 @@ describe("booking commands", () => {
         location: "munich",
         assetCode: "TEST-2",
         displayName: "Test Bike - M 2",
-        dailyPriceCents: 5_000,
         weekdayPriceCents: 5_000,
         weekendPriceCents: 5_000,
         createdAt: new Date(),
@@ -1735,7 +1861,7 @@ describe("booking commands", () => {
         .where(eq(bookingRequestedItems.bookingId, created.id))
         .get()!;
 
-      setLegacyBookingStatus(db, {
+      setHistoricalBookingStatus(db, {
         bookingId: created.id,
         status,
         details: {
@@ -1860,10 +1986,10 @@ describe("booking commands", () => {
       invoiceNumber: "YBR-2026-0001",
     };
 
-    setLegacyBookingStatus(db, { bookingId: created.id, status: "completed", details });
-    recordPayment(db, { bookingId: created.id, amountCents: 7_200, reason: "Zahlungseingang" });
-    setLegacyBookingStatus(db, { bookingId: created.id, status: "rejected", reason: "Fehlstatus" });
-    setLegacyBookingStatus(db, {
+    setHistoricalBookingStatus(db, { bookingId: created.id, status: "completed", details });
+    recordManualPayment(db, { bookingId: created.id, amountCents: 7_200, reason: "Zahlungseingang" });
+    setHistoricalBookingStatus(db, { bookingId: created.id, status: "rejected", reason: "Fehlstatus" });
+    setHistoricalBookingStatus(db, {
       bookingId: created.id,
       status: "completed",
       details: { ...details, quotedTotalCents: 12_000 },
@@ -1888,7 +2014,7 @@ describe("booking commands", () => {
       reason: "Gewünschtes Modell nicht verfügbar",
     });
     confirmOffer(db, offer.confirmationToken, "admin");
-    recordPayment(db, { bookingId: booking.id, amountCents: 10_000, reason: "Barzahlung", actorUserId: "admin" });
+    recordManualPayment(db, { bookingId: booking.id, amountCents: 10_000, reason: "Barzahlung", actorUserId: "admin" });
     advanceBooking(db, booking.id, "checked_out", "admin");
     advanceBooking(db, booking.id, "completed", "admin");
     expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()?.status).toBe(
@@ -1937,7 +2063,7 @@ describe("booking commands", () => {
       actorUserId: "admin",
     });
     confirmOffer(db, offer.confirmationToken, "admin");
-    recordPayment(db, { bookingId: booking.id, amountCents: 10_000, reason: "Stripe", actorUserId: "admin" });
+    recordManualPayment(db, { bookingId: booking.id, amountCents: 10_000, reason: "Stripe", actorUserId: "admin" });
 
     const mailId = cancelBooking(db, {
       bookingId: booking.id,

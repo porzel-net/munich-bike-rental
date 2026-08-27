@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAiBatchAnalysisButton } from "@/components/booking-ai-batch-analysis-button";
-import { LegacyBookingImportButton } from "@/components/legacy-booking-import-button";
 import { BookingPreflightDialog } from "@/components/booking-preflight-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -35,26 +34,11 @@ import { rentalLocationLabels, rentalLocations, type RentalLocation } from "@/li
 import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
 import { authUser } from "@/lib/db/schema";
 import { getRecommendedBikeSize, hasBikeSizeTable } from "@/lib/bikes/size-fit";
-import { addDateOnlyDays, addDateOnlyMonths, berlinDateKey } from "@/lib/datetime";
-
-type BookingPeriod = "all" | "week" | "month" | "six_months" | "year";
+import { getBookingPeriod } from "@/lib/bookings/period";
 
 function resolveLocationFilter(value: string | undefined) {
   if (!value || value === "all") return "all";
   return rentalLocations.includes(value as RentalLocation) ? (value as RentalLocation) : "all";
-}
-
-export function getBookingPeriod(period: string | undefined) {
-  const validPeriods: BookingPeriod[] = ["all", "week", "month", "six_months", "year"];
-  const selected = validPeriods.includes(period as BookingPeriod) ? (period as BookingPeriod) : "all";
-  if (selected === "all") return { selected, from: "", to: "" };
-
-  const today = berlinDateKey();
-  const from =
-    selected === "week"
-      ? addDateOnlyDays(today, -7)
-      : addDateOnlyMonths(today, selected === "month" ? -1 : selected === "six_months" ? -6 : -12);
-  return { selected, from, to: today };
 }
 
 function bookingShortId(orderNumber: string) {
@@ -248,7 +232,6 @@ export default async function BookingsPage({
                 </div>
                 <div className="flex gap-2">
                   {administrator && <BookingAiBatchAnalysisButton />}
-                  {administrator && <LegacyBookingImportButton />}
                   {administrator && preflight && <BookingPreflightDialog result={preflight} />}
                   <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
                     Manuelle Buchung

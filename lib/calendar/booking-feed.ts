@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { BUSINESS_TIME_ZONE } from "../datetime";
 import type { BookingStatus } from "../db/schema";
 import {
   getComputerMountTypeLabel,
@@ -153,8 +154,8 @@ export function buildBookingCalendarFeed(bookings: BookingCalendarRow[], options
       `DTSTAMP:${formatUtcDateTime(booking.submittedAt)}`,
       `LAST-MODIFIED:${formatUtcDateTime(booking.updatedAt)}`,
       `SEQUENCE:${Math.max(0, booking.version - 1)}`,
-      `DTSTART;TZID=Europe/Berlin:${formatLocalDateTime(booking.periodFrom, booking.pickupTime)}`,
-      `DTEND;TZID=Europe/Berlin:${formatLocalDateTime(booking.periodTo, booking.dropoffTime)}`,
+      `DTSTART;TZID=${BUSINESS_TIME_ZONE}:${formatLocalDateTime(booking.periodFrom, booking.pickupTime)}`,
+      `DTEND;TZID=${BUSINESS_TIME_ZONE}:${formatLocalDateTime(booking.periodTo, booking.dropoffTime)}`,
       `SUMMARY:${escapeText(`${calendarTitleStatus(booking.status)} · ${booking.bikes.join(" / ") || "Fahrrad"} · ${booking.name} · ${booking.orderNumber}`)}`,
       `DESCRIPTION:${escapeText(description)}`,
       `LOCATION:${escapeText(booking.locationAddress)}`,
@@ -171,7 +172,7 @@ export function buildBookingCalendarFeed(bookings: BookingCalendarRow[], options
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${escapeText(options.calendarName ?? "Munich Bike Rental Buchungen")}`,
-    "X-WR-TIMEZONE:Europe/Berlin",
+    `X-WR-TIMEZONE:${BUSINESS_TIME_ZONE}`,
     ...events,
     "END:VCALENDAR",
   ]

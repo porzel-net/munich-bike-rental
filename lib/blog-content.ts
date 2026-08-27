@@ -1,6 +1,7 @@
 import type { StaticImageData } from "next/image";
 
 import type { Locale, LocalizedText } from "./home-content";
+import { BUSINESS_TIME_ZONE } from "./datetime";
 
 export type BlogBlock =
   | {
@@ -446,7 +447,7 @@ export function formatBlogDate(date: string, locale: Locale) {
     day: "2-digit",
     month: "long",
     year: "numeric",
-    timeZone: "Europe/Berlin",
+    timeZone: BUSINESS_TIME_ZONE,
   }).format(new Date(date));
 }
 

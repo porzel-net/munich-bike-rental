@@ -1,9 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import { getInvoicePriceSummary, renderInvoicePdf } from "../../lib/bookings/invoice-pdf";
-import { applyCustomOfferPrice } from "../../lib/bookings/quotes";
+import { applyCustomOfferPrice, getOfferItemPriceSchedule } from "../../lib/bookings/quotes";
 
 describe("invoice PDF rendering", () => {
+  it("keeps old single-rate offer snapshots readable without using them for new quotes", () => {
+    expect(getOfferItemPriceSchedule({ weekdayPriceCents: 4_900, weekendPriceCents: 6_900 })).toEqual({
+      weekdayPriceCents: 4_900,
+      weekendPriceCents: 6_900,
+    });
+    expect(getOfferItemPriceSchedule({ dailyPriceCents: 5_000 })).toEqual({
+      weekdayPriceCents: 5_000,
+      weekendPriceCents: 5_000,
+    });
+    expect(getOfferItemPriceSchedule({ weekdayPriceCents: -1, weekendPriceCents: 6_900 })).toBeUndefined();
+  });
+
   it("separates the canonical rental discount from an individual discount", () => {
     const summary = getInvoicePriceSummary({
       periodFrom: "2026-08-20",
@@ -110,7 +122,8 @@ describe("invoice PDF rendering", () => {
             assetId: 1,
             assetName: "Road Bike",
             frameNumber: "RB-1",
-            dailyPriceCents: 5_000,
+            weekdayPriceCents: 5_000,
+            weekendPriceCents: 5_000,
             accessories: {
               needsPedals: false,
               pedalType: null,
@@ -121,6 +134,7 @@ describe("invoice PDF rendering", () => {
             },
           },
         ],
+        bikePriceLines: [{ assetId: 1, baseCents: 10_000, discountCents: 500, totalCents: 9_500 }],
       },
       paidAmountCents: 12_000,
     });

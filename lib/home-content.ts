@@ -1,5 +1,5 @@
 import type { StaticImageData } from "next/image";
-import { Bike, CalendarClock, GraduationCap, Package, type LucideIcon } from "lucide-react";
+import { Bike, Package, type LucideIcon } from "lucide-react";
 
 const aeroadPreview = "/bikes/aeroad-cf-sl-8-disc/preview.webp";
 const aeroadReal1 = "/bikes/aeroad-cf-sl-8-disc/real1.webp";
@@ -50,10 +50,8 @@ export type PortfolioItem = {
   title: string;
   frameNumber?: string | null;
   subtitle: LocalizedText;
-  price: LocalizedText;
-  weekdayPrice?: LocalizedText;
-  weekendPrice?: LocalizedText;
-  discountText?: LocalizedText;
+  weekdayPrice: LocalizedText;
+  weekendPrice: LocalizedText;
   description: LocalizedText;
   image: string | StaticImageData;
   gallery: Array<string | StaticImageData>;
@@ -71,7 +69,7 @@ export type ServiceItem = {
 
 export type PriceItem = {
   title: LocalizedText;
-  cost: LocalizedText;
+  cost?: LocalizedText;
   icon: LucideIcon;
 };
 
@@ -118,7 +116,6 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Endurace CF SL 8",
     subtitle: { de: "XS / S / M / L", en: "XS / S / M / L" },
-    price: { de: "49€/Tag", en: "49€/day" },
     weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
     weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
@@ -153,7 +150,6 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Grail CF SL 7",
     subtitle: { de: "S / M / L", en: "S / M / L" },
-    price: { de: "49€/Tag", en: "49€/day" },
     weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
     weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
@@ -202,7 +198,6 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Ultimate CF SL 7",
     subtitle: { de: "M / L", en: "M / L" },
-    price: { de: "49€/Tag", en: "49€/day" },
     weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
     weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
@@ -241,7 +236,6 @@ export const portfolioItems: PortfolioItem[] = [
   {
     title: "Aeroad CF SL 8",
     subtitle: { de: "S / M", en: "S / M" },
-    price: { de: "49€/Tag", en: "49€/day" },
     weekdayPrice: { de: "Mo-Fr: 49€/Tag", en: "Mon-Fri: 49€/day" },
     weekendPrice: { de: "Sa-So: 69€/Tag", en: "Sat-Sun: 69€/day" },
     description: {
@@ -287,22 +281,10 @@ export const portfolioItems: PortfolioItem[] = [
 export const priceItems: PriceItem[] = [
   {
     title: { de: "Rennräder", en: "Road bikes" },
-    cost: { de: "Mo-Fr ab 49€ · Sa-So ab 69€", en: "Mon-Fri from 49€ · Sat-Sun from 69€" },
     icon: Bike,
   },
   {
-    title: { de: "Ab 3 Tagen", en: "From 3 days" },
-    cost: { de: "15%", en: "15%" },
-    icon: CalendarClock,
-  },
-  {
-    title: { de: "Studentenrabatt", en: "Student discount" },
-    cost: { de: "10%", en: "10%" },
-    icon: GraduationCap,
-  },
-  {
     title: { de: "Zubehör", en: "Accessories" },
-    cost: { de: "ab 0€", en: "from 0€" },
     icon: Package,
   },
 ];

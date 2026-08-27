@@ -26,7 +26,7 @@ export default async function NewBookingPage() {
       nickname: rentalAssets.nickname,
       modelTitle: bikeModels.title,
       size: bikeVariants.size,
-      priceCents: rentalAssets.dailyPriceCents,
+      priceCents: rentalAssets.weekdayPriceCents,
       state: rentalAssets.state,
     })
     .from(rentalAssets)

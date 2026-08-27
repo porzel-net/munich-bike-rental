@@ -313,6 +313,9 @@ describe("admin booking command API", () => {
       id: "cs_test_manual_assignment",
       payment_status: "paid",
       amount_total: 12_300,
+      currency: "eur",
+      payment_intent: "pi_test_manual_assignment",
+      metadata: { booking_id: "42", booking_offer_id: "7" },
     });
     bookingApiMocks.assignStripePaymentToBooking.mockReturnValue({
       bookingId: 42,

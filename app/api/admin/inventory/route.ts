@@ -23,7 +23,6 @@ export const runtime = "nodejs";
 const locationSchema = z.enum(rentalLocations);
 const baseSchema = z.object({
   location: locationSchema,
-  priceCents: z.number().int().min(0).max(1_000_000_000),
   availableQuantity: z.number().int().min(0).max(10_000).default(1),
   isAvailable: z.boolean().default(true),
 });
@@ -33,14 +32,12 @@ const bikeSchema = baseSchema.extend({
   nickname: z.string().trim().max(120).optional().nullable(),
   size: z.string().trim().min(1).max(32),
   frameNumber: z.string().trim().max(120).optional().nullable(),
-  weekdayPriceCents: z.number().int().min(0).max(1_000_000_000).optional(),
-  weekendPriceCents: z.number().int().min(0).max(1_000_000_000).optional(),
-  // Kept in the request contract for compatibility; model-specific promos are presentation-only.
-  discountTextDe: z.string().trim().max(500).optional(),
-  discountTextEn: z.string().trim().max(500).optional(),
+  weekdayPriceCents: z.number().int().min(0).max(1_000_000_000),
+  weekendPriceCents: z.number().int().min(0).max(1_000_000_000),
 });
 const equipmentSchema = baseSchema.extend({
   type: z.literal("equipment"),
+  priceCents: z.number().int().min(0).max(1_000_000_000),
   category: z.enum(equipmentCategories),
   labelDe: z.string().trim().min(1).max(120),
   labelEn: z.string().trim().min(1).max(120),
@@ -119,17 +116,10 @@ function getOrCreateVariant(db: ReturnType<typeof getDatabase>, modelId: number,
 }
 
 function bikeResponse(input: z.infer<typeof bikeSchema>, id: number) {
-  const weekdayPriceCents = input.weekdayPriceCents ?? input.priceCents;
-  const weekendPriceCents = input.weekendPriceCents ?? input.priceCents;
   return {
     ...input,
     id,
-    priceCents: weekdayPriceCents,
-    weekdayPriceCents,
-    weekendPriceCents,
     bikeKey: createBikeKey(input.title, input.size),
-    discountTextDe: "",
-    discountTextEn: "",
   };
 }
 
@@ -158,8 +148,6 @@ export async function POST(request: Request) {
         const stamp = new Date();
         const modelId = getOrCreateModel(db, input.data.location, input.data.title, stamp);
         const variantId = getOrCreateVariant(db, modelId, input.data.size, stamp);
-        const weekdayPriceCents = input.data.weekdayPriceCents ?? input.data.priceCents;
-        const weekendPriceCents = input.data.weekendPriceCents ?? input.data.priceCents;
         const inserted = db
           .insert(rentalAssets)
           .values({
@@ -169,9 +157,8 @@ export async function POST(request: Request) {
             nickname: input.data.nickname?.trim() || null,
             frameNumber: input.data.frameNumber?.trim() || null,
             displayName: formatBikeDisplayName(input.data.title, input.data.size),
-            dailyPriceCents: weekdayPriceCents,
-            weekdayPriceCents,
-            weekendPriceCents,
+            weekdayPriceCents: input.data.weekdayPriceCents,
+            weekendPriceCents: input.data.weekendPriceCents,
             state: input.data.isAvailable ? "active" : "maintenance",
             createdAt: stamp,
             updatedAt: stamp,
@@ -238,17 +225,14 @@ export async function PATCH(request: Request) {
         const stamp = new Date();
         const modelId = getOrCreateModel(db, input.data.location, input.data.title, stamp);
         const variantId = getOrCreateVariant(db, modelId, input.data.size, stamp);
-        const weekdayPriceCents = input.data.weekdayPriceCents ?? input.data.priceCents;
-        const weekendPriceCents = input.data.weekendPriceCents ?? input.data.priceCents;
         db.update(rentalAssets)
           .set({
             variantId,
             nickname: input.data.nickname?.trim() || null,
             frameNumber: input.data.frameNumber?.trim() || null,
             displayName: formatBikeDisplayName(input.data.title, input.data.size),
-            dailyPriceCents: weekdayPriceCents,
-            weekdayPriceCents,
-            weekendPriceCents,
+            weekdayPriceCents: input.data.weekdayPriceCents,
+            weekendPriceCents: input.data.weekendPriceCents,
             state: input.data.isAvailable ? "active" : "maintenance",
             updatedAt: stamp,
           })

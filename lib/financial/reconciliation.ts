@@ -14,6 +14,7 @@ import {
 } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry, getReceivedPaymentCents, getReceivableStatus, hasBookingCharge } from "../bookings/ledger";
+import { validateManualBookingPayment } from "../bookings/payment-rules";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
 import { getActiveFinancialCategoryByCode, getBookingRevenueCategory } from "./categories";
@@ -192,7 +193,7 @@ export function postFinancialTransaction(
 
 export function assignNevloTransactionToBooking(
   db: AppDatabase,
-  input: { transactionId: number; bookingId: number; actorUserId: string },
+  input: { transactionId: number; bookingId: number; amountCents?: number; actorUserId: string },
 ) {
   return runInImmediateTransaction(db, () => {
     const result = assignNevloTransactionToBookingInTransaction(db, input);
@@ -205,6 +206,7 @@ function assignNevloTransactionToBookingInTransaction(
   input: {
     transactionId: number;
     bookingId: number;
+    amountCents?: number;
     actorUserId: string;
     matchMethod?: "automatic" | "manual";
     allowExistingCategoryAllocation?: boolean;
@@ -222,15 +224,35 @@ function assignNevloTransactionToBookingInTransaction(
     throw new BookingCommandError("Eine ignorierte Transaktion kann nicht zugewiesen werden.");
   if (transaction.amountCents <= 0)
     throw new BookingCommandError("Nur Zahlungseingänge können einem Auftrag zugewiesen werden.");
-  const existingAllocation = db
+  const existingAllocations = db
     .select()
     .from(financialTransactionAllocations)
     .where(eq(financialTransactionAllocations.transactionId, transaction.id))
-    .get();
+    .all();
+  const existingAllocation = existingAllocations[0];
+  const allocatedCents = existingAllocations.reduce((sum, allocation) => sum + allocation.amountCents, 0);
+  const allocationAmountCents = input.amountCents ?? transaction.amountCents;
+  const isPartialAllocation = allocationAmountCents < transaction.amountCents;
+  if (!Number.isSafeInteger(allocationAmountCents) || allocationAmountCents <= 0)
+    throw new BookingCommandError("Der zuzuweisende Teilbetrag muss ein positiver Centbetrag sein.");
+  if (allocationAmountCents > transaction.amountCents)
+    throw new BookingCommandError("Der zuzuweisende Betrag ist höher als der Bankbetrag.");
+  if (isPartialAllocation && allocationAmountCents > transaction.amountCents - allocatedCents)
+    throw new BookingCommandError("Der zuzuweisende Betrag ist höher als der noch nicht zugewiesene Bankbetrag.");
+  if (
+    isPartialAllocation &&
+    existingAllocations.some(
+      (allocation) => allocation.allocationKind !== "booking_payment" || allocation.bookingId === null,
+    )
+  )
+    throw new BookingCommandError(
+      "Dieser Bankumsatz enthält bereits eine andere sachliche Zuordnung und kann nicht zusätzlich geteilt werden.",
+    );
   const existingCategory = existingAllocation?.categoryId
     ? db.select().from(financialCategories).where(eq(financialCategories.id, existingAllocation.categoryId)).get()
     : undefined;
   const isSameBookingPayment =
+    !isPartialAllocation &&
     existingAllocation?.bookingId === input.bookingId && existingAllocation.allocationKind === "booking_payment";
   const isPostedBookingPaymentReassignment =
     transaction.status === "posted" &&
@@ -246,6 +268,7 @@ function assignNevloTransactionToBookingInTransaction(
     existingCategory?.code === "rental_revenue";
   if (
     existingAllocation &&
+    !isPartialAllocation &&
     !canConvertExistingCategoryAllocation &&
     !isSameBookingPayment &&
     !isPostedBookingPaymentReassignment
@@ -274,20 +297,16 @@ function assignNevloTransactionToBookingInTransaction(
     };
   }
   const receivable = getReceivableStatus(db, booking.id);
-  if (hasBookingCharge(db, booking.id)) {
-    if (receivable.openCents <= 0)
-      throw new BookingCommandError(
-        receivable.openCents < 0
-          ? "Dieser Auftrag ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung."
-          : "Dieser Auftrag ist bereits vollständig bezahlt.",
-      );
-    if (transaction.amountCents > receivable.openCents)
-      throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Auftragsbetrag.");
-  } else if (
-    booking.quotedTotalCents > 0 &&
-    getReceivedPaymentCents(db, booking.id) + transaction.amountCents > booking.quotedTotalCents
-  ) {
-    throw new BookingCommandError("Die Zahlung darf den bekannten Gesamtpreis der Buchung nicht überschreiten.");
+  try {
+    validateManualBookingPayment({
+      booking,
+      amountCents: allocationAmountCents,
+      receivedCents: getReceivedPaymentCents(db, booking.id),
+      openCents: receivable.openCents,
+      hasCharge: hasBookingCharge(db, booking.id),
+    });
+  } catch (error) {
+    throw new BookingCommandError(error instanceof Error ? error.message : "Die Zahlung ist nicht zulässig.");
   }
 
   const sourceAccount = db
@@ -323,14 +342,14 @@ function assignNevloTransactionToBookingInTransaction(
         kind: "payment_received",
         reason: `Nevlo-Überweisung ${booking.orderNumber}`,
         lines: [
-          { account: sourceAccount.code, amountCents: transaction.amountCents },
+          { account: sourceAccount.code, amountCents: allocationAmountCents },
           // The charge may be created later. Posting every booking payment to
           // receivables keeps the journal correct regardless of event order.
-          { account: "accounts_receivable", amountCents: -transaction.amountCents },
+          { account: "accounts_receivable", amountCents: -allocationAmountCents },
         ],
       });
   const now = new Date();
-  if (existingAllocation) {
+  if (existingAllocation && !isPartialAllocation) {
     // Allocation identity is immutable. Replace the old category allocation
     // with the booking-payment allocation after the correction journal entry.
     db.delete(financialTransactionAllocations)
@@ -345,7 +364,7 @@ function assignNevloTransactionToBookingInTransaction(
       allocationKind: "booking_payment",
       matchMethod: input.matchMethod ?? "automatic",
       matchScore: 100,
-      amountCents: transaction.amountCents,
+      amountCents: allocationAmountCents,
       journalEntryId,
       note: `Auftrag ${booking.orderNumber}`,
       matchedByUserId: input.actorUserId,
@@ -355,7 +374,12 @@ function assignNevloTransactionToBookingInTransaction(
     })
     .run();
   db.update(financialTransactions)
-    .set({ status: "posted", reconciledAt: now, reconciledByUserId: input.actorUserId, updatedAt: now })
+    .set({
+      status: allocatedCents + allocationAmountCents === transaction.amountCents ? "posted" : "matched",
+      reconciledAt: now,
+      reconciledByUserId: input.actorUserId,
+      updatedAt: now,
+    })
     .where(eq(financialTransactions.id, transaction.id))
     .run();
   return { journalEntryId, transactionId: transaction.id, bookingId: booking.id, orderNumber: booking.orderNumber };

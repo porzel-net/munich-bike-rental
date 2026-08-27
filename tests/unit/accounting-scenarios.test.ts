@@ -9,6 +9,7 @@ vi.mock("../../lib/stripe", () => stripeApi);
 
 import {
   authUser,
+  bookingOffers,
   bookings,
   financialAccounts,
   financialCategories,
@@ -173,6 +174,20 @@ describe("end-to-end accounting scenarios", () => {
       })
       .returning({ id: bookings.id })
       .get();
+    db.insert(bookingOffers)
+      .values({
+        bookingId: booking.id,
+        offerNumber: 1,
+        status: "accepted",
+        tokenHash: "scenario-stripe-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        acceptedAt: new Date(),
+        stripeSessionId: "cs_test_scenario",
+        stripePaymentIntentId: "pi_test_scenario",
+        totalCents: 10_000,
+        createdAt: new Date(),
+      })
+      .run();
     stripeApi.getStripeCheckoutPaymentDetails.mockResolvedValue({
       session: {
         id: "cs_test_scenario",
@@ -181,6 +196,10 @@ describe("end-to-end accounting scenarios", () => {
         amount_total: 10_000,
         currency: "eur",
         customer_email: "scenario@example.com",
+        metadata: {
+          booking_id: String(booking.id),
+          booking_offer_id: "1",
+        },
       },
       paymentIntentId: "pi_test_scenario",
       chargeId: "ch_test_scenario",
@@ -225,6 +244,83 @@ describe("end-to-end accounting scenarios", () => {
       profitCents: 9_700,
       excludedInternalCents: 9_700,
     });
+  });
+
+  it("rejects a Stripe import when the stored PaymentIntent or gross balance differs", async () => {
+    const { db } = setup();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "SCENARIO-STRIPE-2",
+        customerName: "Scenario Customer",
+        customerEmail: "scenario@example.com",
+        customerPhone: "000",
+        location: "munich",
+        periodFrom: "2026-08-10",
+        periodTo: "2026-08-11",
+        pickupTime: "09:00",
+        dropoffTime: "17:00",
+        source: "manual",
+        status: "confirmed",
+        quotedTotalCents: 10_000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: bookings.id })
+      .get();
+    const offer = db
+      .insert(bookingOffers)
+      .values({
+        bookingId: booking.id,
+        offerNumber: 1,
+        status: "accepted",
+        tokenHash: "scenario-stripe-token-2",
+        expiresAt: new Date(Date.now() + 60_000),
+        acceptedAt: new Date(),
+        stripeSessionId: "cs_test_scenario_2",
+        stripePaymentIntentId: "pi_test_scenario_2",
+        totalCents: 10_000,
+        createdAt: new Date(),
+      })
+      .returning({ id: bookingOffers.id })
+      .get();
+    const baseDetails = {
+      session: {
+        id: "cs_test_scenario_2",
+        url: null,
+        payment_status: "paid",
+        amount_total: 10_000,
+        currency: "eur",
+        customer_email: "scenario@example.com",
+        metadata: { booking_id: String(booking.id), booking_offer_id: String(offer.id) },
+      },
+      chargeId: "ch_test_scenario_2",
+      balanceTransaction: {
+        id: "txn_test_scenario_2",
+        amount: 10_000,
+        fee: 300,
+        net: 9_700,
+        currency: "eur",
+        created: Math.floor(Date.UTC(2026, 7, 5) / 1_000),
+        available_on: Math.floor(Date.UTC(2026, 7, 6) / 1_000),
+      },
+    };
+    stripeApi.getStripeCheckoutPaymentDetails.mockResolvedValue({
+      ...baseDetails,
+      paymentIntentId: "pi_test_other_scenario_2",
+    });
+    await expect(importStripeCheckoutPayment(db, { sessionId: "cs_test_scenario_2", bookingId: booking.id })).rejects.toThrow(
+      "gehört nicht sicher",
+    );
+
+    stripeApi.getStripeCheckoutPaymentDetails.mockResolvedValue({
+      ...baseDetails,
+      paymentIntentId: "pi_test_scenario_2",
+      balanceTransaction: { ...baseDetails.balanceTransaction, amount: 9_999 },
+    });
+    await expect(importStripeCheckoutPayment(db, { sessionId: "cs_test_scenario_2", bookingId: booking.id })).rejects.toThrow(
+      "gehört nicht sicher",
+    );
   });
 
   it("handles an asset lifecycle once: acquisition, AfA, sale and output VAT", () => {

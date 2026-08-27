@@ -27,6 +27,13 @@ type StripeOfferPayment = {
   paymentIntentId?: string | null;
 };
 
+function assertStripePaymentReference(payment: StripeOfferPayment) {
+  if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(payment.sessionId))
+    throw new BookingCommandError("Die Stripe-Zahlungsreferenz ist ungültig.");
+  if (!payment.paymentIntentId || !/^pi_[A-Za-z0-9_]+$/.test(payment.paymentIntentId))
+    throw new BookingCommandError("Für die Stripe-Zahlung fehlt eine gültige Payment-Intent-Referenz.");
+}
+
 function confirmOfferRecord(
   db: AppDatabase,
   offer: typeof bookingOffers.$inferSelect,
@@ -41,9 +48,18 @@ function confirmOfferRecord(
 ) {
   if (payment && (payment.amountCents !== offer.totalCents || !Number.isSafeInteger(payment.amountCents)))
     throw new BookingCommandError("Der Betrag der Stripe-Zahlung stimmt nicht mit dem ausgewählten Angebot überein.");
+  if (payment) assertStripePaymentReference(payment);
+  if (payment && offer.stripeSessionId && offer.stripeSessionId !== payment.sessionId)
+    throw new BookingCommandError(
+      "Dieses Angebot wurde bereits mit einer anderen Stripe-Session geöffnet. Eine zweite Stripe-Zahlung wird nicht angenommen.",
+    );
   if (offer.status === "accepted") {
     if (!payment) return { bookingId: offer.bookingId, alreadyConfirmed: true };
-    if (!offer.stripeSessionId || offer.stripeSessionId !== payment.sessionId)
+    if (
+      !offer.stripeSessionId ||
+      offer.stripeSessionId !== payment.sessionId ||
+      (offer.stripePaymentIntentId && offer.stripePaymentIntentId !== payment.paymentIntentId)
+    )
       throw new BookingCommandError(
         "Dieses Angebot wurde bereits mit einer anderen Zahlung bestätigt. Eine zweite Stripe-Zahlung wird nicht angenommen.",
       );
@@ -214,6 +230,7 @@ export function assignStripePaymentToBooking(
     amountCents: number;
     sessionId: string;
     paymentIntentId?: string | null;
+    metadata: { bookingId?: string; bookingOfferId?: string; currency?: string | null };
     actorUserId: string;
     sendMail?: boolean;
   },
@@ -224,8 +241,16 @@ export function assignStripePaymentToBooking(
       throw new BookingCommandError("Das ausgewählte Angebot gehört nicht zu dieser Buchung.");
     if (!Number.isSafeInteger(input.amountCents) || input.amountCents !== offer.totalCents)
       throw new BookingCommandError("Der Stripe-Betrag stimmt nicht mit dem ausgewählten Angebot überein.");
+    if (
+      input.metadata.bookingId !== String(input.bookingId) ||
+      input.metadata.bookingOfferId !== String(input.offerId) ||
+      input.metadata.currency?.toLowerCase() !== "eur"
+    )
+      throw new BookingCommandError("Die Stripe-Zahlung gehört nicht zu diesem Angebot.");
     if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(input.sessionId))
       throw new BookingCommandError("Die Stripe-Zahlungsreferenz ist ungültig.");
+    if (!input.paymentIntentId || !/^pi_[A-Za-z0-9_]+$/.test(input.paymentIntentId))
+      throw new BookingCommandError("Für die Stripe-Zahlung fehlt eine gültige Payment-Intent-Referenz.");
 
     const existingTransaction = db
       .select({ metadataJson: financialTransactions.metadataJson })
@@ -241,10 +266,11 @@ export function assignStripePaymentToBooking(
     if (existingTransaction) {
       try {
         const metadata = JSON.parse(existingTransaction.metadataJson) as { bookingId?: number };
-        if (metadata.bookingId && metadata.bookingId !== input.bookingId)
+        if (metadata.bookingId !== input.bookingId)
           throw new BookingCommandError("Diese Stripe-Zahlung ist bereits einer anderen Buchung zugeordnet.");
       } catch (error) {
         if (error instanceof BookingCommandError) throw error;
+        throw new BookingCommandError("Die vorhandene Stripe-Zahlung hat ungültige Zuordnungsdaten.");
       }
     }
     const existingConfirmation = db

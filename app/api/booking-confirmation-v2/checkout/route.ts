@@ -1,11 +1,18 @@
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getPublicBookingByToken, getPublicBookingContactEmail, getPublicOfferByToken } from "@/lib/bookings/public";
 import { getDatabase } from "@/lib/db/client";
+import { bookingOffers } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { consumePublicOfferRequestRateLimit } from "@/lib/security/rate-limit";
-import { createStripeCheckoutSession, StripeConfigurationError } from "@/lib/stripe";
+import {
+  createStripeCheckoutSession,
+  getStripeCheckoutSession,
+  StripeConfigurationError,
+  type StripeCheckoutSession,
+} from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -28,6 +35,22 @@ function getAppOrigin(requestUrl: string) {
     return origin.origin;
   } catch {
     throw new StripeConfigurationError("APP_ORIGIN muss eine gültige HTTP(S)-URL sein.");
+  }
+}
+
+function assertCheckoutSessionMatchesOffer(
+  session: StripeCheckoutSession,
+  offerId: number,
+  bookingId: number,
+  totalCents: number,
+) {
+  if (
+    session.metadata?.booking_offer_id !== String(offerId) ||
+    session.metadata?.booking_id !== String(bookingId) ||
+    session.amount_total !== totalCents ||
+    session.currency?.toLowerCase() !== "eur"
+  ) {
+    throw new StripeConfigurationError("Die gespeicherte Stripe-Session gehört nicht sicher zu diesem Angebot.");
   }
 }
 
@@ -55,6 +78,23 @@ export async function POST(request: Request) {
   try {
     const origin = getAppOrigin(request.url);
     const offerPath = `/angebot/${encodeURIComponent(input.data.token)}`;
+    const storedSession = database
+      .select({ stripeSessionId: bookingOffers.stripeSessionId })
+      .from(bookingOffers)
+      .where(and(eq(bookingOffers.id, offer.offerId), eq(bookingOffers.status, "sent")))
+      .get()?.stripeSessionId;
+    if (storedSession) {
+      const existingSession = await getStripeCheckoutSession(storedSession);
+      assertCheckoutSessionMatchesOffer(existingSession, offer.offerId, offer.booking.id, offer.totalCents);
+      if (existingSession.status !== "expired") {
+        if (!existingSession.url) throw new Error("Stripe hat keine Checkout-URL zurückgegeben.");
+        return NextResponse.json(
+          { url: existingSession.url, sessionId: existingSession.id, amountCents: offer.totalCents },
+          { headers: { "Cache-Control": "no-store" } },
+        );
+      }
+    }
+    const idempotencyKey = `booking-offer-checkout:${offer.offerId}${storedSession ? `:${storedSession}` : ""}`;
     const session = await createStripeCheckoutSession({
       amountCents: offer.totalCents,
       customerEmail,
@@ -68,8 +108,13 @@ export async function POST(request: Request) {
         booking_id: String(offer.booking.id),
         offer_total_cents: String(offer.totalCents),
       },
-      idempotencyKey: `booking-offer-checkout:${offer.offerId}`,
+      idempotencyKey,
     });
+    database
+      .update(bookingOffers)
+      .set({ stripeSessionId: session.id })
+      .where(and(eq(bookingOffers.id, offer.offerId), eq(bookingOffers.status, "sent")))
+      .run();
 
     return NextResponse.json(
       { url: session.url, sessionId: session.id, amountCents: offer.totalCents },

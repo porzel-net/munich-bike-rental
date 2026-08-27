@@ -38,14 +38,18 @@ export type ManualBookingItem = {
   computerMountType: string;
   needsHelmet: boolean;
   needsClothing: boolean;
+  needsBikepackingBag: boolean;
+  needsGlasses: boolean;
+  bottleHolderIncluded: boolean;
+  repairKitIncluded: boolean;
+  insuranceProtectionSelected: boolean;
   assetId: string;
 };
 export type ManualBookingPricing = {
   bikePrices: Array<{
     option: string;
-    dailyPriceCents: number;
-    weekdayPriceCents?: number;
-    weekendPriceCents?: number;
+    weekdayPriceCents: number;
+    weekendPriceCents: number;
   }>;
   equipmentPrices: Array<{ key: string; priceCents: number }>;
   discounts: Array<{
@@ -75,6 +79,11 @@ const emptyItem = (key: number): ManualBookingItem => ({
   computerMountType: "",
   needsHelmet: false,
   needsClothing: false,
+  needsBikepackingBag: false,
+  needsGlasses: false,
+  bottleHolderIncluded: true,
+  repairKitIncluded: true,
+  insuranceProtectionSelected: true,
   assetId: "",
 });
 
@@ -190,6 +199,11 @@ export function ManualBookingForm({
         computerMountType: item.needsComputerMount ? item.computerMountType || null : null,
         needsHelmet: item.needsHelmet,
         needsClothing: item.needsClothing,
+        needsBikepackingBag: item.needsBikepackingBag,
+        needsGlasses: item.needsGlasses,
+        bottleHolderIncluded: item.bottleHolderIncluded,
+        repairKitIncluded: item.repairKitIncluded,
+        insuranceProtectionSelected: item.insuranceProtectionSelected,
       })),
       ...(mode === "direct"
         ? {
@@ -491,6 +505,41 @@ export function ManualBookingForm({
                     onCheckedChange={(checked) => update(item.key, { needsClothing: checked })}
                   />{" "}
                   Kleidung benötigt
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={item.needsBikepackingBag}
+                    onCheckedChange={(checked) => update(item.key, { needsBikepackingBag: checked })}
+                  />{" "}
+                  Bikepacking-Tasche benötigt
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={item.needsGlasses}
+                    onCheckedChange={(checked) => update(item.key, { needsGlasses: checked })}
+                  />{" "}
+                  Brille benötigt
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={item.bottleHolderIncluded}
+                    onCheckedChange={(checked) => update(item.key, { bottleHolderIncluded: checked })}
+                  />{" "}
+                  Flaschenhalter inklusive
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={item.repairKitIncluded}
+                    onCheckedChange={(checked) => update(item.key, { repairKitIncluded: checked })}
+                  />{" "}
+                  Reparaturset inklusive
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={item.insuranceProtectionSelected}
+                    onCheckedChange={(checked) => update(item.key, { insuranceProtectionSelected: checked })}
+                  />{" "}
+                  Versicherungsschutz ausgewählt
                 </label>
               </div>
             </div>

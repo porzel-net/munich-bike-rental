@@ -16,7 +16,7 @@ import {
   revokeOffer,
   recordRefund,
   setBookingEmailQuestionsResolved,
-  setLegacyBookingStatus,
+  setHistoricalBookingStatus,
 } from "@/lib/bookings/service";
 import { BookingCommandError } from "@/lib/bookings/errors";
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
@@ -108,7 +108,7 @@ const commandSchema = z.discriminatedUnion("command", [
     sendMail: z.boolean().optional(),
   }),
   z.object({
-    command: z.literal("set_legacy_status"),
+    command: z.literal("set_historical_status"),
     status: z.enum([
       "inquiry_received",
       "offer_sent",
@@ -238,25 +238,45 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           actorUserId: command.user.id,
           sendMail: input.data.sendMail,
         });
-        const stripeRefund = input.data.stripeRefundAmountCents
-          ? await refundStripeBookingPayment(command.db, {
+        let stripeRefund = null;
+        let stripeRefundError: string | null = null;
+        if (input.data.stripeRefundAmountCents) {
+          try {
+            stripeRefund = await refundStripeBookingPayment(command.db, {
               bookingId: id,
               amountCents: input.data.stripeRefundAmountCents,
               reason: `Stripe-Erstattung bei Stornierung: ${input.data.reason}`,
               actorUserId: command.user.id,
               idempotencyKey: input.data.stripeRefundIdempotencyKey ?? "",
-            })
-          : null;
+            });
+          } catch (error) {
+            stripeRefundError = error instanceof Error ? error.message : "Die Stripe-Erstattung ist noch offen.";
+            console.error("Booking cancelled but Stripe refund is pending", { bookingId: id, error });
+          }
+        }
         const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
         if (mailResult?.status === "failed")
           return NextResponse.json(
             {
-              message: "Die Buchung wurde storniert, aber die Stornomail konnte nicht versendet werden.",
+              message: stripeRefundError
+                ? "Die Buchung wurde storniert, aber Rückerstattung und Stornomail sind noch offen."
+                : "Die Buchung wurde storniert, aber die Stornomail konnte nicht versendet werden.",
               mailStatus: mailResult.status,
+              stripeRefundPending: Boolean(stripeRefundError),
             },
-            { status: 502 },
+            { status: stripeRefundError ? 202 : 502 },
           );
-        return NextResponse.json({ ok: true, stripeRefund });
+        if (stripeRefundError)
+          return NextResponse.json(
+            {
+              ok: true,
+              stripeRefund: null,
+              stripeRefundPending: true,
+              message: "Die Buchung wurde storniert. Die Stripe-Erstattung muss noch erneut ausgeführt werden.",
+            },
+            { status: 202 },
+          );
+        return NextResponse.json({ ok: true, stripeRefund, stripeRefundPending: false });
       }
       case "refund":
         recordRefund(command.db, {
@@ -347,7 +367,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       case "assign_stripe_payment": {
         const session = await getStripeCheckoutSession(input.data.sessionId);
         const amountCents = session.amount_total;
-        if (session.payment_status !== "paid" || amountCents === null || !Number.isSafeInteger(amountCents))
+        if (
+          session.payment_status !== "paid" ||
+          amountCents === null ||
+          !Number.isSafeInteger(amountCents) ||
+          session.metadata?.booking_id !== String(id) ||
+          session.metadata?.booking_offer_id !== String(input.data.offerId) ||
+          session.currency?.toLowerCase() !== "eur"
+        )
           throw new BookingCommandError("Die ausgewählte Stripe-Zahlung ist noch nicht als bezahlt bestätigt.");
         const result = assignStripePaymentToBooking(command.db, {
           bookingId: id,
@@ -360,6 +387,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
               : session.payment_intent && typeof session.payment_intent === "object"
                 ? session.payment_intent.id
                 : null,
+          metadata: {
+            bookingId: session.metadata?.booking_id,
+            bookingOfferId: session.metadata?.booking_offer_id,
+            currency: session.currency,
+          },
           actorUserId: command.user.id,
           sendMail: input.data.sendMail,
         });
@@ -401,8 +433,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         }
         return NextResponse.json({ ok: true, ...result, accountingWarning, mailStatus: mailResult?.status ?? null });
       }
-      case "set_legacy_status":
-        setLegacyBookingStatus(command.db, {
+      case "set_historical_status":
+        setHistoricalBookingStatus(command.db, {
           bookingId: id,
           status: input.data.status,
           reason: input.data.reason,

@@ -89,6 +89,7 @@ export default async function BankTransactionsPage({
       destinationAccountId: financialTransactionAllocations.destinationAccountId,
       bookingId: financialTransactionAllocations.bookingId,
       fixedAssetId: financialTransactionAllocations.fixedAssetId,
+      allocationAmountCents: financialTransactionAllocations.amountCents,
       amountCents: financialTransactions.amountCents,
       currency: financialTransactions.currency,
       bookedAt: financialTransactions.bookedAt,
@@ -131,7 +132,32 @@ export default async function BankTransactionsPage({
       }
       return documents;
     }, new Map<number, Array<{ id: number; originalFileName: string }>>());
-  const reviewTransactionsForClient: FinancialReviewTransaction[] = reviewTransactions.map((row) => {
+  const groupedTransactions = new Map<
+    number,
+    (typeof reviewTransactions)[number] & { allocatedCents: number }
+  >();
+  for (const row of reviewTransactions) {
+    const existing = groupedTransactions.get(row.id);
+    if (!existing) {
+      groupedTransactions.set(row.id, {
+        ...row,
+        allocatedCents: row.allocationAmountCents ?? 0,
+      });
+      continue;
+    }
+    existing.allocatedCents += row.allocationAmountCents ?? 0;
+    if (existing.categoryId === null && row.categoryId !== null) {
+      existing.categoryId = row.categoryId;
+      existing.categoryCode = row.categoryCode;
+      existing.categoryType = row.categoryType;
+      existing.euerTreatment = row.euerTreatment;
+      existing.allocationKind = row.allocationKind;
+      existing.destinationAccountId = row.destinationAccountId;
+      existing.bookingId = row.bookingId;
+      existing.fixedAssetId = row.fixedAssetId;
+    }
+  }
+  const reviewTransactionsForClient: FinancialReviewTransaction[] = [...groupedTransactions.values()].map((row) => {
     const documents = documentCounts.get(row.id) ?? [];
     const matchedBooking = row.bookingId
       ? (bookingReferences.find((booking) => booking.id === row.bookingId) ?? null)
@@ -140,6 +166,8 @@ export default async function BankTransactionsPage({
         : null;
     return {
       ...row,
+      allocatedCents: row.allocatedCents,
+      remainingCents: Math.max(0, row.amountCents - row.allocatedCents),
       matchedBooking:
         matchedBooking && matchedBooking.status !== "rejected" && matchedBooking.status !== "cancelled"
           ? { id: matchedBooking.id, orderNumber: matchedBooking.orderNumber }

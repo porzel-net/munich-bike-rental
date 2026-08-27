@@ -24,7 +24,7 @@ import { isHistoricalAssetSelectableForBooking } from "./historical-availability
 import { appendJournalEntry } from "./ledger";
 import { renderBookingInformationChangedMail } from "./messages";
 import { formatEuro } from "./money";
-import { getAssetPriceSchedule } from "./quotes";
+import { getAssetPriceSchedule, getOfferItemPriceSchedule } from "./quotes";
 import { BookingCommandError } from "./errors";
 import { event, now, queueCustomerMail } from "./service-shared";
 import { isValidIsoDate, isValidTime } from "./validation";
@@ -369,7 +369,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
           bookingId: booking.id,
           kind: "rental_charge",
           actorUserId: input.actorUserId,
-          idempotencyKey: `legacy_booking_price_change:${booking.id}:${booking.version + 1}`,
+          idempotencyKey: `historical_booking_price_change:${booking.id}:${booking.version + 1}`,
           reason: "Mietbetrag der importierten Buchung angepasst",
           lines: [
             { account: "accounts_receivable", amountCents: amountDifference },
@@ -499,7 +499,6 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
             assetId: selected.asset.id,
             assetName: selected.asset.displayName,
             frameNumber: selected.asset.frameNumber,
-            dailyPriceCents: priceSchedule.weekdayPriceCents,
             weekdayPriceCents: priceSchedule.weekdayPriceCents,
             weekendPriceCents: priceSchedule.weekendPriceCents,
           };
@@ -508,9 +507,7 @@ export function updateBooking(db: AppDatabase, input: UpdateBookingCommand) {
         const pricingInventory = getLocationInventory(db, booking.location);
         const recalculated = calculatePrice(pricingInventory, {
           bikes: updatedSnapshotItems.map((item) => ({
-            dailyPriceCents: typeof item.dailyPriceCents === "number" ? item.dailyPriceCents : 0,
-            weekdayPriceCents: typeof item.weekdayPriceCents === "number" ? item.weekdayPriceCents : undefined,
-            weekendPriceCents: typeof item.weekendPriceCents === "number" ? item.weekendPriceCents : undefined,
+            ...(getOfferItemPriceSchedule(item) ?? { weekdayPriceCents: 0, weekendPriceCents: 0 }),
           })),
           equipmentSubtotalCents: bikeDetailsChanged
             ? calculateEquipmentSubtotalCents(pricingInventory, normalizedRequestedItems)

@@ -151,7 +151,7 @@ services:
       RESTIC_REPOSITORY: /backup/restic-repository
       RESTIC_PASSWORD_FILE: /run/secrets/restic-password
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-30 2 * * *}
-      BACKUP_TIMEZONE: ${BACKUP_TIMEZONE:-Europe/Rome}
+      BACKUP_TIMEZONE: ${BACKUP_TIMEZONE:-Europe/Berlin}
       BACKUP_RUN_ON_START: ${BACKUP_RUN_ON_START:-false}
     volumes:
       - app-data:/source:ro

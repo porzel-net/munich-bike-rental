@@ -5,7 +5,7 @@ import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookin
 import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
-import { mailOutbox } from "@/lib/db/schema";
+import { bookingOffers, mailOutbox } from "@/lib/db/schema";
 import { readBoundedText } from "@/lib/security/request-body";
 import { consumeRequestRateLimit } from "@/lib/security/rate-limit";
 import { constructStripeWebhookEvent, StripeConfigurationError } from "@/lib/stripe";
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       );
     }
     const amountCents = session.amount_total;
-    if (session.metadata?.booking_offer_id !== String(offerId)) {
+    if (session.metadata?.booking_offer_id !== String(offerId) || !session.metadata?.booking_id) {
       return NextResponse.json(
         { message: "Die Stripe-Zahlung gehört nicht zu diesem Angebot." },
         { status: 409, headers: { "Cache-Control": "no-store" } },
@@ -62,6 +62,17 @@ export async function POST(request: Request) {
     }
 
     const database = getDatabase();
+    const offer = database
+      .select({ bookingId: bookingOffers.bookingId })
+      .from(bookingOffers)
+      .where(eq(bookingOffers.id, offerId))
+      .get();
+    if (!offer || session.metadata?.booking_id !== String(offer.bookingId)) {
+      return NextResponse.json(
+        { message: "Die Stripe-Zahlung gehört nicht zu diesem Angebot." },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const result = confirmOfferWithStripePayment(database, {
       offerId,
       amountCents,

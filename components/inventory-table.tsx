@@ -19,7 +19,6 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import {
   defaultUncountedEquipmentCategories,
   equipmentCategories,
@@ -117,11 +116,8 @@ export function InventoryTable({
             nickname: item.nickname,
             frameNumber: item.frameNumber,
             size: item.size,
-            priceCents: item.priceCents,
             weekdayPriceCents: item.weekdayPriceCents,
             weekendPriceCents: item.weekendPriceCents,
-            discountTextDe: item.discountTextDe,
-            discountTextEn: item.discountTextEn,
             isAvailable: !item.isAvailable,
           }
         : {
@@ -246,14 +242,13 @@ export function InventoryTable({
                   <TableHead>Bike / Typ</TableHead>
                   <TableHead>Größe</TableHead>
                   <TableHead>Standort</TableHead>
-                  <TableHead>Rabatt-Hinweis</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Preise / Tag</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleBikes.length === 0 ? (
-                  <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
+                  <EmptyRow colSpan={5} label="Noch keine Bikes für diesen Standort erfasst." />
                 ) : (
                   visibleBikes.map((bike) => (
                     <TableRow
@@ -275,13 +270,6 @@ export function InventoryTable({
                       <TableCell>{bike.size}</TableCell>
                       <TableCell>
                         {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
-                      </TableCell>
-                      <TableCell>
-                        {bike.discountTextDe ? (
-                          <span className="text-sm font-medium text-red-700 dark:text-red-400">Hinterlegt</span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         <StatusButton
@@ -422,12 +410,12 @@ function InventoryDialog({
   const [nickname, setNickname] = useState(item?.kind === "bike" ? (item.nickname ?? "") : "");
   const [size, setSize] = useState(item?.kind === "bike" ? item.size : "");
   const [frameNumber, setFrameNumber] = useState(item?.kind === "bike" ? (item.frameNumber ?? "") : "");
-  const [discountTextDe, setDiscountTextDe] = useState(item?.kind === "bike" ? item.discountTextDe : "");
-  const [discountTextEn, setDiscountTextEn] = useState(item?.kind === "bike" ? item.discountTextEn : "");
   const [category, setCategory] = useState<EquipmentCategory>(item?.kind === "equipment" ? item.category : "pedal");
   const [labelDe, setLabelDe] = useState(item?.kind === "equipment" ? item.labelDe : "");
   const [labelEn, setLabelEn] = useState(item?.kind === "equipment" ? item.labelEn : "");
-  const [price, setPrice] = useState(item ? priceToInput(item.priceCents) : "");
+  const [price, setPrice] = useState(
+    item?.kind === "bike" ? priceToInput(item.weekdayPriceCents) : item ? priceToInput(item.priceCents) : "",
+  );
   const [weekendPrice, setWeekendPrice] = useState(item?.kind === "bike" ? priceToInput(item.weekendPriceCents) : "");
   const [availableQuantity, setAvailableQuantity] = useState(
     item?.kind === "equipment" ? String(item.availableQuantity) : "1",
@@ -472,11 +460,8 @@ function InventoryDialog({
             nickname: nickname.trim() || null,
             size: size.trim(),
             frameNumber: frameNumber.trim() || null,
-            priceCents,
             weekdayPriceCents: priceCents,
             weekendPriceCents,
-            discountTextDe: discountTextDe.trim(),
-            discountTextEn: discountTextEn.trim(),
             isAvailable,
           }
         : {
@@ -527,11 +512,8 @@ function InventoryDialog({
           title: title.trim(),
           nickname: nickname.trim() || null,
           frameNumber: frameNumber.trim() || null,
-          priceCents,
           weekdayPriceCents: priceCents,
           weekendPriceCents,
-          discountTextDe: discountTextDe.trim(),
-          discountTextEn: discountTextEn.trim(),
           size: size.trim(),
           isAvailable,
         },
@@ -569,7 +551,7 @@ function InventoryDialog({
             </DialogTitle>
             <DialogDescription>
               {kind === "bike"
-                ? "Pflege Modell, Größe, Tagespreis und einen optionalen Rabatt-Hinweis für dieses Bike."
+                ? "Pflege Modell, Größe und die Preise für Werktage und Wochenenden dieses Bikes."
                 : "Pflege Kategorie, Art und Preis der Ausrüstung."}
             </DialogDescription>
           </DialogHeader>
@@ -634,33 +616,6 @@ function InventoryDialog({
                     placeholder="z. B. WTU123456789"
                   />
                 </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="inventory-discount-de">Rabatt-Hinweis (Deutsch)</FieldLabel>
-                    <Textarea
-                      id="inventory-discount-de"
-                      value={discountTextDe}
-                      onChange={(event) => setDiscountTextDe(event.target.value)}
-                      placeholder={"z. B. 50%\nRabatt insgesamt\nFür Größe S"}
-                      maxLength={500}
-                      rows={4}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="inventory-discount-en">Rabatt-Hinweis (Englisch)</FieldLabel>
-                    <Textarea
-                      id="inventory-discount-en"
-                      value={discountTextEn}
-                      onChange={(event) => setDiscountTextEn(event.target.value)}
-                      placeholder={"e.g. 50%\nTotal discount\nFor size S"}
-                      maxLength={500}
-                      rows={4}
-                    />
-                  </Field>
-                </div>
-                <p className="-mt-3 text-xs text-muted-foreground">
-                  Eine Zeile pro Textbaustein. Der Hinweis erscheint als Badge auf der öffentlichen Bike-Karte.
-                </p>
               </>
             ) : (
               <>

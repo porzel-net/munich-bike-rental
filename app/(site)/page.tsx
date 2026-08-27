@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
 import mainImage from "@/main.webp";
-import { ArrowUpRight, MapPin } from "lucide-react";
+import { ArrowUpRight, CalendarClock, GraduationCap, MapPin } from "lucide-react";
 
 import {
   AboutImageStack,
@@ -143,27 +143,28 @@ export async function RentalPage({ searchParams, location, locale }: PageProps) 
   );
   const inventory = getLocationInventory(getDatabase(), location.key);
   const localPortfolioItems = inventory.portfolioItems;
-  const localPriceItems = priceItems.flatMap((item, index) => {
-    if (index === 0) {
-      const weekdayPrice = (inventory.minimumBikePriceCents / 100).toFixed(0);
-      const weekendPrice = (inventory.minimumWeekendBikePriceCents / 100).toFixed(0);
-      return {
-        ...item,
-        cost: {
-          de: `Mo-Fr ab ${weekdayPrice}€ · Sa-So ab ${weekendPrice}€`,
-          en: `Mon-Fri from ${weekdayPrice}€ · Sat-Sun from ${weekendPrice}€`,
-        },
-      };
-    }
-    if (index === priceItems.length - 1) {
-      const price = (inventory.accessoryFromCents / 100).toFixed(0);
-      return { ...item, cost: { de: `ab ${price}€`, en: `from ${price}€` } };
-    }
-    const discount = inventory.discounts[index - 1];
-    return discount
-      ? { ...item, title: discount.label, cost: { de: `${discount.percentage}%`, en: `${discount.percentage}%` } }
-      : [];
-  });
+  const [bikePriceItem, accessoryPriceItem] = priceItems;
+  const localPriceItems = [
+    {
+      ...bikePriceItem,
+      cost: {
+        de: `Mo-Fr ab ${(inventory.minimumBikePriceCents / 100).toFixed(0)}€ · Sa-So ab ${(inventory.minimumWeekendBikePriceCents / 100).toFixed(0)}€`,
+        en: `Mon-Fri from ${(inventory.minimumBikePriceCents / 100).toFixed(0)}€ · Sat-Sun from ${(inventory.minimumWeekendBikePriceCents / 100).toFixed(0)}€`,
+      },
+    },
+    ...inventory.discounts.map((discount) => ({
+      title: discount.label,
+      cost: { de: `${discount.percentage}%`, en: `${discount.percentage}%` },
+      icon: discount.key === "student" ? GraduationCap : CalendarClock,
+    })),
+    {
+      ...accessoryPriceItem,
+      cost: {
+        de: `ab ${(inventory.accessoryFromCents / 100).toFixed(0)}€`,
+        en: `from ${(inventory.accessoryFromCents / 100).toFixed(0)}€`,
+      },
+    },
+  ];
   const showLocationSelection = params?.standortauswahl === "1";
   return (
     <main className="site-shell">

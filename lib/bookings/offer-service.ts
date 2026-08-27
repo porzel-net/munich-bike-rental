@@ -176,7 +176,7 @@ export function createOffer(db: AppDatabase, input: OfferCommandInput) {
           offerId: offer.id,
           requestedItemId: item.requestedItemId,
           assetId: item.assetId,
-          itemPriceCents: item.dailyPriceCents,
+          itemPriceCents: item.weekdayPriceCents,
         })),
       )
       .run();

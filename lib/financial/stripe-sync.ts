@@ -6,6 +6,7 @@ import { bookingOffers } from "../db/schema";
 import { listStripeCheckoutSessions } from "../stripe";
 
 import { importStripeCheckoutPayment } from "./stripe-payment";
+import { syncStripeRefunds } from "./stripe-refunds";
 
 export type StripeSyncInput = {
   createdGte?: number;
@@ -21,6 +22,12 @@ export type StripeSyncResult = {
   skippedUnknownOffer: number;
   failed: number;
   errors: string[];
+  refundsScanned: number;
+  refundsImported: number;
+  refundsPosted: number;
+  refundsPending: number;
+  refundsFailed: number;
+  refundErrors: string[];
 };
 
 function addError(result: StripeSyncResult, message: string) {
@@ -42,6 +49,12 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
     skippedUnknownOffer: 0,
     failed: 0,
     errors: [],
+    refundsScanned: 0,
+    refundsImported: 0,
+    refundsPosted: 0,
+    refundsPending: 0,
+    refundsFailed: 0,
+    refundErrors: [],
   };
   let startingAfter: string | undefined;
 
@@ -66,12 +79,20 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
       }
 
       const offer = db
-        .select({ id: bookingOffers.id, bookingId: bookingOffers.bookingId })
+        .select({ id: bookingOffers.id, bookingId: bookingOffers.bookingId, totalCents: bookingOffers.totalCents })
         .from(bookingOffers)
         .where(eq(bookingOffers.id, offerId))
         .get();
       if (!offer) {
         result.skippedUnknownOffer += 1;
+        continue;
+      }
+      if (
+        session.metadata?.booking_id !== String(offer.bookingId) ||
+        session.currency?.toLowerCase() !== "eur" ||
+        session.amount_total !== offer.totalCents
+      ) {
+        addError(result, `${session.id}: Stripe-Session passt nicht zum gespeicherten Angebot.`);
         continue;
       }
 
@@ -105,5 +126,12 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
     startingAfter = page.data.at(-1)?.id;
   } while (startingAfter);
 
+  const refunds = await syncStripeRefunds(db);
+  result.refundsScanned = refunds.scanned;
+  result.refundsImported = refunds.imported;
+  result.refundsPosted = refunds.posted;
+  result.refundsPending = refunds.pending;
+  result.refundsFailed = refunds.failed;
+  result.refundErrors = refunds.errors;
   return result;
 }

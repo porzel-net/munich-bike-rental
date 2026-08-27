@@ -89,7 +89,6 @@ export const rentalAssets = sqliteTable(
     nickname: text("nickname"),
     frameNumber: text("frame_number"),
     displayName: text("display_name").notNull(),
-    dailyPriceCents: integer("daily_price_cents").notNull(),
     weekdayPriceCents: integer("weekday_price_cents").notNull().default(4900),
     weekendPriceCents: integer("weekend_price_cents").notNull().default(6900),
     state: text("state", { enum: assetStates }).notNull().default("active"),
@@ -99,7 +98,6 @@ export const rentalAssets = sqliteTable(
   (table) => [
     uniqueIndex("rental_assets_location_code_unique").on(table.location, table.assetCode),
     index("rental_assets_location_state_idx").on(table.location, table.state),
-    check("rental_assets_daily_price_nonnegative", sql`${table.dailyPriceCents} >= 0`),
     check("rental_assets_weekday_price_nonnegative", sql`${table.weekdayPriceCents} >= 0`),
     check("rental_assets_weekend_price_nonnegative", sql`${table.weekendPriceCents} >= 0`),
   ],
@@ -246,7 +244,7 @@ export const bookingOffers = sqliteTable(
     acceptedAt: integer("accepted_at", { mode: "timestamp_ms" }),
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
     replacesOfferId: integer("replaces_offer_id"),
-    /** The one Checkout Session that accepted this offer, if any. */
+    /** The current Checkout Session for this offer; it is persisted before payment to prevent duplicates. */
     stripeSessionId: text("stripe_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     /** Immutable commercial snapshot for this particular offer version. */

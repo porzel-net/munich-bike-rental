@@ -48,12 +48,28 @@ export type OfferQuote = {
     assetId: number;
     assetName: string;
     frameNumber: string | null;
-    dailyPriceCents: number;
-    weekdayPriceCents?: number;
-    weekendPriceCents?: number;
+    weekdayPriceCents: number;
+    weekendPriceCents: number;
     accessories: OfferAccessorySelection;
   }>;
 };
+
+/**
+ * Reads the current two-rate snapshot format and, only for old persisted
+ * offers, converts the former single daily rate into two equal rates.
+ */
+export function getOfferItemPriceSchedule(value: unknown) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const item = value as Record<string, unknown>;
+  const readCents = (key: string) =>
+    typeof item[key] === "number" && Number.isSafeInteger(item[key]) && item[key] >= 0 ? item[key] : undefined;
+  const legacyDailyPriceCents = readCents("dailyPriceCents");
+  const weekdayPriceCents = readCents("weekdayPriceCents") ?? legacyDailyPriceCents;
+  const weekendPriceCents = readCents("weekendPriceCents") ?? legacyDailyPriceCents;
+  return weekdayPriceCents === undefined || weekendPriceCents === undefined
+    ? undefined
+    : { weekdayPriceCents, weekendPriceCents };
+}
 
 export function parseOfferQuoteSnapshot(value: string): Partial<OfferQuote> {
   let parsed: unknown;
@@ -111,11 +127,7 @@ export type OfferAccessorySelection = {
   insuranceProtectionSelected?: boolean;
 };
 
-export function getAssetPriceSchedule(asset: {
-  dailyPriceCents: number;
-  weekdayPriceCents: number;
-  weekendPriceCents: number;
-}) {
+export function getAssetPriceSchedule(asset: { weekdayPriceCents: number; weekendPriceCents: number }) {
   return { weekdayPriceCents: asset.weekdayPriceCents, weekendPriceCents: asset.weekendPriceCents };
 }
 
@@ -212,7 +224,6 @@ export function buildOfferQuote(
       assetId,
       assetName: asset.asset.displayName,
       frameNumber: asset.asset.frameNumber,
-      dailyPriceCents: priceSchedule.weekdayPriceCents,
       ...priceSchedule,
       accessories: selectedAccessories(item, accessoriesByRequestedItem[item.id]),
     };

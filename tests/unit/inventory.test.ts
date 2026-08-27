@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createDatabaseConnection } from "../../lib/db/client";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { accessoryInventory, bikeModels, rentalAssets } from "../../lib/db/schema";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 import {
@@ -30,6 +30,9 @@ describe("location inventory", () => {
     const db = createTestDatabase();
 
     expect(db.select().from(rentalAssets).where(eq(rentalAssets.location, "munich")).all()).toHaveLength(13);
+    expect(db.all<{ name: string }>(sql`PRAGMA table_info(rental_assets)`).map((column) => column.name)).not.toContain(
+      "daily_price_cents",
+    );
   });
 
   it("seeds the current bike, size and equipment offering by location", () => {
@@ -42,17 +45,10 @@ describe("location inventory", () => {
       de: "XS / S / M / L",
       en: "XS / S / M / L",
     });
+    expect(munich.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")).not.toHaveProperty("price");
     expect(munich.bikeOptions).toHaveLength(4);
     expect(munich.bikeOptions).toContain("Aeroad CF SL 8");
     expect(munich.requestBikeOptions).toEqual(munich.bikeOptions);
-    expect(munich.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")?.discountText).toEqual({
-      de: "",
-      en: "",
-    });
-    expect(regensburg.portfolioItems.find((bike) => bike.title === "Endurace CF SL 8")?.discountText).toEqual({
-      de: "",
-      en: "",
-    });
     expect(regensburg.portfolioItems.map((bike) => bike.title)).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
     expect(regensburg.bikeOptions).toHaveLength(0);
     expect(regensburg.requestBikeOptions).toEqual(["Endurace CF SL 8", "Grail CF SL 7"]);
@@ -202,7 +198,7 @@ describe("location inventory", () => {
 
     expect(
       calculatePrice(inventory, {
-        bikes: [{ dailyPriceCents: 4900 }],
+        bikes: [{ weekdayPriceCents: 4900, weekendPriceCents: 4900 }],
         periodFrom: "2026-07-20",
         rentalDays: 3,
         isStudent: true,

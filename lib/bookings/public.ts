@@ -15,6 +15,7 @@ import { getBikePriceScheduleCents, getRentalDays } from "../inventory/pricing";
 import { getLocationInventory } from "../inventory/repository";
 import {
   getAssetPriceSchedule,
+  getOfferItemPriceSchedule,
   tryParseOfferQuoteSnapshot,
   type OfferAccessorySelection,
   type OfferQuote,
@@ -57,7 +58,6 @@ export type PublicOffer = {
     offeredLabel: string;
     frameNumber: string | null;
     heightCm: number;
-    dailyPriceCents: number;
     weekdayPriceCents: number;
     weekendPriceCents: number;
     accessories: OfferAccessorySelection;
@@ -129,25 +129,20 @@ function buildPublicBookingView(
       const snapshotItem = snapshotByRequestedId.get(item.id);
       const requestedPriceSchedule = priceScheduleForRequestedBike(item.requestedLabel);
       const selectedPriceSchedule = selected ? getAssetPriceSchedule(selected.asset) : null;
-      const snapshotWeekdayPriceCents =
-        typeof snapshotItem?.weekdayPriceCents === "number"
-          ? snapshotItem.weekdayPriceCents
-          : typeof snapshotItem?.dailyPriceCents === "number" && snapshotItem.dailyPriceCents > 0
-            ? snapshotItem.dailyPriceCents
-            : null;
-      const snapshotWeekendPriceCents =
-        typeof snapshotItem?.weekendPriceCents === "number" ? snapshotItem.weekendPriceCents : null;
-      const legacyItemPriceCents =
+      const snapshotPriceSchedule = getOfferItemPriceSchedule(snapshotItem);
+      const snapshotWeekdayPriceCents = snapshotPriceSchedule?.weekdayPriceCents ?? null;
+      const snapshotWeekendPriceCents = snapshotPriceSchedule?.weekendPriceCents ?? null;
+      const historicalSnapshotPriceCents =
         selected?.item.itemPriceCents && selected.item.itemPriceCents > 0 ? selected.item.itemPriceCents : null;
       const weekdayPriceCents =
         snapshotWeekdayPriceCents ??
         selectedPriceSchedule?.weekdayPriceCents ??
-        legacyItemPriceCents ??
+        historicalSnapshotPriceCents ??
         requestedPriceSchedule.weekdayPriceCents;
       const weekendPriceCents =
         snapshotWeekendPriceCents ??
         selectedPriceSchedule?.weekendPriceCents ??
-        legacyItemPriceCents ??
+        historicalSnapshotPriceCents ??
         requestedPriceSchedule.weekendPriceCents;
       return {
         position: item.position,
@@ -155,7 +150,6 @@ function buildPublicBookingView(
         offeredLabel: selected?.asset.displayName ?? snapshotItem?.assetName ?? item.requestedLabel,
         frameNumber: selected?.asset.frameNumber ?? snapshotItem?.frameNumber ?? null,
         heightCm: item.heightCm,
-        dailyPriceCents: weekdayPriceCents,
         weekdayPriceCents,
         weekendPriceCents,
         accessories: snapshotItem?.accessories ?? {

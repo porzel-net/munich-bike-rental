@@ -81,6 +81,7 @@ import {
   fixedAssets,
   bikeModels,
   bikeVariants,
+  bookings,
   rentalAssets,
 } from "../../lib/db/schema";
 import { createDatabaseConnection } from "../../lib/db/client";
@@ -146,11 +147,8 @@ describe("admin inventory API", () => {
         nickname: "Blitz",
         size: "M",
         frameNumber: "EDGE-1",
-        priceCents: 4_500,
         weekdayPriceCents: 4_500,
         weekendPriceCents: 6_500,
-        discountTextDe: "10%\nNur im Mai",
-        discountTextEn: "10%\nMay only",
         isAvailable: true,
       }),
     );
@@ -182,7 +180,8 @@ describe("admin inventory API", () => {
             type: "bike",
             title: "Edge Bike",
             size: "M",
-            priceCents: 4_500,
+            weekdayPriceCents: 4_500,
+            weekendPriceCents: 6_500,
             isAvailable: true,
           }),
         )
@@ -200,7 +199,6 @@ describe("admin inventory API", () => {
             nickname: "Turbo",
             size: "L",
             frameNumber: "EDGE-2",
-            priceCents: 5_000,
             weekdayPriceCents: 5_000,
             weekendPriceCents: 7_000,
             isAvailable: true,
@@ -291,7 +289,8 @@ describe("admin inventory API", () => {
             type: "bike",
             title: "Blocked",
             size: "M",
-            priceCents: 1_000,
+            weekdayPriceCents: 1_000,
+            weekendPriceCents: 1_000,
             isAvailable: true,
           }),
         )
@@ -314,7 +313,8 @@ describe("admin inventory API", () => {
             type: "bike",
             title: "Wrong Location",
             size: "M",
-            priceCents: 1_000,
+            weekdayPriceCents: 1_000,
+            weekendPriceCents: 1_000,
             isAvailable: true,
           }),
         )
@@ -328,7 +328,8 @@ describe("admin inventory API", () => {
             type: "bike",
             title: "Allowed Location",
             size: "M",
-            priceCents: 1_000,
+            weekdayPriceCents: 1_000,
+            weekendPriceCents: 1_000,
             isAvailable: true,
           }),
         )
@@ -520,6 +521,78 @@ describe("admin financial APIs", () => {
     expect(
       db.select().from(financialTransactions).where(eq(financialTransactions.id, ignoredTx.id)).get()?.status,
     ).toBe("ignored");
+  });
+
+  it("forwards partial bank-payment assignments and posts the final remainder", async () => {
+    const db = testDb;
+    const bank = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get()!;
+    const createHistoricalBooking = (orderNumber: string) =>
+      db
+        .insert(bookings)
+        .values({
+          orderNumber,
+          customerName: "Historische Buchung",
+          customerEmail: "history@example.com",
+          customerPhone: "0123",
+          location: "munich",
+          periodFrom: "2026-08-10",
+          periodTo: "2026-08-11",
+          pickupTime: "10:00",
+          dropoffTime: "10:00",
+          source: "manual",
+          status: "inquiry_received",
+          quotedTotalCents: 7_000,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning({ id: bookings.id })
+        .get();
+    const firstBooking = createHistoricalBooking("HISTORICAL-1");
+    const secondBooking = createHistoricalBooking("HISTORICAL-2");
+    const transfer = db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: bank.id,
+        source: "bank",
+        provider: "nevlo",
+        kind: "income",
+        status: "needs_review",
+        amountCents: 10_000,
+        currency: "EUR",
+        bookedAt: "2026-08-10",
+        description: "Sammelüberweisung",
+        importedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: financialTransactions.id })
+      .get();
+
+    const partial = await financialTransactionPost(
+      request(`/api/admin/financial/transactions/${transfer.id}`, "POST", {
+        action: "assign_booking",
+        bookingId: firstBooking.id,
+        amountCents: 4_000,
+      }),
+      { params: Promise.resolve({ id: String(transfer.id) }) },
+    );
+    expect(partial.status).toBe(200);
+    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, transfer.id)).get()).toEqual({
+      status: "matched",
+    });
+
+    const remainder = await financialTransactionPost(
+      request(`/api/admin/financial/transactions/${transfer.id}`, "POST", {
+        action: "assign_booking",
+        bookingId: secondBooking.id,
+        amountCents: 6_000,
+      }),
+      { params: Promise.resolve({ id: String(transfer.id) }) },
+    );
+    expect(remainder.status).toBe(200);
+    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, transfer.id)).get()).toEqual({
+      status: "posted",
+    });
   });
 
   it("rejects malformed financial requests and validates opening balances", async () => {

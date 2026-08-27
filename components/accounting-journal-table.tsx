@@ -8,13 +8,11 @@ import {
   ArrowUpRightIcon,
   CalendarDaysIcon,
   MoreHorizontalIcon,
-  PlusIcon,
   ReceiptTextIcon,
   SearchIcon,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
-import { JournalExpenseDialog } from "@/components/journal-expense-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -225,13 +223,12 @@ function JournalEntryDetails({
 }
 
 export function AccountingJournalTable({ entries }: { entries: JournalEntry[] }) {
-  const [journalRows, setJournalRows] = useState(entries);
+  const journalRows = entries;
   const [search, setSearch] = useState("");
   const [entryFilter, setEntryFilter] = useState<EntryFilter>("all");
   const [dateRange, setDateRange] = useState<DateRange>();
   const [calendarMonth, setCalendarMonth] = useState(dateOnlyToLocalDate(berlinDateKey()));
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
-  const [createExpenseOpen, setCreateExpenseOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
 
   const dateFrom = dateRange?.from ? dateKey(dateRange.from) : "";
@@ -405,9 +402,6 @@ export function AccountingJournalTable({ entries }: { entries: JournalEntry[] })
               </div>
             </PopoverContent>
           </Popover>
-          <Button type="button" variant="outline" size="sm" onClick={() => setCreateExpenseOpen(true)}>
-            <PlusIcon /> Aufwand hinzufügen
-          </Button>
         </div>
       </div>
       <div className="overflow-hidden rounded-3xl bg-card">
@@ -566,11 +560,6 @@ export function AccountingJournalTable({ entries }: { entries: JournalEntry[] })
           </TableBody>
         </Table>
       </div>
-      <JournalExpenseDialog
-        open={createExpenseOpen}
-        onOpenChange={setCreateExpenseOpen}
-        onSaved={(entry) => setJournalRows((current) => [entry, ...current])}
-      />
       {selectedEntry ? (
         <JournalEntryDetails entry={selectedEntry} open onOpenChange={(open) => !open && setSelectedEntry(null)} />
       ) : null}

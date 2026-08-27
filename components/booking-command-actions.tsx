@@ -42,6 +42,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { BookingEditDialog, type EditableItem } from "@/components/booking-edit-dialog";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
+import {
+  calculateCancellationFeeCents,
+  cancellationPeriods as cancellationPeriodValues,
+  getCancellationFeePercentage,
+  type CancellationPeriod,
+} from "@/lib/bookings/cancellation";
 import { berlinDateKey, formatDateTime } from "@/lib/datetime";
 import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
 import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
@@ -87,7 +93,6 @@ type Action =
 type ConfirmAction = "check_out" | "complete" | "delete_permanently" | null;
 type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
 type RejectionReasonType = "" | "availability" | "handover" | "custom";
-type CancellationPeriod = "more_than_7_days" | "between_7_days_and_24_hours" | "less_than_24_hours";
 type OfferOption = {
   id: number;
   label: string;
@@ -115,15 +120,15 @@ const bookingStatusLabels: Record<BookingStatus, string> = {
   expired: "Angebot abgelaufen",
 };
 
-const cancellationPeriods: Array<{
-  value: CancellationPeriod;
-  label: string;
-  feeRate: number;
-}> = [
-  { value: "more_than_7_days", label: "Mehr als 7 Tage vorher · 25 % Gebühr", feeRate: 0.25 },
-  { value: "between_7_days_and_24_hours", label: "7 Tage bis 24 Stunden vorher · 50 % Gebühr", feeRate: 0.5 },
-  { value: "less_than_24_hours", label: "Innerhalb von 24 Stunden · 100 % Gebühr", feeRate: 1 },
-];
+const cancellationPeriodLabels: Record<CancellationPeriod, string> = {
+  more_than_7_days: "Mehr als 7 Tage vorher",
+  between_7_days_and_24_hours: "7 Tage bis 24 Stunden vorher",
+  less_than_24_hours: "Innerhalb von 24 Stunden",
+};
+const cancellationPeriods = cancellationPeriodValues.map((value) => ({
+  value,
+  label: `${cancellationPeriodLabels[value]} · ${getCancellationFeePercentage(value)} % Gebühr`,
+}));
 
 function errorMessage(error: unknown) {
   return error instanceof Error
@@ -227,7 +232,7 @@ export function BookingCommandActions({
   unavailableAssetIds,
   journalEntries,
   paymentAccounts,
-  isLegacy,
+  isHistorical,
   confirmedBookingEdit,
 }: {
   bookingId: number;
@@ -250,7 +255,7 @@ export function BookingCommandActions({
   unavailableAssetIds: number[];
   journalEntries: Entry[];
   paymentAccounts: PaymentAccount[];
-  isLegacy: boolean;
+  isHistorical: boolean;
   confirmedBookingEdit?: {
     expectedVersion: number;
     customerName: string;
@@ -300,15 +305,15 @@ export function BookingCommandActions({
   const [offerPickupTime, setOfferPickupTime] = useState(pickupTime);
   const [offerDropoffTime, setOfferDropoffTime] = useState(dropoffTime);
   const [isStudent, setIsStudent] = useState(false);
-  const [legacyStatus, setLegacyStatus] = useState<BookingStatus>(status);
-  const [legacyPeriodFrom, setLegacyPeriodFrom] = useState(periodFrom);
-  const [legacyPeriodTo, setLegacyPeriodTo] = useState(periodTo);
-  const [legacyPickupTime, setLegacyPickupTime] = useState(pickupTime);
-  const [legacyDropoffTime, setLegacyDropoffTime] = useState(dropoffTime);
-  const [legacyPrice, setLegacyPrice] = useState((bookingTotalCents / 100).toFixed(2).replace(".", ","));
-  const [legacyInvoiceNumber, setLegacyInvoiceNumber] = useState(invoiceNumber ?? "");
-  const [legacyReason, setLegacyReason] = useState("");
-  const [legacyAssetsByRequestedItem, setLegacyAssetsByRequestedItem] = useState<Record<string, string>>({});
+  const [historicalStatus, setHistoricalStatus] = useState<BookingStatus>(status);
+  const [historicalPeriodFrom, setHistoricalPeriodFrom] = useState(periodFrom);
+  const [historicalPeriodTo, setHistoricalPeriodTo] = useState(periodTo);
+  const [historicalPickupTime, setHistoricalPickupTime] = useState(pickupTime);
+  const [historicalDropoffTime, setHistoricalDropoffTime] = useState(dropoffTime);
+  const [historicalPrice, setHistoricalPrice] = useState((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+  const [historicalInvoiceNumber, setHistoricalInvoiceNumber] = useState(invoiceNumber ?? "");
+  const [historicalReason, setHistoricalReason] = useState("");
+  const [historicalAssetsByRequestedItem, setHistoricalAssetsByRequestedItem] = useState<Record<string, string>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [dynamicUnavailableAssetIds, setDynamicUnavailableAssetIds] = useState(unavailableAssetIds);
@@ -420,15 +425,15 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setOfferPickupTime(pickupTime);
     setOfferDropoffTime(dropoffTime);
     setIsStudent(false);
-    setLegacyStatus(status);
-    setLegacyPeriodFrom(periodFrom);
-    setLegacyPeriodTo(periodTo);
-    setLegacyPickupTime(pickupTime);
-    setLegacyDropoffTime(dropoffTime);
-    setLegacyPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
-    setLegacyInvoiceNumber(invoiceNumber ?? "");
-    setLegacyReason("");
-    setLegacyAssetsByRequestedItem({});
+    setHistoricalStatus(status);
+    setHistoricalPeriodFrom(periodFrom);
+    setHistoricalPeriodTo(periodTo);
+    setHistoricalPickupTime(pickupTime);
+    setHistoricalDropoffTime(dropoffTime);
+    setHistoricalPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+    setHistoricalInvoiceNumber(invoiceNumber ?? "");
+    setHistoricalReason("");
+    setHistoricalAssetsByRequestedItem({});
     setPreviewError(null);
     setPreviewLoading(false);
     setDynamicUnavailableAssetIds(unavailableAssetIds);
@@ -468,26 +473,26 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setActiveAction("stripe_payment");
   };
 
-  const openLegacyStatus = () => {
-    setLegacyStatus(status);
-    setLegacyPeriodFrom(periodFrom);
-    setLegacyPeriodTo(periodTo);
-    setLegacyPickupTime(pickupTime);
-    setLegacyDropoffTime(dropoffTime);
-    setLegacyPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
-    setLegacyInvoiceNumber(invoiceNumber ?? "");
-    setLegacyReason("");
-    setLegacyAssetsByRequestedItem({});
+  const openHistoricalStatus = () => {
+    setHistoricalStatus(status);
+    setHistoricalPeriodFrom(periodFrom);
+    setHistoricalPeriodTo(periodTo);
+    setHistoricalPickupTime(pickupTime);
+    setHistoricalDropoffTime(dropoffTime);
+    setHistoricalPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+    setHistoricalInvoiceNumber(invoiceNumber ?? "");
+    setHistoricalReason("");
+    setHistoricalAssetsByRequestedItem({});
     setActiveAction("status");
   };
 
   const openManualConfirmation = () => {
-    setLegacyPeriodFrom(periodFrom);
-    setLegacyPeriodTo(periodTo);
-    setLegacyPickupTime(pickupTime);
-    setLegacyDropoffTime(dropoffTime);
-    setLegacyPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
-    setLegacyAssetsByRequestedItem({});
+    setHistoricalPeriodFrom(periodFrom);
+    setHistoricalPeriodTo(periodTo);
+    setHistoricalPickupTime(pickupTime);
+    setHistoricalDropoffTime(dropoffTime);
+    setHistoricalPrice((bookingTotalCents / 100).toFixed(2).replace(".", ","));
+    setHistoricalAssetsByRequestedItem({});
     setActiveAction("manual_confirm");
   };
 
@@ -720,56 +725,59 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         });
         toast.success("Anfrage wurde abgelehnt.");
       } else if (activeAction === "manual_confirm") {
-        const manualPriceCents = legacyPrice.trim() ? euroToCents(legacyPrice) : null;
-        if (!legacyPeriodFrom || !legacyPeriodTo || !legacyPickupTime || !legacyDropoffTime)
+        const manualPriceCents = historicalPrice.trim() ? euroToCents(historicalPrice) : null;
+        if (!historicalPeriodFrom || !historicalPeriodTo || !historicalPickupTime || !historicalDropoffTime)
           throw new Error("Bitte vervollständige Zeitraum und Übergabezeiten.");
-        if (legacyPeriodFrom > legacyPeriodTo)
+        if (historicalPeriodFrom > historicalPeriodTo)
           throw new Error("Das Rückgabedatum muss am oder nach dem Abholdatum liegen.");
         if (manualPriceCents === null || manualPriceCents < 0)
           throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
-        if (requestedItems.some((item) => !legacyAssetsByRequestedItem[String(item.id)]))
+        if (requestedItems.some((item) => !historicalAssetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes Fahrrad ein konkretes Fahrrad aus.");
         await request({
           command: "confirm_manual_booking",
-          periodFrom: legacyPeriodFrom,
-          periodTo: legacyPeriodTo,
-          pickupTime: legacyPickupTime,
-          dropoffTime: legacyDropoffTime,
+          periodFrom: historicalPeriodFrom,
+          periodTo: historicalPeriodTo,
+          pickupTime: historicalPickupTime,
+          dropoffTime: historicalDropoffTime,
           quotedTotalCents: manualPriceCents,
           assetsByRequestedItem: Object.fromEntries(
-            Object.entries(legacyAssetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
+            Object.entries(historicalAssetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
           ),
         });
         toast.success("Buchung wurde manuell als verbindlich gebucht.");
       } else if (activeAction === "status") {
-        const needsBookingDetails = ["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus);
+        const needsBookingDetails = ["offer_sent", "confirmed", "checked_out", "completed"].includes(historicalStatus);
         const needsAssets = needsBookingDetails;
-        const needsInvoice = ["confirmed", "checked_out", "completed"].includes(legacyStatus);
-        const legacyPriceCents = legacyPrice.trim() ? euroToCents(legacyPrice) : null;
-        if (needsBookingDetails && (!legacyPeriodFrom || !legacyPeriodTo || !legacyPickupTime || !legacyDropoffTime))
+        const needsInvoice = ["confirmed", "checked_out", "completed"].includes(historicalStatus);
+        const historicalPriceCents = historicalPrice.trim() ? euroToCents(historicalPrice) : null;
+        if (
+          needsBookingDetails &&
+          (!historicalPeriodFrom || !historicalPeriodTo || !historicalPickupTime || !historicalDropoffTime)
+        )
           throw new Error("Bitte vervollständige Zeitraum und Übergabezeiten.");
-        if (needsBookingDetails && (legacyPriceCents === null || legacyPriceCents < 0))
+        if (needsBookingDetails && (historicalPriceCents === null || historicalPriceCents < 0))
           throw new Error("Bitte gib einen gültigen Gesamtpreis ein.");
-        if (needsAssets && requestedItems.some((item) => !legacyAssetsByRequestedItem[String(item.id)]))
+        if (needsAssets && requestedItems.some((item) => !historicalAssetsByRequestedItem[String(item.id)]))
           throw new Error("Bitte wähle für jedes Fahrrad ein konkretes Fahrrad aus.");
-        if (needsInvoice && !legacyInvoiceNumber.trim()) throw new Error("Bitte gib die Rechnungsnummer ein.");
-        if (["rejected", "cancelled", "expired"].includes(legacyStatus) && !legacyReason.trim())
+        if (needsInvoice && !historicalInvoiceNumber.trim()) throw new Error("Bitte gib die Rechnungsnummer ein.");
+        if (["rejected", "cancelled", "expired"].includes(historicalStatus) && !historicalReason.trim())
           throw new Error("Bitte gib einen Grund für diesen Status an.");
         await request({
-          command: "set_legacy_status",
-          status: legacyStatus,
-          reason: legacyReason.trim() || undefined,
+          command: "set_historical_status",
+          status: historicalStatus,
+          reason: historicalReason.trim() || undefined,
           details: needsBookingDetails
             ? {
-                periodFrom: legacyPeriodFrom,
-                periodTo: legacyPeriodTo,
-                pickupTime: legacyPickupTime,
-                dropoffTime: legacyDropoffTime,
-                quotedTotalCents: legacyPriceCents!,
+                periodFrom: historicalPeriodFrom,
+                periodTo: historicalPeriodTo,
+                pickupTime: historicalPickupTime,
+                dropoffTime: historicalDropoffTime,
+                quotedTotalCents: historicalPriceCents!,
                 assetsByRequestedItem: Object.fromEntries(
-                  Object.entries(legacyAssetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
+                  Object.entries(historicalAssetsByRequestedItem).map(([key, value]) => [key, Number(value)]),
                 ),
-                invoiceNumber: needsInvoice ? legacyInvoiceNumber.trim() : undefined,
+                invoiceNumber: needsInvoice ? historicalInvoiceNumber.trim() : undefined,
               }
             : undefined,
         });
@@ -984,18 +992,18 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             )}
           />
         ) : null}
-        {isLegacy && (
+        {isHistorical && (
           <ActionItem
             icon={<SlidersHorizontalIcon />}
             title="Status ändern"
             description="Importierte Buchung frei umstellen"
             disabled={actionsLocked}
             onClick={() => {
-              openLegacyStatus();
+              openHistoricalStatus();
             }}
           />
         )}
-        {!isLegacy && ["inquiry_received", "offer_sent", "expired"].includes(status) && (
+        {!isHistorical && ["inquiry_received", "offer_sent", "expired"].includes(status) && (
           <ActionItem
             icon={<CheckIcon />}
             title="Manuell verbindlich buchen"
@@ -1187,13 +1195,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               <>
                 {activeAction === "status" ? (
                   <Field>
-                    <FieldLabel htmlFor="legacy-booking-status">Neuer Buchungsstatus</FieldLabel>
+                    <FieldLabel htmlFor="historical-booking-status">Neuer Buchungsstatus</FieldLabel>
                     <Select
-                      value={legacyStatus}
-                      onValueChange={(value) => value && setLegacyStatus(value as BookingStatus)}
+                      value={historicalStatus}
+                      onValueChange={(value) => value && setHistoricalStatus(value as BookingStatus)}
                     >
-                      <SelectTrigger id="legacy-booking-status" className="w-full">
-                        <SelectValue>{bookingStatusLabels[legacyStatus]}</SelectValue>
+                      <SelectTrigger id="historical-booking-status" className="w-full">
+                        <SelectValue>{bookingStatusLabels[historicalStatus]}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => (
@@ -1214,77 +1222,78 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   </div>
                 )}
                 {activeAction === "manual_confirm" ||
-                ["offer_sent", "confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
+                ["offer_sent", "confirmed", "checked_out", "completed"].includes(historicalStatus) ? (
                   <>
                     <div className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
                       Für die verbindliche Buchung müssen Zeitraum, Übergabezeiten, Preis und konkrete Fahrräder
                       hinterlegt werden.
                       {activeAction === "manual_confirm"
                         ? " Die nächste freie Rechnungsnummer wird automatisch vergeben."
-                        : ["confirmed", "checked_out", "completed"].includes(legacyStatus)
+                        : ["confirmed", "checked_out", "completed"].includes(historicalStatus)
                           ? " Zusätzlich ist eine gültige, lückenlose Rechnungsnummer erforderlich."
                           : ""}
                     </div>
                     <FieldGroup className="grid gap-4 sm:grid-cols-2">
                       <Field>
-                        <FieldLabel htmlFor="legacy-period-from">Abholdatum</FieldLabel>
+                        <FieldLabel htmlFor="historical-period-from">Abholdatum</FieldLabel>
                         <Input
-                          id="legacy-period-from"
+                          id="historical-period-from"
                           type="date"
-                          value={legacyPeriodFrom}
-                          onChange={(event) => setLegacyPeriodFrom(event.target.value)}
+                          value={historicalPeriodFrom}
+                          onChange={(event) => setHistoricalPeriodFrom(event.target.value)}
                           required
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="legacy-pickup-time">Abholzeit</FieldLabel>
+                        <FieldLabel htmlFor="historical-pickup-time">Abholzeit</FieldLabel>
                         <Input
-                          id="legacy-pickup-time"
+                          id="historical-pickup-time"
                           type="time"
-                          value={legacyPickupTime}
-                          onChange={(event) => setLegacyPickupTime(event.target.value)}
+                          value={historicalPickupTime}
+                          onChange={(event) => setHistoricalPickupTime(event.target.value)}
                           required
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="legacy-period-to">Rückgabedatum</FieldLabel>
+                        <FieldLabel htmlFor="historical-period-to">Rückgabedatum</FieldLabel>
                         <Input
-                          id="legacy-period-to"
+                          id="historical-period-to"
                           type="date"
-                          value={legacyPeriodTo}
-                          onChange={(event) => setLegacyPeriodTo(event.target.value)}
+                          value={historicalPeriodTo}
+                          onChange={(event) => setHistoricalPeriodTo(event.target.value)}
                           required
                         />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="legacy-dropoff-time">Rückgabezeit</FieldLabel>
+                        <FieldLabel htmlFor="historical-dropoff-time">Rückgabezeit</FieldLabel>
                         <Input
-                          id="legacy-dropoff-time"
+                          id="historical-dropoff-time"
                           type="time"
-                          value={legacyDropoffTime}
-                          onChange={(event) => setLegacyDropoffTime(event.target.value)}
+                          value={historicalDropoffTime}
+                          onChange={(event) => setHistoricalDropoffTime(event.target.value)}
                           required
                         />
                       </Field>
                     </FieldGroup>
                     <Field>
-                      <FieldLabel htmlFor="legacy-price">Gesamtpreis</FieldLabel>
+                      <FieldLabel htmlFor="historical-price">Gesamtpreis</FieldLabel>
                       <Input
-                        id="legacy-price"
+                        id="historical-price"
                         inputMode="decimal"
-                        value={legacyPrice}
-                        onChange={(event) => setLegacyPrice(event.target.value)}
+                        value={historicalPrice}
+                        onChange={(event) => setHistoricalPrice(event.target.value)}
                         placeholder="0,00"
                         required
                       />
                     </Field>
-                    {activeAction === "status" && ["confirmed", "checked_out", "completed"].includes(legacyStatus) ? (
+                    {activeAction === "status" &&
+                    ["confirmed", "checked_out", "completed"].includes(historicalStatus) ? (
                       <Field>
-                        <FieldLabel htmlFor="legacy-invoice-number">Rechnungsnummer</FieldLabel>
+                        <FieldLabel htmlFor="historical-invoice-number">Rechnungsnummer</FieldLabel>
                         <Input
-                          id="legacy-invoice-number"
-                          value={legacyInvoiceNumber}
-                          onChange={(event) => setLegacyInvoiceNumber(event.target.value.toUpperCase())}
+                          id="historical-invoice-number"
+                          value={historicalInvoiceNumber}
+                          onChange={(event) => setHistoricalInvoiceNumber(event.target.value.toUpperCase())}
                           placeholder="YBR-2026-0001"
                           pattern="YBR-[0-9]{4}-[0-9]{4}"
                           readOnly={Boolean(invoiceNumber)}
@@ -1301,22 +1310,22 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       </div>
                       {requestedItems.map((item) => (
                         <Field key={item.id}>
-                          <FieldLabel htmlFor={`legacy-asset-${item.id}`}>{item.label}</FieldLabel>
+                          <FieldLabel htmlFor={`historical-asset-${item.id}`}>{item.label}</FieldLabel>
                           <Select
-                            value={legacyAssetsByRequestedItem[String(item.id)] ?? ""}
+                            value={historicalAssetsByRequestedItem[String(item.id)] ?? ""}
                             onValueChange={(value) =>
-                              setLegacyAssetsByRequestedItem((current) => ({
+                              setHistoricalAssetsByRequestedItem((current) => ({
                                 ...current,
                                 [String(item.id)]: value ?? "",
                               }))
                             }
                           >
-                            <SelectTrigger id={`legacy-asset-${item.id}`} className="w-full">
+                            <SelectTrigger id={`historical-asset-${item.id}`} className="w-full">
                               <SelectValue>
                                 {(() => {
                                   const asset = availableAssets.find(
                                     (candidate) =>
-                                      String(candidate.id) === legacyAssetsByRequestedItem[String(item.id)],
+                                      String(candidate.id) === historicalAssetsByRequestedItem[String(item.id)],
                                   );
                                   return asset ? <BikeOptionLabel asset={asset} /> : "Fahrrad auswählen";
                                 })()}
@@ -1337,13 +1346,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     </div>
                   </>
                 ) : null}
-                {activeAction === "status" && ["rejected", "cancelled", "expired"].includes(legacyStatus) ? (
+                {activeAction === "status" && ["rejected", "cancelled", "expired"].includes(historicalStatus) ? (
                   <Field>
-                    <FieldLabel htmlFor="legacy-status-reason">Begründung</FieldLabel>
+                    <FieldLabel htmlFor="historical-status-reason">Begründung</FieldLabel>
                     <Textarea
-                      id="legacy-status-reason"
-                      value={legacyReason}
-                      onChange={(event) => setLegacyReason(event.target.value)}
+                      id="historical-status-reason"
+                      value={historicalReason}
+                      onChange={(event) => setHistoricalReason(event.target.value)}
                       placeholder="Warum wurde dieser Status gesetzt?"
                       required
                     />
@@ -1737,7 +1746,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                       const period = cancellationPeriods.find((option) => option.value === value);
                       setCancellationPeriod((value as CancellationPeriod) ?? "");
                       if (period) {
-                        const feeCents = Math.round(bookingTotalCents * period.feeRate);
+                        const feeCents = calculateCancellationFeeCents(bookingTotalCents, period.value);
                         setAmount((feeCents / 100).toFixed(2).replace(".", ","));
                       }
                     }}

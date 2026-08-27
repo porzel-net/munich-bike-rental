@@ -13,11 +13,12 @@ export type LocationInventory = {
   bikeOptions: string[];
   bikePrices: Array<{
     option: string;
-    dailyPriceCents: number;
     weekdayPriceCents: number;
     weekendPriceCents: number;
   }>;
+  bikeOptionQuantities: Record<string, number>;
   equipmentPrices: Array<{ key: string; priceCents: number }>;
+  equipmentQuantities: Array<{ key: string; availableQuantity: number; quantityRelevant: boolean; state: string }>;
   pedalTypes: Array<{ value: string; label: Record<Locale, string>; priceCents: number }>;
   computerMountTypes: Array<{ value: string; label: Record<Locale, string>; priceCents: number }>;
   helmetAvailable: boolean;
@@ -155,15 +156,27 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .where(eq(rentalAssets.location, location))
     .all();
   const activeBikes = bikeRows.filter(({ asset }) => asset.state === "active");
-  const models = [...new Map(bikeRows.map((row) => [row.model.id, row])).values()];
+  const rowsByModel = new Map<number, typeof bikeRows>();
+  for (const row of bikeRows) rowsByModel.set(row.model.id, [...(rowsByModel.get(row.model.id) ?? []), row]);
+  const models = [...rowsByModel.values()].map(
+    (rows) =>
+      [...rows].sort(
+        (left, right) =>
+          Number(right.asset.state === "active") - Number(left.asset.state === "active") ||
+          left.asset.weekdayPriceCents + left.asset.weekendPriceCents -
+            (right.asset.weekdayPriceCents + right.asset.weekendPriceCents) ||
+          left.asset.id - right.asset.id,
+      )[0],
+  );
   const modelTitles = new Set(models.map(({ model }) => model.title));
   const activeModelTitles = new Set(activeBikes.map(({ model }) => model.title));
-  const equipment = db
+  const allEquipment = db
     .select()
     .from(accessoryInventory)
     .where(eq(accessoryInventory.location, location))
     .orderBy(asc(accessoryInventory.category), asc(accessoryInventory.accessoryKey))
-    .all()
+    .all();
+  const equipment = allEquipment
     .sort(
       (left, right) =>
         (accessoryDisplayOrder.get(left.accessoryKey) ?? Number.MAX_SAFE_INTEGER) -
@@ -186,20 +199,47 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   // Public inquiries may name paused bikes so they remain trackable. Concrete
   // asset selection in the admin still uses only active assets.
   const bikePricesByOption = new Map<string, LocationInventory["bikePrices"][number]>();
-  bikeRows.forEach(({ model, variant, asset }) => {
-    const prices = {
-      dailyPriceCents: asset.weekdayPriceCents,
-      weekdayPriceCents: asset.weekdayPriceCents,
-      weekendPriceCents: asset.weekendPriceCents,
-    };
-    bikePricesByOption.set(model.title, bikePricesByOption.get(model.title) ?? { option: model.title, ...prices });
-    const variantOption = `${model.title} - ${variant.size}`;
-    bikePricesByOption.set(
-      variantOption,
-      bikePricesByOption.get(variantOption) ?? { option: variantOption, ...prices },
-    );
-  });
+  const pickPriceRow = (rows: typeof bikeRows) =>
+    [...rows].sort(
+      (left, right) =>
+        left.asset.weekdayPriceCents + left.asset.weekendPriceCents -
+          (right.asset.weekdayPriceCents + right.asset.weekendPriceCents) ||
+        left.asset.id - right.asset.id,
+    )[0];
+  for (const rows of rowsByModel.values()) {
+    const model = rows[0]?.model;
+    if (!model) continue;
+    const modelRows = rows.some(({ asset }) => asset.state === "active")
+      ? rows.filter(({ asset }) => asset.state === "active")
+      : rows;
+    const modelPriceRow = pickPriceRow(modelRows);
+    if (modelPriceRow) {
+      bikePricesByOption.set(model.title, {
+        option: model.title,
+        weekdayPriceCents: modelPriceRow.asset.weekdayPriceCents,
+        weekendPriceCents: modelPriceRow.asset.weekendPriceCents,
+      });
+    }
+    const variantRows = new Map<string, typeof bikeRows>();
+    for (const row of modelRows)
+      variantRows.set(row.variant.size, [...(variantRows.get(row.variant.size) ?? []), row]);
+    for (const [size, sizeRows] of variantRows) {
+      const priceRow = pickPriceRow(sizeRows);
+      if (!priceRow) continue;
+      bikePricesByOption.set(`${model.title} - ${size}`, {
+        option: `${model.title} - ${size}`,
+        weekdayPriceCents: priceRow.asset.weekdayPriceCents,
+        weekendPriceCents: priceRow.asset.weekendPriceCents,
+      });
+    }
+  }
   const bikePrices = [...bikePricesByOption.values()];
+  const bikeOptionQuantities: Record<string, number> = {};
+  for (const { model, variant } of activeBikes) {
+    const variantOption = `${model.title} - ${variant.size}`;
+    bikeOptionQuantities[model.title] = (bikeOptionQuantities[model.title] ?? 0) + 1;
+    bikeOptionQuantities[variantOption] = (bikeOptionQuantities[variantOption] ?? 0) + 1;
+  }
   const bikeSizes = (title: string) =>
     sortBikeSizes(
       bikeVariantOptions
@@ -223,10 +263,6 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
         de: bikeSizes(model.title),
         en: bikeSizes(model.title),
       },
-      price: {
-        de: `${(asset.weekdayPriceCents / 100).toFixed(0)}€/Tag`,
-        en: `${(asset.weekdayPriceCents / 100).toFixed(0)}€/day`,
-      },
       weekdayPrice: {
         de: `Mo-Fr: ${(asset.weekdayPriceCents / 100).toFixed(0)}€/Tag`,
         en: `Mon-Fri: ${(asset.weekdayPriceCents / 100).toFixed(0)}€/day`,
@@ -235,9 +271,6 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
         de: `Sa-So: ${(asset.weekendPriceCents / 100).toFixed(0)}€/Tag`,
         en: `Sat-Sun: ${(asset.weekendPriceCents / 100).toFixed(0)}€/day`,
       },
-      // Per-bike campaign banners remain presentation-only and are intentionally not
-      // part of the price calculation.
-      discountText: { de: "", en: "" },
       description: { de: model.descriptionDe, en: model.descriptionEn },
       image: optimizeBikeMediaPath(model.image),
       gallery: parseGallery(model.galleryJson).map(optimizeBikeMediaPath),
@@ -247,7 +280,14 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     requestBikeOptions,
     bikeOptions,
     bikePrices,
+    bikeOptionQuantities,
     equipmentPrices: equipment.map((item) => ({ key: item.accessoryKey, priceCents: item.priceCents })),
+    equipmentQuantities: allEquipment.map((item) => ({
+      key: item.accessoryKey,
+      availableQuantity: item.availableQuantity,
+      quantityRelevant: item.quantityRelevant,
+      state: item.state,
+    })),
     pedalTypes: optionList("pedal", "pedal-"),
     computerMountTypes: optionList("computer-mount", "mount-"),
     helmetAvailable: equipment.some((item) => item.accessoryKey === "helmet"),
@@ -285,15 +325,47 @@ export function isRequestAvailable(
     computerMountType: string;
     needsHelmet: boolean;
     needsClothing: boolean;
+    needsBikepackingBag?: boolean;
+    needsGlasses?: boolean;
   }>,
 ) {
   const inventory = getLocationInventory(db, location);
   const pedals = new Set(inventory.pedalTypes.map((item) => item.value));
   const mounts = new Set(inventory.computerMountTypes.map((item) => item.value));
+  const bikeCounts = new Map<string, number>();
+  const accessoryCounts = new Map<string, number>();
+  for (const bike of bikes) {
+    const bikeOption = inventory.bikeOptionQuantities[bike.bikeSize]
+      ? bike.bikeSize
+      : inventory.bikeOptionQuantities[bike.bikeSize.split(" - ")[0]]
+        ? bike.bikeSize.split(" - ")[0]
+        : null;
+    if (bikeOption) bikeCounts.set(bikeOption, (bikeCounts.get(bikeOption) ?? 0) + 1);
+    const addAccessory = (key: string, requested: boolean) => {
+      if (requested) accessoryCounts.set(key, (accessoryCounts.get(key) ?? 0) + 1);
+    };
+    addAccessory(`pedal-${normalizePedalType(bike.pedalType) ?? ""}`, bike.needsPedals);
+    addAccessory(`mount-${normalizeComputerMountType(bike.computerMountType) ?? ""}`, bike.needsComputerMount);
+    addAccessory("helmet", bike.needsHelmet);
+    addAccessory("clothing", bike.needsClothing);
+    addAccessory("bikepacking-bag", bike.needsBikepackingBag ?? false);
+    addAccessory("glasses", bike.needsGlasses ?? false);
+  }
+  if ([...bikeCounts].some(([option, count]) => (inventory.bikeOptionQuantities[option] ?? 0) < count)) return false;
+  const equipmentByKey = new Map(inventory.equipmentQuantities.map((item) => [item.key, item]));
+  if (
+    [...accessoryCounts].some(([key, count]) => {
+      const item = equipmentByKey.get(key);
+      return !item || item.state !== "active" || (item.quantityRelevant && item.availableQuantity < count);
+    })
+  )
+    return false;
   return bikes.every(
     (bike) =>
-      (inventory.bikeOptions.includes(bike.bikeSize) ||
-        inventory.bikeOptions.some((option) => bike.bikeSize.startsWith(option + " - "))) &&
+      Boolean(
+        inventory.bikeOptionQuantities[bike.bikeSize] ??
+          inventory.bikeOptionQuantities[bike.bikeSize.split(" - ")[0]],
+      ) &&
       (!bike.needsPedals || pedals.has(normalizePedalType(bike.pedalType) ?? "")) &&
       (!bike.needsComputerMount || mounts.has(normalizeComputerMountType(bike.computerMountType) ?? "")) &&
       (!bike.needsHelmet || inventory.helmetAvailable) &&

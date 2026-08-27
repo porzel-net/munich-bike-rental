@@ -47,14 +47,24 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         .filter((transaction) => transaction.reference)
         .map((transaction) => [transaction.reference, bookingIdFromMetadata(transaction.metadataJson)] as const),
     );
-    const page = await listStripeCheckoutSessions({
-      createdGte: Math.floor((Date.now() - 365 * 24 * 60 * 60 * 1_000) / 1_000),
-      limit: 100,
-    });
+    const sessions = [] as Awaited<ReturnType<typeof listStripeCheckoutSessions>>["data"];
+    let startingAfter: string | undefined;
+    do {
+      const page = await listStripeCheckoutSessions({ startingAfter, limit: 100 });
+      sessions.push(...page.data);
+      if (!page.has_more || page.data.length === 0) break;
+      startingAfter = page.data.at(-1)?.id;
+    } while (startingAfter);
 
     return NextResponse.json({
-      payments: page.data
-        .filter((session) => session.payment_status === "paid" && Number.isSafeInteger(session.amount_total))
+      payments: sessions
+        .filter(
+          (session) =>
+            session.payment_status === "paid" &&
+            Number.isSafeInteger(session.amount_total) &&
+            session.currency?.toLowerCase() === "eur" &&
+            session.metadata?.booking_id === String(id),
+        )
         .map((session) => ({
           id: session.id,
           amountCents: session.amount_total,
@@ -64,6 +74,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           offerMatchesBooking: bookingOfferIds.has(Number(session.metadata?.booking_offer_id)),
           assignedBookingId: linkedSessions.get(session.id) ?? null,
         }))
+        .filter((payment) => payment.offerMatchesBooking)
         .filter((payment) => !payment.assignedBookingId || payment.assignedBookingId === id),
     });
   } catch (error) {

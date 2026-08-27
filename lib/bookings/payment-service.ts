@@ -45,7 +45,7 @@ export function recognizedRentalChargeCents(db: AppDatabase, bookingId: number) 
     .reduce((sum, line) => sum + line.amountCents, 0);
 }
 
-function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovementInput, amountCents: number) {
+function recordBookingRefund(db: AppDatabase, input: BookingMoneyMovementInput) {
   return runInImmediateTransaction(db, () => {
     const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
     if (!booking)
@@ -69,29 +69,9 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
       throw new BookingCommandError("Das Zahlungskonto ist nicht aktiv oder nicht in EUR geführt.");
     const incomeCategory = getBookingRevenueCategory(db);
 
-    const isRefund = amountCents < 0;
-    const absoluteAmountCents = Math.abs(amountCents);
-    if (isRefund) {
-      if (absoluteAmountCents > Math.max(0, getReceivedPaymentCents(db, booking.id)))
-        throw new BookingCommandError("Die Erstattung darf die tatsächlich erhaltenen Zahlungen nicht überschreiten");
-    } else if (booking.source === "legacy" || booking.source === "manual") {
-      // Historical imports and manually entered records may contain several
-      // genuine bank transfers, sometimes from different accounts. Keep this
-      // exception explicit; current web/Stripe bookings still require one
-      // exact full-payment movement.
-      if (absoluteAmountCents > Math.max(0, booking.quotedTotalCents - getReceivedPaymentCents(db, booking.id))) {
-        throw new BookingCommandError(
-          "Die Zahlung darf den noch offenen Gesamtpreis nicht überschreiten; die Buchung ist möglicherweise bereits vollständig bezahlt.",
-        );
-      }
-    } else {
-      const openCents = Math.max(0, booking.quotedTotalCents - getReceivedPaymentCents(db, booking.id));
-      if (absoluteAmountCents !== openCents) {
-        throw new BookingCommandError(
-          "Eine Buchung muss vollständig bezahlt werden. Erfasse genau den noch offenen Gesamtbetrag.",
-        );
-      }
-    }
+    const refundAmountCents = -input.amountCents;
+    if (input.amountCents > Math.max(0, getReceivedPaymentCents(db, booking.id)))
+      throw new BookingCommandError("Die Erstattung darf die tatsächlich erhaltenen Zahlungen nicht überschreiten");
 
     const occurredAt = new Date(`${bookedAt}T12:00:00.000Z`);
     const stamp = now();
@@ -101,17 +81,15 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
         financialAccountId: account.id,
         source: "manual",
         provider: "manual_booking",
-        kind: isRefund ? "refund" : "payment",
+        kind: "refund",
         status: "imported",
-        amountCents,
-        grossAmountCents: amountCents,
-        netAmountCents: amountCents,
+        amountCents: refundAmountCents,
+        grossAmountCents: refundAmountCents,
+        netAmountCents: refundAmountCents,
         currency: "EUR",
         bookedAt,
         reference: booking.invoiceNumber ?? booking.orderNumber,
-        description: isRefund
-          ? `Stornierung / Erstattung zu ${booking.invoiceNumber ?? booking.orderNumber}`
-          : `Zahlung zu ${booking.invoiceNumber ?? booking.orderNumber}`,
+        description: `Stornierung / Erstattung zu ${booking.invoiceNumber ?? booking.orderNumber}`,
         metadataJson: JSON.stringify({ bookingId: booking.id, invoiceNumber: booking.invoiceNumber, manual: true }),
         importedAt: stamp,
         createdAt: stamp,
@@ -122,14 +100,14 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
     const journalEntryId = appendJournalEntry(db, {
       bookingId: input.bookingId,
       financialTransactionId: transaction.id,
-      kind: isRefund ? "refund_issued" : "payment_received",
+      kind: "refund_issued",
       actorUserId: input.actorUserId,
       idempotencyKey: input.idempotencyKey,
       reason: input.reason,
       occurredAt,
       lines: [
-        { account: account.code, amountCents },
-        { account: "accounts_receivable", amountCents: -amountCents },
+        { account: account.code, amountCents: refundAmountCents },
+        { account: "accounts_receivable", amountCents: input.amountCents },
       ],
     });
     db.insert(financialTransactionAllocations)
@@ -137,9 +115,9 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
         transactionId: transaction.id,
         bookingId: booking.id,
         categoryId: incomeCategory.id,
-        allocationKind: isRefund ? "booking_refund" : "booking_payment",
+        allocationKind: "booking_refund",
         matchMethod: "manual",
-        amountCents,
+        amountCents: refundAmountCents,
         note: input.reason.trim(),
         matchedByUserId: input.actorUserId ?? null,
         matchedAt: stamp,
@@ -156,16 +134,10 @@ function recordBookingMoneyMovement(db: AppDatabase, input: BookingMoneyMovement
   });
 }
 
-export function recordPayment(db: AppDatabase, input: BookingMoneyMovementInput) {
-  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
-    throw new BookingCommandError("Für eine Zahlung musst du einen Betrag größer als 0 € und einen Grund angeben.");
-  return recordBookingMoneyMovement(db, input, input.amountCents);
-}
-
 export function recordRefund(db: AppDatabase, input: BookingMoneyMovementInput) {
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
     throw new BookingCommandError("Für eine Erstattung musst du einen Betrag größer als 0 € und einen Grund angeben.");
-  return recordBookingMoneyMovement(db, input, -input.amountCents);
+  return recordBookingRefund(db, input);
 }
 
 export function correctJournalEntry(
@@ -200,26 +172,6 @@ export function correctJournalEntry(
       lines: lines.map((line) => ({ account: line.account, amountCents: -line.amountCents })),
     });
   });
-}
-
-export function recordExpense(
-  db: AppDatabase,
-  input: { amountCents: number; reason: string; actorUserId: string; bookingId?: number },
-) {
-  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0 || !input.reason.trim())
-    throw new BookingCommandError("Für einen Aufwand musst du einen Betrag größer als 0 € und einen Grund angeben.");
-  return runInImmediateTransaction(db, () =>
-    appendJournalEntry(db, {
-      bookingId: input.bookingId,
-      kind: "expense",
-      actorUserId: input.actorUserId,
-      reason: input.reason,
-      lines: [
-        { account: "expense", amountCents: input.amountCents },
-        { account: "bank_or_cash", amountCents: -input.amountCents },
-      ],
-    }),
-  );
 }
 
 export function getBookingPaymentStatus(db: AppDatabase, bookingId: number) {

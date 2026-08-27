@@ -5,7 +5,7 @@ set -eu
 : "${RESTIC_PASSWORD_FILE:=/run/secrets/restic-password}"
 : "${RESTIC_CACHE_DIR:=/tmp/restic-cache}"
 : "${BACKUP_SCHEDULE:=30 2 * * *}"
-: "${BACKUP_TIMEZONE:=Europe/Rome}"
+: "${BACKUP_TIMEZONE:=Europe/Berlin}"
 
 export RESTIC_REPOSITORY RESTIC_PASSWORD_FILE RESTIC_CACHE_DIR TZ="$BACKUP_TIMEZONE"
 

@@ -253,7 +253,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       nickname: rentalAssets.nickname,
       modelTitle: bikeModels.title,
       size: bikeVariants.size,
-      priceCents: rentalAssets.dailyPriceCents,
+      priceCents: rentalAssets.weekdayPriceCents,
       state: rentalAssets.state,
     })
     .from(rentalAssets)
@@ -591,7 +591,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {items.map((item) => {
                       const match = offered.find(({ item: offeredItem }) => offeredItem.requestedItemId === item.id);
-                      const requestedDailyPriceCents = getDailyBikePriceCents(
+                      const requestedDatePriceCents = getDailyBikePriceCents(
                         locationInventory,
                         item.requestedLabel,
                         booking.periodFrom,
@@ -610,7 +610,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                         item.bottleHolderIncluded ? "Flaschenhalter inklusive" : null,
                         item.repairKitIncluded ? "Reparaturset inklusive" : null,
                       ].filter((value): value is string => Boolean(value));
-                      const priceCents = match?.item.itemPriceCents ?? requestedDailyPriceCents;
+                      const displayedPriceCents = match?.item.itemPriceCents ?? requestedDatePriceCents;
                       const concreteBikeDiffers = Boolean(match);
 
                       return (
@@ -629,7 +629,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                             <div className="shrink-0 text-right">
                               <p className="text-xs text-muted-foreground">Preis/Tag</p>
                               <p className="mt-1 font-medium">
-                                {priceCents !== undefined ? formatEuro(priceCents) : "—"}
+                                {displayedPriceCents !== undefined ? formatEuro(displayedPriceCents) : "—"}
                               </p>
                             </div>
                           </div>
@@ -712,7 +712,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     communicationLocale={booking.communicationLocale}
                     senderName={session.user.name}
                     paymentAccounts={paymentAccounts}
-                    isLegacy={booking.source === "legacy"}
+                    isHistorical={booking.source === "legacy"}
                     canExecuteActions={
                       hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
                     }

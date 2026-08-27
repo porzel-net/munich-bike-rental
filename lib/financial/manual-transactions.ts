@@ -7,12 +7,21 @@ import {
   financialCategories,
   financialTransactionAllocations,
   financialTransactions,
+  journalEntries,
 } from "../db/schema";
 import { postFinancialTransactionInTransaction } from "./reconciliation";
 import { getBookingRevenueCategory } from "./categories";
 import { appendJournalEntry, getReceivedPaymentCents, getReceivableStatus, hasBookingCharge } from "../bookings/ledger";
+import { validateManualBookingPayment } from "../bookings/payment-rules";
 import { BookingCommandError } from "../bookings/errors";
 import { isValidIsoDate } from "../bookings/validation";
+
+type ManualTransactionResult = {
+  transactionId: number;
+  journalEntryId: number;
+  bookingId?: number;
+  orderNumber?: string;
+};
 
 export function getOrCreateCashAccount(db: AppDatabase) {
   const existing = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get();
@@ -47,6 +56,7 @@ export function createAndPostManualTransaction(
     counterpartyName?: string;
     description?: string;
     note?: string;
+    idempotencyKey?: string;
     businessMeal?: {
       privateShareCents: number;
       inputVatCents?: number;
@@ -65,7 +75,7 @@ export function createAndPostManualTransaction(
       notes?: string;
     };
   },
-) {
+): ManualTransactionResult {
   if (!isValidIsoDate(input.bookedAt)) throw new BookingCommandError("Bitte gib ein gültiges Buchungsdatum an.");
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0)
     throw new BookingCommandError("Der Betrag muss größer als 0 sein.");
@@ -80,6 +90,11 @@ export function createAndPostManualTransaction(
   if (booking && category.code !== "rental_revenue")
     throw new BookingCommandError("Eine Buchung kann nur der sachlichen Zuordnung Mieterträge zugewiesen werden.");
   if (!booking && !input.description?.trim()) throw new BookingCommandError("Bitte gib eine Beschreibung an.");
+  const signedAmountCents = booking
+    ? input.amountCents
+    : ["income", "output_vat"].includes(category.euerTreatment)
+      ? input.amountCents
+      : -input.amountCents;
   return runInImmediateTransaction(db, () => {
     const account = input.accountId
       ? db.select().from(financialAccounts).where(eq(financialAccounts.id, input.accountId)).get()
@@ -89,23 +104,68 @@ export function createAndPostManualTransaction(
       throw new BookingCommandError("Das Finanzkonto ist nicht aktiv.");
     if (account.currency !== "EUR")
       throw new BookingCommandError("Manuelle Transaktionen werden aktuell nur in EUR unterstützt.");
+    if (input.idempotencyKey) {
+      const existing = db
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.idempotencyKey, input.idempotencyKey))
+        .get();
+      if (existing) {
+        const existingTransaction = existing.financialTransactionId
+          ? db
+              .select()
+              .from(financialTransactions)
+              .where(eq(financialTransactions.id, existing.financialTransactionId))
+              .get()
+          : undefined;
+        const existingAllocations = existingTransaction
+          ? db
+              .select()
+              .from(financialTransactionAllocations)
+              .where(eq(financialTransactionAllocations.transactionId, existingTransaction.id))
+              .all()
+          : [];
+        const sameRequest =
+          existingTransaction !== undefined &&
+          existing.bookingId === (booking?.id ?? null) &&
+          existingTransaction.financialAccountId === account.id &&
+          existingTransaction.source === input.source &&
+          existingTransaction.amountCents === signedAmountCents &&
+          (booking
+            ? existing.kind === "payment_received" &&
+              existingAllocations.some(
+                (allocation) => allocation.bookingId === booking.id && allocation.categoryId === category.id,
+              )
+            : existingAllocations.some(
+                (allocation) =>
+                  allocation.categoryId === category.id &&
+                  (allocation.destinationAccountId ?? null) === (input.destinationAccountId ?? null),
+              ));
+        if (!sameRequest)
+          throw new BookingCommandError("Der Idempotenzschlüssel gehört bereits zu einer anderen Transaktion.");
+        return {
+          transactionId: existingTransaction.id,
+          journalEntryId: existing.id,
+          bookingId: booking?.id,
+          orderNumber: booking?.orderNumber,
+        };
+      }
+    }
     if (booking) {
       const bookingRevenueCategory = getBookingRevenueCategory(db);
       const receivable = getReceivableStatus(db, booking.id);
-      if (hasBookingCharge(db, booking.id)) {
-        if (receivable.openCents <= 0)
-          throw new BookingCommandError(
-            receivable.openCents < 0
-              ? "Diese Buchung ist bereits überzahlt; bitte prüfe zuerst eine Rückerstattung."
-              : "Diese Buchung hat keine offene Forderung mehr.",
-          );
-        if (input.amountCents > receivable.openCents)
-          throw new BookingCommandError("Der Zahlungseingang ist höher als der noch offene Buchungsbetrag.");
-      } else if (
-        booking.quotedTotalCents > 0 &&
-        getReceivedPaymentCents(db, booking.id) + input.amountCents > booking.quotedTotalCents
-      ) {
-        throw new BookingCommandError("Die Zahlung darf den bekannten Gesamtpreis der Buchung nicht überschreiten.");
+      const receivedCents = getReceivedPaymentCents(db, booking.id);
+      let historicalCorrection = false;
+      try {
+        historicalCorrection = validateManualBookingPayment({
+          booking,
+          amountCents: input.amountCents,
+          receivedCents,
+          openCents: receivable.openCents,
+          hasCharge: hasBookingCharge(db, booking.id),
+        }).historicalCorrection;
+      } catch (error) {
+        throw new BookingCommandError(error instanceof Error ? error.message : "Die Zahlung ist nicht zulässig.");
       }
       const now = new Date();
       const description = input.description?.trim() || `Zahlung zu ${booking.orderNumber}`;
@@ -125,7 +185,7 @@ export function createAndPostManualTransaction(
           counterpartyNameSnapshot: input.counterpartyName?.trim() || booking.customerName,
           reference: booking.orderNumber,
           description,
-          metadataJson: JSON.stringify({ manual: true, bookingId: booking.id }),
+          metadataJson: JSON.stringify({ manual: true, bookingId: booking.id, historicalCorrection }),
           importedAt: now,
           createdAt: now,
           updatedAt: now,
@@ -138,6 +198,7 @@ export function createAndPostManualTransaction(
         kind: "payment_received",
         actorUserId: input.actorUserId,
         reason: input.note?.trim() || description,
+        idempotencyKey: input.idempotencyKey,
         occurredAt: new Date(`${input.bookedAt}T12:00:00.000Z`),
         lines: [
           { account: account.code, amountCents: input.amountCents },
@@ -166,9 +227,6 @@ export function createAndPostManualTransaction(
         .run();
       return { transactionId: transaction.id, journalEntryId };
     }
-    const signedAmountCents = ["income", "output_vat"].includes(category.euerTreatment)
-      ? input.amountCents
-      : -input.amountCents;
     const now = new Date();
     const transaction = db
       .insert(financialTransactions)

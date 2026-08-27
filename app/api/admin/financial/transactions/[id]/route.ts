@@ -44,7 +44,11 @@ const schema = z.discriminatedUnion("action", [
       .optional(),
   }),
   z.object({ action: z.literal("ignore"), reason: z.string().trim().min(1).max(1000) }),
-  z.object({ action: z.literal("assign_booking"), bookingId: z.number().int().positive() }),
+  z.object({
+    action: z.literal("assign_booking"),
+    bookingId: z.number().int().positive(),
+    amountCents: z.number().int().positive().optional(),
+  }),
 ]);
 
 function authorized(request: Request, session: Awaited<ReturnType<typeof getServerSession>>) {
@@ -86,6 +90,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           : assignNevloTransactionToBooking(db, {
               transactionId,
               bookingId: input.data.bookingId,
+              amountCents: input.data.amountCents,
               actorUserId: session.user.id,
             });
     return NextResponse.json({ ok: true, ...result });

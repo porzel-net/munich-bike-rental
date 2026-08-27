@@ -108,7 +108,7 @@ describe("booking confirmation completion API", () => {
       expiresAt: new Date(Date.now() + 60_000),
       status: "sent",
       totalCents: 10_000,
-      booking: { locale: "de" },
+      booking: { id: booking.id, locale: "de" },
     });
     confirmationMocks.confirmOfferWithStripePayment.mockReset();
     confirmationMocks.confirmOfferWithStripePayment.mockReturnValue({ bookingId: booking.id, alreadyConfirmed: false });
@@ -123,7 +123,9 @@ describe("booking confirmation completion API", () => {
       id: "cs_test_confirmation",
       payment_status: "paid",
       amount_total: 10_000,
-      metadata: { booking_offer_id: "7" },
+      currency: "eur",
+      payment_intent: "pi_test_confirmation",
+      metadata: { booking_offer_id: "7", booking_id: String(booking.id) },
     });
   });
 
@@ -136,7 +138,7 @@ describe("booking confirmation completion API", () => {
       offerId: 7,
       amountCents: 10_000,
       sessionId: "cs_test_confirmation",
-      paymentIntentId: null,
+      paymentIntentId: "pi_test_confirmation",
       offerToken: token,
     });
     expect(confirmationMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(

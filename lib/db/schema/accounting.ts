@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { AnySQLiteColumn, check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 import { authUser } from "./auth";
-import { bookingRequestedItems, bookings, journalEntries, rentalAssets } from "./booking";
+import { bookingOffers, bookingRequestedItems, bookings, journalEntries, rentalAssets } from "./booking";
 
 /** The single persisted Nevlo OAuth token set. Token values are encrypted before storage. */
 export const nevloOAuthTokens = sqliteTable("nevlo_oauth_tokens", {
@@ -242,6 +242,46 @@ export const financialTransactions = sqliteTable(
   ],
 );
 
+export const stripeRefundStatuses = ["pending", "succeeded", "posted", "failed"] as const;
+export type StripeRefundStatus = (typeof stripeRefundStatuses)[number];
+
+/** Durable state machine for Stripe refunds, including refunds created outside this application. */
+export const stripeRefundOperations = sqliteTable(
+  "stripe_refund_operations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "restrict" }),
+    offerId: integer("offer_id")
+      .notNull()
+      .references(() => bookingOffers.id, { onDelete: "restrict" }),
+    paymentIntentId: text("payment_intent_id").notNull(),
+    stripeRefundId: text("stripe_refund_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    status: text("status", { enum: stripeRefundStatuses }).notNull().default("pending"),
+    reason: text("reason").notNull(),
+    failureMessage: text("failure_message"),
+    financialTransactionId: integer("financial_transaction_id").references(() => financialTransactions.id, {
+      onDelete: "restrict",
+    }),
+    journalEntryId: integer("journal_entry_id").references(() => journalEntries.id, { onDelete: "restrict" }),
+    actorUserId: text("actor_user_id").references(() => authUser.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("stripe_refund_operations_idempotency_unique").on(table.idempotencyKey),
+    uniqueIndex("stripe_refund_operations_stripe_refund_unique").on(table.stripeRefundId),
+    index("stripe_refund_operations_booking_status_idx").on(table.bookingId, table.status),
+    index("stripe_refund_operations_payment_intent_idx").on(table.paymentIntentId),
+    check("stripe_refund_operations_amount_positive", sql`${table.amountCents} > 0`),
+    check("stripe_refund_operations_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
 /** A capitalized business asset with its tax-relevant acquisition data. */
 export const fixedAssets = sqliteTable(
   "fixed_assets",
@@ -461,16 +501,3 @@ export const financialDocumentLinks = sqliteTable(
     ),
   ],
 );
-
-/** Legacy expense rows retained during the migration to the financial transaction model. */
-export const accountingExpenses = sqliteTable("accounting_expenses", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  description: text("description").notNull(),
-  payeeName: text("payee_name").notNull(),
-  paymentDate: text("payment_date"),
-  depreciationDurationMonths: integer("depreciation_duration_months"),
-  sumCents: integer("sum_cents").notNull(),
-  createdBy: text("created_by").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-});

@@ -339,7 +339,7 @@ Die Datenbank enthält personenbezogene Kontakt- und Mietdaten. Backups gehören
 
 ### Automatische verschlüsselte Vollbackups
 
-Der Compose-Stack enthält einen separaten `backup`-Service. Er erstellt täglich um `02:30` Uhr (Zeitzone `Europe/Rome`) einen konsistenten SQLite-Snapshot und sichert zusätzlich die Verzeichnisse für Finanzbelege, WhatsApp-Authentifizierung und das Radicale-Volume. Die Sicherung wird mit Restic komprimiert, verschlüsselt und als vollständiger wiederherstellbarer Snapshot abgelegt.
+Der Compose-Stack enthält einen separaten `backup`-Service. Er erstellt täglich um `02:30` Uhr (Zeitzone `Europe/Berlin`) einen konsistenten SQLite-Snapshot und sichert zusätzlich die Verzeichnisse für Finanzbelege, WhatsApp-Authentifizierung und das Radicale-Volume. Die Sicherung wird mit Restic komprimiert, verschlüsselt und als vollständiger wiederherstellbarer Snapshot abgelegt.
 
 Die Aufbewahrung ist fest eingestellt auf:
 
@@ -360,7 +360,7 @@ Setze anschließend in `.env` mindestens:
 ```dotenv
 BACKUP_DIR=/srv/bikerental-backups
 BACKUP_RESTIC_PASSWORD_FILE=/srv/bikerental-secrets/restic-password
-BACKUP_TIMEZONE=Europe/Rome
+BACKUP_TIMEZONE=Europe/Berlin
 BACKUP_SCHEDULE=30 2 * * *
 ```
 

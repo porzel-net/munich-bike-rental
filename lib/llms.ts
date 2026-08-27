@@ -1,24 +1,22 @@
-import { faqItems, portfolioItems, priceItems } from "./home-content";
+import { faqItems } from "./home-content";
+import { getDatabase } from "./db/client";
+import { getLocationInventory } from "./inventory/repository";
+import { rentalLocationConfigs } from "./rental-locations";
 import { siteConfig } from "./site";
 
-function toUsdStylePrice(value: string) {
+function formatLlmPrice(value: string) {
   return value.replaceAll("€", " EUR");
 }
 
-function bikePriceText(bike: (typeof portfolioItems)[number]) {
-  if (bike.weekdayPrice && bike.weekendPrice) {
-    return `${toUsdStylePrice(bike.weekdayPrice.en)}; ${toUsdStylePrice(bike.weekendPrice.en)}`;
-  }
-  return toUsdStylePrice(bike.price.en);
+function bikePriceText(bike: { weekdayPrice: { en: string }; weekendPrice: { en: string } }) {
+  return `${formatLlmPrice(bike.weekdayPrice.en)}; ${formatLlmPrice(bike.weekendPrice.en)}`;
 }
 
-function formatBikeLine(index: number) {
-  const bike = portfolioItems[index];
+function formatBikeLine(bike: ReturnType<typeof getLocationInventory>["portfolioItems"][number]) {
   return `- ${bike.title} (${bike.subtitle.en}) - ${bikePriceText(bike)}. ${bike.description.en}`;
 }
 
-function formatFullBikeSection(index: number) {
-  const bike = portfolioItems[index];
+function formatFullBikeSection(bike: ReturnType<typeof getLocationInventory>["portfolioItems"][number]) {
   const facts = bike.facts.map((fact) => `- ${fact.label.en}: ${fact.value.en}`).join("\n");
   const equipment = bike.equipment.en.map((item) => `- ${item}`).join("\n");
 
@@ -33,6 +31,20 @@ function formatFullBikeSection(index: number) {
     `- Equipment:`,
     equipment,
   ].join("\n");
+}
+
+function currentLocationPricing() {
+  const database = getDatabase();
+  return rentalLocationConfigs
+    .map((location) => {
+      const inventory = getLocationInventory(database, location.key);
+      const bikes = inventory.portfolioItems.map(formatBikeLine).join("\n");
+      const discounts = inventory.discounts
+        .map((discount) => `- ${discount.label.en}: ${discount.percentage}%`)
+        .join("\n");
+      return `### ${location.city.en}\n\n${bikes || "- No currently catalogued bikes."}\n\nDiscounts:\n${discounts || "- No active discounts."}`;
+    })
+    .join("\n\n");
 }
 
 function formatFaqLine(index: number) {
@@ -75,9 +87,9 @@ This website is for a local bicycle rental service. The most useful pages are th
 - Positioning: personal, owner-run bike rental with only owned bikes
 - Primary audience: people looking to rent a road or gravel bike in Munich or Regensburg
 
-## Bikes
+## Current bikes and pricing
 
-${portfolioItems.map((_, index) => formatBikeLine(index)).join("\n")}
+${currentLocationPricing()}
 
 ## Rental and contact
 
@@ -151,13 +163,14 @@ The homepage presents the business as a passion-driven, owner-operated bike rent
 - For city-specific questions, answer from the home page.
 - Both German and English versions should keep the same city and category signals so search intent remains consistent across locales.
 
-## Bikes and pricing
+## Current bikes and pricing
 
-${portfolioItems.map((_, index) => formatFullBikeSection(index)).join("\n\n")}
-
-## Prices and discounts
-
-${priceItems.map((item) => `- ${item.title.en}: ${toUsdStylePrice(item.cost.en)}`).join("\n")}
+${rentalLocationConfigs
+  .map((location) => {
+    const inventory = getLocationInventory(getDatabase(), location.key);
+    return `### ${location.city.en}\n\n${inventory.portfolioItems.map(formatFullBikeSection).join("\n\n") || "No currently catalogued bikes."}\n\nDiscounts:\n${inventory.discounts.map((discount) => `- ${discount.label.en}: ${discount.percentage}%`).join("\n") || "- No active discounts."}`;
+  })
+  .join("\n\n")}
 
 ## FAQ summary
 

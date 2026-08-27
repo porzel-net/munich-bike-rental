@@ -51,8 +51,6 @@ export {
   correctJournalEntry,
   getBookingPaymentStatus,
   recognizedRentalChargeCents,
-  recordExpense,
-  recordPayment,
   recordRefund,
   type BookingMoneyMovementInput,
 } from "./payment-service";
@@ -140,7 +138,7 @@ export function deleteBookingPermanently(db: AppDatabase, bookingId: number) {
   });
 }
 
-export type LegacyStatusDetails = {
+export type BookingStatusDetails = {
   periodFrom: string;
   periodTo: string;
   pickupTime: string;
@@ -151,39 +149,34 @@ export type LegacyStatusDetails = {
   reason?: string;
 };
 
-type SetLegacyBookingStatusInput = {
+type SetHistoricalBookingStatusInput = {
   bookingId: number;
   status: BookingStatus;
-  details?: LegacyStatusDetails;
+  details?: BookingStatusDetails;
   reason?: string;
   actorUserId?: string | null;
-  allowNonLegacy?: boolean;
+  allowManualBooking?: boolean;
 };
 
-const legacyStatusesRequiringBookingDetails = new Set<BookingStatus>([
-  "offer_sent",
-  "confirmed",
-  "checked_out",
-  "completed",
-]);
-const legacyStatusesRequiringAssets = new Set<BookingStatus>(["offer_sent", "confirmed", "checked_out", "completed"]);
-const legacyStatusesRequiringInvoice = new Set<BookingStatus>(["confirmed", "checked_out", "completed"]);
+const statusesRequiringBookingDetails = new Set<BookingStatus>(["offer_sent", "confirmed", "checked_out", "completed"]);
+const statusesRequiringAssets = new Set<BookingStatus>(["offer_sent", "confirmed", "checked_out", "completed"]);
+const statusesRequiringInvoice = new Set<BookingStatus>(["confirmed", "checked_out", "completed"]);
 
-/** Imported historical records can be moved between states, but each state must have coherent data. */
-function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBookingStatusInput) {
+/** Historical records can be moved between states, but each state must have coherent data. */
+function setHistoricalBookingStatusInTransaction(db: AppDatabase, input: SetHistoricalBookingStatusInput) {
   const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
   if (!booking)
     throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
-  const isManualConfirmation = input.allowNonLegacy && input.status === "confirmed" && booking.source === "manual";
+  const isManualConfirmation = input.allowManualBooking && input.status === "confirmed" && booking.source === "manual";
   if (booking.source !== "legacy" && !isManualConfirmation)
     throw new BookingCommandError(
       "Der Status kann hier nur bei importierten oder manuell angelegten Buchungen frei geändert werden",
     );
   if (booking.status === input.status && !input.details) return booking;
 
-  const requiresDetails = legacyStatusesRequiringBookingDetails.has(input.status);
-  const requiresAssets = legacyStatusesRequiringAssets.has(input.status);
-  const requiresInvoice = legacyStatusesRequiringInvoice.has(input.status);
+  const requiresDetails = statusesRequiringBookingDetails.has(input.status);
+  const requiresAssets = statusesRequiringAssets.has(input.status);
+  const requiresInvoice = statusesRequiringInvoice.has(input.status);
   const details = input.details;
   const stamp = now();
   if (
@@ -311,7 +304,7 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
       .where(and(eq(bookingOffers.bookingId, booking.id), eq(bookingOffers.status, "sent")))
       .run();
 
-  if (input.allowNonLegacy) allocateRequestedAccessories(db, nextBooking, {}, stamp);
+  if (input.allowManualBooking) allocateRequestedAccessories(db, nextBooking, {}, stamp);
 
   db.update(bookings)
     .set({
@@ -366,7 +359,7 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
           offerId: offer.id,
           requestedItemId: item.requestedItemId,
           assetId: item.assetId,
-          itemPriceCents: item.dailyPriceCents,
+          itemPriceCents: item.weekdayPriceCents,
         })),
       )
       .run();
@@ -398,8 +391,8 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
         bookingId: booking.id,
         kind: "rental_charge",
         actorUserId: input.actorUserId,
-        idempotencyKey: `${input.allowNonLegacy ? "manual_booking_charge" : "legacy_booking_charge_adjustment"}:${booking.id}:${booking.version + 1}`,
-        reason: input.allowNonLegacy
+        idempotencyKey: `${input.allowManualBooking ? "manual_booking_charge" : "historical_booking_charge_adjustment"}:${booking.id}:${booking.version + 1}`,
+        reason: input.allowManualBooking
           ? "Mietpreis der Buchung manuell festgelegt"
           : "Mietpreis der importierten Buchung angepasst",
         lines: [
@@ -412,11 +405,13 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
   event(
     db,
     booking.id,
-    input.allowNonLegacy ? "manual_booking_confirmed" : "legacy_booking_status_changed",
+    input.allowManualBooking ? "manual_booking_confirmed" : "historical_booking_status_changed",
     booking.status,
     input.status,
     input.actorUserId,
-    input.allowNonLegacy ? "Buchung manuell verbindlich bestätigt" : "Status der importierten Buchung manuell geändert",
+    input.allowManualBooking
+      ? "Buchung manuell verbindlich bestätigt"
+      : "Status der historischen Buchung manuell geändert",
     {
       reason: details?.reason ?? input.reason ?? "",
       requiresBookingDetails: requiresDetails,
@@ -446,8 +441,8 @@ function setLegacyBookingStatusInTransaction(db: AppDatabase, input: SetLegacyBo
   };
 }
 
-export function setLegacyBookingStatus(db: AppDatabase, input: SetLegacyBookingStatusInput) {
-  return runInImmediateTransaction(db, () => setLegacyBookingStatusInTransaction(db, input));
+export function setHistoricalBookingStatus(db: AppDatabase, input: SetHistoricalBookingStatusInput) {
+  return runInImmediateTransaction(db, () => setHistoricalBookingStatusInTransaction(db, input));
 }
 
 /** Records whether open booking questions were clarified outside the e-mail thread. */
@@ -503,15 +498,15 @@ export function acknowledgeBookingAttention(
 /** Confirms a regular booking directly when the agreement was made outside the offer flow. */
 export function confirmManualBooking(
   db: AppDatabase,
-  input: { bookingId: number; details: Omit<LegacyStatusDetails, "invoiceNumber">; actorUserId?: string | null },
+  input: { bookingId: number; details: Omit<BookingStatusDetails, "invoiceNumber">; actorUserId?: string | null },
 ) {
   return runInImmediateTransaction(db, () =>
-    setLegacyBookingStatusInTransaction(db, {
+    setHistoricalBookingStatusInTransaction(db, {
       bookingId: input.bookingId,
       status: "confirmed",
       details: input.details,
       actorUserId: input.actorUserId,
-      allowNonLegacy: true,
+      allowManualBooking: true,
     }),
   );
 }
@@ -805,7 +800,7 @@ export function createHistoricalBooking(
     ) as Record<number, number>;
     if (Object.values(assetsByRequestedItem).some((assetId) => !Number.isInteger(assetId) || assetId <= 0))
       throw new BookingCommandError("Für jedes Fahrrad muss ein konkretes Fahrrad ausgewählt werden");
-    setLegacyBookingStatusInTransaction(db, {
+    setHistoricalBookingStatusInTransaction(db, {
       bookingId: created.id,
       status: "completed",
       actorUserId: input.actorUserId,
@@ -880,7 +875,7 @@ export function createDirectBooking(
           offerId: directOffer.id,
           requestedItemId: item.requestedItemId,
           assetId: item.assetId,
-          itemPriceCents: item.dailyPriceCents,
+          itemPriceCents: item.weekdayPriceCents,
         })),
       )
       .run();

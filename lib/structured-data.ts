@@ -1,6 +1,6 @@
 import type { Locale } from "./home-content";
 import mainImage from "@/main.webp";
-import { faqItems, portfolioItems } from "./home-content";
+import { faqItems } from "./home-content";
 import type { BlogPost } from "./blog-content";
 import { getBlogImageSrc, getBlogPostPlainText } from "./blog-content";
 import { siteConfig } from "./site";
@@ -18,24 +18,24 @@ function parsePrice(value: string) {
 
 function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
   const databaseItems = getLocationInventory(getDatabase(), location.key).portfolioItems;
-  const items = databaseItems.length ? databaseItems : portfolioItems;
+  const items = databaseItems;
   const catalog = items.map((item, index) => ({
     "@type": "Offer",
     position: index + 1,
     name: item.title,
     description: item.description[locale],
-    price: parsePrice(item.weekdayPrice?.[locale] ?? item.price[locale]),
+    price: parsePrice(item.weekdayPrice[locale]),
     priceCurrency: "EUR",
     priceSpecification: [
       {
         "@type": "UnitPriceSpecification",
-        price: parsePrice(item.weekdayPrice?.[locale] ?? item.price[locale]),
+        price: parsePrice(item.weekdayPrice[locale]),
         priceCurrency: "EUR",
         unitText: locale === "de" ? "Tag Mo-Fr" : "day Mon-Fri",
       },
       {
         "@type": "UnitPriceSpecification",
-        price: parsePrice(item.weekendPrice?.[locale] ?? item.price[locale]),
+        price: parsePrice(item.weekendPrice[locale]),
         priceCurrency: "EUR",
         unitText: locale === "de" ? "Tag Sa-So" : "day Sat-Sun",
       },
@@ -43,13 +43,7 @@ function getOfferCatalog(location: RentalLocationConfig, locale: Locale) {
     availability: "https://schema.org/InStock",
   }));
 
-  if (location.key === "munich") {
-    return catalog;
-  }
-
-  return catalog
-    .filter((offer) => offer.name === "Endurace CF SL 8" || offer.name === "Grail CF SL 7")
-    .map((offer) => ({ ...offer, price: 49 }));
+  return catalog;
 }
 
 function getFaqEntries(location: RentalLocationConfig, locale: Locale) {

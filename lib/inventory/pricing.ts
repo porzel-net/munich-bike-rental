@@ -6,9 +6,8 @@ import { berlinDateKey, parseDateOnly } from "../datetime";
 export const MAX_DAILY_DISCOUNT_PERCENTAGE = 25;
 
 export type BikePriceScheduleInput = {
-  dailyPriceCents?: number;
-  weekdayPriceCents?: number;
-  weekendPriceCents?: number;
+  weekdayPriceCents: number;
+  weekendPriceCents: number;
 };
 
 export type DailyPriceBreakdown = {
@@ -82,9 +81,8 @@ export function getBikePriceScheduleCents(
   inventory: {
     bikePrices: Array<{
       option: string;
-      dailyPriceCents: number;
-      weekdayPriceCents?: number;
-      weekendPriceCents?: number;
+      weekdayPriceCents: number;
+      weekendPriceCents: number;
     }>;
   },
   requestedBike: string,
@@ -92,16 +90,16 @@ export function getBikePriceScheduleCents(
   const exactPrice = inventory.bikePrices.find((bike) => bike.option === requestedBike);
   if (exactPrice) {
     return {
-      weekdayPriceCents: exactPrice.weekdayPriceCents ?? exactPrice.dailyPriceCents,
-      weekendPriceCents: exactPrice.weekendPriceCents ?? exactPrice.dailyPriceCents,
+      weekdayPriceCents: exactPrice.weekdayPriceCents,
+      weekendPriceCents: exactPrice.weekendPriceCents,
     };
   }
   const model = requestedBike.split(" - ")[0];
   const modelPrice = inventory.bikePrices.find((bike) => bike.option === model);
   if (!modelPrice) return undefined;
   return {
-    weekdayPriceCents: modelPrice.weekdayPriceCents ?? modelPrice.dailyPriceCents,
-    weekendPriceCents: modelPrice.weekendPriceCents ?? modelPrice.dailyPriceCents,
+    weekdayPriceCents: modelPrice.weekdayPriceCents,
+    weekendPriceCents: modelPrice.weekendPriceCents,
   };
 }
 
@@ -109,9 +107,8 @@ export function getDailyBikePriceCents(
   inventory: {
     bikePrices: Array<{
       option: string;
-      dailyPriceCents: number;
-      weekdayPriceCents?: number;
-      weekendPriceCents?: number;
+      weekdayPriceCents: number;
+      weekendPriceCents: number;
     }>;
   },
   requestedBike: string,
@@ -124,8 +121,8 @@ export function getDailyBikePriceCents(
 
 function getBikeSchedule(input: BikePriceScheduleInput): BikePriceSchedule {
   return {
-    weekdayPriceCents: input.weekdayPriceCents ?? input.dailyPriceCents ?? 0,
-    weekendPriceCents: input.weekendPriceCents ?? input.dailyPriceCents ?? 0,
+    weekdayPriceCents: input.weekdayPriceCents,
+    weekendPriceCents: input.weekendPriceCents,
   };
 }
 
@@ -257,13 +254,10 @@ export function calculatePrice(inventory: DiscountInventory, input: CentralPrice
 }
 
 export function calculateBikeSubtotalCents(input: BikePriceScheduleInput & { periodFrom: string; rentalDays: number }) {
-  const pickupDate = parseDateOnly(input.periodFrom);
-  const schedule = getBikeSchedule(input);
-  let subtotalCents = 0;
-  for (let dayOffset = 0; dayOffset < input.rentalDays; dayOffset += 1) {
-    subtotalCents += priceForDate(schedule, new Date(pickupDate.getTime() + dayOffset * 86_400_000));
-  }
-  return subtotalCents;
+  return calculatePrice(
+    { discounts: [] },
+    { bikes: [input], periodFrom: input.periodFrom, rentalDays: input.rentalDays },
+  ).bikeSubtotalCents;
 }
 
 /** Rental periods include both the pickup and return date. */

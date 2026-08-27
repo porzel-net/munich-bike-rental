@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
@@ -67,6 +68,8 @@ export type FinancialReviewTransaction = {
   destinationAccountId: number | null;
   fixedAssetId: number | null;
   amountCents: number;
+  allocatedCents: number;
+  remainingCents: number;
   currency: string;
   bookedAt: string;
   valueDate: string | null;
@@ -130,6 +133,7 @@ export function FinancialReviewInbox({
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
   const [assignmentBookingId, setAssignmentBookingId] = useState("");
+  const [assignmentAmount, setAssignmentAmount] = useState("");
   const sortedRows = useMemo(
     () =>
       [...transactions].sort((left, right) => {
@@ -142,15 +146,20 @@ export function FinancialReviewInbox({
   function openBookingAssignment(row: FinancialReviewTransaction) {
     setAssignmentRow(row);
     setAssignmentBookingId(row.matchedBooking ? String(row.matchedBooking.id) : "");
+    setAssignmentAmount((Math.max(0, row.remainingCents) / 100).toFixed(2));
   }
 
-  async function assignBooking(row: FinancialReviewTransaction, bookingId: number) {
+  async function assignBooking(row: FinancialReviewTransaction, bookingId: number, amountCents = row.remainingCents) {
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > row.remainingCents) {
+      toast.error("Bitte gib einen gültigen Teilbetrag innerhalb des offenen Bankbetrags an.");
+      return;
+    }
     setAssigningId(row.id);
     try {
       const response = await fetch(`/api/admin/financial/transactions/${row.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "assign_booking", bookingId }),
+        body: JSON.stringify({ action: "assign_booking", bookingId, amountCents }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok)
@@ -264,6 +273,7 @@ export function FinancialReviewInbox({
                       ) : null}
                       {row.source === "bank" &&
                       row.amountCents > 0 &&
+                      row.remainingCents > 0 &&
                       row.status !== "posted" &&
                       row.status !== "ignored" ? (
                         <Button
@@ -321,10 +331,26 @@ export function FinancialReviewInbox({
           <DialogHeader>
             <DialogTitle>Bankzahlung einem Auftrag zuweisen</DialogTitle>
             <DialogDescription>
-              Der Betrag wird dem ausgewählten Auftrag zugeordnet. Das Angebot oder der Buchungsstatus wird dabei nicht
-              automatisch geändert.
+              Weise den ganzen Bankbetrag oder nur einen Teil davon zu. Der verbleibende Betrag bleibt zur weiteren
+              Prüfung offen; Angebot und Buchungsstatus werden dabei nicht automatisch geändert.
             </DialogDescription>
           </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor="financial-assignment-amount">Zuzuweisender Betrag</FieldLabel>
+            <Input
+              id="financial-assignment-amount"
+              type="number"
+              min="0.01"
+              max={assignmentRow ? (assignmentRow.remainingCents / 100).toFixed(2) : undefined}
+              step="0.01"
+              value={assignmentAmount}
+              onChange={(event) => setAssignmentAmount(event.target.value)}
+              disabled={Boolean(assigningId)}
+            />
+            <FieldDescription>
+              Noch offen: {assignmentRow ? formatAmount(assignmentRow.remainingCents, assignmentRow.currency) : "—"}
+            </FieldDescription>
+          </Field>
           <Field>
             <FieldLabel htmlFor="financial-assignment-booking">Auftrag</FieldLabel>
             <Select value={assignmentBookingId} onValueChange={(value) => setAssignmentBookingId(value ?? "")}>
@@ -366,8 +392,10 @@ export function FinancialReviewInbox({
               type="button"
               disabled={!assignmentRow || !assignmentBookingId || Boolean(assigningId)}
               onClick={() => {
-                if (assignmentRow && assignmentBookingId)
-                  void assignBooking(assignmentRow, Number(assignmentBookingId));
+                if (assignmentRow && assignmentBookingId) {
+                  const amountCents = Math.round(Number(assignmentAmount.replace(",", ".")) * 100);
+                  void assignBooking(assignmentRow, Number(assignmentBookingId), amountCents);
+                }
               }}
             >
               {assigningId ? "Wird zugewiesen …" : "Zahlung zuweisen"}

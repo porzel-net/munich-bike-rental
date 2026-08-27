@@ -653,11 +653,11 @@ function BikeModal({
               <span className="sr-only">{translations.pricePerDay}</span>
               <div className="bike-modal__pricing-row">
                 <span>{translations.weekdayPrice}</span>
-                <strong>{bike.weekdayPrice?.[lang] ?? bike.price[lang]}</strong>
+                <strong>{bike.weekdayPrice[lang]}</strong>
               </div>
               <div className="bike-modal__pricing-row">
                 <span>{translations.weekendPrice}</span>
-                <strong>{bike.weekendPrice?.[lang] ?? bike.price[lang]}</strong>
+                <strong>{bike.weekendPrice[lang]}</strong>
               </div>
             </div>
 
@@ -1026,7 +1026,7 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
           {portfolioItems.map((item) => (
             <button
               key={item.title}
-              className={`portfolio-card ${item.discountText?.[lang]?.trim() ? "portfolio-card--promo" : ""}`}
+              className="portfolio-card"
               type="button"
               aria-haspopup="dialog"
               onClick={() => setActiveBike(item)}
@@ -1048,27 +1048,14 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
                 <p>{item.description[lang]}</p>
               </div>
               <img src="/assets/img/svg/right-arrow.svg" alt="" className="portfolio-card__arrow" />
-              {item.discountText?.[lang]?.trim() ? (
-                <span className="portfolio-card__promo" aria-hidden="true">
-                  {item.discountText[lang]
-                    .split("\n")
-                    .map((line, index) =>
-                      index === 0 ? (
-                        <strong key={`${line}-${index}`}>{line}</strong>
-                      ) : (
-                        <span key={`${line}-${index}`}>{line}</span>
-                      ),
-                    )}
-                </span>
-              ) : null}
               <div className="portfolio-card__details">
                 <div className="portfolio-card__meta">
                   <h3>{item.title}</h3>
                   <span>{item.subtitle[lang]}</span>
                 </div>
                 <div className="portfolio-card__pricing" aria-label={lang === "de" ? "Tagespreise" : "Daily prices"}>
-                  <span>{item.weekdayPrice?.[lang] ?? item.price[lang]}</span>
-                  <span>{item.weekendPrice?.[lang] ?? item.price[lang]}</span>
+                  <span>{item.weekdayPrice[lang]}</span>
+                  <span>{item.weekendPrice[lang]}</span>
                 </div>
               </div>
             </button>

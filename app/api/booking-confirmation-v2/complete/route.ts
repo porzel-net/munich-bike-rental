@@ -53,7 +53,11 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    if (session.metadata?.booking_offer_id !== String(offer.offerId)) {
+    if (
+      session.metadata?.booking_offer_id !== String(offer.offerId) ||
+      session.metadata?.booking_id !== String(offer.booking.id) ||
+      session.currency?.toLowerCase() !== "eur"
+    ) {
       return NextResponse.json({ message: "Die Stripe-Zahlung gehört nicht zu diesem Angebot." }, { status: 409 });
     }
     if (session.amount_total !== offer.totalCents) {

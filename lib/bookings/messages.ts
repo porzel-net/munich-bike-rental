@@ -9,7 +9,7 @@ import { rentalLocationConfigs } from "../rental-locations";
 import { siteConfig } from "../site";
 import { feedbackCriteria, feedbackPageUrl } from "./feedback";
 import { emailCard, emailLabel, emailParagraph, escapeHtml, renderEmailLayout } from "../inquiries/email-template";
-import type { OfferAccessorySelection } from "./quotes";
+import { getOfferItemPriceSchedule, type OfferAccessorySelection } from "./quotes";
 
 export type RenderedMail = { subject: string; text: string; html: string };
 
@@ -34,7 +34,6 @@ export type OfferMailInput = {
     heightCm?: number;
     assetName: string;
     frameNumber?: string | null;
-    dailyPriceCents?: number;
     weekdayPriceCents?: number;
     weekendPriceCents?: number;
     accessories?: OfferAccessorySelection;
@@ -90,8 +89,9 @@ export function renderOfferMail(input: OfferMailInput) {
     const frameLine = item.frameNumber?.trim()
       ? [de ? `Rahmennummer: ${item.frameNumber.trim()}` : `Frame number: ${item.frameNumber.trim()}`]
       : [];
-    const weekdayPriceCents = item.weekdayPriceCents ?? item.dailyPriceCents;
-    const weekendPriceCents = item.weekendPriceCents ?? item.dailyPriceCents;
+    const priceSchedule = getOfferItemPriceSchedule(item);
+    const weekdayPriceCents = priceSchedule?.weekdayPriceCents;
+    const weekendPriceCents = priceSchedule?.weekendPriceCents;
     const priceLines = [
       weekdayPriceCents !== undefined
         ? `${de ? "Preis Mo-Fr" : "Mon-Fri price"}: ${formatEuro(weekdayPriceCents, input.locale)} / ${de ? "Tag" : "day"}`
