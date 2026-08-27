@@ -253,7 +253,8 @@ function assignNevloTransactionToBookingInTransaction(
     : undefined;
   const isSameBookingPayment =
     !isPartialAllocation &&
-    existingAllocation?.bookingId === input.bookingId && existingAllocation.allocationKind === "booking_payment";
+    existingAllocation?.bookingId === input.bookingId &&
+    existingAllocation.allocationKind === "booking_payment";
   const isPostedBookingPaymentReassignment =
     transaction.status === "posted" &&
     Boolean(existingAllocation?.bookingId) &&

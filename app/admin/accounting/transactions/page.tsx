@@ -132,10 +132,7 @@ export default async function BankTransactionsPage({
       }
       return documents;
     }, new Map<number, Array<{ id: number; originalFileName: string }>>());
-  const groupedTransactions = new Map<
-    number,
-    (typeof reviewTransactions)[number] & { allocatedCents: number }
-  >();
+  const groupedTransactions = new Map<number, (typeof reviewTransactions)[number] & { allocatedCents: number }>();
   for (const row of reviewTransactions) {
     const existing = groupedTransactions.get(row.id);
     if (!existing) {

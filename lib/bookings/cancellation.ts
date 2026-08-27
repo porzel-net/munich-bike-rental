@@ -1,8 +1,4 @@
-export const cancellationPeriods = [
-  "more_than_7_days",
-  "between_7_days_and_24_hours",
-  "less_than_24_hours",
-] as const;
+export const cancellationPeriods = ["more_than_7_days", "between_7_days_and_24_hours", "less_than_24_hours"] as const;
 
 export type CancellationPeriod = (typeof cancellationPeriods)[number];
 

@@ -84,7 +84,11 @@ async function resolvePaymentIntent(db: AppDatabase, offer: typeof bookingOffers
 }
 
 function getOperationByRefundId(db: AppDatabase, stripeRefundId: string) {
-  return db.select().from(stripeRefundOperations).where(eq(stripeRefundOperations.stripeRefundId, stripeRefundId)).get();
+  return db
+    .select()
+    .from(stripeRefundOperations)
+    .where(eq(stripeRefundOperations.stripeRefundId, stripeRefundId))
+    .get();
 }
 
 function getTransactionByRefundId(db: AppDatabase, stripeRefundId: string) {
@@ -118,7 +122,8 @@ function postSucceededRefund(
 
   const existingTransaction = getTransactionByRefundId(db, refund.id);
   const offer = db.select().from(bookingOffers).where(eq(bookingOffers.id, operation.offerId)).get();
-  if (!offer?.stripeSessionId) throw new BookingCommandError("Das Stripe-Angebot für die Erstattung wurde nicht gefunden.");
+  if (!offer?.stripeSessionId)
+    throw new BookingCommandError("Das Stripe-Angebot für die Erstattung wurde nicht gefunden.");
   const stripeAccount = db.select().from(financialAccounts).where(eq(financialAccounts.code, "stripe_main")).get();
   const revenueCategory = getBookingRevenueCategory(db);
   if (!stripeAccount) throw new BookingCommandError("Das Stripe-Verrechnungskonto ist nicht eingerichtet.");

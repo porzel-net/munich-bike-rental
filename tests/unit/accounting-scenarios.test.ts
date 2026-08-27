@@ -309,18 +309,18 @@ describe("end-to-end accounting scenarios", () => {
       ...baseDetails,
       paymentIntentId: "pi_test_other_scenario_2",
     });
-    await expect(importStripeCheckoutPayment(db, { sessionId: "cs_test_scenario_2", bookingId: booking.id })).rejects.toThrow(
-      "gehört nicht sicher",
-    );
+    await expect(
+      importStripeCheckoutPayment(db, { sessionId: "cs_test_scenario_2", bookingId: booking.id }),
+    ).rejects.toThrow("gehört nicht sicher");
 
     stripeApi.getStripeCheckoutPaymentDetails.mockResolvedValue({
       ...baseDetails,
       paymentIntentId: "pi_test_scenario_2",
       balanceTransaction: { ...baseDetails.balanceTransaction, amount: 9_999 },
     });
-    await expect(importStripeCheckoutPayment(db, { sessionId: "cs_test_scenario_2", bookingId: booking.id })).rejects.toThrow(
-      "gehört nicht sicher",
-    );
+    await expect(
+      importStripeCheckoutPayment(db, { sessionId: "cs_test_scenario_2", bookingId: booking.id }),
+    ).rejects.toThrow("gehört nicht sicher");
   });
 
   it("handles an asset lifecycle once: acquisition, AfA, sale and output VAT", () => {

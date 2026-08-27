@@ -206,7 +206,11 @@ describe("Stripe booking refunds", () => {
     });
     expect(result.status).toBe("posted");
     expect(
-      db.select({ status: stripeRefundOperations.status }).from(stripeRefundOperations).where(eq(stripeRefundOperations.id, pending.id)).get(),
+      db
+        .select({ status: stripeRefundOperations.status })
+        .from(stripeRefundOperations)
+        .where(eq(stripeRefundOperations.id, pending.id))
+        .get(),
     ).toEqual({ status: "posted" });
   });
 

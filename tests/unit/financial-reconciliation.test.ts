@@ -373,7 +373,13 @@ describe("financial reconciliation", () => {
         actorUserId: "admin",
       }),
     ).toMatchObject({ transactionId: imported.id, bookingId: firstBooking.id });
-    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get()).toEqual({
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, imported.id))
+        .get(),
+    ).toEqual({
       status: "matched",
     });
 
@@ -384,12 +390,21 @@ describe("financial reconciliation", () => {
       actorUserId: "admin",
     });
 
-    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, imported.id)).get()).toEqual({
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, imported.id))
+        .get(),
+    ).toEqual({
       status: "posted",
     });
     expect(
       db
-        .select({ bookingId: financialTransactionAllocations.bookingId, amountCents: financialTransactionAllocations.amountCents })
+        .select({
+          bookingId: financialTransactionAllocations.bookingId,
+          amountCents: financialTransactionAllocations.amountCents,
+        })
         .from(financialTransactionAllocations)
         .where(eq(financialTransactionAllocations.transactionId, imported.id))
         .all()

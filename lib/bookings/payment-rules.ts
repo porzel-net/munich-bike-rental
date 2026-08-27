@@ -25,8 +25,7 @@ export function validateManualBookingPayment(input: {
     return { historicalCorrection: input.amountCents > Math.max(0, input.openCents) || input.openCents <= 0 };
   }
 
-  if (input.hasCharge && input.openCents <= 0)
-    throw new Error("Diese Buchung ist bereits vollständig bezahlt.");
+  if (input.hasCharge && input.openCents <= 0) throw new Error("Diese Buchung ist bereits vollständig bezahlt.");
   if (
     !input.hasCharge &&
     input.booking.quotedTotalCents > 0 &&

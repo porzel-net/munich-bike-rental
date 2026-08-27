@@ -163,7 +163,8 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       [...rows].sort(
         (left, right) =>
           Number(right.asset.state === "active") - Number(left.asset.state === "active") ||
-          left.asset.weekdayPriceCents + left.asset.weekendPriceCents -
+          left.asset.weekdayPriceCents +
+            left.asset.weekendPriceCents -
             (right.asset.weekdayPriceCents + right.asset.weekendPriceCents) ||
           left.asset.id - right.asset.id,
       )[0],
@@ -202,9 +203,9 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   const pickPriceRow = (rows: typeof bikeRows) =>
     [...rows].sort(
       (left, right) =>
-        left.asset.weekdayPriceCents + left.asset.weekendPriceCents -
-          (right.asset.weekdayPriceCents + right.asset.weekendPriceCents) ||
-        left.asset.id - right.asset.id,
+        left.asset.weekdayPriceCents +
+          left.asset.weekendPriceCents -
+          (right.asset.weekdayPriceCents + right.asset.weekendPriceCents) || left.asset.id - right.asset.id,
     )[0];
   for (const rows of rowsByModel.values()) {
     const model = rows[0]?.model;
@@ -221,8 +222,7 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       });
     }
     const variantRows = new Map<string, typeof bikeRows>();
-    for (const row of modelRows)
-      variantRows.set(row.variant.size, [...(variantRows.get(row.variant.size) ?? []), row]);
+    for (const row of modelRows) variantRows.set(row.variant.size, [...(variantRows.get(row.variant.size) ?? []), row]);
     for (const [size, sizeRows] of variantRows) {
       const priceRow = pickPriceRow(sizeRows);
       if (!priceRow) continue;
@@ -363,8 +363,7 @@ export function isRequestAvailable(
   return bikes.every(
     (bike) =>
       Boolean(
-        inventory.bikeOptionQuantities[bike.bikeSize] ??
-          inventory.bikeOptionQuantities[bike.bikeSize.split(" - ")[0]],
+        inventory.bikeOptionQuantities[bike.bikeSize] ?? inventory.bikeOptionQuantities[bike.bikeSize.split(" - ")[0]],
       ) &&
       (!bike.needsPedals || pedals.has(normalizePedalType(bike.pedalType) ?? "")) &&
       (!bike.needsComputerMount || mounts.has(normalizeComputerMountType(bike.computerMountType) ?? "")) &&

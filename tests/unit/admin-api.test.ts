@@ -577,7 +577,13 @@ describe("admin financial APIs", () => {
       { params: Promise.resolve({ id: String(transfer.id) }) },
     );
     expect(partial.status).toBe(200);
-    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, transfer.id)).get()).toEqual({
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, transfer.id))
+        .get(),
+    ).toEqual({
       status: "matched",
     });
 
@@ -590,7 +596,13 @@ describe("admin financial APIs", () => {
       { params: Promise.resolve({ id: String(transfer.id) }) },
     );
     expect(remainder.status).toBe(200);
-    expect(db.select({ status: financialTransactions.status }).from(financialTransactions).where(eq(financialTransactions.id, transfer.id)).get()).toEqual({
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, transfer.id))
+        .get(),
+    ).toEqual({
       status: "posted",
     });
   });
