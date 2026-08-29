@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import "./admin.css";
 import "./calendar/calendar.css";
 
+import { AdminMailPoller } from "../../components/admin-mail-poller";
 import styles from "./admin-layout.module.css";
 import { Toaster } from "../../components/ui/sonner";
 import { canAccessAdmin, getServerSession } from "../../lib/auth/session";
@@ -41,6 +42,7 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
   return (
     <>
       <div className={styles.root}>{children}</div>
+      <AdminMailPoller />
       <Toaster richColors />
     </>
   );

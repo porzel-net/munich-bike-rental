@@ -124,7 +124,7 @@ Wichtig:
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `SMTP_REQUEST_*` steuert den Versand der Website-Anfragen; `SMTP_MAIN_*` steuert Buchungsbestätigungen und Ablehnungen aus dem Adminbereich
 - `IMAP_MAIN_*` wird für die Suche automatischer Mailverläufe in allen IMAP-Postfächern einschließlich Papierkorb/Müll verwendet. Abgelehnte Buchungs-Mails werden automatisch in das feste Postfach `Abgelehnt` verschoben.
-- Der geschützte Endpunkt `POST /api/internal/sync-incoming-mail` soll mit `Authorization: Bearer $MAIL_SYNC_TOKEN` regelmäßig (empfohlen: jede Minute) aufgerufen werden. Er synchronisiert neue Mailnachrichten, löst die Fragenprüfung aus und speichert das Ergebnis pro Buchung.
+- Der App-Server synchronisiert neue Mailnachrichten und löst die Fragenprüfung standardmäßig selbstständig minütlich aus. Der geschützte Endpunkt `POST /api/internal/sync-incoming-mail` mit `Authorization: Bearer $MAIL_SYNC_TOKEN` bleibt als manueller bzw. unabhängiger Fallback verfügbar.
 - Für die Fragenprüfung wird serverseitig die OpenAI Responses API mit `OPENAI_MODEL` (Standard `gpt-5.6-luna`) und dem Produktlabel `OPENAI_REASONING_EFFORT=middle` verwendet. Der öffentliche API-Parameter wird dafür auf `medium` abgebildet. Der alte Kurzname `gpt-luna` wird automatisch auf `gpt-5.6-luna` abgebildet. Der API-Key darf nicht mit `NEXT_PUBLIC_` beginnen.
 - `MAIL_USE_STARTTLS` ist für klassische StartTLS-Setups gedacht
 - `MAIL_TIMEOUT_SECONDS` begrenzt den Mail-Connect-Timeout in Sekunden

@@ -1,14 +1,14 @@
-import { ImapFlow } from "imapflow";
+import { ImapFlow, type SearchObject } from "imapflow";
 
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
-import type { AppDatabase } from "../db/client";
+import { getDatabase, type AppDatabase } from "../db/client";
 import { bookings, communicationMessages } from "../db/schema";
 
 import { readSecret } from "./server";
 import { parseMailMessageIds } from "./mail-thread";
 import { repairMojibake } from "./text";
-import { reviewBookingEmailThread } from "./email-action";
+import { reviewBookingEmailThread, reviewLatestUnprocessedEmailThread } from "./email-action";
 
 type MailboxConfig = {
   host: string;
@@ -28,6 +28,31 @@ const ORDER_NUMBER_RE = /#?\d{8,}/g;
 export type MailboxOperationResult =
   | { configured: false; moved: false; reason: "not_configured" | "not_found" }
   | { configured: true; moved: boolean; reason?: "not_found" | "move_failed" };
+
+const INCOMING_MAIL_BOOKING_STATUSES = [
+  "inquiry_received",
+  "offer_sent",
+  "confirmed",
+  "checked_out",
+  "completed",
+] as const;
+
+export type IncomingMailSyncResult = {
+  ok: true;
+  bookings: Array<{
+    bookingId: number;
+    orderNumber: string;
+    sync: Awaited<ReturnType<typeof syncBookingMailThread>>;
+    review: Awaited<ReturnType<typeof reviewLatestUnprocessedEmailThread>> | { status: "not_configured"; review: null };
+  }>;
+  checked: number;
+  skipped: number;
+  notEligible: number;
+  withoutMail: number;
+  notConfigured: number;
+};
+
+let incomingMailSyncInFlight: Promise<IncomingMailSyncResult> | null = null;
 
 async function getMailboxConfig(environment: Partial<NodeJS.ProcessEnv> = process.env) {
   const host = environment.IMAP_MAIN_HOST?.trim();
@@ -218,22 +243,30 @@ export async function syncBookingMailThread(
   const newMessageIds: number[] = [];
   try {
     await client.connect();
-    const archivedSubjects = db
-      .select({ subject: communicationMessages.subject })
+    const archivedMessages = db
+      .select({ subject: communicationMessages.subject, rfcMessageId: communicationMessages.rfcMessageId })
       .from(communicationMessages)
       .where(eq(communicationMessages.bookingId, bookingId))
-      .all()
-      .map((message) => message.subject);
-    const searchTerms = uniqueMailboxes([
-      orderNumber,
-      ...archivedSubjects.flatMap((subject) => subject.match(ORDER_NUMBER_RE) ?? []),
-    ]);
+      .all();
+    const searchQueries: SearchObject[] = [{ text: orderNumber }];
+    if (orderNumber.startsWith("#")) searchQueries.push({ text: orderNumber.slice(1) });
+    for (const { subject, rfcMessageId } of archivedMessages) {
+      if (subject.trim()) searchQueries.push({ subject });
+      for (const term of subject.match(ORDER_NUMBER_RE) ?? []) searchQueries.push({ text: term });
+      if (rfcMessageId) {
+        searchQueries.push({ header: { "In-Reply-To": rfcMessageId } }, { header: { References: rfcMessageId } });
+      }
+    }
     for (const mailbox of await getSearchMailboxes(client)) {
       let lock;
       try {
         lock = await client.getMailboxLock(mailbox, { readOnly: true });
-        const matchSets = await Promise.all(searchTerms.map((term) => client.search({ text: term }, { uid: true })));
-        const matches = [...new Set(matchSets.flatMap((set) => (set === false ? [] : set)))];
+        const matchSets = await Promise.all(
+          uniqueSearchQueries(searchQueries).map((query) => client.search(query, { uid: true })),
+        );
+        const matches = [...new Set(matchSets.flatMap((set) => (set === false ? [] : set)))].sort(
+          (left, right) => left - right,
+        );
         if (!matches || !matches.length) continue;
         for await (const message of client.fetch(
           matches.slice(-50),
@@ -314,8 +347,73 @@ export async function syncBookingMailThread(
   }
 }
 
+/**
+ * Runs one complete incoming-mail cycle. The latest thread review is retried
+ * after every sync, so a process restart or a transient AI failure cannot
+ * leave a newly archived message without a red attention marker.
+ */
+export async function syncIncomingMail(): Promise<IncomingMailSyncResult> {
+  if (incomingMailSyncInFlight) return incomingMailSyncInFlight;
+
+  const run = (async () => {
+    const db = getDatabase();
+    const bookingRows = db
+      .select({ id: bookings.id, orderNumber: bookings.orderNumber })
+      .from(bookings)
+      .where(and(ne(bookings.source, "legacy"), inArray(bookings.status, INCOMING_MAIL_BOOKING_STATUSES)))
+      .all();
+    const results: IncomingMailSyncResult["bookings"] = [];
+    const maxConcurrentSyncs = 4;
+
+    for (let offset = 0; offset < bookingRows.length; offset += maxConcurrentSyncs) {
+      const batch = bookingRows.slice(offset, offset + maxConcurrentSyncs);
+      results.push(
+        ...(await Promise.all(
+          batch.map(async (booking) => {
+            const sync = await syncBookingMailThread(db, booking.id, booking.orderNumber, {
+              reviewNewMessages: false,
+            });
+            const review =
+              sync.configured === false
+                ? ({ status: "not_configured", review: null } as const)
+                : await reviewLatestUnprocessedEmailThread(db, booking.id);
+            return { bookingId: booking.id, orderNumber: booking.orderNumber, sync, review };
+          }),
+        )),
+      );
+    }
+
+    return {
+      ok: true,
+      bookings: results,
+      checked: results.filter((result) => result.review.status === "checked").length,
+      skipped: results.filter((result) => result.review.status === "skipped").length,
+      notEligible: results.filter((result) => result.review.status === "not_eligible").length,
+      withoutMail: results.filter((result) => result.review.status === "no_message").length,
+      notConfigured: results.filter((result) => result.review.status === "not_configured").length,
+    } satisfies IncomingMailSyncResult;
+  })();
+
+  incomingMailSyncInFlight = run;
+  try {
+    return await run;
+  } finally {
+    if (incomingMailSyncInFlight === run) incomingMailSyncInFlight = null;
+  }
+}
+
 function uniqueMailboxes(mailboxes: string[]) {
   return [...new Set(mailboxes.filter(Boolean))];
+}
+
+function uniqueSearchQueries(queries: SearchObject[]) {
+  const seen = new Set<string>();
+  return queries.filter((query) => {
+    const key = JSON.stringify(query);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function mailboxLooksLikeTrash(mailbox: { path: string; name: string; specialUse?: string }) {
