@@ -380,19 +380,11 @@ export function BookingCommandActions({
         : rejectionReasonType === "custom"
           ? "Anderen Grund"
           : "Grund auswählen";
-  const rejectionMailPreview = `Hey ${customerName.trim().split(/\s+/)[0] || customerName},
+  const rejectionMailPreview = `${communicationLocale === "de" ? "Hey" : "Hello"} ${customerName.trim().split(/\s+/)[0] || customerName},
 
-${
-  personalMessage.trim()
-    ? personalMessage.trim()
-    : `vielen Dank für deine Anfrage.
+${personalMessage.trim() || automaticRejectionMessage}
 
-Leider können wir dir für den Zeitraum kein passendes Fahrrad anbieten. Probiers gerne nochmal wann anders!
-
-Wir hoffen, dass du fündig wirst und wünschen dir eine gute Fahrt.`
-}
-
-Liebe Grüße
+${communicationLocale === "de" ? "Liebe Grüße" : "Kind regards"}
 ${senderName.trim().split(/\s+/)[0] || senderName}`;
   const requiresReason =
     activeAction === "cancel" || activeAction === "refund" || activeAction === "correct" || activeAction === "reject";
