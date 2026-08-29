@@ -148,9 +148,12 @@ export default async function RootLayout({
   const rentalPathMatch = pathname?.match(/^\/(?:de|en)\/rennradverleih\/([^/]+)\/([^/]+)$/);
   const rentalLocation = rentalPathMatch ? getRentalLocation(rentalPathMatch[1], rentalPathMatch[2]) : undefined;
   const structuredDataJson = rentalLocation ? getRentalStructuredDataJson(rentalLocation, locale) : null;
-  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
-  const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID?.trim();
-  const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL?.trim();
+  // Read tracking IDs from runtime-only variables so a production image can
+  // receive them from the container environment after it has been built.
+  const runtimeEnv = process.env;
+  const googleAnalyticsId = runtimeEnv.GA_MEASUREMENT_ID?.trim();
+  const googleAdsConversionId = runtimeEnv.GOOGLE_ADS_CONVERSION_ID?.trim();
+  const googleAdsConversionLabel = runtimeEnv.GOOGLE_ADS_CONVERSION_LABEL?.trim();
 
   return (
     <html lang={locale}>
