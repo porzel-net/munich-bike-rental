@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell, BellRing, LoaderCircle } from "lucide-react";
+import { Bell, BellRing, LoaderCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ function supported() {
 }
 
 async function getRegistration() {
-  return navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  return navigator.serviceWorker.ready;
 }
 
 async function subscriptionJson(subscription: PushSubscription) {
@@ -121,22 +122,51 @@ export function BrowserPushNotifications() {
     }
   }
 
+  async function sendTest() {
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/push-test", { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) throw new Error(payload?.message || "Test-Push konnte nicht gesendet werden.");
+      toast.success("Test-Push wurde gesendet.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Test-Push konnte nicht gesendet werden.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (state === "unsupported") return null;
   const active = state === "active";
   const label = state === "denied" ? "Push im Browser blockiert" : active ? "Push aktiv" : "Push aktivieren";
   return (
-    <Button
-      type="button"
-      variant={active ? "secondary" : "outline"}
-      size="sm"
-      className="ml-auto"
-      disabled={busy || state === "checking" || state === "denied"}
-      onClick={() => void (active ? disable() : enable())}
-      title={state === "denied" ? "Push-Berechtigung in den Browser-Einstellungen freigeben" : label}
-      aria-label={label}
-    >
-      {busy || state === "checking" ? <LoaderCircle className="animate-spin" /> : active ? <BellRing /> : <Bell />}
-      <span className="hidden sm:inline">{label}</span>
-    </Button>
+    <div className="ml-auto flex items-center gap-2">
+      <Button
+        type="button"
+        variant={active ? "secondary" : "outline"}
+        size="sm"
+        disabled={busy || state === "checking" || state === "denied"}
+        onClick={() => void (active ? disable() : enable())}
+        title={state === "denied" ? "Push-Berechtigung in den Browser-Einstellungen freigeben" : label}
+        aria-label={label}
+      >
+        {busy || state === "checking" ? <LoaderCircle className="animate-spin" /> : active ? <BellRing /> : <Bell />}
+        <span className="hidden sm:inline">{label}</span>
+      </Button>
+      {process.env.NODE_ENV === "development" ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy || !active}
+          onClick={() => void sendTest()}
+          title={active ? "Test-Push an diesen Browser senden" : "Zuerst Push aktivieren"}
+          aria-label="Push testen"
+        >
+          <Send />
+          <span className="hidden sm:inline">Push testen</span>
+        </Button>
+      ) : null}
+    </div>
   );
 }

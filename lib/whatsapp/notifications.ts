@@ -239,7 +239,7 @@ function queueDailySummaries(db: AppDatabase, users: WhatsAppRecipient[], activi
             `${index + 1}. *${activity.title}*\n   ${activity.entityName}\n   _Meldung vorhanden seit:_ ${formatSince(activity.occurredAt)}`,
         )
       : ["Keine offenen Aktivitäten."];
-    const message = `*📋 Tagesübersicht offene Aktivitäten*\n\n*Datum:* ${dateKey}\n*Anzahl:* ${openActivities.length}\n\n${lines.join("\n\n")}`;
+    const message = `*_📋 Tagesübersicht offene Aktivitäten_*\n\n*Datum:* ${dateKey}\n*Anzahl:* ${openActivities.length}\n\n${lines.join("\n\n")}`;
     enqueue(db, {
       recipient: user,
       kind: "daily_summary",

@@ -51,6 +51,11 @@ export async function POST(request: Request) {
         insuranceProtectionSelected: bike.insuranceProtectionSelected,
       })),
     });
+    // Browser push is independent from mail delivery and should reach staff
+    // even when the local SMTP setup temporarily fails.
+    void runWebPushNotificationCycle(database).catch((error) => {
+      console.error("Failed to notify browser push about new inquiry", error);
+    });
     const dispatchResults = await dispatchOutboxForBooking(database, created.id);
     const mailSent = dispatchResults.length > 0 && dispatchResults.every((result) => result.status === "sent");
     if (!mailSent) {
@@ -60,9 +65,6 @@ export async function POST(request: Request) {
     // scheduler. WhatsApp failures must never make a valid inquiry fail.
     void runWhatsAppNotificationCycle(database).catch((error) => {
       console.error("Failed to notify WhatsApp about new inquiry", error);
-    });
-    void runWebPushNotificationCycle(database).catch((error) => {
-      console.error("Failed to notify browser push about new inquiry", error);
     });
     return NextResponse.json(
       { ok: true, orderNumber: created.orderNumber, totalPriceCents },

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, inArray, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, or } from "drizzle-orm";
 
 import { getDatabase, runInImmediateTransaction, type AppDatabase } from "@/lib/db/client";
 import {
@@ -164,7 +164,7 @@ export async function dispatchNextWebPushNotification(db: AppDatabase = getDatab
       .select()
       .from(webPushNotificationOutbox)
       .where(due)
-      .orderBy(webPushNotificationOutbox.nextAttemptAt, webPushNotificationOutbox.id)
+      .orderBy(desc(webPushNotificationOutbox.createdAt), asc(webPushNotificationOutbox.id))
       .limit(1)
       .get();
     if (!row) return null;

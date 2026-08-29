@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, Pie, PieChart, XAxis } from "recharts";
-import { AlertTriangle, CalendarX2, Check, CircleCheck, Inbox, Landmark } from "lucide-react";
+import { CalendarX2, Check, CircleCheck, Inbox, Landmark } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -58,7 +58,6 @@ import {
 } from "@/components/ui/item";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const activityChartConfig = {
   amount: {
@@ -122,7 +121,6 @@ type ActivityItem = {
   title: string;
   entityName: string;
   href: string;
-  isUrgent?: boolean;
 };
 
 function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
@@ -135,7 +133,6 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
     incoming_booking_request: Inbox,
   } satisfies Record<ActivityKind, typeof CalendarX2>;
   const visibleActivities = activities.filter((activity) => !dismissedIds.has(activity.id));
-  const urgentActivities = visibleActivities.filter((activity) => activity.isUrgent);
 
   async function dismissActivity(id: string) {
     setDismissedIds((current) => {
@@ -165,7 +162,7 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
     <Card className="gap-0">
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-base font-semibold italic">Tagesübersicht</CardTitle>
+          <CardTitle className="text-base">Aktivität</CardTitle>
           <span
             className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3b30] px-1.5 text-[11px] leading-none font-semibold tracking-[-0.01em] text-white shadow-sm tabular-nums"
             aria-label={`${visibleActivities.length} offene Aktivitäten`}
@@ -177,71 +174,53 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <Tabs defaultValue="all" className="gap-3">
-          <TabsList variant="line" className="w-full justify-start gap-4 border-b px-0">
-            <TabsTrigger value="all" className="flex-none px-0 pb-2 font-semibold">
-              Alle <span className="text-xs font-normal text-muted-foreground">{visibleActivities.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="urgent" className="flex-none px-0 pb-2 font-semibold text-[#c62828]">
-              <AlertTriangle className="size-3.5" />
-              Dringend <span className="text-xs font-normal">{urgentActivities.length}</span>
-            </TabsTrigger>
-          </TabsList>
-          {(["all", "urgent"] as const).map((tab) => {
-            const tabActivities = tab === "urgent" ? urgentActivities : visibleActivities;
-            return (
-              <TabsContent key={tab} value={tab}>
-                {tabActivities.length ? (
-                  <ItemGroup className="max-h-[360px] gap-1 overflow-y-auto pr-1 text-muted-foreground" data-size="xs">
-                    {tabActivities.map((activity) => {
-                      const Icon = activityIcons[activity.kind];
-                      return (
-                        <Item
-                          key={activity.id}
-                          variant="default"
-                          size="xs"
-                          className={`grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 border-0 px-4 py-2 hover:bg-muted ${activity.isUrgent ? "bg-red-50/70 dark:bg-red-950/20" : ""}`}
-                        >
-                          <ItemMedia
-                            variant="icon"
-                            className={`self-center! rounded-lg p-1.5! translate-y-0! group-hover/item:bg-card ${activity.isUrgent ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" : "bg-muted text-muted-foreground"}`}
-                          >
-                            <Icon className="size-5" />
-                          </ItemMedia>
-                          <Link href={activity.href} className="min-w-0 flex-1 rounded-md hover:text-foreground">
-                            <ItemContent className="gap-0.5">
-                              <ItemTitle className="font-semibold text-foreground">{activity.title}</ItemTitle>
-                              <ItemDescription className="truncate text-xs italic" title={activity.entityName}>
-                                {activity.entityName}
-                              </ItemDescription>
-                            </ItemContent>
-                          </Link>
-                          <ItemActions className="gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              className="rounded-full border-border/70 text-muted-foreground hover:border-foreground/35 hover:text-foreground"
-                              aria-label={`${activity.title} als erledigt markieren`}
-                              title="Als erledigt markieren"
-                              onClick={() => void dismissActivity(activity.id)}
-                            >
-                              <Check className="size-4" />
-                            </Button>
-                          </ItemActions>
-                        </Item>
-                      );
-                    })}
-                  </ItemGroup>
-                ) : (
-                  <div className="py-2 text-sm italic text-muted-foreground">
-                    {tab === "urgent" ? "Keine dringenden Aktivitäten" : "Keine neuen Aktivitäten"}
-                  </div>
-                )}
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+        <div className="flex flex-col">
+          {visibleActivities.length ? (
+            <ItemGroup className="max-h-[360px] gap-1 overflow-y-auto pr-1 text-muted-foreground" data-size="xs">
+              {visibleActivities.map((activity) => {
+                const Icon = activityIcons[activity.kind];
+                return (
+                  <Item
+                    key={activity.id}
+                    variant="default"
+                    size="xs"
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 border-0 px-4 py-2 hover:bg-muted"
+                  >
+                    <ItemMedia
+                      variant="icon"
+                      className="self-center! rounded-lg bg-muted p-1.5! translate-y-0! text-muted-foreground group-hover/item:bg-card"
+                    >
+                      <Icon className="size-5" />
+                    </ItemMedia>
+                    <Link href={activity.href} className="min-w-0 flex-1 rounded-md hover:text-foreground">
+                      <ItemContent className="gap-0.5">
+                        <ItemTitle className="font-normal">{activity.title}</ItemTitle>
+                        <ItemDescription className="truncate text-xs" title={activity.entityName}>
+                          {activity.entityName}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Link>
+                    <ItemActions className="gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        className="rounded-full border-border/70 text-muted-foreground hover:border-foreground/35 hover:text-foreground"
+                        aria-label={`${activity.title} als erledigt markieren`}
+                        title="Als erledigt markieren"
+                        onClick={() => void dismissActivity(activity.id)}
+                      >
+                        <Check className="size-4" />
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                );
+              })}
+            </ItemGroup>
+          ) : (
+            <div className="py-2 text-sm text-muted-foreground">Keine neuen Aktivitäten</div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

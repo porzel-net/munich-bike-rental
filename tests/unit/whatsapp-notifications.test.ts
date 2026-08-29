@@ -60,6 +60,13 @@ describe("WhatsApp activity notifications", () => {
       .all();
     expect(jobs).toHaveLength(2);
     expect(jobs.some((job) => job.kind === "activity" && job.messageText.includes("Max Mustermann"))).toBe(true);
-    expect(jobs.some((job) => job.kind === "daily_summary" && job.messageText.includes("seit"))).toBe(true);
+    expect(
+      jobs.some(
+        (job) =>
+          job.kind === "daily_summary" &&
+          job.messageText.includes("seit") &&
+          job.messageText.includes("*_📋 Tagesübersicht offene Aktivitäten_*"),
+      ),
+    ).toBe(true);
   });
 });
