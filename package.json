@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
+    "webpush:generate-keys": "node scripts/generate-vapid-keys.mjs",
     "test": "vitest run",
     "test:backup": "sh tests/backup/run-container-tests.sh",
     "test:watch": "vitest",

@@ -88,9 +88,9 @@ export async function register() {
       // WhatsApp notifications must be processed by the server itself, not by
       // an open admin browser tab. The durable outbox and idempotency keys make
       // this safe alongside the optional deployment-host endpoint.
-    const { whatsappConnection } = await import("./lib/whatsapp/connection");
-    const { runWhatsAppNotificationCycle } = await import("./lib/whatsapp/notifications");
-    const { runWebPushNotificationCycle } = await import("./lib/web-push/notifications");
+      const { whatsappConnection } = await import("./lib/whatsapp/connection");
+      const { runWhatsAppNotificationCycle } = await import("./lib/whatsapp/notifications");
+      const { runWebPushNotificationCycle } = await import("./lib/web-push/notifications");
       void whatsappConnection.start().catch((error) => {
         console.error("Failed to start WhatsApp connection", error);
       });
@@ -107,24 +107,24 @@ export async function register() {
         }
       };
       void runWhatsAppCycle();
-    const whatsappTimer = setInterval(() => void runWhatsAppCycle(), 60_000);
-    whatsappTimer.unref?.();
+      const whatsappTimer = setInterval(() => void runWhatsAppCycle(), 60_000);
+      whatsappTimer.unref?.();
 
-    let webPushCycleInFlight = false;
-    const runWebPushCycle = async () => {
-      if (webPushCycleInFlight) return;
-      webPushCycleInFlight = true;
-      try {
-        await runWebPushNotificationCycle();
-      } catch (error) {
-        console.error("Failed to process browser push notifications", error);
-      } finally {
-        webPushCycleInFlight = false;
-      }
-    };
-    void runWebPushCycle();
-    const webPushTimer = setInterval(() => void runWebPushCycle(), 60_000);
-    webPushTimer.unref?.();
+      let webPushCycleInFlight = false;
+      const runWebPushCycle = async () => {
+        if (webPushCycleInFlight) return;
+        webPushCycleInFlight = true;
+        try {
+          await runWebPushNotificationCycle();
+        } catch (error) {
+          console.error("Failed to process browser push notifications", error);
+        } finally {
+          webPushCycleInFlight = false;
+        }
+      };
+      void runWebPushCycle();
+      const webPushTimer = setInterval(() => void runWebPushCycle(), 60_000);
+      webPushTimer.unref?.();
+    }
   }
-}
 }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import mainImage from "./main.webp";
+import { getLocalizedLocationPath, getRentalLocation } from "./lib/rental-locations";
 
 const noImageIndexValue = "noindex, noimageindex, nofollow";
 
@@ -55,6 +56,15 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
   requestHeaders.set("x-search", request.nextUrl.search);
+
+  const legacyRentalMatch = request.nextUrl.pathname.match(/^\/rennradverleih\/([^/]+)\/([^/]+)$/);
+  if (legacyRentalMatch) {
+    const location = getRentalLocation(legacyRentalMatch[1], legacyRentalMatch[2]);
+    if (location) {
+      const locale = request.nextUrl.searchParams.get("lang") === "en" ? "en" : "de";
+      return NextResponse.redirect(new URL(getLocalizedLocationPath(location, locale), request.url), 308);
+    }
+  }
 
   const response = NextResponse.next({
     request: {

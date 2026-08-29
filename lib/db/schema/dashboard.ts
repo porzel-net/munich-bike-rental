@@ -77,3 +77,55 @@ export const whatsappNotificationState = sqliteTable("whatsapp_notification_stat
   lastBookingEventId: integer("last_booking_event_id").notNull().default(0),
   initializedAt: integer("initialized_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+/** Browser Push subscriptions, one row per signed-in device/browser profile. */
+export const webPushSubscriptions = sqliteTable(
+  "web_push_subscriptions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("web_push_subscriptions_endpoint_unique").on(table.endpoint),
+    index("web_push_subscriptions_user_idx").on(table.userId),
+  ],
+);
+
+export const webPushNotificationStatuses = ["queued", "leased", "sent", "failed"] as const;
+export type WebPushNotificationStatus = (typeof webPushNotificationStatuses)[number];
+
+/** Durable delivery queue for dashboard activity browser notifications. */
+export const webPushNotificationOutbox = sqliteTable(
+  "web_push_notification_outbox",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    subscriptionId: integer("subscription_id")
+      .notNull()
+      .references(() => webPushSubscriptions.id, { onDelete: "cascade" }),
+    activityId: text("activity_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    href: text("href").notNull(),
+    tag: text("tag").notNull(),
+    status: text("status", { enum: webPushNotificationStatuses }).notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: integer("next_attempt_at", { mode: "timestamp_ms" }).notNull(),
+    leasedAt: integer("leased_at", { mode: "timestamp_ms" }),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    lastError: text("last_error"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("web_push_notification_outbox_idempotency_unique").on(table.idempotencyKey),
+    index("web_push_notification_outbox_status_due_idx").on(table.status, table.nextAttemptAt),
+    index("web_push_notification_outbox_subscription_idx").on(table.subscriptionId, table.createdAt),
+  ],
+);

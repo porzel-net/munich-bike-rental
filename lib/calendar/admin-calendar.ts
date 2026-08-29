@@ -81,6 +81,21 @@ export type CalendarWeek = {
   eventLaneCount: number;
 };
 
+export function addCalendarBookingBike(
+  bikesByBooking: Map<number, CalendarBookingBike[]>,
+  assetIdsByBooking: Map<number, Set<number>>,
+  bookingId: number,
+  assetId: number,
+  bike: CalendarBookingBike,
+) {
+  const assetIds = assetIdsByBooking.get(bookingId) ?? new Set<number>();
+  if (assetIds.has(assetId)) return;
+
+  assetIds.add(assetId);
+  assetIdsByBooking.set(bookingId, assetIds);
+  bikesByBooking.set(bookingId, [...(bikesByBooking.get(bookingId) ?? []), bike]);
+}
+
 const statusTones: Record<BookingStatus, CalendarStatusTone> = {
   inquiry_received: "amber",
   offer_sent: "violet",

@@ -7,6 +7,7 @@ import { estimateInquiryQuote } from "../../../lib/bookings/quotes";
 import { contactInquirySchema } from "../../../lib/inquiries/schemas";
 import { jsonError, parseInquiryRequest } from "../../../lib/inquiries/server";
 import { runWhatsAppNotificationCycle } from "../../../lib/whatsapp/notifications";
+import { runWebPushNotificationCycle } from "../../../lib/web-push/notifications";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,9 @@ export async function POST(request: Request) {
     // scheduler. WhatsApp failures must never make a valid inquiry fail.
     void runWhatsAppNotificationCycle(database).catch((error) => {
       console.error("Failed to notify WhatsApp about new inquiry", error);
+    });
+    void runWebPushNotificationCycle(database).catch((error) => {
+      console.error("Failed to notify browser push about new inquiry", error);
     });
     return NextResponse.json(
       { ok: true, orderNumber: created.orderNumber, totalPriceCents },

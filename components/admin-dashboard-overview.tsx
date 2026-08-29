@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BrowserPushNotifications } from "@/components/browser-push-notifications";
 import { PasskeyPrompt } from "@/components/passkey-prompt";
 import {
   Card,
@@ -172,6 +173,7 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
           >
             {visibleActivities.length}
           </span>
+          <BrowserPushNotifications />
         </div>
       </CardHeader>
       <CardContent className="pt-0">

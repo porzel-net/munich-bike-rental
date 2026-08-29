@@ -11,6 +11,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
 import {
+  addCalendarBookingBike,
   buildCalendarWeeks,
   getCalendarGridRange,
   getCalendarMonthKey,
@@ -173,26 +174,25 @@ export default async function CalendarPage({
     assets.map((asset) => [asset.id, { displayName: asset.displayName, nickname: asset.nickname }]),
   );
   const allocatedAssetsByBooking = new Map<number, CalendarBookingBike[]>();
+  const allocatedAssetIdsByBooking = new Map<number, Set<number>>();
   for (const allocation of allocations) {
     const bike = assetDetails.get(allocation.assetId);
-    if (
-      bike &&
-      !allocatedAssetsByBooking
-        .get(allocation.bookingId)
-        ?.some((selectedBike) => selectedBike.displayName === bike.displayName)
-    ) {
-      allocatedAssetsByBooking.set(allocation.bookingId, [
-        ...(allocatedAssetsByBooking.get(allocation.bookingId) ?? []),
+    if (bike)
+      addCalendarBookingBike(
+        allocatedAssetsByBooking,
+        allocatedAssetIdsByBooking,
+        allocation.bookingId,
+        allocation.assetId,
         bike,
-      ]);
-    }
+      );
   }
   const offeredAssetsByBooking = new Map<number, CalendarBookingBike[]>();
+  const offeredAssetIdsByBooking = new Map<number, Set<number>>();
   for (const item of offerItems) {
     const offer = offers.find((candidate) => candidate.id === item.offerId);
     const bike = assetDetails.get(item.assetId);
     if (offer && bike)
-      offeredAssetsByBooking.set(offer.bookingId, [...(offeredAssetsByBooking.get(offer.bookingId) ?? []), bike]);
+      addCalendarBookingBike(offeredAssetsByBooking, offeredAssetIdsByBooking, offer.bookingId, item.assetId, bike);
   }
   const events = rows.map((row) =>
     toCalendarBookingEvent({
