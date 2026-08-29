@@ -15,6 +15,7 @@ export type DashboardActivity = {
   entityName: string;
   href: string;
   occurredAt: number;
+  isUrgent?: boolean;
 };
 
 function bookingIncomingAt(booking: { source: string; orderNumber: string; createdAt: Date }) {
@@ -130,6 +131,7 @@ export function getDashboardActivities(
         entityName: booking.customerName,
         href: `/admin/bookings/${booking.id}`,
         occurredAt: booking.createdAt.getTime(),
+        isUrgent: Date.now() - booking.createdAt.getTime() >= 24 * 60 * 60 * 1000,
       })),
   ].sort((left, right) => right.occurredAt - left.occurredAt);
 }
