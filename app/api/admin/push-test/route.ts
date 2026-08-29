@@ -5,7 +5,12 @@ import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApi, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { webPushSubscriptions } from "@/lib/db/schema";
-import { isWebPushConfigured, sendWebPushNotification, WebPushEndpointGoneError } from "@/lib/web-push/client";
+import {
+  isWebPushConfigured,
+  sendWebPushNotification,
+  WebPushEndpointGoneError,
+  WebPushEndpointRejectedError,
+} from "@/lib/web-push/client";
 
 export async function POST(request: Request) {
   if (process.env.NODE_ENV !== "development") {
@@ -47,7 +52,7 @@ export async function POST(request: Request) {
       );
       sent += 1;
     } catch (error) {
-      if (error instanceof WebPushEndpointGoneError) {
+      if (error instanceof WebPushEndpointGoneError || error instanceof WebPushEndpointRejectedError) {
         database.delete(webPushSubscriptions).where(eq(webPushSubscriptions.id, subscription.id)).run();
         continue;
       }

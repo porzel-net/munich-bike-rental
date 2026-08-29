@@ -11,7 +11,12 @@ import {
 } from "@/lib/db/schema";
 import { getDashboardActivities, type DashboardActivity } from "@/lib/dashboard/activities";
 
-import { isWebPushConfigured, sendWebPushNotification, WebPushEndpointGoneError } from "./client";
+import {
+  isWebPushConfigured,
+  sendWebPushNotification,
+  WebPushEndpointGoneError,
+  WebPushEndpointRejectedError,
+} from "./client";
 
 const LEASE_MS = 60_000;
 const RETRY_CAP_MS = 60 * 60 * 1_000;
@@ -199,7 +204,7 @@ export async function dispatchNextWebPushNotification(db: AppDatabase = getDatab
       .run();
     return { id: job.id, status: "sent" as const };
   } catch (error) {
-    if (error instanceof WebPushEndpointGoneError) {
+    if (error instanceof WebPushEndpointGoneError || error instanceof WebPushEndpointRejectedError) {
       db.delete(webPushSubscriptions).where(eq(webPushSubscriptions.id, subscription.id)).run();
       return { id: job.id, status: "removed" as const };
     }

@@ -6,11 +6,14 @@ import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApi, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { webPushSubscriptions } from "@/lib/db/schema";
+import { consumeBoundedRateLimit } from "@/lib/security/rate-limit";
 import { getWebPushPublicKey } from "@/lib/web-push/client";
+import { isAllowedWebPushEndpoint } from "@/lib/web-push/endpoint";
+import { upsertWebPushSubscription } from "@/lib/web-push/subscriptions";
 import { readBoundedJson } from "@/lib/security/request-body";
 
 const subscriptionSchema = z.object({
-  endpoint: z.string().trim().url().max(2_048),
+  endpoint: z.string().trim().url().max(2_048).refine(isAllowedWebPushEndpoint),
   keys: z.object({
     p256dh: z.string().trim().min(40).max(200),
     auth: z.string().trim().min(16).max(100),
@@ -41,30 +44,28 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authorized = await getAuthorizedSession(request);
   if (authorized.error) return authorized.error;
+  if (!consumeBoundedRateLimit(`web-push-subscription:${authorized.session.user.id}`, 20, 10 * 60_000)) {
+    return NextResponse.json(
+      { message: "Zu viele Push-Abonnement-Anfragen. Bitte später erneut versuchen." },
+      { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "600" } },
+    );
+  }
   const parsed = subscriptionSchema.safeParse(await readBoundedJson(request));
   if (!parsed.success) return NextResponse.json({ message: "Ungültiges Browser-Push-Abonnement." }, { status: 400 });
 
-  const now = new Date();
-  getDatabase()
-    .insert(webPushSubscriptions)
-    .values({
+  const result = upsertWebPushSubscription(
+    {
       userId: authorized.session.user.id,
       endpoint: parsed.data.endpoint,
       p256dh: parsed.data.keys.p256dh,
       auth: parsed.data.keys.auth,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: webPushSubscriptions.endpoint,
-      set: {
-        userId: authorized.session.user.id,
-        p256dh: parsed.data.keys.p256dh,
-        auth: parsed.data.keys.auth,
-        updatedAt: now,
-      },
-    })
-    .run();
+    },
+    getDatabase(),
+  );
+  if (result === "conflict")
+    return NextResponse.json({ message: "Dieses Push-Abonnement ist bereits registriert." }, { status: 409 });
+  if (result === "limit")
+    return NextResponse.json({ message: "Maximal zehn Push-Geräte pro Benutzer sind erlaubt." }, { status: 409 });
 
   return NextResponse.json({ ok: true });
 }

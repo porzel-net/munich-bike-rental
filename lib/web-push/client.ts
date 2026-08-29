@@ -2,6 +2,8 @@ import { createECDH } from "node:crypto";
 
 import webPush from "web-push";
 
+import { isAllowedWebPushEndpoint } from "./endpoint";
+
 const MAX_RETRY_AFTER_SECONDS = 60 * 60;
 
 export type WebPushSubscriptionData = {
@@ -14,6 +16,13 @@ export class WebPushEndpointGoneError extends Error {
   constructor() {
     super("Web-Push-Endpunkt ist nicht mehr registriert.");
     this.name = "WebPushEndpointGoneError";
+  }
+}
+
+export class WebPushEndpointRejectedError extends Error {
+  constructor() {
+    super("Web-Push-Endpunkt ist kein erlaubter Push-Service.");
+    this.name = "WebPushEndpointRejectedError";
   }
 }
 
@@ -72,6 +81,7 @@ export function getWebPushPublicKey() {
 }
 
 export async function sendWebPushNotification(subscription: WebPushSubscriptionData, payload: string) {
+  if (!isAllowedWebPushEndpoint(subscription.endpoint)) throw new WebPushEndpointRejectedError();
   const config = configuredKeys();
   if (!config) throw new Error("Web-Push ist nicht konfiguriert");
 

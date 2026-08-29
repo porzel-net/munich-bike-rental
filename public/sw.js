@@ -22,7 +22,13 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || "/admin", self.location.origin).href;
+  let targetUrl = new URL("/admin", self.location.origin).href;
+  try {
+    const candidate = new URL(event.notification.data?.url || "/admin", self.location.origin);
+    if (candidate.origin === self.location.origin && candidate.protocol === self.location.protocol) targetUrl = candidate.href;
+  } catch {
+    // Keep the safe dashboard fallback for malformed notification data.
+  }
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
