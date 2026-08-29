@@ -101,6 +101,24 @@ function checkConfiguration(environment: Partial<NodeJS.ProcessEnv>) {
   assertUrl(environment, "BETTER_AUTH_URL", production, errors);
   assertUrl(environment, "SITE_URL", production, errors);
 
+  const webPushPublicKey = environment.WEB_PUSH_VAPID_PUBLIC_KEY?.trim();
+  const webPushPrivateKey = environment.WEB_PUSH_VAPID_PRIVATE_KEY?.trim();
+  const webPushConfigured = Boolean(webPushPublicKey || webPushPrivateKey);
+  if (webPushConfigured && (!webPushPublicKey || !webPushPrivateKey)) {
+    errors.push("WEB_PUSH_VAPID_PUBLIC_KEY und WEB_PUSH_VAPID_PRIVATE_KEY müssen gemeinsam gesetzt sein");
+  }
+  if (production && !webPushPublicKey && !webPushPrivateKey) {
+    errors.push("WEB_PUSH_VAPID_PUBLIC_KEY und WEB_PUSH_VAPID_PRIVATE_KEY fehlen");
+  }
+  if (webPushPublicKey && webPushPrivateKey) {
+    const subject = environment.WEB_PUSH_VAPID_SUBJECT?.trim() || environment.APP_ORIGIN?.trim();
+    if (!subject || !/^mailto:|^https?:\/\//u.test(subject)) {
+      errors.push("WEB_PUSH_VAPID_SUBJECT muss eine mailto:- oder HTTPS/HTTP-URL sein");
+    } else if (production && subject.startsWith("http://")) {
+      errors.push("WEB_PUSH_VAPID_SUBJECT muss in Produktion HTTPS oder mailto: verwenden");
+    }
+  }
+
   const authSecret = environment.BETTER_AUTH_SECRET?.trim();
   if (production && (!authSecret || authSecret.length < 32)) {
     errors.push("BETTER_AUTH_SECRET muss mindestens 32 Zeichen enthalten");

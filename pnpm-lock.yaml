@@ -79,6 +79,9 @@ importers:
       nodemailer:
         specifier: ^9.0.3
         version: 9.0.3
+      protobufjs:
+        specifier: ^7.6.5
+        version: 7.6.5
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
