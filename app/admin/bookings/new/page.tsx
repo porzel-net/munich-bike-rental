@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ManualBookingForm } from "@/components/manual-booking-form";
@@ -10,6 +11,10 @@ import { rentalLocations } from "@/lib/inquiries/catalog";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+
+export const metadata: Metadata = {
+  title: "Manuelle Buchung",
+};
 
 export default async function NewBookingPage() {
   const session = await getServerSession();

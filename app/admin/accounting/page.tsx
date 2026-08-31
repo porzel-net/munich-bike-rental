@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
@@ -12,6 +13,10 @@ import { getDatabase } from "@/lib/db/client";
 import { berlinYear } from "@/lib/datetime";
 import { getEuerSummary } from "@/lib/financial/euer";
 import { bookings, financialAccounts, financialCategories } from "@/lib/db/schema";
+
+export const metadata: Metadata = {
+  title: "Buchhaltung",
+};
 
 export default async function AccountingPage() {
   const session = await getServerSession();

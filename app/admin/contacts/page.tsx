@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AdminContactsPage, type CarddavAccountState } from "@/components/admin-contacts-page";
@@ -10,6 +11,10 @@ import { getDatabase } from "@/lib/db/client";
 import { carddavAccounts } from "@/lib/db/schema";
 import { getVisibleContacts } from "@/lib/contacts/service";
 import { eq } from "drizzle-orm";
+
+export const metadata: Metadata = {
+  title: "Kontakte",
+};
 
 export default async function ContactsPage() {
   const session = await getServerSession();

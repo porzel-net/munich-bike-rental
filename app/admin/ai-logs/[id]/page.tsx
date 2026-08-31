@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { ArrowLeftIcon, BotIcon } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -15,6 +16,10 @@ import { formatDateTime } from "@/lib/datetime";
 import { bookings, communicationMessages, emailActionReviews } from "@/lib/db/schema";
 import { aiLogAgentLabel, aiLogSourceLabel, aiLogStatusView } from "@/lib/ai-logs/presentation";
 import { reviewQuestions } from "@/lib/inquiries/email-action";
+
+export const metadata: Metadata = {
+  title: "AI-Logdetails",
+};
 
 export default async function AiLogDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();

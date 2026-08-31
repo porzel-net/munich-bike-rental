@@ -1,6 +1,7 @@
 import { and, count, desc, eq, or } from "drizzle-orm";
 import { BotIcon } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -19,6 +20,10 @@ import { reviewQuestions } from "@/lib/inquiries/email-action";
 function parseFilter<T extends string>(value: string | undefined, values: readonly T[], fallback: T) {
   return values.includes(value as T) ? (value as T) : fallback;
 }
+
+export const metadata: Metadata = {
+  title: "AI-Logs",
+};
 
 export default async function AiLogsPage({
   searchParams,

@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -28,6 +29,10 @@ function bookingIncomingAt(booking: { source: string; orderNumber: string; creat
     ? (receivedAtFromOrderNumber(booking.orderNumber) ?? booking.createdAt)
     : booking.createdAt;
 }
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export default async function AdminPage() {
   const session = await getServerSession();

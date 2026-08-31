@@ -9,6 +9,11 @@ import { rentalLocationLabels } from "@/lib/inquiries/catalog";
 import { asc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Team",
+};
 
 export default async function TeamPage() {
   const session = await getServerSession();

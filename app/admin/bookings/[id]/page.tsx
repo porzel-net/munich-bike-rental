@@ -1,6 +1,7 @@
 import * as React from "react";
 import { desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -118,6 +119,10 @@ function formatTransactionDate(value: string) {
   const [year, month, day] = dateOnly.split("-");
   return `${day}.${month}.${year}`;
 }
+
+export const metadata: Metadata = {
+  title: "Buchung bearbeiten",
+};
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession();

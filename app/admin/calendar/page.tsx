@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CSSProperties } from "react";
 import { cookies } from "next/headers";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -74,6 +75,10 @@ function calendarHref(month: Date, location: string, status: string) {
   if (status && status !== "all") params.set("status", status);
   return `/admin/calendar?${params.toString()}`;
 }
+
+export const metadata: Metadata = {
+  title: "Kalender",
+};
 
 export default async function CalendarPage({
   searchParams,

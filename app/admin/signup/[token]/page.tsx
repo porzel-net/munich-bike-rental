@@ -1,6 +1,11 @@
 import { SignupForm } from "@/components/signup-form";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Konto einrichten",
+};
 
 export default async function InvitationSignupPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

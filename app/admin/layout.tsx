@@ -12,6 +12,10 @@ import { Toaster } from "../../components/ui/sonner";
 import { canAccessAdmin, getServerSession } from "../../lib/auth/session";
 
 export const metadata: Metadata = {
+  title: {
+    default: "Adminbereich",
+    template: "%s | Adminbereich | Your Bike Rental",
+  },
   robots: {
     index: false,
     follow: false,

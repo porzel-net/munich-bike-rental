@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -10,6 +11,10 @@ import { SiteHeader } from "@/components/site-header";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getBookingMigrationPreflight } from "@/lib/bookings/preflight";
 import { getDatabase } from "@/lib/db/client";
+
+export const metadata: Metadata = {
+  title: "Buchungen prüfen",
+};
 
 export default async function BookingPreflightPage() {
   const session = await getServerSession();

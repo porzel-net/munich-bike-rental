@@ -1,4 +1,5 @@
 import { AdminSettingsForm } from "@/components/admin-settings-form";
+import type { Metadata } from "next";
 import { AppSidebar } from "@/components/app-sidebar";
 import { GlobalSettingsPanel } from "@/components/global-settings-panel";
 import { SiteHeader } from "@/components/site-header";
@@ -10,6 +11,10 @@ import { authUser } from "@/lib/db/schema/auth";
 import { financialAccounts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { Globe2, UserRound } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Einstellungen",
+};
 
 export default async function SettingsPage() {
   const session = await getServerSession();

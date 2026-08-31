@@ -1,4 +1,5 @@
 import { asc, eq, inArray } from "drizzle-orm";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { InventoryTable } from "@/components/inventory-table";
@@ -37,6 +38,10 @@ export type AdminInventoryEquipment = {
   availableQuantity: number;
   quantityRelevant: boolean;
   isAvailable: boolean;
+};
+
+export const metadata: Metadata = {
+  title: "Inventar",
 };
 
 export default async function InventoryPage() {

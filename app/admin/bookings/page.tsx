@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -64,6 +65,10 @@ function PaymentBadge({ openCents }: { openCents: number | undefined }) {
     </Badge>
   );
 }
+
+export const metadata: Metadata = {
+  title: "Buchungen",
+};
 
 export default async function BookingsPage({
   searchParams,

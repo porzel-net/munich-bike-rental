@@ -1,4 +1,5 @@
 import { and, desc, eq, or } from "drizzle-orm";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
@@ -23,6 +24,10 @@ import {
   bookings,
 } from "@/lib/db/schema";
 import { findBookingOrderNumber } from "@/lib/financial/booking-matching";
+
+export const metadata: Metadata = {
+  title: "Banktransaktionen",
+};
 
 export default async function BankTransactionsPage({
   searchParams,

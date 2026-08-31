@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 
@@ -11,6 +12,10 @@ import { getDatabase } from "@/lib/db/client";
 import { berlinDateKey } from "@/lib/datetime";
 import { financialAccounts, fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
 import { postDueFixedAssetDepreciation } from "@/lib/financial/fixed-assets";
+
+export const metadata: Metadata = {
+  title: "Anlageverzeichnis",
+};
 
 export default async function FixedAssetsPage() {
   const session = await getServerSession();

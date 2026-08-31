@@ -1,9 +1,14 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { WhatsAppSettingsPanel } from "@/components/whatsapp-settings-panel";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = {
+  title: "WhatsApp-Einstellungen",
+};
 
 export default async function WhatsAppSettingsPage() {
   const session = await getServerSession();

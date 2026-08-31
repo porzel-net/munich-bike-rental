@@ -1,10 +1,15 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = {
+  title: "Anrufe",
+};
 
 export default async function TeamCallsPage() {
   const session = await getServerSession();
