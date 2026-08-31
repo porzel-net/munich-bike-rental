@@ -37,6 +37,10 @@ function treatmentLabel(treatment: string) {
   return "Nicht EÜR-relevant";
 }
 
+function displayRowAmount(row: EuerRow) {
+  return row.euerTreatment === "income" ? row.amountCents : Math.abs(row.amountCents);
+}
+
 function rowTarget(row: EuerRow) {
   if (row.transactionId) return `/admin/accounting/transactions?transaction=${row.transactionId}`;
   if (row.source === "stripe" && row.bookingId) return `/admin/bookings/${row.bookingId}`;
@@ -175,7 +179,7 @@ export function EuerSummary({
                   <TableCell className="font-medium">{row.invoiceNumber ?? "—"}</TableCell>
                   <TableCell>{treatmentLabel(row.euerTreatment)}</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
-                    {formatAmount(Math.abs(row.amountCents))}
+                    {formatAmount(displayRowAmount(row))}
                   </TableCell>
                 </TableRow>
               ))

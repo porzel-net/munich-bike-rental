@@ -152,6 +152,24 @@ describe("end-to-end accounting scenarios", () => {
     expect(getEuerSummary(db, 2026)).toMatchObject({ incomeCents: 7_500, expenseCents: 0, profitCents: 7_500 });
   });
 
+  it("allows an imported bank debit to be explicitly categorized as a refund", () => {
+    const { db, bank, category } = setup();
+    const refund = transaction(db, bank.id, -5_900, "expense");
+    const result = post(db, refund.id, category("refund").id, "Rückerstattung an Kundin");
+
+    expect(
+      db
+        .select({ kind: journalEntries.kind })
+        .from(journalEntries)
+        .where(eq(journalEntries.id, result.journalEntryId))
+        .get(),
+    ).toEqual({ kind: "refund_issued" });
+    expect(getEuerSummary(db, 2026)).toMatchObject({ incomeCents: -5_900, expenseCents: 0, profitCents: -5_900 });
+    expect(getEuerSummary(db, 2026).rows).toContainEqual(
+      expect.objectContaining({ categoryCode: "refund", amountCents: -5_900, euerTreatment: "income" }),
+    );
+  });
+
   it("keeps Stripe fees in expenses and Stripe payouts as balance-sheet transfers", async () => {
     const { db, bank, category } = setup();
     const booking = db

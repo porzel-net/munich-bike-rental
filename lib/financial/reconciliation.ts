@@ -34,7 +34,8 @@ function journalKindForTransaction(
   if (category.categoryType === "transfer") return "bank_transfer";
   if (category.categoryType === "fee" || transaction.kind === "bank_fee") return "bank_fee";
   if (category.categoryType === "tax" || transaction.kind === "tax_payment") return "tax_payment";
-  if (transaction.kind === "refund" && category.euerTreatment === "income") return "refund_issued";
+  if ((transaction.kind === "refund" || category.code === "refund") && category.euerTreatment === "income")
+    return "refund_issued";
   return transaction.amountCents < 0 ? "expense" : "payment_received";
 }
 
@@ -68,7 +69,8 @@ function assertCategoryDirection(
       "Die gewählte Kategorie hat noch keine konkrete EÜR-Zuordnung. Bitte wähle eine geklärte Kategorie.",
     );
   if (["income", "output_vat"].includes(category.euerTreatment)) {
-    const isIncomeRefund = transaction.kind === "refund" && category.euerTreatment === "income";
+    const isIncomeRefund =
+      category.euerTreatment === "income" && (transaction.kind === "refund" || category.code === "refund");
     if ((isIncomeRefund && transaction.amountCents >= 0) || (!isIncomeRefund && transaction.amountCents <= 0))
       throw new BookingCommandError(
         isIncomeRefund

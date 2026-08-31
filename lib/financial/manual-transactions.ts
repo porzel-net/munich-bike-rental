@@ -90,11 +90,14 @@ export function createAndPostManualTransaction(
   if (booking && category.code !== "rental_revenue")
     throw new BookingCommandError("Eine Buchung kann nur der sachlichen Zuordnung Mieterträge zugewiesen werden.");
   if (!booking && !input.description?.trim()) throw new BookingCommandError("Bitte gib eine Beschreibung an.");
+  const isRefund = category.code === "refund";
   const signedAmountCents = booking
     ? input.amountCents
-    : ["income", "output_vat"].includes(category.euerTreatment)
-      ? input.amountCents
-      : -input.amountCents;
+    : isRefund
+      ? -input.amountCents
+      : ["income", "output_vat"].includes(category.euerTreatment)
+        ? input.amountCents
+        : -input.amountCents;
   return runInImmediateTransaction(db, () => {
     const account = input.accountId
       ? db.select().from(financialAccounts).where(eq(financialAccounts.id, input.accountId)).get()
@@ -234,7 +237,7 @@ export function createAndPostManualTransaction(
         financialAccountId: account.id,
         source: input.source,
         provider: "manual",
-        kind: category.categoryType === "income" ? "income" : "expense",
+        kind: isRefund ? "refund" : category.categoryType === "income" ? "income" : "expense",
         status: "imported",
         amountCents: signedAmountCents,
         grossAmountCents: signedAmountCents,

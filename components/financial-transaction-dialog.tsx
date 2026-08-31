@@ -77,6 +77,7 @@ function bookingStatusLabel(status: string) {
 }
 
 function categoryDescription(category: FinancialReviewCategory) {
+  if (category.code === "refund") return "negative Einnahme · Mieterträge werden korrigiert";
   if (category.euerTreatment === "transfer") return "interne Umbuchung · nicht EÜR-relevant";
   if (category.euerTreatment === "excluded") return "nicht in EÜR";
   if (category.euerTreatment === "asset_acquisition") return "Anlagegut · AfA/GWG prüfen";
