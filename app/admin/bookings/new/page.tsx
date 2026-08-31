@@ -32,6 +32,7 @@ export default async function NewBookingPage() {
       modelTitle: bikeModels.title,
       size: bikeVariants.size,
       priceCents: rentalAssets.weekdayPriceCents,
+      isBookable: rentalAssets.isBookable,
       state: rentalAssets.state,
     })
     .from(rentalAssets)

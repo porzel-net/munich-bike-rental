@@ -149,7 +149,8 @@ describe("admin inventory API", () => {
         frameNumber: "EDGE-1",
         weekdayPriceCents: 4_500,
         weekendPriceCents: 6_500,
-        isAvailable: true,
+        isVisibleOnLanding: false,
+        isBookable: true,
       }),
     );
     expect(bikeResponse.status).toBe(201);
@@ -163,7 +164,11 @@ describe("admin inventory API", () => {
         .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
         .where(eq(rentalAssets.id, bikeBody.item.id))
         .get(),
-    ).toMatchObject({ asset: { nickname: "Blitz" }, model: { title: "Edge Bike" }, variant: { size: "M" } });
+    ).toMatchObject({
+      asset: { nickname: "Blitz", isVisibleOnLanding: false, isBookable: true },
+      model: { title: "Edge Bike" },
+      variant: { size: "M" },
+    });
     expect(
       db
         .select({ weekday: rentalAssets.weekdayPriceCents, weekend: rentalAssets.weekendPriceCents })
@@ -201,7 +206,8 @@ describe("admin inventory API", () => {
             frameNumber: "EDGE-2",
             weekdayPriceCents: 5_000,
             weekendPriceCents: 7_000,
-            isAvailable: true,
+            isVisibleOnLanding: true,
+            isBookable: false,
           }),
         )
       ).status,
@@ -213,6 +219,13 @@ describe("admin inventory API", () => {
         .where(eq(rentalAssets.id, bikeBody.item.id))
         .get(),
     ).toMatchObject({ nickname: "Turbo", displayName: "Edge Bike Updated - L" });
+    expect(
+      db
+        .select({ isVisibleOnLanding: rentalAssets.isVisibleOnLanding, isBookable: rentalAssets.isBookable })
+        .from(rentalAssets)
+        .where(eq(rentalAssets.id, bikeBody.item.id))
+        .get(),
+    ).toEqual({ isVisibleOnLanding: true, isBookable: false });
     expect(
       db
         .select({ size: bikeVariants.size })

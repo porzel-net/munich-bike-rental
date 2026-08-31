@@ -150,7 +150,7 @@ export default async function BookingsPage({
     .from(rentalAssets)
     .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))
     .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
-    .where(eq(rentalAssets.state, "active"))
+    .where(eq(rentalAssets.isBookable, true))
     .all();
   const activeAssetsByLocation = new Map<string, typeof activeAssets>();
   for (const asset of activeAssets)

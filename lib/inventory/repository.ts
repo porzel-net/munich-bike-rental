@@ -155,14 +155,16 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .innerJoin(bikeModels, eq(bikeVariants.modelId, bikeModels.id))
     .where(eq(rentalAssets.location, location))
     .all();
-  const activeBikes = bikeRows.filter(({ asset }) => asset.state === "active");
+  const bookableBikes = bikeRows.filter(({ asset }) => asset.isBookable && asset.state !== "retired");
+  const visibleBikes = bikeRows.filter(({ asset }) => asset.isVisibleOnLanding && asset.state !== "retired");
   const rowsByModel = new Map<number, typeof bikeRows>();
   for (const row of bikeRows) rowsByModel.set(row.model.id, [...(rowsByModel.get(row.model.id) ?? []), row]);
   const models = [...rowsByModel.values()].map(
     (rows) =>
       [...rows].sort(
         (left, right) =>
-          Number(right.asset.state === "active") - Number(left.asset.state === "active") ||
+          Number(right.asset.isVisibleOnLanding) - Number(left.asset.isVisibleOnLanding) ||
+          Number(right.asset.isBookable) - Number(left.asset.isBookable) ||
           left.asset.weekdayPriceCents +
             left.asset.weekendPriceCents -
             (right.asset.weekdayPriceCents + right.asset.weekendPriceCents) ||
@@ -171,9 +173,9 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   );
   // The legacy-to-normalized migration can leave more than one internal model
   // row for the same public title. Portfolio cards represent model families,
-  // not individual database rows, so prefer active models and collapse
+  // not individual database rows, so prefer visible models and collapse
   // duplicate titles before rendering the public catalog.
-  const portfolioSource = activeBikes.length ? models.filter(({ asset }) => asset.state === "active") : models;
+  const portfolioSource = models.filter(({ asset }) => asset.isVisibleOnLanding && asset.state !== "retired");
   const portfolioModels = new Map<string, (typeof models)[number]>();
   for (const row of portfolioSource) {
     const existing = portfolioModels.get(row.model.title);
@@ -181,8 +183,11 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
       portfolioModels.set(row.model.title, row);
     }
   }
-  const modelTitles = new Set(models.map(({ model }) => model.title));
-  const activeModelTitles = new Set(activeBikes.map(({ model }) => model.title));
+  const visibleBikeVariantOptions = [
+    ...new Set(visibleBikes.map(({ model, variant }) => `${model.title} - ${variant.size}`)),
+  ];
+  const visibleModelTitles = new Set(visibleBikes.map(({ model }) => model.title));
+  const bookableModelTitles = new Set(bookableBikes.map(({ model }) => model.title));
   const allEquipment = db
     .select()
     .from(accessoryInventory)
@@ -204,13 +209,11 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     .orderBy(asc(rentalLocationDiscounts.displayOrder))
     .all()
     .filter((item) => item.isAvailable);
-  const bikeVariantOptions = [...new Set(bikeRows.map(({ model, variant }) => `${model.title} - ${variant.size}`))];
   // Customers choose the bike model only. Frame size is selected internally
   // later based on the customer's height and the available assets.
-  const requestBikeOptions = [...modelTitles];
-  const bikeOptions = [...activeModelTitles];
-  // Public inquiries may name paused bikes so they remain trackable. Concrete
-  // asset selection in the admin still uses only active assets.
+  const requestBikeOptions = [...visibleModelTitles];
+  const bikeOptions = [...bookableModelTitles];
+  // Public inquiries only offer models published on the landing page.
   const bikePricesByOption = new Map<string, LocationInventory["bikePrices"][number]>();
   const pickPriceRow = (rows: typeof bikeRows) =>
     [...rows].sort(
@@ -222,8 +225,8 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   for (const rows of rowsByModel.values()) {
     const model = rows[0]?.model;
     if (!model) continue;
-    const modelRows = rows.some(({ asset }) => asset.state === "active")
-      ? rows.filter(({ asset }) => asset.state === "active")
+    const modelRows = rows.some(({ asset }) => asset.isBookable && asset.state !== "retired")
+      ? rows.filter(({ asset }) => asset.isBookable && asset.state !== "retired")
       : rows;
     const modelPriceRow = pickPriceRow(modelRows);
     if (modelPriceRow) {
@@ -247,14 +250,14 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
   }
   const bikePrices = [...bikePricesByOption.values()];
   const bikeOptionQuantities: Record<string, number> = {};
-  for (const { model, variant } of activeBikes) {
+  for (const { model, variant } of bookableBikes) {
     const variantOption = `${model.title} - ${variant.size}`;
     bikeOptionQuantities[model.title] = (bikeOptionQuantities[model.title] ?? 0) + 1;
     bikeOptionQuantities[variantOption] = (bikeOptionQuantities[variantOption] ?? 0) + 1;
   }
   const bikeSizes = (title: string) =>
     sortBikeSizes(
-      bikeVariantOptions
+      visibleBikeVariantOptions
         .filter((option) => option.startsWith(title + " - "))
         .map((option) => option.slice(title.length + 3)),
     ).join(" / ");
@@ -309,9 +312,11 @@ export function getLocationInventory(db: AppDatabase, location: string): Locatio
     bottleHolderIncluded: equipment.some((item) => item.accessoryKey === "bottle-holder"),
     repairKitIncluded: equipment.some((item) => item.accessoryKey === "repair-kit"),
     accessoryFromCents: equipment.length ? Math.min(...equipment.map((item) => item.priceCents)) : 0,
-    minimumBikePriceCents: bikeRows.length ? Math.min(...bikeRows.map(({ asset }) => asset.weekdayPriceCents)) : 0,
-    minimumWeekendBikePriceCents: bikeRows.length
-      ? Math.min(...bikeRows.map(({ asset }) => asset.weekendPriceCents))
+    minimumBikePriceCents: visibleBikes.length
+      ? Math.min(...visibleBikes.map(({ asset }) => asset.weekdayPriceCents))
+      : 0,
+    minimumWeekendBikePriceCents: visibleBikes.length
+      ? Math.min(...visibleBikes.map(({ asset }) => asset.weekendPriceCents))
       : 0,
     discounts: discounts.map((discount) => ({
       key: discount.discountKey,

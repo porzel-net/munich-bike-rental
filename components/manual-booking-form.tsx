@@ -26,6 +26,7 @@ export type ManualBookingAsset = {
   nickname: string | null;
   modelLabel: string;
   priceCents: number;
+  isBookable: boolean;
   state: "active" | "maintenance" | "retired";
 };
 export type ManualBookingItem = {
@@ -135,7 +136,7 @@ export function ManualBookingForm({
   const [historicalTotal, setHistoricalTotal] = useState("");
   const [busy, setBusy] = useState(false);
   const availableAssets = useMemo(
-    () => assets.filter((asset) => asset.location === location && (mode === "historical" || asset.state === "active")),
+    () => assets.filter((asset) => asset.location === location && (mode === "historical" || asset.isBookable)),
     [assets, location, mode],
   );
   const availableBikeOptions = useMemo(() => {

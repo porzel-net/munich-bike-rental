@@ -91,6 +91,8 @@ export const rentalAssets = sqliteTable(
     displayName: text("display_name").notNull(),
     weekdayPriceCents: integer("weekday_price_cents").notNull().default(4900),
     weekendPriceCents: integer("weekend_price_cents").notNull().default(6900),
+    isVisibleOnLanding: integer("is_visible_on_landing", { mode: "boolean" }).notNull().default(true),
+    isBookable: integer("is_bookable", { mode: "boolean" }).notNull().default(true),
     state: text("state", { enum: assetStates }).notNull().default("active"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),

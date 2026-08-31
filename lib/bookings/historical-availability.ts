@@ -10,6 +10,7 @@ const HISTORICAL_REGIONAL_EXCEPTION = {
 
 type BookingLike = Pick<typeof bookings.$inferSelect, "source" | "location" | "periodFrom" | "periodTo">;
 type AssetLike = Pick<typeof rentalAssets.$inferSelect, "location" | "state"> & {
+  isBookable?: boolean;
   modelTitle: string;
   size: string;
 };
@@ -34,7 +35,10 @@ export function isHistoricalRegensburgEnduraceSException(booking: BookingLike, a
 }
 
 export function isAssetSelectableForBooking(booking: BookingLike, asset: AssetLike) {
-  return asset.state === "active" || isHistoricalRegensburgEnduraceSException(booking, asset);
+  return (
+    (asset.state !== "retired" && (asset.isBookable ?? asset.state === "active")) ||
+    isHistoricalRegensburgEnduraceSException(booking, asset)
+  );
 }
 
 /** Historical records may reference a bike which is no longer in the active fleet. */

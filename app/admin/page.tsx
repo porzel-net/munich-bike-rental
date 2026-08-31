@@ -204,7 +204,7 @@ export default async function AdminPage() {
   const munichBikeCount = db
     .select({ id: rentalAssets.id })
     .from(rentalAssets)
-    .where(and(eq(rentalAssets.location, visibleLocation ?? "munich"), eq(rentalAssets.state, "active")))
+    .where(and(eq(rentalAssets.location, visibleLocation ?? "munich"), eq(rentalAssets.isBookable, true)))
     .all().length;
   const utilizationData = monthLabels.map((month, monthIndex) => {
     const monthStart = `${currentYear}-${String(monthIndex + 1).padStart(2, "0")}-01`;

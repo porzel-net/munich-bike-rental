@@ -23,8 +23,9 @@ export type AdminInventoryBike = {
   frameNumber: string | null;
   weekdayPriceCents: number;
   weekendPriceCents: number;
+  isVisibleOnLanding: boolean;
+  isBookable: boolean;
   size: string;
-  isAvailable: boolean;
 };
 
 export type AdminInventoryEquipment = {
@@ -77,8 +78,9 @@ export default async function InventoryPage() {
     frameNumber: asset.frameNumber,
     weekdayPriceCents: asset.weekdayPriceCents,
     weekendPriceCents: asset.weekendPriceCents,
+    isVisibleOnLanding: asset.isVisibleOnLanding,
+    isBookable: asset.isBookable,
     size: variant.size,
-    isAvailable: asset.state === "active",
   }));
   const equipment: AdminInventoryEquipment[] = equipmentRows.map((item) => ({
     id: item.id,

@@ -25,6 +25,7 @@ import {
   equipmentCategoryLabels,
   type EquipmentCategory,
 } from "@/lib/inventory/equipment-categories";
+import { compareInventoryBikes } from "@/lib/inventory/sorting";
 
 type LocationOption = { key: AdminInventoryBike["location"]; label: string };
 type InventoryKind = "bike" | "equipment";
@@ -70,23 +71,7 @@ export function InventoryTable({
 
   const visibleBikes = useMemo(() => {
     const filtered = locationFilter === "all" ? bikes : bikes.filter((bike) => bike.location === locationFilter);
-    return [...filtered].sort((left, right) => {
-      const locationComparison = left.location.localeCompare(right.location, "de", {
-        sensitivity: "base",
-      });
-      if (locationComparison !== 0) return locationComparison;
-
-      const displayNameComparison = (left.nickname || left.title).localeCompare(right.nickname || right.title, "de", {
-        numeric: true,
-        sensitivity: "base",
-      });
-      if (displayNameComparison !== 0) return displayNameComparison;
-
-      const typeComparison = left.title.localeCompare(right.title, "de", { numeric: true, sensitivity: "base" });
-      if (typeComparison !== 0) return typeComparison;
-
-      return left.size.localeCompare(right.size, "de", { numeric: true, sensitivity: "base" });
-    });
+    return [...filtered].sort(compareInventoryBikes);
   }, [bikes, locationFilter]);
   const visibleEquipment = useMemo(
     () => (locationFilter === "all" ? equipment : equipment.filter((item) => item.location === locationFilter)),
@@ -118,7 +103,8 @@ export function InventoryTable({
             size: item.size,
             weekdayPriceCents: item.weekdayPriceCents,
             weekendPriceCents: item.weekendPriceCents,
-            isAvailable: !item.isAvailable,
+            isVisibleOnLanding: item.isVisibleOnLanding,
+            isBookable: !item.isBookable,
           }
         : {
             type: "equipment" as const,
@@ -140,13 +126,37 @@ export function InventoryTable({
     if (!response.ok) return;
     if (item.kind === "bike") {
       setBikes((current) =>
-        current.map((bike) => (bike.id === item.id ? { ...bike, isAvailable: !bike.isAvailable } : bike)),
+        current.map((bike) => (bike.id === item.id ? { ...bike, isBookable: !bike.isBookable } : bike)),
       );
     } else {
       setEquipment((current) =>
         current.map((entry) => (entry.id === item.id ? { ...entry, isAvailable: !entry.isAvailable } : entry)),
       );
     }
+  }
+
+  async function toggleLandingVisibility(item: AdminInventoryBike) {
+    const response = await fetch("/api/admin/inventory", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "bike",
+        id: item.id,
+        location: item.location,
+        title: item.title,
+        nickname: item.nickname,
+        frameNumber: item.frameNumber,
+        size: item.size,
+        weekdayPriceCents: item.weekdayPriceCents,
+        weekendPriceCents: item.weekendPriceCents,
+        isVisibleOnLanding: !item.isVisibleOnLanding,
+        isBookable: item.isBookable,
+      }),
+    });
+    if (!response.ok) return;
+    setBikes((current) =>
+      current.map((bike) => (bike.id === item.id ? { ...bike, isVisibleOnLanding: !bike.isVisibleOnLanding } : bike)),
+    );
   }
 
   async function deleteItem(item: EditingItem) {
@@ -242,13 +252,14 @@ export function InventoryTable({
                   <TableHead>Bike / Typ</TableHead>
                   <TableHead>Größe</TableHead>
                   <TableHead>Standort</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Landingpage</TableHead>
+                  <TableHead>Buchungen</TableHead>
                   <TableHead className="text-right">Preise / Tag</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleBikes.length === 0 ? (
-                  <EmptyRow colSpan={5} label="Noch keine Bikes für diesen Standort erfasst." />
+                  <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
                 ) : (
                   visibleBikes.map((bike) => (
                     <TableRow
@@ -273,8 +284,16 @@ export function InventoryTable({
                       </TableCell>
                       <TableCell>
                         <StatusButton
-                          active={bike.isAvailable}
-                          onClick={() => toggleAvailability({ ...bike, kind: "bike" })}
+                          active={bike.isVisibleOnLanding}
+                          onClick={() => void toggleLandingVisibility(bike)}
+                          activeLabel="Angezeigt"
+                          inactiveLabel="Ausgeblendet"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <StatusButton
+                          active={bike.isBookable}
+                          onClick={() => void toggleAvailability({ ...bike, kind: "bike" })}
                         />
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
@@ -365,7 +384,17 @@ function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
   );
 }
 
-function StatusButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+function StatusButton({
+  active,
+  onClick,
+  activeLabel = "Aktiv",
+  inactiveLabel = "Pausiert",
+}: {
+  active: boolean;
+  onClick: () => void;
+  activeLabel?: string;
+  inactiveLabel?: string;
+}) {
   return (
     <button
       type="button"
@@ -379,7 +408,7 @@ function StatusButton({ active, onClick }: { active: boolean; onClick: () => voi
         onClick();
       }}
     >
-      {active ? "Aktiv" : "Pausiert"}
+      {active ? activeLabel : inactiveLabel}
     </button>
   );
 }
@@ -421,7 +450,9 @@ function InventoryDialog({
     item?.kind === "equipment" ? String(item.availableQuantity) : "1",
   );
   const [quantityRelevant, setQuantityRelevant] = useState(item?.kind === "equipment" ? item.quantityRelevant : true);
-  const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
+  const [isVisibleOnLanding, setIsVisibleOnLanding] = useState(item?.kind === "bike" ? item.isVisibleOnLanding : true);
+  const [isBookable, setIsBookable] = useState(item?.kind === "bike" ? item.isBookable : (item?.isAvailable ?? true));
+  const [isAvailable, setIsAvailable] = useState(item?.kind === "equipment" ? item.isAvailable : true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -462,7 +493,8 @@ function InventoryDialog({
             frameNumber: frameNumber.trim() || null,
             weekdayPriceCents: priceCents,
             weekendPriceCents,
-            isAvailable,
+            isVisibleOnLanding,
+            isBookable,
           }
         : {
             type: "equipment" as const,
@@ -514,8 +546,9 @@ function InventoryDialog({
           frameNumber: frameNumber.trim() || null,
           weekdayPriceCents: priceCents,
           weekendPriceCents,
+          isVisibleOnLanding,
+          isBookable,
           size: size.trim(),
-          isAvailable,
         },
         "bike",
         isNew,
@@ -731,18 +764,53 @@ function InventoryDialog({
                   />
                 </Field>
               ) : null}
-              <Field>
-                <FieldLabel htmlFor="inventory-available">Buchungsstatus</FieldLabel>
-                <label className="flex h-9 items-center gap-2 text-sm">
-                  <input
-                    id="inventory-available"
-                    type="checkbox"
-                    checked={isAvailable}
-                    onChange={(event) => setIsAvailable(event.target.checked)}
-                  />
-                  Für Buchungen aktiv
-                </label>
-              </Field>
+              {kind === "bike" ? (
+                <>
+                  <Field>
+                    <FieldLabel>Landingpage</FieldLabel>
+                    <label className="flex h-9 items-center gap-2 text-sm" htmlFor="inventory-visible-on-landing">
+                      <input
+                        id="inventory-visible-on-landing"
+                        type="checkbox"
+                        checked={isVisibleOnLanding}
+                        onChange={(event) => setIsVisibleOnLanding(event.target.checked)}
+                      />
+                      Auf der Landingpage anzeigen
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Dieses Bike wird im öffentlichen Fahrradportfolio angezeigt.
+                    </p>
+                  </Field>
+                  <Field>
+                    <FieldLabel>Buchungen</FieldLabel>
+                    <label className="flex h-9 items-center gap-2 text-sm" htmlFor="inventory-bookable">
+                      <input
+                        id="inventory-bookable"
+                        type="checkbox"
+                        checked={isBookable}
+                        onChange={(event) => setIsBookable(event.target.checked)}
+                      />
+                      Für Buchungen auswählbar
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Sachbearbeiter können dieses konkrete Bike in Buchungen auswählen.
+                    </p>
+                  </Field>
+                </>
+              ) : (
+                <Field>
+                  <FieldLabel htmlFor="inventory-available">Buchungsstatus</FieldLabel>
+                  <label className="flex h-9 items-center gap-2 text-sm" htmlFor="inventory-available">
+                    <input
+                      id="inventory-available"
+                      type="checkbox"
+                      checked={isAvailable}
+                      onChange={(event) => setIsAvailable(event.target.checked)}
+                    />
+                    Für Buchungen aktiv
+                  </label>
+                </Field>
+              )}
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </FieldGroup>

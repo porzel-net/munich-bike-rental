@@ -21,12 +21,11 @@ import { readBoundedJson } from "../../../../lib/security/request-body";
 export const runtime = "nodejs";
 
 const locationSchema = z.enum(rentalLocations);
-const baseSchema = z.object({
+const commonSchema = z.object({
   location: locationSchema,
   availableQuantity: z.number().int().min(0).max(10_000).default(1),
-  isAvailable: z.boolean().default(true),
 });
-const bikeSchema = baseSchema.extend({
+const bikeSchema = commonSchema.extend({
   type: z.literal("bike"),
   title: z.string().trim().min(1).max(160),
   nickname: z.string().trim().max(120).optional().nullable(),
@@ -34,9 +33,14 @@ const bikeSchema = baseSchema.extend({
   frameNumber: z.string().trim().max(120).optional().nullable(),
   weekdayPriceCents: z.number().int().min(0).max(1_000_000_000),
   weekendPriceCents: z.number().int().min(0).max(1_000_000_000),
+  isVisibleOnLanding: z.boolean().optional(),
+  isBookable: z.boolean().optional(),
+  /** Kept as a backwards-compatible alias for older admin clients. */
+  isAvailable: z.boolean().optional(),
 });
-const equipmentSchema = baseSchema.extend({
+const equipmentSchema = commonSchema.extend({
   type: z.literal("equipment"),
+  isAvailable: z.boolean().default(true),
   priceCents: z.number().int().min(0).max(1_000_000_000),
   category: z.enum(equipmentCategories),
   labelDe: z.string().trim().min(1).max(120),
@@ -116,10 +120,20 @@ function getOrCreateVariant(db: ReturnType<typeof getDatabase>, modelId: number,
 }
 
 function bikeResponse(input: z.infer<typeof bikeSchema>, id: number) {
+  const flags = bikeFlags(input);
   return {
     ...input,
+    ...flags,
     id,
     bikeKey: createBikeKey(input.title, input.size),
+  };
+}
+
+function bikeFlags(input: z.infer<typeof bikeSchema>) {
+  const legacyAvailability = input.isAvailable ?? true;
+  return {
+    isVisibleOnLanding: input.isVisibleOnLanding ?? legacyAvailability,
+    isBookable: input.isBookable ?? legacyAvailability,
   };
 }
 
@@ -148,6 +162,7 @@ export async function POST(request: Request) {
         const stamp = new Date();
         const modelId = getOrCreateModel(db, input.data.location, input.data.title, stamp);
         const variantId = getOrCreateVariant(db, modelId, input.data.size, stamp);
+        const flags = bikeFlags(input.data);
         const inserted = db
           .insert(rentalAssets)
           .values({
@@ -159,7 +174,8 @@ export async function POST(request: Request) {
             displayName: formatBikeDisplayName(input.data.title, input.data.size),
             weekdayPriceCents: input.data.weekdayPriceCents,
             weekendPriceCents: input.data.weekendPriceCents,
-            state: input.data.isAvailable ? "active" : "maintenance",
+            ...flags,
+            state: flags.isBookable ? "active" : "maintenance",
             createdAt: stamp,
             updatedAt: stamp,
           })
@@ -225,6 +241,7 @@ export async function PATCH(request: Request) {
         const stamp = new Date();
         const modelId = getOrCreateModel(db, input.data.location, input.data.title, stamp);
         const variantId = getOrCreateVariant(db, modelId, input.data.size, stamp);
+        const flags = bikeFlags(input.data);
         db.update(rentalAssets)
           .set({
             variantId,
@@ -233,7 +250,8 @@ export async function PATCH(request: Request) {
             displayName: formatBikeDisplayName(input.data.title, input.data.size),
             weekdayPriceCents: input.data.weekdayPriceCents,
             weekendPriceCents: input.data.weekendPriceCents,
-            state: input.data.isAvailable ? "active" : "maintenance",
+            ...flags,
+            state: flags.isBookable ? "active" : "maintenance",
             updatedAt: stamp,
           })
           .where(eq(rentalAssets.id, input.data.id))
@@ -291,7 +309,7 @@ export async function DELETE(request: Request) {
       () =>
         db
           .update(rentalAssets)
-          .set({ state: "retired", updatedAt: new Date() })
+          .set({ state: "retired", isVisibleOnLanding: false, isBookable: false, updatedAt: new Date() })
           .where(and(eq(rentalAssets.id, input.data.id), eq(rentalAssets.location, input.data.location)))
           .run().changes,
     );

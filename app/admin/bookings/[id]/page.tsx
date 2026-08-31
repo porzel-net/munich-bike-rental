@@ -260,6 +260,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       size: bikeVariants.size,
       priceCents: rentalAssets.weekdayPriceCents,
       state: rentalAssets.state,
+      isBookable: rentalAssets.isBookable,
     })
     .from(rentalAssets)
     .innerJoin(bikeVariants, eq(rentalAssets.variantId, bikeVariants.id))

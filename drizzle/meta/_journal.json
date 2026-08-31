@@ -645,6 +645,13 @@
       "when": 1787829001000,
       "tag": "0092_add_refund_category",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "6",
+      "when": 1788175268648,
+      "tag": "0093_split_bike_visibility_and_bookability",
+      "breakpoints": true
     }
   ]
 }

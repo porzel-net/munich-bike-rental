@@ -124,6 +124,8 @@ function ensureBikeAssets(db: InventoryDb, location: string, offeredBikes: reado
         displayName: `${title} - ${size}`,
         weekdayPriceCents: prices.weekday,
         weekendPriceCents: prices.weekend,
+        isVisibleOnLanding: true,
+        isBookable: location === "munich",
         state: location === "munich" ? "active" : "maintenance",
         createdAt,
         updatedAt: createdAt,
