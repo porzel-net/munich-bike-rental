@@ -34,21 +34,35 @@ async function subscriptionJson(subscription: PushSubscription) {
 export function BrowserPushNotifications() {
   const [state, setState] = React.useState<PushState>("checking");
   const [busy, setBusy] = React.useState(false);
+  const permissionRef = React.useRef<NotificationPermission | null>(null);
 
   React.useEffect(() => {
-    if (!supported()) {
-      queueMicrotask(() => setState("unsupported"));
-      return;
-    }
-    const permission = Notification.permission;
-    if (permission === "denied") {
-      queueMicrotask(() => setState("denied"));
-      return;
-    }
-    void getRegistration()
-      .then((registration) => registration.pushManager.getSubscription())
-      .then(async (subscription) => {
-        if (!subscription || Notification.permission !== "granted") {
+    let cancelled = false;
+
+    const syncPermissionState = async () => {
+      if (!supported()) {
+        if (!cancelled) setState("unsupported");
+        return;
+      }
+
+      const permission = Notification.permission;
+      permissionRef.current = permission;
+      if (permission === "denied") {
+        if (!cancelled) setState("denied");
+        return;
+      }
+
+      try {
+        const registration = await getRegistration();
+        const subscription = await registration.pushManager.getSubscription();
+        const currentPermission = Notification.permission;
+        permissionRef.current = currentPermission;
+        if (cancelled) return;
+        if (currentPermission === "denied") {
+          setState("denied");
+          return;
+        }
+        if (!subscription || currentPermission !== "granted") {
           setState("ready");
           return;
         }
@@ -58,9 +72,24 @@ export function BrowserPushNotifications() {
           body: JSON.stringify(await subscriptionJson(subscription)),
         });
         if (!response.ok) throw new Error("Push-Abonnement konnte nicht synchronisiert werden.");
-        setState("active");
-      })
-      .catch(() => setState("ready"));
+        if (!cancelled) setState("active");
+      } catch {
+        if (!cancelled) setState("ready");
+      }
+    };
+
+    const refreshPermissionIfChanged = () => {
+      if (supported() && Notification.permission !== permissionRef.current) void syncPermissionState();
+    };
+
+    void syncPermissionState();
+    window.addEventListener("focus", refreshPermissionIfChanged);
+    document.addEventListener("visibilitychange", refreshPermissionIfChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshPermissionIfChanged);
+      document.removeEventListener("visibilitychange", refreshPermissionIfChanged);
+    };
   }, []);
 
   async function enable() {
@@ -68,6 +97,7 @@ export function BrowserPushNotifications() {
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
+      permissionRef.current = permission;
       if (permission !== "granted") {
         setState(permission === "denied" ? "denied" : "ready");
         if (permission === "denied") toast.error("Push-Benachrichtigungen wurden im Browser blockiert.");
