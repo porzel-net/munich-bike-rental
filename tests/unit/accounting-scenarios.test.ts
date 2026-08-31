@@ -111,7 +111,7 @@ function post(
 describe("end-to-end accounting scenarios", () => {
   it("reconciles a mixed operating year without leaking private or transfer movements into profit", () => {
     const { db, bank, cash, category } = setup();
-    post(db, transaction(db, bank.id, 100_000).id, category("rental_revenue").id, "Mieteinnahmen");
+    post(db, transaction(db, bank.id, 100_000).id, category("other_operating_income").id, "Sonstige Einnahmen");
     post(db, transaction(db, bank.id, -25_000).id, category("maintenance").id, "Reparatur");
     post(db, transaction(db, bank.id, -20_000).id, category("cash_withdrawal").id, "Kassenauffüllung", cash.id);
     post(db, transaction(db, bank.id, -5_000).id, category("private_payment").id, "Privat veranlasst");
@@ -135,9 +135,9 @@ describe("end-to-end accounting scenarios", () => {
 
   it("books a bank refund as a negative income and uses a refund journal kind", () => {
     const { db, bank, category } = setup();
-    post(db, transaction(db, bank.id, 10_000).id, category("rental_revenue").id, "Zahlung");
+    post(db, transaction(db, bank.id, 10_000).id, category("other_operating_income").id, "Zahlung");
     const refund = transaction(db, bank.id, -2_500, "refund");
-    const result = post(db, refund.id, category("rental_revenue").id, "Rückerstattung");
+    const result = post(db, refund.id, category("refund").id, "Rückerstattung");
 
     expect(
       db

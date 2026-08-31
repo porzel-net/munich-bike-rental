@@ -243,9 +243,9 @@ describe("financial edge cases", () => {
 
   it("keeps year boundaries and non-posted transactions out of the wrong EÜR", () => {
     const { db, bank, category } = setup();
-    post(db, transaction(db, bank.id, 2_000, "2025-12-31").id, category("rental_revenue").id);
+    post(db, transaction(db, bank.id, 2_000, "2025-12-31").id, category("other_operating_income").id);
     const pending = transaction(db, bank.id, 3_000, "2026-01-01");
-    post(db, pending.id, category("rental_revenue").id);
+    post(db, pending.id, category("other_operating_income").id);
     db.update(financialTransactions)
       .set({ status: "needs_review" })
       .where(eq(financialTransactions.id, pending.id))
@@ -259,10 +259,10 @@ describe("financial edge cases", () => {
   it("uses the booking/credit date for the EÜR, not the bank value date", () => {
     const { db, bank, category } = setup();
     const bookedOnNewYearsEve = transaction(db, bank.id, 2_000, "2025-12-31", "income", "2026-01-01");
-    post(db, bookedOnNewYearsEve.id, category("rental_revenue").id);
+    post(db, bookedOnNewYearsEve.id, category("other_operating_income").id);
 
     const bookedInNewYear = transaction(db, bank.id, 3_000, "2026-01-01", "income", "2025-12-31");
-    post(db, bookedInNewYear.id, category("rental_revenue").id);
+    post(db, bookedInNewYear.id, category("other_operating_income").id);
 
     expect(getEuerSummary(db, 2025)).toMatchObject({ incomeCents: 2_000 });
     expect(getEuerSummary(db, 2026)).toMatchObject({ incomeCents: 3_000 });

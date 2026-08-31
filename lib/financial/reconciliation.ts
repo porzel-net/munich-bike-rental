@@ -467,6 +467,8 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   if (!category) throw new BookingCommandError("Bitte wähle eine Kategorie.");
   if (!category.isActive) throw new BookingCommandError("Die gewählte Kategorie ist nicht mehr aktiv.");
   assertCategoryDirection(transaction, category);
+  if (category.code === "rental_revenue" && !input.bookingId)
+    throw new BookingCommandError("Für Mieterträge muss eine Buchung zugewiesen werden.");
   if (input.asset && category.euerTreatment !== "asset_acquisition")
     throw new BookingCommandError("Anlagendaten sind nur bei einer Anlagegutkategorie zulässig.");
   if (input.destinationAccountId && category.categoryType !== "transfer")

@@ -59,10 +59,12 @@ function setup() {
     .returning()
     .get();
   const income = db.select().from(financialCategories).where(eq(financialCategories.code, "rental_revenue")).get()!;
+  const otherIncome =
+    db.select().from(financialCategories).where(eq(financialCategories.code, "other_operating_income")).get()!;
   const travel = db.select().from(financialCategories).where(eq(financialCategories.code, "travel")).get()!;
   const transfer = db.select().from(financialCategories).where(eq(financialCategories.code, "cash_withdrawal")).get()!;
   const cash = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get()!;
-  return { connection, db, bank, income, travel, transfer, cash };
+  return { connection, db, bank, income, otherIncome, travel, transfer, cash };
 }
 
 function transaction(
@@ -133,13 +135,37 @@ function bookingWithReceivable(
 }
 
 describe("financial reconciliation", () => {
-  it("posts an incoming transaction with balanced journal lines", () => {
+  it("does not post rental revenue without a booking assignment", () => {
     const { db, bank, income } = setup();
+    const tx = transaction(db, bank.id, 7_500);
+
+    expect(() =>
+      postFinancialTransaction(db, {
+        transactionId: tx.id,
+        categoryId: income.id,
+        note: "Mietzahlung ohne Auftrag",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Für Mieterträge muss eine Buchung zugewiesen werden.");
+    expect(db.select().from(financialTransactions).where(eq(financialTransactions.id, tx.id)).get()).toMatchObject({
+      status: "needs_review",
+    });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .where(eq(financialTransactionAllocations.transactionId, tx.id))
+        .all(),
+    ).toHaveLength(0);
+  });
+
+  it("posts an incoming transaction with balanced journal lines", () => {
+    const { db, bank, otherIncome } = setup();
     const tx = transaction(db, bank.id, 12_500);
 
     const result = postFinancialTransaction(db, {
       transactionId: tx.id,
-      categoryId: income.id,
+      categoryId: otherIncome.id,
       note: "Mietzahlung August",
       actorUserId: "admin",
     });
@@ -256,13 +282,33 @@ describe("financial reconciliation", () => {
       ],
     });
     const imported = transaction(db, bank.id, 7_500, "nevlo");
-
-    postFinancialTransaction(db, {
-      transactionId: imported.id,
-      categoryId: income.id,
-      note: "Mietzahlung",
+    const legacyEntry = appendJournalEntry(db, {
+      financialTransactionId: imported.id,
+      kind: "payment_received",
       actorUserId: "admin",
+      reason: "Historisch ohne Auftragszuordnung",
+      lines: [
+        { account: "test_bank", amountCents: imported.amountCents },
+        { account: "rental_revenue", amountCents: -imported.amountCents },
+      ],
     });
+    db.insert(financialTransactionAllocations)
+      .values({
+        transactionId: imported.id,
+        categoryId: income.id,
+        allocationKind: "revenue",
+        matchMethod: "manual",
+        amountCents: imported.amountCents,
+        journalEntryId: legacyEntry,
+        note: "Historisch ohne Auftragszuordnung",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
+    db.update(financialTransactions)
+      .set({ status: "posted", reconciledAt: new Date(), updatedAt: new Date() })
+      .where(eq(financialTransactions.id, imported.id))
+      .run();
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 7_500, status: "open" });
 
     postFinancialTransaction(db, {
@@ -522,7 +568,7 @@ describe("financial reconciliation", () => {
   });
 
   it("reclassifies a posted transaction with a correction journal", () => {
-    const { db, bank, income } = setup();
+    const { db, bank, otherIncome } = setup();
     const cancellationFee = db
       .select()
       .from(financialCategories)
@@ -532,8 +578,8 @@ describe("financial reconciliation", () => {
 
     const original = postFinancialTransaction(db, {
       transactionId: imported.id,
-      categoryId: income.id,
-      note: "Falsch als Mietertrag erfasst",
+      categoryId: otherIncome.id,
+      note: "Als sonstige Einnahme erfasst",
       actorUserId: "admin",
     });
     postFinancialTransaction(db, {

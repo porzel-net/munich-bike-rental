@@ -320,6 +320,10 @@ export function FinancialTransactionDialog({
       setError("Bitte wähle eine sachliche Zuordnung mit konkreter EÜR-Zuordnung.");
       return;
     }
+    if (isBank && !isDocumentOnlyUpdate && selectedCategory?.code === "rental_revenue" && !selectedBooking) {
+      setError("Für Mieterträge muss eine Buchung / Auftragsnummer zugewiesen werden.");
+      return;
+    }
     if ((!isBank && !selectedBooking && !description.trim()) || !note.trim()) {
       setError(isBank ? "Bitte gib einen Buchungstext an." : "Bitte gib eine Beschreibung und einen Buchungstext an.");
       return;
@@ -706,8 +710,10 @@ export function FinancialTransactionDialog({
                 <Select
                   value={categoryId}
                   onValueChange={(value) => {
-                    setCategoryId(value || "");
-                    setBookingId("");
+                    const nextCategoryId = value || "";
+                    const nextCategory = categories.find((category) => String(category.id) === nextCategoryId);
+                    setCategoryId(nextCategoryId);
+                    if (nextCategory?.code !== "rental_revenue") setBookingId("");
                     setDestinationAccountId("");
                     setError(null);
                   }}
