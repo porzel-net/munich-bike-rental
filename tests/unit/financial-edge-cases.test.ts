@@ -178,6 +178,16 @@ describe("financial edge cases", () => {
     ).toBe(true);
   });
 
+  it("requires a receipt before posting spare parts and consumables", () => {
+    const { db, bank, category } = setup();
+    const tx = transaction(db, bank.id, -1_250);
+
+    expect(() => post(db, tx.id, category("spare_parts_consumables").id)).toThrow("Ersatzteile und Verbrauchsmaterial");
+    expect(db.select().from(financialTransactions).where(eq(financialTransactions.id, tx.id)).get()?.status).toBe(
+      "needs_review",
+    );
+  });
+
   it("reclassifies exactly one unresolved allocation without changing its amount", () => {
     const { db, bank, category } = setup();
     const tx = transaction(db, bank.id, -1_250);

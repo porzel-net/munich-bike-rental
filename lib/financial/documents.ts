@@ -47,6 +47,16 @@ export function safeFinancialDocumentFileName(value: string) {
   return normalized.slice(-120) || "beleg";
 }
 
+export function hasFinancialDocumentForTransaction(db: AppDatabase, transactionId: number) {
+  return Boolean(
+    db
+      .select({ id: financialDocumentLinks.id })
+      .from(financialDocumentLinks)
+      .where(eq(financialDocumentLinks.transactionId, transactionId))
+      .get(),
+  );
+}
+
 export async function attachFinancialDocument(
   db: AppDatabase,
   input: { transactionId: number; file: File; userId: string; description?: string },

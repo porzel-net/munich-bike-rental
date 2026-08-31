@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { requiresFinancialDocument } from "@/lib/financial/receipt-requirements";
 import { getBankTransactionSaveMode } from "@/lib/financial/transaction-save-mode";
 import { berlinDateKey } from "@/lib/datetime";
 
@@ -139,6 +140,8 @@ function isLikelyStripePayout(row: FinancialReviewTransaction) {
     .includes("stripe");
 }
 
+const DOCUMENT_UPLOAD_TIMEOUT_MS = 60_000;
+
 export function FinancialTransactionDialog({
   mode,
   open,
@@ -211,6 +214,9 @@ export function FinancialTransactionDialog({
       : "post";
   const isDocumentOnlyUpdate = saveMode === "document_only";
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
+  const documentRequired =
+    isDocumentOnlyUpdate ||
+    (isBank && Boolean(selectedCategory && requiresFinancialDocument(selectedCategory.code)) && documents.length === 0);
 
   useEffect(() => {
     if (!open) return;
@@ -283,24 +289,40 @@ export function FinancialTransactionDialog({
     if (!file) return null;
     const formData = new FormData();
     formData.set("file", file);
-    const response = await fetch(`/api/admin/financial/transactions/${transactionId}/documents`, {
-      method: "POST",
-      body: formData,
-    });
-    const result = (await response.json().catch(() => null)) as { documentId?: number; message?: string } | null;
-    if (!response.ok)
-      throw new Error(
-        result?.message ??
-          "Der Beleg konnte nicht gespeichert werden. Prüfe Datei, Beschreibung und die ausgewählte Transaktion.",
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), DOCUMENT_UPLOAD_TIMEOUT_MS);
+    try {
+      const response = await fetch(`/api/admin/financial/transactions/${transactionId}/documents`, {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
+      const result = (await response.json().catch(() => null)) as { documentId?: number; message?: string } | null;
+      if (!response.ok)
+        throw new Error(
+          result?.message ??
+            "Der Beleg konnte nicht gespeichert werden. Prüfe Datei, Beschreibung und die ausgewählte Transaktion.",
+        );
+      if (!result?.documentId)
+        throw new Error("Der Beleg wurde ohne Beleg-ID zurückgegeben. Bitte versuche es erneut.");
+      const document = { id: result.documentId, originalFileName: file.name };
+      setDocuments((current) =>
+        current.some((existing) => existing.id === document.id) ? current : [...current, document],
       );
-    const document = { id: result?.documentId ?? 0, originalFileName: file.name };
-    setDocuments((current) => [...current, document]);
-    return document;
+      return document;
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") {
+        throw new Error("Der Beleg-Upload hat zu lange gedauert. Prüfe die Verbindung und versuche es erneut.");
+      }
+      throw caught;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isDocumentOnlyUpdate && !file) {
+    if (documentRequired && !file) {
       setError("Bitte wähle einen Beleg aus.");
       return;
     }
@@ -940,7 +962,9 @@ export function FinancialTransactionDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="financial-document">Beleg anhängen</FieldLabel>
+                <FieldLabel htmlFor="financial-document">
+                  Beleg anhängen{documentRequired ? " (erforderlich)" : ""}
+                </FieldLabel>
                 {documents.length > 0 ? (
                   <div className="grid gap-2">
                     {documents.map((document) => (
@@ -961,6 +985,7 @@ export function FinancialTransactionDialog({
                 <Input
                   id="financial-document"
                   type="file"
+                  required={documentRequired}
                   accept="application/pdf,image/jpeg,image/png,image/webp"
                   onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 />

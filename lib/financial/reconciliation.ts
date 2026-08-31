@@ -18,6 +18,8 @@ import { validateManualBookingPayment } from "../bookings/payment-rules";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
 import { getActiveFinancialCategoryByCode, getBookingRevenueCategory } from "./categories";
+import { requiresFinancialDocument } from "./receipt-requirements";
+import { hasFinancialDocumentForTransaction } from "./documents";
 
 type JournalKind = Parameters<typeof appendJournalEntry>[1]["kind"];
 type AllocationKind = (typeof financialAllocationKinds)[number];
@@ -469,6 +471,12 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   assertCategoryDirection(transaction, category);
   if (category.code === "rental_revenue" && !input.bookingId)
     throw new BookingCommandError("Für Mieterträge muss eine Buchung zugewiesen werden.");
+  if (
+    transaction.source === "bank" &&
+    requiresFinancialDocument(category.code) &&
+    !hasFinancialDocumentForTransaction(db, transaction.id)
+  )
+    throw new BookingCommandError("Für Ersatzteile und Verbrauchsmaterial muss ein Beleg hinterlegt werden.");
   if (input.asset && category.euerTreatment !== "asset_acquisition")
     throw new BookingCommandError("Anlagendaten sind nur bei einer Anlagegutkategorie zulässig.");
   if (input.destinationAccountId && category.categoryType !== "transfer")
