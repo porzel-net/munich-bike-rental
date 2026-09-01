@@ -4,6 +4,8 @@ export type SizeRange = {
   maxCm: number;
 };
 
+export const BIKE_SIZE_TOLERANCE_CM = 4;
+
 export const canyonSizeRanges: Record<string, SizeRange[]> = {
   endurace: [
     { size: "3XS", minCm: 152, maxCm: 158 },
@@ -64,6 +66,21 @@ export function getRecommendedBikeSize(label: string, heightCm: number) {
   if (!Number.isFinite(heightCm)) return null;
   const ranges = rangesForModel(label);
   return ranges?.find((range) => heightCm >= range.minCm && heightCm <= range.maxCm)?.size ?? null;
+}
+
+/**
+ * Returns every size whose published height range contains the rider.
+ * At boundary heights (for example 178 cm on Endurace), two sizes can be
+ * valid even though getRecommendedBikeSize intentionally returns one primary
+ * recommendation for legacy callers.
+ */
+export function getCompatibleBikeSizes(label: string, heightCm: number, toleranceCm = 0) {
+  if (!Number.isFinite(heightCm)) return [];
+  return (
+    rangesForModel(label)
+      ?.filter((range) => heightCm >= range.minCm - toleranceCm && heightCm <= range.maxCm + toleranceCm)
+      .map((range) => range.size) ?? []
+  );
 }
 
 export function getRecommendedHeight(label: string) {

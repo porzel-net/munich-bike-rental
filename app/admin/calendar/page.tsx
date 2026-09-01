@@ -307,6 +307,11 @@ export default async function CalendarPage({
               calendarAllLocations={administrator}
               calendarUrl={calendarUrl}
               calendarScopeLabel={calendarScopeLabel}
+              bookingOptions={events.map((event) => ({
+                id: event.id,
+                label: event.orderNumber,
+                detail: `${event.customerName} · ${event.periodFrom}–${event.periodTo}`,
+              }))}
             />
           </main>
         </div>

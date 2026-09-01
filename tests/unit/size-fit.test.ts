@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BIKE_SIZE_TOLERANCE_CM,
+  getCompatibleBikeSizes,
   getBikeSizeWarning,
   getRecommendedBikeSize,
   getRecommendedHeight,
@@ -18,6 +20,14 @@ describe("bike size fit", () => {
 
   it("uses the same ranges to infer a missing height from a requested size", () => {
     expect(getRecommendedHeight("Endurace CF SL 8 - M")).toBe(181);
+  });
+
+  it("returns both valid boundary sizes", () => {
+    expect(getCompatibleBikeSizes("Endurace CF SL 8", 178)).toEqual(["S", "M"]);
+  });
+
+  it("supports the disposition tolerance explicitly", () => {
+    expect(getCompatibleBikeSizes("Endurace CF SL 8", 181, BIKE_SIZE_TOLERANCE_CM)).toEqual(["S", "M", "L"]);
   });
 
   it("warns when the selected size does not fit the rider", () => {

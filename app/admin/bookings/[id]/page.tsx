@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAiAnalysisButton } from "@/components/booking-ai-analysis-button";
+import { BikeDispositionAssistant } from "@/components/admin-calendar/bike-disposition-assistant";
 import { BookingAttentionAcknowledgedButton } from "@/components/booking-attention-acknowledged-button";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAssigneeCard } from "@/components/booking-assignee-card";
@@ -43,6 +44,8 @@ import {
   isHistoricalRegensburgEnduraceSAsset,
 } from "@/lib/bookings/historical-availability";
 import { getDailyBikePriceCents } from "@/lib/inventory/pricing";
+import { evaluateBikeDisposition } from "@/lib/ai/bike-disposition";
+import { getBikeDispositionInput } from "@/lib/ai/bike-disposition-data";
 import { formatReceivedAt } from "@/lib/bookings/order-number";
 import { allocateInvoiceNumber } from "@/lib/bookings/invoice-number";
 import {
@@ -131,6 +134,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const booking = Number.isInteger(id) ? db.select().from(bookings).where(eq(bookings.id, id)).get() : undefined;
   if (!session || !booking || (!isAdmin(session.user) && getAssignedLocation(session.user) !== booking.location))
     notFound();
+  const dispositionInput = getBikeDispositionInput(db, booking.id);
+  const dispositionPlan = dispositionInput ? evaluateBikeDisposition(dispositionInput) : null;
   const assignee = booking.assignedUserId
     ? ((db
         .select({
@@ -513,6 +518,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </CardContent>
               ) : null}
             </Card>
+
+            <BikeDispositionAssistant bookingId={booking.id} initialPlan={dispositionPlan} />
 
             {feedback ? (
               <Card>

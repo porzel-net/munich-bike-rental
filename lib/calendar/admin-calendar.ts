@@ -51,6 +51,8 @@ export type CalendarBookingEvent = {
   tone: CalendarStatusTone;
   startDate: Date;
   endDate: Date;
+  periodFrom: string;
+  periodTo: string;
   displayLabel: string;
   tooltip: string;
   requestedItems: string[];
@@ -210,6 +212,8 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
     tone: getCalendarStatusTone(booking.status),
     startDate,
     endDate,
+    periodFrom: booking.periodFrom,
+    periodTo: booking.periodTo,
     displayLabel: `${locationCode} · ${selectedItemsLabel}`,
     tooltip: `${booking.customerName} · ${booking.orderNumber} · ${locationLabel} · Bike: ${selectedBikesLabel}${
       selectedNicknames.length ? ` · Spitzname: ${selectedNicknames.join(" / ")}` : ""
