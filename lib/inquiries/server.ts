@@ -33,6 +33,18 @@ type ApiErrorCode =
   | "unsupported_content_type"
   | "validation_error";
 
+async function closeImapClient(client: ImapFlow) {
+  try {
+    await client.logout();
+  } catch {
+    try {
+      await client.close();
+    } catch {
+      // The server may already have closed the socket after an IMAP error.
+    }
+  }
+}
+
 export function jsonError(status: number, code: ApiErrorCode, error: string) {
   return NextResponse.json({ ok: false, code, error }, { status, headers: { "Cache-Control": "no-store" } });
 }
@@ -343,7 +355,7 @@ async function appendToMainSentMailbox(rawMessage: Buffer, sentAt: Date): Promis
   } catch {
     return { configured: true, copied: false, mailbox: null, reason: "append_failed" };
   } finally {
-    await client.logout().catch(() => client.close());
+    await closeImapClient(client);
   }
 }
 

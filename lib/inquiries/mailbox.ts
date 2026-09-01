@@ -19,6 +19,20 @@ type MailboxConfig = {
   ownAddresses: string[];
 };
 
+async function closeImapClient(client: ImapFlow) {
+  try {
+    await client.logout();
+  } catch {
+    try {
+      await client.close();
+    } catch {
+      // The server may already have closed the socket, especially after an
+      // authentication failure. Cleanup must never turn a handled IMAP
+      // outage into an unhandled rejection or HTTP 500 response.
+    }
+  }
+}
+
 const MAX_MAIL_SOURCE_BYTES = 1_000_000;
 const MAX_MAIL_PARSE_DEPTH = 10;
 const MAX_MAIL_PARTS = 100;
@@ -96,7 +110,7 @@ export async function verifyImapConnection(environment: Partial<NodeJS.ProcessEn
   try {
     await client.connect();
   } finally {
-    await client.logout().catch(() => client.close());
+    await closeImapClient(client);
   }
   return { host: config.host, port: config.port };
 }
@@ -343,7 +357,7 @@ export async function syncBookingMailThread(
   } catch {
     return { configured: true, synced, error: "imap_unavailable" as const };
   } finally {
-    await client.logout().catch(() => client.close());
+    await closeImapClient(client);
   }
 }
 
@@ -496,7 +510,7 @@ export async function findLatestBookingThreadMessage(orderNumber: string): Promi
   } catch {
     return null;
   } finally {
-    await client.logout().catch(() => client.close());
+    await closeImapClient(client);
   }
 
   return latest;
@@ -554,7 +568,7 @@ export async function moveMailToMailbox(
   } catch {
     return { configured: true, moved: false, reason: "move_failed" };
   } finally {
-    await client.logout().catch(() => client.close());
+    await closeImapClient(client);
   }
 }
 
