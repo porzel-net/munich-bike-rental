@@ -558,6 +558,44 @@ describe("booking commands", () => {
     expect(getBookingPaymentStatus(db, booking.id)).toEqual({ openCents: 0, status: "settled" });
   });
 
+  it("confirms a paid offer when its accessory is no longer available", () => {
+    const { db, assetId } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+    db.update(bookingRequestedItems)
+      .set({ needsPedals: true, pedalType: "platform" })
+      .where(eq(bookingRequestedItems.id, booking.itemId))
+      .run();
+    assignAdminBooking(db, booking.id);
+    const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
+    db.update(accessoryInventory)
+      .set({ state: "maintenance" })
+      .where(eq(accessoryInventory.accessoryKey, "pedal-platform"))
+      .run();
+    db.update(bookingOffers)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(bookingOffers.id, offer.offerId))
+      .run();
+    expect(expireDueOffers(db)).toBe(1);
+
+    expect(
+      assignStripePaymentToBooking(db, {
+        bookingId: booking.id,
+        offerId: offer.offerId,
+        amountCents: offer.quote.totalCents,
+        sessionId: "cs_test_manual_assignment_missing_accessory_123",
+        paymentIntentId: "pi_test_manual_assignment_missing_accessory_123",
+        metadata: { bookingId: String(booking.id), bookingOfferId: String(offer.offerId), currency: "eur" },
+        actorUserId: "admin",
+      }),
+    ).toEqual({ bookingId: booking.id, alreadyConfirmed: false, unavailableAccessories: ["pedal-platform"] });
+    expect(db.select({ status: bookings.status }).from(bookings).where(eq(bookings.id, booking.id)).get()).toEqual({
+      status: "confirmed",
+    });
+    expect(
+      db.select().from(bookingAccessoryAllocations).where(eq(bookingAccessoryAllocations.bookingId, booking.id)).all(),
+    ).toHaveLength(0);
+  });
+
   it("rejects an existing Stripe transaction whose booking metadata is malformed", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-08-20", "2026-08-21");
@@ -1069,7 +1107,7 @@ describe("booking commands", () => {
     });
     assignAdminBooking(db, booking.id);
 
-    advanceBooking(db, booking.id, "rejected", "admin", "Fahrrad Verfügbarkeit");
+    advanceBooking(db, booking.id, "rejected", "admin", "Fahrrad im gewünschten Zeitraum nicht verfügbar");
 
     const mail = db.select().from(mailOutbox).where(eq(mailOutbox.kind, "booking_rejected")).get();
     expect(mail?.plainText).toBe(
@@ -1078,7 +1116,7 @@ describe("booking commands", () => {
     expect(mail?.html).toContain("Your Bike Rental");
     expect(mail?.html).toContain("Danke für deine Anfrage");
     expect(db.select().from(bookingEvents).where(eq(bookingEvents.bookingId, booking.id)).all().at(-1)?.reason).toBe(
-      "Fahrrad Verfügbarkeit",
+      "Fahrrad im gewünschten Zeitraum nicht verfügbar",
     );
   });
 
@@ -1254,7 +1292,7 @@ describe("booking commands", () => {
       bookingId: booking.id,
       assetsByRequestedItem: { [booking.itemId]: assetId },
       alternative: true,
-      alternativeReason: "Die andere Größe passt besser.",
+      alternativeReason: "Anderes Modell derselben Kategorie anbieten.",
     });
     expect(preview.quote.totalCents).toBe(10_000);
     expect(preview.mail.subject).toContain("Alternative offer");
@@ -1263,7 +1301,7 @@ describe("booking commands", () => {
     const germanMail = renderOfferMail({
       locale: "de",
       alternative: true,
-      alternativeReason: "Die andere Größe passt besser.",
+      alternativeReason: "Anderes Modell derselben Kategorie anbieten.",
       name: "Ada Lovelace",
       email: "ada@example.com",
       phone: "+49",

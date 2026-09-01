@@ -44,6 +44,7 @@ function confirmOfferRecord(
     allowExpired?: boolean;
     confirmationReason?: string;
     sendMail?: boolean;
+    allowUnavailableAccessories?: boolean;
   } = {},
 ) {
   if (payment && (payment.amountCents !== offer.totalCents || !Number.isSafeInteger(payment.amountCents)))
@@ -123,7 +124,9 @@ function confirmOfferRecord(
       )
       .map((item) => [item.requestedItemId, item.accessories]),
   );
-  allocateRequestedAccessories(db, booking, accessoriesByRequestedItem);
+  const unavailableAccessories = allocateRequestedAccessories(db, booking, accessoriesByRequestedItem, new Date(), {
+    allowUnavailable: options.allowUnavailableAccessories,
+  });
   db.update(bookingOffers)
     .set({
       status: "accepted",
@@ -181,7 +184,9 @@ function confirmOfferRecord(
     }),
   });
   if (options.sendMail !== false) queueCustomerMail(db, booking, { kind: "booking_confirmed", mail: notice });
-  return { bookingId: booking.id, alreadyConfirmed: false };
+  return unavailableAccessories.length
+    ? { bookingId: booking.id, alreadyConfirmed: false, unavailableAccessories }
+    : { bookingId: booking.id, alreadyConfirmed: false };
 }
 
 export function confirmOffer(db: AppDatabase, token: string, actorUserId?: string | null) {
@@ -302,7 +307,12 @@ export function assignStripePaymentToBooking(
         paymentIntentId: input.paymentIntentId,
       },
       undefined,
-      { allowExpired: true, confirmationReason: "Manuelle Zuordnung einer Stripe-Zahlung", sendMail: input.sendMail },
+      {
+        allowExpired: true,
+        allowUnavailableAccessories: true,
+        confirmationReason: "Manuelle Zuordnung einer Stripe-Zahlung",
+        sendMail: input.sendMail,
+      },
     );
   });
 }

@@ -77,6 +77,8 @@ type Asset = {
   size: string;
   modelLabel: string;
   priceCents: number;
+  weekdayPriceCents: number;
+  weekendPriceCents: number;
 };
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
@@ -91,8 +93,9 @@ type Action =
   | "status"
   | "manual_confirm";
 type ConfirmAction = "check_out" | "complete" | "delete_permanently" | null;
-type AlternativeReasonType = "" | "size" | "unavailable" | "custom";
-type RejectionReasonType = "" | "availability" | "handover" | "custom";
+type AlternativeReasonType = "" | "unavailable" | "model" | "category" | "period" | "custom";
+type RejectionReasonType =
+  "" | "availability" | "handover" | "no_alternative" | "bike_type" | "location" | "price" | "withdrawn" | "custom";
 type OfferOption = {
   id: number;
   label: string;
@@ -130,6 +133,59 @@ const cancellationPeriods = cancellationPeriodValues.map((value) => ({
   label: `${cancellationPeriodLabels[value]} · ${getCancellationFeePercentage(value)} % Gebühr`,
 }));
 
+const alternativeReasonOptions: Array<{
+  value: Exclude<AlternativeReasonType, "" | "custom">;
+  label: string;
+  reason: string;
+}> = [
+  {
+    value: "unavailable",
+    label: "Das gewünschte Fahrrad ist nicht verfügbar",
+    reason: "Das gewünschte Fahrrad ist leider nicht verfügbar. Wir können dir stattdessen dieses Fahrrad anbieten.",
+  },
+  {
+    value: "model",
+    label: "Anderes Modell derselben Kategorie anbieten",
+    reason: "Wir können dir stattdessen ein anderes Modell derselben Kategorie anbieten.",
+  },
+  {
+    value: "category",
+    label: "Fahrrad einer anderen Kategorie anbieten",
+    reason: "Wir können dir stattdessen ein Fahrrad einer anderen Kategorie anbieten.",
+  },
+  {
+    value: "period",
+    label: "Anderen Zeitraum anbieten",
+    reason: "Das gewünschte Fahrrad ist in einem anderen Zeitraum verfügbar.",
+  },
+];
+
+const rejectionReasonOptions: Array<{
+  value: Exclude<RejectionReasonType, "" | "custom">;
+  label: string;
+  reason: string;
+}> = [
+  {
+    value: "availability",
+    label: "Fahrrad im gewünschten Zeitraum nicht verfügbar",
+    reason: "Fahrrad im gewünschten Zeitraum nicht verfügbar",
+  },
+  { value: "handover", label: "Übergabezeiten nicht möglich", reason: "Übergabezeiten nicht möglich" },
+  {
+    value: "no_alternative",
+    label: "Keine passende Alternative verfügbar",
+    reason: "Keine passende Alternative verfügbar",
+  },
+  { value: "bike_type", label: "Fahrradtyp nicht im Angebot", reason: "Fahrradtyp nicht im Angebot" },
+  { value: "location", label: "Gewünschter Standort nicht verfügbar", reason: "Gewünschter Standort nicht verfügbar" },
+  { value: "price", label: "Preis oder Konditionen nicht passend", reason: "Preis oder Konditionen nicht passend" },
+  {
+    value: "withdrawn",
+    label: "Anfrage auf Kundenwunsch zurückgezogen",
+    reason: "Anfrage auf Kundenwunsch zurückgezogen",
+  },
+];
+
 function errorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
@@ -153,10 +209,12 @@ function getAutomaticRejectionMessage(locale: "de" | "en") {
 function BikeOptionLabel({
   asset,
   includePrice = true,
+  showPriceSchedule = false,
   suffix = "",
 }: {
   asset: Asset;
   includePrice?: boolean;
+  showPriceSchedule?: boolean;
   suffix?: string;
 }) {
   return (
@@ -164,7 +222,11 @@ function BikeOptionLabel({
       {asset.nickname ? <strong>{asset.nickname}</strong> : null}
       {asset.nickname ? " · " : null}
       <span>{asset.modelLabel}</span>
-      {includePrice ? ` · ${formatEuro(asset.priceCents)} / Tag` : null}
+      {includePrice
+        ? showPriceSchedule
+          ? ` · Mo-Fr ${formatEuro(asset.weekdayPriceCents)} / Tag · Sa-So ${formatEuro(asset.weekendPriceCents)} / Tag`
+          : ` · ${formatEuro(asset.priceCents)} / Tag`
+        : null}
       {suffix}
     </span>
   );
@@ -348,38 +410,16 @@ export function BookingCommandActions({
   });
   const automaticOfferMessage = getAutomaticOfferMessage(communicationLocale, isAlternativeOffer);
   const automaticRejectionMessage = getAutomaticRejectionMessage(communicationLocale);
+  const selectedAlternativeReason = alternativeReasonOptions.find(({ value }) => value === alternativeReasonType);
   const alternativeReason =
-    alternativeReasonType === "size"
-      ? "Die andere Größe passt besser."
-      : alternativeReasonType === "unavailable"
-        ? "Das gewünschte Fahrrad ist leider nicht verfügbar. Wir können dir stattdessen dieses Fahrrad anbieten."
-        : alternativeReasonType === "custom"
-          ? customAlternativeReason.trim()
-          : "";
+    alternativeReasonType === "custom" ? customAlternativeReason.trim() : (selectedAlternativeReason?.reason ?? "");
   const alternativeReasonLabel =
-    alternativeReasonType === "size"
-      ? "Die andere Größe passt besser"
-      : alternativeReasonType === "unavailable"
-        ? "Das gewünschte Fahrrad ist nicht verfügbar"
-        : alternativeReasonType === "custom"
-          ? "Eigener Text"
-          : "Grund auswählen";
+    alternativeReasonType === "custom" ? "Eigener Text" : (selectedAlternativeReason?.label ?? "Grund auswählen");
+  const selectedRejectionReason = rejectionReasonOptions.find(({ value }) => value === rejectionReasonType);
   const rejectionReason =
-    rejectionReasonType === "availability"
-      ? "Fahrrad Verfügbarkeit"
-      : rejectionReasonType === "handover"
-        ? "Übergabezeiten"
-        : rejectionReasonType === "custom"
-          ? customRejectionReason.trim()
-          : "";
+    rejectionReasonType === "custom" ? customRejectionReason.trim() : (selectedRejectionReason?.reason ?? "");
   const rejectionReasonLabel =
-    rejectionReasonType === "availability"
-      ? "Fahrrad Verfügbarkeit"
-      : rejectionReasonType === "handover"
-        ? "Übergabezeiten"
-        : rejectionReasonType === "custom"
-          ? "Anderen Grund"
-          : "Grund auswählen";
+    rejectionReasonType === "custom" ? "Anderen Grund" : (selectedRejectionReason?.label ?? "Grund auswählen");
   const rejectionMailPreview = `${communicationLocale === "de" ? "Hey" : "Hello"} ${customerName.trim().split(/\s+/)[0] || customerName},
 
 ${personalMessage.trim() || automaticRejectionMessage}
@@ -594,6 +634,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
       message?: string;
       mailStatus?: string;
       accountingWarning?: string | null;
+      accessoryWarning?: string | null;
     } | null;
     if (!response.ok)
       throw new Error(
@@ -703,8 +744,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
           sendMail,
         });
         toast.success(
-          result?.accountingWarning
-            ? `Zahlung zugeordnet. Hinweis: ${result.accountingWarning}`
+          result?.accountingWarning || result?.accessoryWarning
+            ? `Zahlung zugeordnet. Hinweise: ${[result.accountingWarning, result.accessoryWarning].filter(Boolean).join(" ")}`
             : "Stripe-Zahlung wurde zugeordnet und die Buchung bestätigt.",
         );
       } else if (activeAction === "reject") {
@@ -1499,7 +1540,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                                   const asset = availableAssets.find(
                                     (candidate) => String(candidate.id) === assetsByRequestedItem[String(item.id)],
                                   );
-                                  return asset ? <BikeOptionLabel asset={asset} /> : "Konkretes Fahrrad auswählen";
+                                  return asset ? (
+                                    <BikeOptionLabel asset={asset} showPriceSchedule />
+                                  ) : (
+                                    "Konkretes Fahrrad auswählen"
+                                  );
                                 })()}
                               </SelectValue>
                             </SelectTrigger>
@@ -1517,6 +1562,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                                   >
                                     <BikeOptionLabel
                                       asset={asset}
+                                      showPriceSchedule
                                       suffix={unavailableAssetIdSet.has(asset.id) ? " · im Zeitraum belegt" : ""}
                                     />
                                   </SelectItem>
@@ -1611,8 +1657,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                         <SelectValue>{alternativeReasonLabel}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="size">Die andere Größe passt besser</SelectItem>
-                        <SelectItem value="unavailable">Das gewünschte Fahrrad ist nicht verfügbar</SelectItem>
+                        {alternativeReasonOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                         <SelectItem value="custom">Eigener Text</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1922,8 +1971,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     <SelectValue>{rejectionReasonLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="availability">Fahrrad Verfügbarkeit</SelectItem>
-                    <SelectItem value="handover">Übergabezeiten</SelectItem>
+                    {rejectionReasonOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                     <SelectItem value="custom">Anderen Grund</SelectItem>
                   </SelectContent>
                 </Select>

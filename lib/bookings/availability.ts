@@ -13,6 +13,15 @@ import { normalizeComputerMountType, normalizePedalType } from "../inquiries/cat
 
 import { BookingCommandError } from "./errors";
 
+type AccessoryAllocationOptions = {
+  /**
+   * Manual payment assignment confirms an already paid offer even when the
+   * current accessory inventory no longer matches the sent offer. In that
+   * case the missing reservation is returned to the caller as a warning.
+   */
+  allowUnavailable?: boolean;
+};
+
 function assetIntervalConflict(fromDate: string, fromTime: string, toDate: string, toTime: string) {
   return sql`NOT ((${bookingAssetAllocations.periodTo} || 'T' || ${bookingAssetAllocations.dropoffTime}) <= ${`${fromDate}T${fromTime}`} OR (${bookingAssetAllocations.periodFrom} || 'T' || ${bookingAssetAllocations.pickupTime}) >= ${`${toDate}T${toTime}`})`;
 }
@@ -43,6 +52,7 @@ export function allocateRequestedAccessories(
   booking: typeof bookings.$inferSelect,
   accessoriesByRequestedItem: Record<number, OfferAccessorySelection> = {},
   stamp = new Date(),
+  options: AccessoryAllocationOptions = {},
 ) {
   const requested = db
     .select()
@@ -53,6 +63,7 @@ export function allocateRequestedAccessories(
   const add = (key: string | null) => {
     if (key) quantities.set(key, (quantities.get(key) ?? 0) + 1);
   };
+  const unavailableAccessoryKeys: string[] = [];
   for (const item of requested) {
     const accessories = accessoriesByRequestedItem[item.id] ?? item;
     if (accessories.needsPedals) {
@@ -81,7 +92,10 @@ export function allocateRequestedAccessories(
       )
       .get();
     if (!accessory)
-      throw new BookingCommandError(`Das Zubehör „${accessoryKey}“ ist an diesem Standort nicht verfügbar.`);
+      if (options.allowUnavailable) {
+        unavailableAccessoryKeys.push(accessoryKey);
+        continue;
+      } else throw new BookingCommandError(`Das Zubehör „${accessoryKey}“ ist an diesem Standort nicht verfügbar.`);
     // Non-counted equipment is attached to the selected bike (for example a
     // bottle holder) and must not consume a shared stock quantity.
     if (!accessory.quantityRelevant) continue;
@@ -98,9 +112,13 @@ export function allocateRequestedAccessories(
         )
         .get()?.quantity ?? 0;
     if (accessory.availableQuantity - allocated < quantity)
-      throw new BookingCommandError(
-        `Das Zubehör „${accessoryKey}“ ist im gewählten Zeitraum nicht mehr verfügbar. Wähle eine kleinere Menge oder einen anderen Zeitraum.`,
-      );
+      if (options.allowUnavailable) {
+        unavailableAccessoryKeys.push(accessoryKey);
+        continue;
+      } else
+        throw new BookingCommandError(
+          `Das Zubehör „${accessoryKey}“ ist im gewählten Zeitraum nicht mehr verfügbar. Wähle eine kleinere Menge oder einen anderen Zeitraum.`,
+        );
     db.insert(bookingAccessoryAllocations)
       .values({
         bookingId: booking.id,
@@ -114,4 +132,5 @@ export function allocateRequestedAccessories(
       })
       .run();
   }
+  return unavailableAccessoryKeys;
 }

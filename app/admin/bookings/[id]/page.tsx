@@ -264,6 +264,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       modelTitle: bikeModels.title,
       size: bikeVariants.size,
       priceCents: rentalAssets.weekdayPriceCents,
+      weekdayPriceCents: rentalAssets.weekdayPriceCents,
+      weekendPriceCents: rentalAssets.weekendPriceCents,
       state: rentalAssets.state,
       isBookable: rentalAssets.isBookable,
     })

@@ -59,8 +59,11 @@ function setup() {
     .returning()
     .get();
   const income = db.select().from(financialCategories).where(eq(financialCategories.code, "rental_revenue")).get()!;
-  const otherIncome =
-    db.select().from(financialCategories).where(eq(financialCategories.code, "other_operating_income")).get()!;
+  const otherIncome = db
+    .select()
+    .from(financialCategories)
+    .where(eq(financialCategories.code, "other_operating_income"))
+    .get()!;
   const travel = db.select().from(financialCategories).where(eq(financialCategories.code, "travel")).get()!;
   const transfer = db.select().from(financialCategories).where(eq(financialCategories.code, "cash_withdrawal")).get()!;
   const cash = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get()!;

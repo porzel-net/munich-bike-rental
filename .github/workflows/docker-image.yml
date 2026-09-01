@@ -49,13 +49,12 @@ jobs:
       - name: Install invoice PDF toolchain
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-xetex
       - run: pnpm install --frozen-lockfile
-      - name: Run quality checks and production build in parallel
+      - name: Build production application
+        run: pnpm build
+      - name: Run quality checks in parallel
         shell: bash
         run: |
           set +e
-
-          pnpm build &
-          build_pid=$!
 
           pnpm format:check &
           format_pid=$!
@@ -81,12 +80,9 @@ jobs:
           wait "$test_pid"
           test_status=$?
 
-          wait "$build_pid"
-          build_status=$?
-
           set -e
 
-          if [ "$format_status" -ne 0 ] || [ "$typecheck_status" -ne 0 ] || [ "$lint_status" -ne 0 ] || [ "$test_status" -ne 0 ] || [ "$build_status" -ne 0 ]; then
+          if [ "$format_status" -ne 0 ] || [ "$typecheck_status" -ne 0 ] || [ "$lint_status" -ne 0 ] || [ "$test_status" -ne 0 ]; then
             exit 1
           fi
       - name: Upload production build for browser tests

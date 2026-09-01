@@ -431,7 +431,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             { status: 502 },
           );
         }
-        return NextResponse.json({ ok: true, ...result, accountingWarning, mailStatus: mailResult?.status ?? null });
+        const unavailableAccessories = ("unavailableAccessories" in result && result.unavailableAccessories) || [];
+        const accessoryWarning = unavailableAccessories.length
+          ? `Folgendes Zubehör konnte nicht reserviert werden: ${unavailableAccessories.join(", ")}.`
+          : null;
+        return NextResponse.json({
+          ok: true,
+          ...result,
+          accountingWarning,
+          accessoryWarning,
+          mailStatus: mailResult?.status ?? null,
+        });
       }
       case "set_historical_status":
         setHistoricalBookingStatus(command.db, {
