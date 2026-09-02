@@ -93,7 +93,9 @@ function getRecipientsForActivity(db: AppDatabase, activity: DashboardActivity, 
       .where(eq(bookings.id, bookingId))
       .get();
     if (!booking) return [];
-    if (booking.assignedUserId) return users.filter((user) => user.id === booking.assignedUserId);
+    // Assignment controls who may work on the booking, not who receives the
+    // operational notification. Notify the complete responsible team for the
+    // booking's location, including admins.
     return users.filter((user) => user.role === "admin" || user.locationKey === booking.location);
   }
 
@@ -287,9 +289,7 @@ function queueNewBookingEvents(db: AppDatabase, users: WhatsAppRecipient[], now:
       .where(eq(bookings.id, event.bookingId))
       .get();
     if (!booking) continue;
-    const recipients = booking.assignedUserId
-      ? users.filter((user) => user.id === booking.assignedUserId)
-      : users.filter((user) => user.role === "admin" || user.locationKey === booking.location);
+    const recipients = users.filter((user) => user.role === "admin" || user.locationKey === booking.location);
     for (const recipient of recipients) {
       enqueue(db, {
         recipient,

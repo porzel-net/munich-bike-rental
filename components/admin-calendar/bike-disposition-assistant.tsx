@@ -1,11 +1,10 @@
 "use client";
 
-import { AlertTriangleIcon, ArrowRightIcon, CheckCircle2Icon, ListChecksIcon, Loader2Icon } from "lucide-react";
+import { AlertTriangleIcon, CheckCircle2Icon, ListChecksIcon } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BikeDispositionPlan, BikeDispositionSuggestion } from "@/lib/ai/bike-disposition";
 
@@ -27,75 +26,41 @@ const kindLabels: Record<BikeDispositionSuggestion["kind"], string> = {
   no_safe_option: "Keine sichere Lösung",
 };
 
-const confidenceLabels: Record<BikeDispositionSuggestion["confidence"], string> = {
-  high: "hoch",
-  medium: "mittel",
-  low: "niedrig",
-};
-
 function SuggestionCard({ suggestion }: { suggestion: BikeDispositionSuggestion }) {
   const isWarning = isWarningSuggestion(suggestion);
   return (
     <article className="rounded-2xl border bg-background/70 p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={isWarning ? "outline" : "success"}>{kindLabels[suggestion.kind]}</Badge>
-        <Badge variant="secondary">Sicherheit: {confidenceLabels[suggestion.confidence]}</Badge>
       </div>
       <h3 className="mt-3 font-medium">{suggestion.title}</h3>
-      <p className="mt-2 text-xs text-muted-foreground">
-        <span className="font-medium">Anfrage:</span> {suggestion.requestedLabel}
-      </p>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">{suggestion.summary}</p>
-      {suggestion.kind === "reallocation" ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-muted/60 p-3 text-sm">
-          {suggestion.affectedBookingId ? (
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {suggestion.kind === "reallocation" && suggestion.affectedBookingId && suggestion.affectedBookingRef ? (
+          <>
             <Link
               className="font-medium underline-offset-4 hover:underline"
               href={`/admin/bookings/${suggestion.affectedBookingId}`}
             >
               {suggestion.affectedBookingRef}
-            </Link>
-          ) : (
-            <span>{suggestion.affectedBookingRef}</span>
-          )}
-          <ArrowRightIcon className="size-4 text-muted-foreground" />
-          <span>{suggestion.replacementAssetName}</span>
-          <span className="text-muted-foreground">→ frei für {suggestion.targetAssetName}</span>
-        </div>
-      ) : suggestion.affectedBookingId ? (
+            </Link>{" "}
+            könnte nach manueller Prüfung auf {suggestion.replacementAssetName ?? "ein Ersatzfahrrad"} wechseln. Dadurch
+            würde {suggestion.targetAssetName ?? "das angefragte Fahrrad"} für die neue Anfrage frei.
+          </>
+        ) : (
+          suggestion.summary
+        )}
+      </p>
+      {suggestion.kind !== "reallocation" && suggestion.affectedBookingId ? (
         <div className="mt-3 rounded-xl bg-muted/60 p-3 text-sm">
           <span className="font-medium">Betroffene Buchung: </span>
           <Link className="underline-offset-4 hover:underline" href={`/admin/bookings/${suggestion.affectedBookingId}`}>
             {suggestion.affectedBookingRef ?? `Buchung ${suggestion.affectedBookingId}`}
           </Link>
         </div>
-      ) : suggestion.targetAssetName ? (
-        <div className="mt-3 rounded-xl bg-muted/60 p-3 text-sm">
-          <span className="font-medium">Vorschlag: </span>
-          {suggestion.targetAssetName}
-          {suggestion.alternativePeriodFrom && suggestion.alternativePeriodTo ? (
-            <span className="text-muted-foreground">
-              {" "}
-              · {formatDate(suggestion.alternativePeriodFrom)}–{formatDate(suggestion.alternativePeriodTo)}
-            </span>
-          ) : null}
-        </div>
       ) : null}
       <p className="mt-3 text-xs text-muted-foreground">{suggestion.fitNote}</p>
-      {suggestion.tradeoffs.length ? (
-        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-          {suggestion.tradeoffs.map((tradeoff) => (
-            <li key={tradeoff}>• {tradeoff}</li>
-          ))}
-        </ul>
-      ) : null}
     </article>
   );
-}
-
-function formatDate(value: string) {
-  const [year, month, day] = value.split("-");
-  return year && month && day ? `${day}.${month}.${year}` : value;
 }
 
 function isWarningSuggestion(suggestion: BikeDispositionSuggestion) {
@@ -137,19 +102,18 @@ export function BikeDispositionAssistant({
 }) {
   const singleBooking = fixedBookingId !== undefined;
   const [bookingId, setBookingId] = useState(fixedBookingId?.toString() ?? bookingOptions[0]?.id.toString() ?? "");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResponse | null>(initialPlan ? { plan: initialPlan } : null);
   const hasWarnings = result?.plan ? planHasWarnings(result.plan) : false;
 
-  async function analyze() {
+  const analyze = useCallback(async () => {
     if (!bookingId) return;
-    setBusy(true);
     setError(null);
     try {
       const response = await fetch("/api/admin/calendar/ai-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ bookingId: Number(bookingId) }),
       });
       const payload = (await response.json().catch(() => null)) as AnalysisResponse | null;
@@ -157,10 +121,13 @@ export function BikeDispositionAssistant({
       setResult(payload);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Die Dispositionsanalyse konnte nicht geladen werden.");
-    } finally {
-      setBusy(false);
     }
-  }
+  }, [bookingId]);
+
+  useEffect(() => {
+    const refreshId = window.setTimeout(() => void analyze(), 0);
+    return () => window.clearTimeout(refreshId);
+  }, [analyze]);
 
   return (
     <Card className="mb-4 border-primary/15 bg-card/95">
@@ -169,16 +136,6 @@ export function BikeDispositionAssistant({
           <CardTitle className="flex items-center gap-2">
             <ListChecksIcon className="size-4 text-primary" /> Dispositions-Assistent
           </CardTitle>
-          <Button disabled={busy || !bookingId} onClick={analyze} type="button">
-            {busy ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <ListChecksIcon className="mr-2 size-4" />}
-            {busy
-              ? "Prüfung läuft …"
-              : singleBooking
-                ? result
-                  ? "Regelprüfung neu laden"
-                  : "Regelprüfung laden"
-                : "Vorschläge prüfen"}
-          </Button>
         </div>
         {!singleBooking ? (
           <CardDescription className="mt-1 max-w-3xl">

@@ -459,7 +459,7 @@ export function evaluateBikeDisposition(input: BikeDispositionInput, now = new D
         priority: "medium",
         confidence: replacement.confidence,
         title: "Bestehende Buchung auf Ersatzfahrrad umplanen",
-        summary: `${affectedBooking.orderNumber} könnte nach manueller Prüfung auf ${replacement.asset.displayName} (${replacement.asset.size}) wechseln. Dadurch würde ${requestedCandidate.displayName} für die neue Anfrage frei.`,
+        summary: `${affectedBooking.orderNumber} könnte nach manueller Prüfung auf ${replacement.asset.displayName} wechseln. Dadurch würde ${requestedCandidate.displayName} für die neue Anfrage frei.`,
         requestedItemId: item.id,
         requestedLabel: item.requestedLabel,
         targetAssetId: requestedCandidate.id,

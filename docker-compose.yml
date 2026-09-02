@@ -173,6 +173,10 @@ services:
       - /run:rw,noexec,nosuid,nodev,size=16m
     cap_drop:
       - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+      - CHOWN
+      - FOWNER
     security_opt:
       - no-new-privileges:true
     pids_limit: 32

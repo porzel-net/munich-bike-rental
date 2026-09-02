@@ -1,7 +1,6 @@
 import { CalendarMonthGrid } from "@/components/admin-calendar/calendar-month-grid";
 import { CalendarSubscription, type CalendarAccountState } from "@/components/admin-calendar/calendar-subscription";
 import { CalendarToolbar } from "@/components/admin-calendar/calendar-toolbar";
-import { BikeDispositionAssistant } from "@/components/admin-calendar/bike-disposition-assistant";
 import type { CalendarFilterOption } from "@/components/admin-calendar/calendar-filters";
 import type { CalendarWeek } from "@/lib/calendar/admin-calendar";
 
@@ -21,7 +20,6 @@ export function AdminCalendarView({
   calendarUrl,
   calendarScopeLabel,
   calendarFilterPreferenceSaved,
-  bookingOptions,
 }: {
   previousMonthHref: string;
   nextMonthHref: string;
@@ -38,7 +36,6 @@ export function AdminCalendarView({
   calendarUrl: string;
   calendarScopeLabel: string;
   calendarFilterPreferenceSaved: boolean;
-  bookingOptions: Array<{ id: number; label: string; detail: string }>;
 }) {
   return (
     <section className="calendar-shell">
@@ -54,8 +51,6 @@ export function AdminCalendarView({
           calendarFilterPreferenceSaved={calendarFilterPreferenceSaved}
           yearLabel={yearLabel}
         />
-
-        <BikeDispositionAssistant bookingOptions={bookingOptions} />
 
         <CalendarSubscription
           account={calendarAccount}

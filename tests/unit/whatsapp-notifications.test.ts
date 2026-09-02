@@ -1,6 +1,4 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
-
 import { createDatabaseConnection } from "../../lib/db/client";
 import { authUser, bookings, whatsappNotificationOutbox } from "../../lib/db/schema";
 import { queueWhatsAppNotifications } from "../../lib/whatsapp/notifications";
@@ -29,6 +27,18 @@ describe("WhatsApp activity notifications", () => {
         updatedAt: createdAt,
       })
       .run();
+    db.insert(authUser)
+      .values({
+        id: "munich-1",
+        name: "München Team",
+        email: "munich@example.com",
+        role: "standortuser",
+        locationKey: "munich",
+        whatsappPhone: "+49 170 2222222",
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .run();
     db.insert(bookings)
       .values({
         orderNumber: "#20260827090000",
@@ -53,12 +63,10 @@ describe("WhatsApp activity notifications", () => {
     queueWhatsAppNotifications(db, new Date("2026-08-27T10:00:00.000Z"));
     queueWhatsAppNotifications(db, new Date("2026-08-27T10:01:00.000Z"));
 
-    const jobs = db
-      .select()
-      .from(whatsappNotificationOutbox)
-      .where(eq(whatsappNotificationOutbox.recipientUserId, "admin-1"))
-      .all();
-    expect(jobs).toHaveLength(2);
+    const jobs = db.select().from(whatsappNotificationOutbox).all();
+    expect(jobs).toHaveLength(4);
+    expect(jobs.filter((job) => job.recipientUserId === "admin-1")).toHaveLength(2);
+    expect(jobs.filter((job) => job.recipientUserId === "munich-1")).toHaveLength(2);
     expect(jobs.some((job) => job.kind === "activity" && job.messageText.includes("Max Mustermann"))).toBe(true);
     expect(
       jobs.some(

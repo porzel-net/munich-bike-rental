@@ -30,6 +30,10 @@ describe("bike size fit", () => {
     expect(getCompatibleBikeSizes("Endurace CF SL 8", 181, BIKE_SIZE_TOLERANCE_CM)).toEqual(["S", "M", "L"]);
   });
 
+  it("does not include M for a 172 cm rider even with disposition tolerance", () => {
+    expect(getCompatibleBikeSizes("Endurace CF SL 8", 172, BIKE_SIZE_TOLERANCE_CM)).toEqual(["XS", "S"]);
+  });
+
   it("warns when the selected size does not fit the rider", () => {
     expect(getBikeSizeWarning("Aeroad CF SL 8 - S", 180)).toMatchObject({
       selectedSize: "S",

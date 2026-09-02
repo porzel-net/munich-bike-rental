@@ -83,6 +83,16 @@ create_manifest() {
 EOF
 }
 
+remove_tree() {
+  target=$1
+  if [ -d "$target" ]; then
+    # cp -a preserves application ownership in the staging tree. Make only
+    # the directories owned by the backup process before removing the tree.
+    find "$target" -type d -exec chown 0:0 {} \; 2>/dev/null || true
+  fi
+  rm -rf "$target"
+}
+
 run_backup() {
   require_runtime
   ensure_repository
@@ -95,7 +105,8 @@ run_backup() {
 
   STAGING_DIR=$(mktemp -d /tmp/bikerental-backup.XXXXXX)
   cleanup() {
-    rm -rf "$STAGING_DIR" "$lock_dir"
+    remove_tree "$STAGING_DIR"
+    rm -rf "$lock_dir"
   }
   trap cleanup EXIT INT TERM
 
@@ -169,7 +180,7 @@ restore_live() {
   ensure_repository
   snapshot=${1:-latest}
   work_dir=$(mktemp -d /tmp/bikerental-restore.XXXXXX)
-  cleanup_restore() { rm -rf "$work_dir"; }
+  cleanup_restore() { remove_tree "$work_dir"; }
   trap cleanup_restore EXIT INT TERM
 
   restic restore "$snapshot" --tag "$RESTIC_TAG" --target "$work_dir"
