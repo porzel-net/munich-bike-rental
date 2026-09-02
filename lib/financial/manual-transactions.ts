@@ -18,7 +18,7 @@ import { isValidIsoDate } from "../bookings/validation";
 
 type ManualTransactionResult = {
   transactionId: number;
-  journalEntryId: number;
+  journalEntryId?: number;
   bookingId?: number;
   orderNumber?: string;
 };
@@ -57,6 +57,7 @@ export function createAndPostManualTransaction(
     description?: string;
     note?: string;
     idempotencyKey?: string;
+    deferPosting?: boolean;
     businessMeal?: {
       privateShareCents: number;
       inputVatCents?: number;
@@ -254,6 +255,7 @@ export function createAndPostManualTransaction(
       })
       .returning({ id: financialTransactions.id })
       .get();
+    if (input.deferPosting) return { transactionId: transaction.id };
     return postFinancialTransactionInTransaction(db, {
       transactionId: transaction.id,
       categoryId: input.categoryId,

@@ -7,11 +7,13 @@ const completeIncome = {
   categoryId: 1,
   categoryCode: "travel",
   categoryType: "expense",
+  euerLine: "travel",
   euerTreatment: "expense",
   allocationKind: "expense",
   bookingId: null,
   destinationAccountId: null,
   fixedAssetId: null,
+  documentCount: 0,
 };
 
 describe("getFinancialReviewState", () => {
@@ -63,6 +65,25 @@ describe("getFinancialReviewState", () => {
         allocationKind: "transfer",
       }),
     ).toEqual({ status: "needs_review", missing: ["destination_account"] });
+  });
+
+  it("requires a document when the category requires one", () => {
+    expect(
+      getFinancialReviewState({
+        ...completeIncome,
+        categoryCode: "spare_parts_consumables",
+      }),
+    ).toEqual({ status: "needs_review", missing: ["document"] });
+  });
+
+  it("accepts a required document", () => {
+    expect(
+      getFinancialReviewState({
+        ...completeIncome,
+        categoryCode: "spare_parts_consumables",
+        documentCount: 1,
+      }),
+    ).toEqual({ status: "posted", missing: [] });
   });
 
   it("keeps ignored transactions out of review", () => {

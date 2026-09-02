@@ -63,6 +63,7 @@ export type FinancialReviewTransaction = {
   categoryId: number | null;
   categoryCode: string | null;
   categoryType: string | null;
+  euerLine: string | null;
   allocationKind: string | null;
   bookingId: number | null;
   destinationAccountId: number | null;
@@ -101,9 +102,10 @@ function formatAmount(amountCents: number, currency = "EUR") {
 }
 
 function statusLabel(row: FinancialReviewTransaction) {
-  const reviewStatus = getFinancialReviewState(row).status;
-  if (reviewStatus === "posted") return "Gebucht & abgestimmt";
-  if (reviewStatus === "ignored") return "Ignoriert";
+  const reviewState = getFinancialReviewState(row);
+  if (reviewState.status === "ignored") return "Ignoriert";
+  if (reviewState.missing.includes("document")) return "Beleg erforderlich";
+  if (reviewState.status === "posted") return "Gebucht & abgestimmt";
   return "Prüfung offen";
 }
 

@@ -6,6 +6,8 @@ import {
   authUser,
   financialAccounts,
   financialCategories,
+  financialDocumentLinks,
+  financialDocuments,
   financialTransactionAllocations,
   financialTransactions,
   fixedAssets,
@@ -94,6 +96,26 @@ function transaction(
     .get();
 }
 
+function addTestReceipt(db: ReturnType<typeof setup>["db"], transactionId: number) {
+  const now = new Date();
+  const document = db
+    .insert(financialDocuments)
+    .values({
+      documentType: "receipt",
+      originalFileName: `edge-test-receipt-${transactionId}.pdf`,
+      storageKey: `edge-test-receipt-${transactionId}.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+      sha256: `edge-test-receipt-${transactionId}`,
+      createdAt: now,
+    })
+    .returning({ id: financialDocuments.id })
+    .get();
+  db.insert(financialDocumentLinks)
+    .values({ documentId: document.id, transactionId, linkType: "evidence", createdAt: now })
+    .run();
+}
+
 function post(
   db: ReturnType<typeof setup>["db"],
   transactionId: number,
@@ -160,7 +182,7 @@ describe("financial edge cases", () => {
     expect(() => post(db, positiveRefund.id, category("rental_revenue").id)).toThrow("negative");
 
     const destinationOnExpense = transaction(db, bank.id, -1_000);
-    expect(() => post(db, destinationOnExpense.id, category("maintenance").id, "Falsches Ziel", cash.id)).toThrow(
+    expect(() => post(db, destinationOnExpense.id, category("wages").id, "Falsches Ziel", cash.id)).toThrow(
       "Zielkonto",
     );
 
@@ -182,7 +204,9 @@ describe("financial edge cases", () => {
     const { db, bank, category } = setup();
     const tx = transaction(db, bank.id, -1_250);
 
-    expect(() => post(db, tx.id, category("spare_parts_consumables").id)).toThrow("Ersatzteile und Verbrauchsmaterial");
+    expect(() => post(db, tx.id, category("spare_parts_consumables").id)).toThrow(
+      "Für Betriebsausgaben muss ein Beleg",
+    );
     expect(db.select().from(financialTransactions).where(eq(financialTransactions.id, tx.id)).get()?.status).toBe(
       "needs_review",
     );
@@ -191,6 +215,7 @@ describe("financial edge cases", () => {
   it("reclassifies exactly one unresolved allocation without changing its amount", () => {
     const { db, bank, category } = setup();
     const tx = transaction(db, bank.id, -1_250);
+    addTestReceipt(db, tx.id);
     const unresolved = category("unclassified");
     const journalEntryId = appendJournalEntry(db, {
       financialTransactionId: tx.id,
@@ -235,6 +260,7 @@ describe("financial edge cases", () => {
   it("allows correcting the category of an already posted simple transaction", () => {
     const { db, bank, category } = setup();
     const tx = transaction(db, bank.id, -1_250);
+    addTestReceipt(db, tx.id);
 
     post(db, tx.id, category("maintenance").id, "Ursprüngliche Zuordnung");
     post(db, tx.id, category("bank_fee").id, "Nachträglich korrigiert");

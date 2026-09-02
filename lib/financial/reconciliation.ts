@@ -471,12 +471,6 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   assertCategoryDirection(transaction, category);
   if (category.code === "rental_revenue" && !input.bookingId)
     throw new BookingCommandError("Für Mieterträge muss eine Buchung zugewiesen werden.");
-  if (
-    transaction.source === "bank" &&
-    requiresFinancialDocument(category.code) &&
-    !hasFinancialDocumentForTransaction(db, transaction.id)
-  )
-    throw new BookingCommandError("Für Ersatzteile und Verbrauchsmaterial muss ein Beleg hinterlegt werden.");
   if (input.asset && category.euerTreatment !== "asset_acquisition")
     throw new BookingCommandError("Anlagendaten sind nur bei einer Anlagegutkategorie zulässig.");
   if (input.destinationAccountId && category.categoryType !== "transfer")
@@ -552,8 +546,19 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       throw new BookingCommandError(
         "Netto-Anschaffungskosten und Vorsteuer müssen dem Transaktionsbetrag entsprechen.",
       );
+  }
+
+  if (
+    requiresFinancialDocument({ categoryType: category.categoryType, euerLine: category.euerLine }) &&
+    !hasFinancialDocumentForTransaction(db, transaction.id)
+  )
+    throw new BookingCommandError(
+      "Für Betriebsausgaben muss ein Beleg hinterlegt werden (außer für Lohn und Abschreibung).",
+    );
+
+  if (category.euerTreatment === "asset_acquisition" && !isEuerReclassification) {
     fixedAsset = createFixedAsset(db, {
-      ...input.asset,
+      ...input.asset!,
       sourceTransactionId: transaction.id,
       createdByUserId: input.actorUserId,
     });

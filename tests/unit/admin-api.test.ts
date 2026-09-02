@@ -471,7 +471,7 @@ describe("admin financial APIs", () => {
   it("posts and ignores transactions through the same admin endpoint", async () => {
     const db = testDb;
     const bank = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get()!;
-    const maintenance = db.select().from(financialCategories).where(eq(financialCategories.code, "maintenance")).get()!;
+    const wages = db.select().from(financialCategories).where(eq(financialCategories.code, "wages")).get()!;
     const tx = db
       .insert(financialTransactions)
       .values({
@@ -493,8 +493,8 @@ describe("admin financial APIs", () => {
     const posted = await financialTransactionPost(
       request(`/api/admin/financial/transactions/${tx.id}`, "POST", {
         action: "post",
-        categoryId: maintenance.id,
-        note: "Wartung",
+        categoryId: wages.id,
+        note: "Lohn",
       }),
       { params: Promise.resolve({ id: String(tx.id) }) },
     );
@@ -644,14 +644,14 @@ describe("admin financial APIs", () => {
       ).status,
     ).toBe(400);
 
-    const maintenance = db.select().from(financialCategories).where(eq(financialCategories.code, "maintenance")).get()!;
+    const wages = db.select().from(financialCategories).where(eq(financialCategories.code, "wages")).get()!;
     const manual = await manualTransactionPost(
       request("/api/admin/financial/transactions/manual", "POST", {
         source: "cash",
         bookedAt: "2026-08-10",
         amountCents: 500,
-        categoryId: maintenance.id,
-        description: "Kleine Reparatur",
+        categoryId: wages.id,
+        description: "Manuelle Lohnzahlung",
       }),
     );
     expect(manual.status).toBe(200);

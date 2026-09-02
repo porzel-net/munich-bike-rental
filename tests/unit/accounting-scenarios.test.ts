@@ -13,6 +13,8 @@ import {
   bookings,
   financialAccounts,
   financialCategories,
+  financialDocumentLinks,
+  financialDocuments,
   financialTransactionAllocations,
   financialTransactions,
   fixedAssets,
@@ -65,6 +67,26 @@ function setup() {
   return { connection, db, bank, cash, category };
 }
 
+function addTestReceipt(db: ReturnType<typeof setup>["db"], transactionId: number) {
+  const now = new Date();
+  const document = db
+    .insert(financialDocuments)
+    .values({
+      documentType: "receipt",
+      originalFileName: `scenario-receipt-${transactionId}.pdf`,
+      storageKey: `scenario-receipt-${transactionId}.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+      sha256: `scenario-receipt-${transactionId}`,
+      createdAt: now,
+    })
+    .returning({ id: financialDocuments.id })
+    .get();
+  db.insert(financialDocumentLinks)
+    .values({ documentId: document.id, transactionId, linkType: "evidence", createdAt: now })
+    .run();
+}
+
 function transaction(
   db: ReturnType<typeof setup>["db"],
   financialAccountId: number,
@@ -112,7 +134,9 @@ describe("end-to-end accounting scenarios", () => {
   it("reconciles a mixed operating year without leaking private or transfer movements into profit", () => {
     const { db, bank, cash, category } = setup();
     post(db, transaction(db, bank.id, 100_000).id, category("other_operating_income").id, "Sonstige Einnahmen");
-    post(db, transaction(db, bank.id, -25_000).id, category("maintenance").id, "Reparatur");
+    const repair = transaction(db, bank.id, -25_000);
+    addTestReceipt(db, repair.id);
+    post(db, repair.id, category("maintenance").id, "Reparatur");
     post(db, transaction(db, bank.id, -20_000).id, category("cash_withdrawal").id, "Kassenauffüllung", cash.id);
     post(db, transaction(db, bank.id, -5_000).id, category("private_payment").id, "Privat veranlasst");
     post(db, transaction(db, bank.id, -4_750).id, category("input_vat").id, "Vorsteuer");
@@ -350,6 +374,23 @@ describe("end-to-end accounting scenarios", () => {
       amountCents: 119_000,
       categoryId: category("equipment_asset_purchase").id,
       description: "Fahrrad als Anlagegut",
+      actorUserId: "admin",
+      deferPosting: true,
+      asset: {
+        name: "Szenario-Fahrrad",
+        assetType: "bike",
+        acquisitionDate: "2026-01-15",
+        inServiceDate: "2026-01-15",
+        acquisitionCostCents: 100_000,
+        inputVatCents: 19_000,
+        usefulLifeMonths: 12,
+      },
+    });
+    addTestReceipt(db, acquisition.transactionId);
+    postFinancialTransaction(db, {
+      transactionId: acquisition.transactionId,
+      categoryId: category("equipment_asset_purchase").id,
+      note: "Fahrrad als Anlagegut",
       actorUserId: "admin",
       asset: {
         name: "Szenario-Fahrrad",

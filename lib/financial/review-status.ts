@@ -1,3 +1,5 @@
+import { requiresFinancialDocument } from "./receipt-requirements";
+
 export type FinancialReviewStatus = "posted" | "needs_review" | "ignored";
 
 export type FinancialReviewCompletenessInput = {
@@ -5,15 +7,17 @@ export type FinancialReviewCompletenessInput = {
   categoryId: number | null;
   categoryCode: string | null;
   categoryType: string | null;
+  euerLine: string | null;
   euerTreatment: string | null;
   allocationKind: string | null;
   bookingId: number | null;
   destinationAccountId: number | null;
   fixedAssetId: number | null;
+  documentCount: number;
 };
 
 export type FinancialReviewMissingInformation =
-  "posting" | "euer_category" | "booking" | "destination_account" | "fixed_asset";
+  "posting" | "euer_category" | "booking" | "destination_account" | "fixed_asset" | "document";
 
 export function getFinancialReviewState(input: FinancialReviewCompletenessInput): {
   status: FinancialReviewStatus;
@@ -37,6 +41,13 @@ export function getFinancialReviewState(input: FinancialReviewCompletenessInput)
 
   if (input.allocationKind === "asset_acquisition" && input.fixedAssetId === null) {
     missing.push("fixed_asset");
+  }
+
+  if (
+    requiresFinancialDocument({ categoryType: input.categoryType, euerLine: input.euerLine }) &&
+    input.documentCount === 0
+  ) {
+    missing.push("document");
   }
 
   return {

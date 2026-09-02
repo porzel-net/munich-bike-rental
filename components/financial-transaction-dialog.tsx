@@ -214,9 +214,12 @@ export function FinancialTransactionDialog({
       : "post";
   const isDocumentOnlyUpdate = saveMode === "document_only";
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
-  const documentRequired =
-    isDocumentOnlyUpdate ||
-    (isBank && Boolean(selectedCategory && requiresFinancialDocument(selectedCategory.code)) && documents.length === 0);
+  const receiptRequired = Boolean(
+    selectedCategory &&
+    requiresFinancialDocument({ categoryType: selectedCategory.categoryType, euerLine: selectedCategory.euerLine }) &&
+    documents.length === 0,
+  );
+  const documentInputRequired = isDocumentOnlyUpdate || receiptRequired;
 
   useEffect(() => {
     if (!open) return;
@@ -322,7 +325,7 @@ export function FinancialTransactionDialog({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (documentRequired && !file) {
+    if (documentInputRequired && !file) {
       setError("Bitte wähle einen Beleg aus.");
       return;
     }
@@ -460,6 +463,7 @@ export function FinancialTransactionDialog({
             counterpartyName,
             description,
             note,
+            deferPosting: receiptRequired,
             businessMeal:
               selectedCategory?.code === "business_meal"
                 ? { privateShareCents, inputVatCents: mealInputVatCents }
@@ -485,6 +489,41 @@ export function FinancialTransactionDialog({
               "Die Transaktion konnte nicht gespeichert werden. Prüfe Betrag, Kategorie, Konto und Buchungstext.",
           );
         await uploadDocument(result.transactionId);
+        if (receiptRequired) {
+          const postResponse = await fetch(`/api/admin/financial/transactions/${result.transactionId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "post",
+              categoryId: selectedCategory ? Number(categoryId) : undefined,
+              bookingId: selectedBooking ? Number(bookingId) : undefined,
+              destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
+              note: note.trim(),
+              businessMeal:
+                selectedCategory?.code === "business_meal"
+                  ? { privateShareCents, inputVatCents: mealInputVatCents }
+                  : undefined,
+              asset: isAsset
+                ? {
+                    name: assetName,
+                    assetType,
+                    serialNumber: assetSerialNumber,
+                    acquisitionDate: date,
+                    inServiceDate: assetInServiceDate,
+                    acquisitionCostCents: assetCostCents,
+                    inputVatCents: assetInputVatCents,
+                    usefulLifeMonths: assetLife,
+                  }
+                : undefined,
+            }),
+          });
+          const postResult = (await postResponse.json().catch(() => null)) as { message?: string } | null;
+          if (!postResponse.ok)
+            throw new Error(
+              postResult?.message ??
+                "Die Transaktion konnte nach dem Beleg-Upload nicht gebucht werden. Prüfe die Zuordnung.",
+            );
+        }
         onManualCompleted?.({ transactionId: result.transactionId });
         toast.success("Transaktion wurde gespeichert.");
       }
@@ -963,7 +1002,7 @@ export function FinancialTransactionDialog({
               </Field>
               <Field>
                 <FieldLabel htmlFor="financial-document">
-                  Beleg anhängen{documentRequired ? " (erforderlich)" : ""}
+                  Beleg anhängen{receiptRequired ? " (erforderlich)" : ""}
                 </FieldLabel>
                 {documents.length > 0 ? (
                   <div className="grid gap-2">
@@ -985,7 +1024,7 @@ export function FinancialTransactionDialog({
                 <Input
                   id="financial-document"
                   type="file"
-                  required={documentRequired}
+                  required={documentInputRequired}
                   accept="application/pdf,image/jpeg,image/png,image/webp"
                   onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 />

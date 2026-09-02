@@ -6,6 +6,8 @@ import {
   authUser,
   bookings,
   financialAccounts,
+  financialDocumentLinks,
+  financialDocuments,
   financialCategories,
   financialTransactionAllocations,
   financialTransactions,
@@ -65,9 +67,12 @@ function setup() {
     .where(eq(financialCategories.code, "other_operating_income"))
     .get()!;
   const travel = db.select().from(financialCategories).where(eq(financialCategories.code, "travel")).get()!;
+  const wages = db.select().from(financialCategories).where(eq(financialCategories.code, "wages")).get()!;
+  const advertising = db.select().from(financialCategories).where(eq(financialCategories.code, "advertising")).get()!;
   const transfer = db.select().from(financialCategories).where(eq(financialCategories.code, "cash_withdrawal")).get()!;
   const cash = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get()!;
-  return { connection, db, bank, income, otherIncome, travel, transfer, cash };
+  const privateAccount = db.select().from(financialAccounts).where(eq(financialAccounts.code, "private_main")).get()!;
+  return { connection, db, bank, income, otherIncome, travel, wages, advertising, transfer, cash, privateAccount };
 }
 
 function transaction(
@@ -95,6 +100,26 @@ function transaction(
     })
     .returning()
     .get();
+}
+
+function addTestReceipt(db: ReturnType<typeof setup>["db"], transactionId: number) {
+  const now = new Date();
+  const document = db
+    .insert(financialDocuments)
+    .values({
+      documentType: "receipt",
+      originalFileName: `test-receipt-${transactionId}.pdf`,
+      storageKey: `test-receipt-${transactionId}.pdf`,
+      mimeType: "application/pdf",
+      sizeBytes: 8,
+      sha256: `test-receipt-${transactionId}`,
+      createdAt: now,
+    })
+    .returning({ id: financialDocuments.id })
+    .get();
+  db.insert(financialDocumentLinks)
+    .values({ documentId: document.id, transactionId, linkType: "evidence", createdAt: now })
+    .run();
 }
 
 function bookingWithReceivable(
@@ -606,14 +631,14 @@ describe("financial reconciliation", () => {
   });
 
   it("changes the source account of a posted manual transaction with a correction journal", () => {
-    const { db, bank, cash, travel } = setup();
+    const { db, bank, cash, wages } = setup();
     const manual = createAndPostManualTransaction(db, {
       accountId: bank.id,
       source: "manual",
       bookedAt: "2026-08-04",
       amountCents: 4_500,
-      categoryId: travel.id,
-      description: "Manuelle Fahrtkosten",
+      categoryId: wages.id,
+      description: "Manuelle Lohnzahlung",
       note: "Ursprüngliches Finanzkonto",
       actorUserId: "admin",
     });
@@ -621,7 +646,7 @@ describe("financial reconciliation", () => {
     postFinancialTransaction(db, {
       transactionId: manual.transactionId,
       accountId: cash.id,
-      categoryId: travel.id,
+      categoryId: wages.id,
       note: "Finanzkonto korrigiert",
       actorUserId: "admin",
     });
@@ -634,6 +659,54 @@ describe("financial reconciliation", () => {
     ).toHaveLength(2);
     expect(getFinancialAccountReconciliation(db, bank.id).expectedBalanceCents).toBe(0);
     expect(getFinancialAccountReconciliation(db, cash.id).expectedBalanceCents).toBe(-4_500);
+  });
+
+  it("changes a posted manual transaction from the operating account to private", () => {
+    const { db, bank, privateAccount, wages } = setup();
+    const manual = createAndPostManualTransaction(db, {
+      accountId: bank.id,
+      source: "manual",
+      bookedAt: "2026-08-05",
+      amountCents: 3_250,
+      categoryId: wages.id,
+      description: "Manuelle private Testbuchung",
+      note: "Ursprünglich dem Betriebskonto zugeordnet",
+      actorUserId: "admin",
+    });
+
+    postFinancialTransaction(db, {
+      transactionId: manual.transactionId,
+      accountId: privateAccount.id,
+      categoryId: wages.id,
+      note: "Nachträglich dem Privatkonto zugeordnet",
+      actorUserId: "admin",
+    });
+
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, manual.transactionId)).get(),
+    ).toMatchObject({ financialAccountId: privateAccount.id, source: "manual", status: "posted" });
+    expect(
+      db.select().from(journalEntries).where(eq(journalEntries.financialTransactionId, manual.transactionId)).all(),
+    ).toHaveLength(2);
+    expect(getFinancialAccountReconciliation(db, bank.id).expectedBalanceCents).toBe(0);
+    expect(getFinancialAccountReconciliation(db, privateAccount.id).expectedBalanceCents).toBe(-3_250);
+  });
+
+  it("requires a receipt when a manual transaction is a business expense", () => {
+    const { db, bank, advertising } = setup();
+
+    expect(() =>
+      createAndPostManualTransaction(db, {
+        accountId: bank.id,
+        source: "manual",
+        bookedAt: "2026-08-06",
+        amountCents: 2_500,
+        categoryId: advertising.id,
+        description: "Manuelle Werbeausgabe ohne Beleg",
+        note: "Test: Belegpflicht bei manuellen Betriebsausgaben",
+        actorUserId: "admin",
+      }),
+    ).toThrow("Für Betriebsausgaben muss ein Beleg hinterlegt werden");
   });
 
   it("records a cash withdrawal as a transfer and keeps ignored movements in the bank balance", () => {
@@ -666,6 +739,7 @@ describe("financial reconciliation", () => {
   it("maps travel costs to operating expenses in the EÜR", () => {
     const { db, bank, travel } = setup();
     const tx = transaction(db, bank.id, -4_500);
+    addTestReceipt(db, tx.id);
 
     expect(travel.euerTreatment).toBe("expense");
     expect(travel.euerLine).toBe("travel");
@@ -732,6 +806,7 @@ describe("financial reconciliation", () => {
     const { db, bank } = setup();
     const meal = db.select().from(financialCategories).where(eq(financialCategories.code, "business_meal")).get()!;
     const tx = transaction(db, bank.id, -10_000);
+    addTestReceipt(db, tx.id);
 
     const result = postFinancialTransaction(db, {
       transactionId: tx.id,
@@ -758,19 +833,38 @@ describe("financial reconciliation", () => {
   });
 
   it("posts a historical cash asset purchase and its AfA into the EÜR", () => {
-    const { db } = setup();
+    const { db, cash } = setup();
     const assetCategory = db
       .select()
       .from(financialCategories)
       .where(eq(financialCategories.code, "equipment_asset_purchase"))
       .get()!;
 
-    const result = createAndPostManualTransaction(db, {
-      source: "cash",
-      bookedAt: "2026-01-15",
-      amountCents: 119_000,
+    const tx = db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: cash.id,
+        source: "cash",
+        provider: "test",
+        externalId: `cash-asset-${Math.random()}`,
+        kind: "expense",
+        status: "needs_review",
+        amountCents: -119_000,
+        currency: "EUR",
+        bookedAt: "2026-01-15",
+        description: "Fahrrad bar gekauft",
+        importedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+      .get();
+    addTestReceipt(db, tx.id);
+
+    const result = postFinancialTransaction(db, {
+      transactionId: tx.id,
       categoryId: assetCategory.id,
-      description: "Fahrrad bar gekauft",
+      note: "Fahrrad bar gekauft",
       actorUserId: "admin",
       asset: {
         name: "Fahrrad Test M",

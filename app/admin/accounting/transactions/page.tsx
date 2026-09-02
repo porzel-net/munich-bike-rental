@@ -90,6 +90,7 @@ export default async function BankTransactionsPage({
       categoryId: financialTransactionAllocations.categoryId,
       categoryCode: financialCategories.code,
       categoryType: financialCategories.categoryType,
+      euerLine: financialCategories.euerLine,
       allocationKind: financialTransactionAllocations.allocationKind,
       destinationAccountId: financialTransactionAllocations.destinationAccountId,
       bookingId: financialTransactionAllocations.bookingId,
@@ -152,6 +153,7 @@ export default async function BankTransactionsPage({
       existing.categoryId = row.categoryId;
       existing.categoryCode = row.categoryCode;
       existing.categoryType = row.categoryType;
+      existing.euerLine = row.euerLine;
       existing.euerTreatment = row.euerTreatment;
       existing.allocationKind = row.allocationKind;
       existing.destinationAccountId = row.destinationAccountId;
