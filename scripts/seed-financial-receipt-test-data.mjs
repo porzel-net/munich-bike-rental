@@ -88,7 +88,7 @@ try {
 
     const transactionId = insert();
     console.log(`Testdatensatz angelegt: Transaktion #${transactionId}`);
-    console.log("Erwarteter Tabellenstatus: Beleg erforderlich");
+    console.log("Erwarteter Tabellenstatus: Beleg fehlt");
   }
 } finally {
   db.close();

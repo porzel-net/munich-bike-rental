@@ -692,21 +692,23 @@ describe("financial reconciliation", () => {
     expect(getFinancialAccountReconciliation(db, privateAccount.id).expectedBalanceCents).toBe(-3_250);
   });
 
-  it("requires a receipt when a manual transaction is a business expense", () => {
+  it("allows a manual business expense without a receipt and leaves it open for review", () => {
     const { db, bank, advertising } = setup();
 
-    expect(() =>
-      createAndPostManualTransaction(db, {
-        accountId: bank.id,
-        source: "manual",
-        bookedAt: "2026-08-06",
-        amountCents: 2_500,
-        categoryId: advertising.id,
-        description: "Manuelle Werbeausgabe ohne Beleg",
-        note: "Test: Belegpflicht bei manuellen Betriebsausgaben",
-        actorUserId: "admin",
-      }),
-    ).toThrow("Für Betriebsausgaben muss ein Beleg hinterlegt werden");
+    const result = createAndPostManualTransaction(db, {
+      accountId: bank.id,
+      source: "manual",
+      bookedAt: "2026-08-06",
+      amountCents: 2_500,
+      categoryId: advertising.id,
+      description: "Manuelle Werbeausgabe ohne Beleg",
+      note: "Test: fehlender Beleg bleibt als Review offen",
+      actorUserId: "admin",
+    });
+    expect(result.transactionId).toBeGreaterThan(0);
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, result.transactionId)).get()?.status,
+    ).toBe("posted");
   });
 
   it("records a cash withdrawal as a transfer and keeps ignored movements in the bank balance", () => {

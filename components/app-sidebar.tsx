@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
@@ -29,10 +29,11 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { getDatabase } from "@/lib/db/client";
-import { bookings, dashboardActivityDismissals, financialTransactions } from "@/lib/db/schema";
+import { bookings, dashboardActivityDismissals } from "@/lib/db/schema";
 import { getAssignedLocation } from "@/lib/auth/authorization";
 import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
 import { getDashboardActivities } from "@/lib/dashboard/activities";
+import { getOpenFinancialTransactionCount } from "@/lib/financial/review-count";
 
 const data = {
   navMain: [
@@ -145,20 +146,7 @@ export async function AppSidebar({
   const dashboardActivityCount = dashboardActivities.filter(
     (activity) => !dismissedDashboardActivityIds.has(activity.id),
   ).length;
-  const openBankTransactionCount = isAdmin
-    ? (db
-        .select({ value: count() })
-        .from(financialTransactions)
-        .where(
-          and(
-            eq(financialTransactions.source, "bank"),
-            eq(financialTransactions.provider, "nevlo"),
-            ne(financialTransactions.status, "posted"),
-            ne(financialTransactions.status, "ignored"),
-          ),
-        )
-        .get()?.value ?? 0)
-    : 0;
+  const openBankTransactionCount = isAdmin ? getOpenFinancialTransactionCount(db) : 0;
   const openBookings = db
     .select({ id: bookings.id, status: bookings.status, createdAt: bookings.createdAt, updatedAt: bookings.updatedAt })
     .from(bookings)

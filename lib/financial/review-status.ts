@@ -19,6 +19,10 @@ export type FinancialReviewCompletenessInput = {
 export type FinancialReviewMissingInformation =
   "posting" | "euer_category" | "booking" | "destination_account" | "fixed_asset" | "document";
 
+export function countOpenFinancialReviews(inputs: FinancialReviewCompletenessInput[]) {
+  return inputs.filter((input) => getFinancialReviewState(input).status === "needs_review").length;
+}
+
 export function getFinancialReviewState(input: FinancialReviewCompletenessInput): {
   status: FinancialReviewStatus;
   missing: FinancialReviewMissingInformation[];

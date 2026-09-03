@@ -4,7 +4,12 @@ import { BookingCommandError } from "@/lib/bookings/errors";
 import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
-import { attachFinancialDocument, MAX_FINANCIAL_DOCUMENT_BYTES } from "@/lib/financial/documents";
+import {
+  attachFinancialDocument,
+  detachFinancialDocument,
+  MAX_FINANCIAL_DOCUMENT_BYTES,
+} from "@/lib/financial/documents";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
@@ -58,6 +63,40 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           error instanceof BookingCommandError
             ? error.message
             : "Der Beleg konnte nicht gespeichert werden. Prüfe Datei, Dateityp, Größe und Beschreibung.",
+      },
+      { status: 409 },
+    );
+  }
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession();
+  if (!hasTrustedOrigin(request) || !session || !canUseAdminApiAsAdmin(session.user))
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung, Belege zu verwalten." },
+      { status: 401 },
+    );
+
+  const transactionId = Number((await context.params).id);
+  if (!Number.isInteger(transactionId) || transactionId <= 0)
+    return NextResponse.json({ message: "Die ausgewählte Transaktion ist ungültig." }, { status: 400 });
+  const input = readBoundedJson(request);
+  const body = await input;
+  const documentId =
+    typeof body === "object" && body !== null && "documentId" in body ? Number(body.documentId) : Number.NaN;
+  if (!Number.isInteger(documentId) || documentId <= 0)
+    return NextResponse.json({ message: "Die Beleg-ID ist ungültig." }, { status: 400 });
+
+  try {
+    const result = await detachFinancialDocument(getDatabase(), { transactionId, documentId });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Der Beleg konnte nicht gelöscht werden. Aktualisiere die Transaktion und versuche es erneut.",
       },
       { status: 409 },
     );

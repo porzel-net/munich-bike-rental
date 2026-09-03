@@ -10,6 +10,7 @@ import {
 } from "../../lib/db/schema";
 import {
   detectFinancialDocumentMime,
+  detachFinancialDocument,
   hasFinancialDocumentForTransaction,
   safeFinancialDocumentFileName,
 } from "../../lib/financial/documents";
@@ -86,5 +87,58 @@ describe("financial document upload validation", () => {
       .run();
 
     expect(hasFinancialDocumentForTransaction(connection.db, transaction.id)).toBe(true);
+  });
+
+  it("detaches and removes an orphaned document", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const account = connection.db
+      .select()
+      .from(financialAccounts)
+      .where(eq(financialAccounts.code, "cash_main"))
+      .get()!;
+    const transaction = connection.db
+      .insert(financialTransactions)
+      .values({
+        financialAccountId: account.id,
+        source: "cash",
+        provider: "test",
+        kind: "expense",
+        status: "posted",
+        amountCents: -1_000,
+        currency: "EUR",
+        bookedAt: "2026-08-31",
+        description: "Löschtest",
+        importedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: financialTransactions.id })
+      .get();
+    const document = connection.db
+      .insert(financialDocuments)
+      .values({
+        documentType: "receipt",
+        originalFileName: "loeschtest.pdf",
+        storageKey: "loeschtest.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 10,
+        sha256: "loeschtest-hash",
+        uploadedByUserId: null,
+        createdAt: new Date(),
+      })
+      .returning({ id: financialDocuments.id })
+      .get();
+    connection.db
+      .insert(financialDocumentLinks)
+      .values({ documentId: document.id, transactionId: transaction.id, linkType: "evidence", createdAt: new Date() })
+      .run();
+
+    await detachFinancialDocument(connection.db, { transactionId: transaction.id, documentId: document.id });
+
+    expect(hasFinancialDocumentForTransaction(connection.db, transaction.id)).toBe(false);
+    expect(connection.db.select().from(financialDocuments).where(eq(financialDocuments.id, document.id)).get()).toBe(
+      undefined,
+    );
   });
 });

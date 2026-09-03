@@ -21,6 +21,7 @@ import {
   financialDocuments,
   financialTransactionAllocations,
   financialTransactions,
+  fixedAssets,
   bookings,
 } from "@/lib/db/schema";
 import { findBookingOrderNumber } from "@/lib/financial/booking-matching";
@@ -161,8 +162,11 @@ export default async function BankTransactionsPage({
       existing.fixedAssetId = row.fixedAssetId;
     }
   }
+  const fixedAssetRows = db.select().from(fixedAssets).all();
+  const fixedAssetsById = new Map(fixedAssetRows.map((asset) => [asset.id, asset]));
   const reviewTransactionsForClient: FinancialReviewTransaction[] = [...groupedTransactions.values()].map((row) => {
     const documents = documentCounts.get(row.id) ?? [];
+    const fixedAsset = row.fixedAssetId ? fixedAssetsById.get(row.fixedAssetId) : undefined;
     const matchedBooking = row.bookingId
       ? (bookingReferences.find((booking) => booking.id === row.bookingId) ?? null)
       : row.source === "bank" && row.provider === "nevlo"
@@ -178,6 +182,18 @@ export default async function BankTransactionsPage({
           : null,
       documentCount: documents.length,
       documents,
+      fixedAsset: fixedAsset
+        ? {
+            id: fixedAsset.id,
+            name: fixedAsset.name,
+            assetType: fixedAsset.assetType,
+            serialNumber: fixedAsset.serialNumber,
+            acquisitionDate: fixedAsset.acquisitionDate,
+            inServiceDate: fixedAsset.inServiceDate,
+            acquisitionCostCents: fixedAsset.acquisitionCostCents,
+            usefulLifeMonths: fixedAsset.usefulLifeMonths,
+          }
+        : null,
     };
   });
 

@@ -15,6 +15,7 @@ import {
   financialTransactions,
   fixedAssetDepreciationEntries,
   fixedAssets,
+  journalLines,
 } from "../db/schema";
 
 function ensureFinancialAccountInChart(db: AppDatabase, account: typeof financialAccounts.$inferSelect) {
@@ -157,6 +158,80 @@ export function createFixedAsset(
     .returning()
     .get();
   return asset;
+}
+
+export function updateFixedAsset(
+  db: AppDatabase,
+  input: {
+    assetId: number;
+    name: string;
+    assetType: "bike" | "equipment" | "other";
+    serialNumber?: string | null;
+    inServiceDate: string;
+    usefulLifeMonths: number;
+    notes?: string;
+    actorUserId: string | null;
+  },
+) {
+  return runInImmediateTransaction(db, () => {
+    const asset = db.select().from(fixedAssets).where(eq(fixedAssets.id, input.assetId)).get();
+    if (!asset) throw new BookingCommandError("Anlagegut nicht gefunden.");
+    if (asset.status !== "active")
+      throw new BookingCommandError("Ausgeschiedene Anlagegüter können nicht geändert werden.");
+
+    const name = input.name.trim();
+    if (!name) throw new BookingCommandError("Bitte benenne das Anlagegut.");
+    if (!isValidIsoDate(input.inServiceDate))
+      throw new BookingCommandError("Bitte gib ein gültiges Inbetriebnahmedatum an.");
+    if (input.inServiceDate < asset.acquisitionDate)
+      throw new BookingCommandError("Die Inbetriebnahme darf nicht vor der Anschaffung liegen.");
+    if (!Number.isSafeInteger(input.usefulLifeMonths) || input.usefulLifeMonths < 1)
+      throw new BookingCommandError("Die Nutzungsdauer muss mindestens einen Monat betragen.");
+
+    const scheduleChanged =
+      input.inServiceDate !== asset.inServiceDate || input.usefulLifeMonths !== asset.usefulLifeMonths;
+    if (scheduleChanged) {
+      const depreciationEntries = db
+        .select()
+        .from(fixedAssetDepreciationEntries)
+        .where(eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id))
+        .all();
+      for (const entry of depreciationEntries) {
+        const lines = db
+          .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+          .from(journalLines)
+          .where(eq(journalLines.entryId, entry.journalEntryId))
+          .all();
+        if (!lines.length) throw new BookingCommandError("Die bestehende AfA konnte nicht korrigiert werden.");
+        appendJournalEntry(db, {
+          financialTransactionId: asset.sourceTransactionId,
+          actorUserId: input.actorUserId,
+          kind: "correction",
+          reason: `AfA korrigiert: ${asset.assetNumber} · ${asset.name}`,
+          reversesEntryId: entry.journalEntryId,
+          lines: lines.map((line) => ({ account: line.account, amountCents: -line.amountCents })),
+        });
+      }
+      if (depreciationEntries.length) {
+        db.delete(fixedAssetDepreciationEntries).where(eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id)).run();
+      }
+    }
+
+    return db
+      .update(fixedAssets)
+      .set({
+        name,
+        assetType: input.assetType,
+        serialNumber: input.serialNumber?.trim() || null,
+        inServiceDate: input.inServiceDate,
+        usefulLifeMonths: input.usefulLifeMonths,
+        notes: input.notes?.trim() ?? asset.notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(fixedAssets.id, asset.id))
+      .returning()
+      .get();
+  });
 }
 
 export function postFixedAssetDepreciation(

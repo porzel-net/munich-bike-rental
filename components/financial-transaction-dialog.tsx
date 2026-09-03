@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { ExternalLinkIcon, FileTextIcon } from "lucide-react";
+import { ExternalLinkIcon, FileTextIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import type {
@@ -151,6 +151,7 @@ export function FinancialTransactionDialog({
   bookings,
   bankTransaction,
   onBankCompleted,
+  onDocumentChanged,
   onManualCompleted,
 }: {
   mode: Mode;
@@ -161,6 +162,7 @@ export function FinancialTransactionDialog({
   bookings?: FinancialReviewBooking[];
   bankTransaction?: FinancialReviewTransaction | null;
   onBankCompleted?: (result: { transactionId: number; status: "posted" | "ignored"; euerTreatment?: string }) => void;
+  onDocumentChanged?: () => void;
   onManualCompleted?: (result: { transactionId: number }) => void;
 }) {
   const isBank = mode === "bank";
@@ -214,12 +216,11 @@ export function FinancialTransactionDialog({
       : "post";
   const isDocumentOnlyUpdate = saveMode === "document_only";
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
-  const receiptRequired = Boolean(
+  const receiptExpected = Boolean(
     selectedCategory &&
     requiresFinancialDocument({ categoryType: selectedCategory.categoryType, euerLine: selectedCategory.euerLine }) &&
     documents.length === 0,
   );
-  const documentInputRequired = isDocumentOnlyUpdate || receiptRequired;
 
   useEffect(() => {
     if (!open) return;
@@ -250,11 +251,14 @@ export function FinancialTransactionDialog({
         setDescription(bankTransaction.description || bankTransaction.reference || "");
         setNote(bankTransaction.description || bankTransaction.counterpartyName || "");
         setIgnoreReason("");
-        setAssetName(bankTransaction.description || bankTransaction.counterpartyName || "");
+        setAssetName(
+          bankTransaction.fixedAsset?.name || bankTransaction.description || bankTransaction.counterpartyName || "",
+        );
+        setAssetType(bankTransaction.fixedAsset?.assetType ?? "bike");
         setAssetCost((Math.abs(bankTransaction.amountCents) / 100).toFixed(2));
-        setAssetInServiceDate(bankTransaction.bookedAt.slice(0, 10));
-        setAssetUsefulLifeMonths("84");
-        setAssetSerialNumber("");
+        setAssetInServiceDate(bankTransaction.fixedAsset?.inServiceDate ?? bankTransaction.bookedAt.slice(0, 10));
+        setAssetUsefulLifeMonths(String(bankTransaction.fixedAsset?.usefulLifeMonths ?? 84));
+        setAssetSerialNumber(bankTransaction.fixedAsset?.serialNumber ?? "");
         setPrivateShare("0");
         setFile(null);
         setDocuments(bankTransaction.documents);
@@ -271,6 +275,7 @@ export function FinancialTransactionDialog({
         setNote("");
         setIgnoreReason("");
         setAssetName("");
+        setAssetType("bike");
         setAssetCost("");
         setAssetInServiceDate(today());
         setAssetUsefulLifeMonths("84");
@@ -323,12 +328,47 @@ export function FinancialTransactionDialog({
     }
   }
 
+  async function removeDocument(documentId: number) {
+    if (!bankTransaction || !window.confirm("Diesen Beleg wirklich löschen?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/financial/transactions/${bankTransaction.id}/documents`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId }),
+      });
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) throw new Error(result?.message ?? "Der Beleg konnte nicht gelöscht werden.");
+      setDocuments((current) => current.filter((document) => document.id !== documentId));
+      onDocumentChanged?.();
+      toast.success("Beleg wurde gelöscht.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Der Beleg konnte nicht gelöscht werden.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateLinkedAsset() {
+    if (!bankTransaction?.fixedAsset || !isAsset) return;
+    const response = await fetch(`/api/admin/financial/assets/${bankTransaction.fixedAsset.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: assetName,
+        assetType,
+        serialNumber: assetSerialNumber,
+        inServiceDate: assetInServiceDate,
+        usefulLifeMonths: Number(assetUsefulLifeMonths),
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as { message?: string } | null;
+    if (!response.ok) throw new Error(result?.message ?? "Das Anlagegut konnte nicht geändert werden.");
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (documentInputRequired && !file) {
-      setError("Bitte wähle einen Beleg aus.");
-      return;
-    }
     if (!isBank && (!selectedCategory || selectedCategory.euerTreatment === "needs_review")) {
       setError("Bitte wähle eine sachliche Zuordnung mit konkreter EÜR-Zuordnung.");
       return;
@@ -402,9 +442,11 @@ export function FinancialTransactionDialog({
     try {
       if (isBank) {
         if (!bankTransaction) throw new Error("Keine Banktransaktion ausgewählt.");
-        await uploadDocument(bankTransaction.id);
+        await updateLinkedAsset();
+        const uploadedDocument = await uploadDocument(bankTransaction.id);
+        if (uploadedDocument) onDocumentChanged?.();
         if (isDocumentOnlyUpdate) {
-          toast.success("Beleg wurde gespeichert.");
+          toast.success(file ? "Beleg wurde gespeichert." : "Änderung wurde gespeichert.");
           onOpenChange(false);
           return;
         }
@@ -463,7 +505,7 @@ export function FinancialTransactionDialog({
             counterpartyName,
             description,
             note,
-            deferPosting: receiptRequired,
+            deferPosting: receiptExpected,
             businessMeal:
               selectedCategory?.code === "business_meal"
                 ? { privateShareCents, inputVatCents: mealInputVatCents }
@@ -489,7 +531,7 @@ export function FinancialTransactionDialog({
               "Die Transaktion konnte nicht gespeichert werden. Prüfe Betrag, Kategorie, Konto und Buchungstext.",
           );
         await uploadDocument(result.transactionId);
-        if (receiptRequired) {
+        if (receiptExpected) {
           const postResponse = await fetch(`/api/admin/financial/transactions/${result.transactionId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -521,7 +563,7 @@ export function FinancialTransactionDialog({
           if (!postResponse.ok)
             throw new Error(
               postResult?.message ??
-                "Die Transaktion konnte nach dem Beleg-Upload nicht gebucht werden. Prüfe die Zuordnung.",
+                "Die Transaktion konnte nach dem Speichern nicht gebucht werden. Prüfe die Zuordnung.",
             );
         }
         onManualCompleted?.({ transactionId: result.transactionId });
@@ -943,7 +985,9 @@ export function FinancialTransactionDialog({
                     />
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="financial-asset-serial">Seriennummer</FieldLabel>
+                    <FieldLabel htmlFor="financial-asset-serial">
+                      {assetType === "bike" ? "Rahmennummer" : "Seriennummer"}
+                    </FieldLabel>
                     <Input
                       id="financial-asset-serial"
                       value={assetSerialNumber}
@@ -1002,29 +1046,44 @@ export function FinancialTransactionDialog({
               </Field>
               <Field>
                 <FieldLabel htmlFor="financial-document">
-                  Beleg anhängen{receiptRequired ? " (erforderlich)" : ""}
+                  Beleg anhängen{receiptExpected ? " (erwartet, kann später ergänzt werden)" : " (optional)"}
                 </FieldLabel>
                 {documents.length > 0 ? (
                   <div className="grid gap-2">
                     {documents.map((document) => (
-                      <a
+                      <div
                         key={document.id}
-                        href={`/api/admin/financial/documents/${document.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-800 hover:underline dark:text-emerald-300"
+                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300"
                       >
-                        <FileTextIcon className="size-4 shrink-0" />
-                        <span className="min-w-0 flex-1 truncate">{document.originalFileName}</span>
-                        <ExternalLinkIcon className="size-4 shrink-0" />
-                      </a>
+                        <a
+                          href={`/api/admin/financial/documents/${document.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-w-0 flex-1 items-center gap-2 hover:underline"
+                        >
+                          <FileTextIcon className="size-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">{document.originalFileName}</span>
+                          <ExternalLinkIcon className="size-4 shrink-0" />
+                        </a>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0 text-destructive hover:text-destructive"
+                          aria-label={`${document.originalFileName} löschen`}
+                          title="Beleg löschen"
+                          disabled={busy}
+                          onClick={() => void removeDocument(document.id)}
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 ) : null}
                 <Input
                   id="financial-document"
                   type="file"
-                  required={documentInputRequired}
                   accept="application/pdf,image/jpeg,image/png,image/webp"
                   onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 />
@@ -1063,7 +1122,7 @@ export function FinancialTransactionDialog({
             <Button type="submit" form="financial-transaction-form" disabled={busy}>
               {busy
                 ? "Wird gespeichert…"
-                : isDocumentOnlyUpdate
+                : isDocumentOnlyUpdate && file
                   ? "Beleg speichern"
                   : isPosted
                     ? "Änderung speichern"

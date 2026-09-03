@@ -200,7 +200,9 @@ export function PrivateAssetContributionDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="private-asset-serial">Seriennummer</FieldLabel>
+                <FieldLabel htmlFor="private-asset-serial">
+                  {assetType === "bike" ? "Rahmennummer" : "Seriennummer"}
+                </FieldLabel>
                 <Input
                   id="private-asset-serial"
                   value={serialNumber}

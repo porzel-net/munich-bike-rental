@@ -157,7 +157,7 @@ export const portfolioItems: PortfolioItem[] = [
       en: "Carbon gravel bike with Shimano shifting and hydraulic disc brakes for mixed routes and longer rides.",
     },
     image: "/bikes/canyon-grail-cf-sl-7/preview.webp",
-    gallery: ["/bikes/canyon-grail-cf-sl-7/real1.avif"],
+    gallery: ["/bikes/canyon-grail-cf-sl-7/real1.webp"],
     facts: [
       {
         label: { de: "Rahmen", en: "Frame" },

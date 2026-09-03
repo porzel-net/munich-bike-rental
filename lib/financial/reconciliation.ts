@@ -18,8 +18,6 @@ import { validateManualBookingPayment } from "../bookings/payment-rules";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
 import { getActiveFinancialCategoryByCode, getBookingRevenueCategory } from "./categories";
-import { requiresFinancialDocument } from "./receipt-requirements";
-import { hasFinancialDocumentForTransaction } from "./documents";
 
 type JournalKind = Parameters<typeof appendJournalEntry>[1]["kind"];
 type AllocationKind = (typeof financialAllocationKinds)[number];
@@ -547,14 +545,6 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
         "Netto-Anschaffungskosten und Vorsteuer müssen dem Transaktionsbetrag entsprechen.",
       );
   }
-
-  if (
-    requiresFinancialDocument({ categoryType: category.categoryType, euerLine: category.euerLine }) &&
-    !hasFinancialDocumentForTransaction(db, transaction.id)
-  )
-    throw new BookingCommandError(
-      "Für Betriebsausgaben muss ein Beleg hinterlegt werden (außer für Lohn und Abschreibung).",
-    );
 
   if (category.euerTreatment === "asset_acquisition" && !isEuerReclassification) {
     fixedAsset = createFixedAsset(db, {

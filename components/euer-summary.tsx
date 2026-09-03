@@ -106,9 +106,16 @@ export function EuerSummary({
         </Card>
         <Card className="h-full">
           <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Ausstehende Zahlungen</CardDescription>
+            <CardDescription>Ausstehend</CardDescription>
             <CardTitle className="text-2xl tabular-nums">{formatAmount(data.outstandingCents)}</CardTitle>
-            <CardDescription className="tabular-nums">Noch zu überweisen</CardDescription>
+            <CardDescription className="tabular-nums">zu überweisen</CardDescription>
+          </CardContent>
+        </Card>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col gap-1">
+            <CardDescription>Noch abzuschreiben</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.remainingDepreciationCents)}</CardTitle>
+            <CardDescription className="tabular-nums">Aktive Anlagegüter</CardDescription>
           </CardContent>
         </Card>
         <Card className="h-full">
@@ -116,13 +123,6 @@ export function EuerSummary({
             <CardDescription>Gewinn vor Steuer</CardDescription>
             <CardTitle className="text-2xl tabular-nums">{formatAmount(data.profitCents)}</CardTitle>
             <CardDescription className="tabular-nums">Einnahmen − Ausgaben</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Umbuchungen</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.excludedInternalCents)}</CardTitle>
-            <CardDescription className="tabular-nums">Nicht EÜR-relevant</CardDescription>
           </CardContent>
         </Card>
         <Card className="h-full">

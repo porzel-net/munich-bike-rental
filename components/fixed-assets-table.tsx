@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { FixedAssetDisposalLauncher } from "@/components/fixed-asset-disposal-dialog";
+import { FixedAssetEditLauncher } from "@/components/fixed-asset-edit-dialog";
 import { PrivateAssetContributionLauncher } from "@/components/private-asset-contribution-dialog";
 import { Card, CardDescription, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,9 +13,10 @@ export type FixedAssetRow = {
   id: number;
   assetNumber: string;
   name: string;
-  assetType: string;
+  assetType: "bike" | "equipment" | "other";
   acquisitionDate: string;
   inServiceDate: string;
+  serialNumber: string | null;
   acquisitionCostCents: number;
   usefulLifeMonths: number;
   status: string;
@@ -89,11 +91,14 @@ export function FixedAssetsTable({
                     {euro.format(asset.acquisitionCostCents / 100)}
                   </TableCell>
                   <TableCell>
-                    {asset.status === "active" ? (
-                      <FixedAssetDisposalLauncher asset={asset} financialAccounts={financialAccounts} />
-                    ) : (
-                      "—"
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {asset.status === "active" ? <FixedAssetEditLauncher asset={asset} /> : null}
+                      {asset.status === "active" ? (
+                        <FixedAssetDisposalLauncher asset={asset} financialAccounts={financialAccounts} />
+                      ) : (
+                        "—"
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

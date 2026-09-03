@@ -133,3 +133,36 @@ export async function attachFinancialDocument(
   }
   return { documentId, sha256 };
 }
+
+export async function detachFinancialDocument(db: AppDatabase, input: { transactionId: number; documentId: number }) {
+  const link = db
+    .select({ id: financialDocumentLinks.id })
+    .from(financialDocumentLinks)
+    .where(
+      and(
+        eq(financialDocumentLinks.transactionId, input.transactionId),
+        eq(financialDocumentLinks.documentId, input.documentId),
+      ),
+    )
+    .get();
+  if (!link) throw new BookingCommandError("Der Beleg ist dieser Transaktion nicht zugeordnet.");
+
+  const document = db
+    .select({ storageKey: financialDocuments.storageKey })
+    .from(financialDocuments)
+    .where(eq(financialDocuments.id, input.documentId))
+    .get();
+  if (!document) throw new BookingCommandError("Beleg nicht gefunden.");
+
+  db.delete(financialDocumentLinks).where(eq(financialDocumentLinks.id, link.id)).run();
+  const remainingLink = db
+    .select({ id: financialDocumentLinks.id })
+    .from(financialDocumentLinks)
+    .where(eq(financialDocumentLinks.documentId, input.documentId))
+    .get();
+  if (!remainingLink) {
+    db.delete(financialDocuments).where(eq(financialDocuments.id, input.documentId)).run();
+    await rm(financialDocumentPath(document.storageKey), { force: true });
+  }
+  return { documentId: input.documentId };
+}

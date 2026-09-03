@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
-import { getFinancialReviewState } from "@/lib/financial/review-status";
+import { countOpenFinancialReviews, getFinancialReviewState } from "@/lib/financial/review-status";
 
 export type FinancialReviewCategory = {
   id: number;
@@ -80,6 +80,16 @@ export type FinancialReviewTransaction = {
   notes: string;
   documentCount: number;
   documents: Array<{ id: number; originalFileName: string }>;
+  fixedAsset: {
+    id: number;
+    name: string;
+    assetType: "bike" | "equipment" | "other";
+    serialNumber: string | null;
+    acquisitionDate: string;
+    inServiceDate: string;
+    acquisitionCostCents: number;
+    usefulLifeMonths: number;
+  } | null;
   matchedBooking: { id: number; orderNumber: string } | null;
 };
 
@@ -104,7 +114,7 @@ function formatAmount(amountCents: number, currency = "EUR") {
 function statusLabel(row: FinancialReviewTransaction) {
   const reviewState = getFinancialReviewState(row);
   if (reviewState.status === "ignored") return "Ignoriert";
-  if (reviewState.missing.includes("document")) return "Beleg erforderlich";
+  if (reviewState.missing.includes("document")) return "Beleg fehlt";
   if (reviewState.status === "posted") return "Gebucht & abgestimmt";
   return "Prüfung offen";
 }
@@ -131,7 +141,7 @@ export function FinancialReviewInbox({
   const router = useRouter();
   const [selected, setSelected] = useState<FinancialReviewTransaction | null>(null);
   const initialReviewOpened = useRef(false);
-  const openCount = transactions.filter((row) => getFinancialReviewState(row).status === "needs_review").length;
+  const openCount = countOpenFinancialReviews(transactions);
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
   const [assignmentBookingId, setAssignmentBookingId] = useState("");
@@ -415,6 +425,7 @@ export function FinancialReviewInbox({
         accounts={accounts}
         bookings={bookings}
         bankTransaction={selected}
+        onDocumentChanged={() => router.refresh()}
         onBankCompleted={() => {
           router.refresh();
           setSelected(null);

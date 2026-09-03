@@ -4,13 +4,21 @@ import { afterEach } from "vitest";
 import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
-import { financialAccounts, financialTransactions, fixedAssets, journalLines } from "../../lib/db/schema";
+import {
+  financialAccounts,
+  financialTransactions,
+  fixedAssetDepreciationEntries,
+  fixedAssets,
+  journalLines,
+} from "../../lib/db/schema";
 import { getEuerSummary } from "../../lib/financial/euer";
 import {
   createFixedAsset,
   disposeFixedAsset,
   fixedAssetDepreciationSchedule,
   monthlyDepreciationCents,
+  postDueFixedAssetDepreciation,
+  updateFixedAsset,
 } from "../../lib/financial/fixed-assets";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -38,6 +46,27 @@ describe("fixed asset depreciation", () => {
   it("does not depreciate outside the schedule", () => {
     expect(monthlyDepreciationCents(asset, "2026-07-01")).toBe(0);
     expect(monthlyDepreciationCents(asset, "2033-08-01")).toBe(0);
+  });
+
+  it("reports the remaining depreciable amount for active assets", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    createFixedAsset(connection.db, {
+      name: "Testausstattung",
+      assetType: "equipment",
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      acquisitionCostCents: 100_000,
+      residualValueCents: 10_000,
+      usefulLifeMonths: 10,
+      createdByUserId: null,
+    });
+
+    expect(getEuerSummary(connection.db, 2026).remainingDepreciationCents).toBe(90_000);
+
+    postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-01", actorUserId: null });
+
+    expect(getEuerSummary(connection.db, 2026).remainingDepreciationCents).toBe(81_000);
   });
 
   it("posts AfA through the sale month and includes the sale in the EÜR", () => {
@@ -93,5 +122,45 @@ describe("fixed asset depreciation", () => {
     expect(euer.expenseCents).toBe(120_000);
     expect(euer.outputVatCents).toBe(9_500);
     expect(euer.rows.filter((row) => row.fixedAssetId === created.id)).toHaveLength(6);
+  });
+
+  it("updates asset metadata and rebuilds already posted depreciation when the schedule changes", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Falsches Fahrrad",
+      assetType: "bike",
+      serialNumber: "ALT-123",
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      acquisitionCostCents: 12_000,
+      usefulLifeMonths: 12,
+      createdByUserId: null,
+    });
+    postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-02", actorUserId: null });
+
+    updateFixedAsset(connection.db, {
+      assetId: created.id,
+      name: "Richtiges Fahrrad",
+      assetType: "bike",
+      serialNumber: "NEU-456",
+      inServiceDate: "2026-03-01",
+      usefulLifeMonths: 24,
+      actorUserId: null,
+    });
+
+    expect(connection.db.select().from(fixedAssets).get()).toMatchObject({
+      name: "Richtiges Fahrrad",
+      serialNumber: "NEU-456",
+      inServiceDate: "2026-03-01",
+      usefulLifeMonths: 24,
+    });
+    expect(
+      connection.db
+        .select()
+        .from(fixedAssetDepreciationEntries)
+        .where(eq(fixedAssetDepreciationEntries.fixedAssetId, created.id))
+        .all(),
+    ).toEqual([]);
   });
 });

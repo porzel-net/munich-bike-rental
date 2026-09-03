@@ -60,6 +60,7 @@ function parseGallery(value: string) {
   }
 }
 
+// Keep legacy database paths working after removing the obsolete public PNGs.
 const optimizedBikeMedia: Record<string, string> = {
   "/bikes/aeroad-cf-sl-8-disc/preview.png": "/bikes/aeroad-cf-sl-8-disc/preview.webp",
   "/bikes/aeroad-cf-sl-8-disc/real1.png": "/bikes/aeroad-cf-sl-8-disc/real1.webp",

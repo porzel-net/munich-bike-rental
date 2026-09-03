@@ -30,7 +30,9 @@ const nextConfig = {
   allowedDevOrigins,
   serverExternalPackages: ["@whiskeysockets/baileys"],
   images: {
-    formats: ["image/avif", "image/webp"],
+    // AVIF/HEIF processing stays disabled until the Sharp/libheif bundle
+    // includes libheif 1.23.3 or newer.
+    formats: ["image/webp"],
     // Cap high-DPR requests at 1920px. The old Next.js default allowed 3840px
     // variants for a 1200px blog hero, which wasted bandwidth without a
     // meaningful visual benefit on this site.

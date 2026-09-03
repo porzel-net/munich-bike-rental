@@ -200,15 +200,13 @@ describe("financial edge cases", () => {
     ).toBe(true);
   });
 
-  it("requires a receipt before posting spare parts and consumables", () => {
+  it("posts spare parts and consumables without a receipt", () => {
     const { db, bank, category } = setup();
     const tx = transaction(db, bank.id, -1_250);
 
-    expect(() => post(db, tx.id, category("spare_parts_consumables").id)).toThrow(
-      "Für Betriebsausgaben muss ein Beleg",
-    );
+    expect(() => post(db, tx.id, category("spare_parts_consumables").id)).not.toThrow();
     expect(db.select().from(financialTransactions).where(eq(financialTransactions.id, tx.id)).get()?.status).toBe(
-      "needs_review",
+      "posted",
     );
   });
 

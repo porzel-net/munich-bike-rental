@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFinancialReviewState } from "../../lib/financial/review-status";
+import { countOpenFinancialReviews, getFinancialReviewState } from "../../lib/financial/review-status";
 
 const completeIncome = {
   status: "posted",
@@ -17,6 +17,16 @@ const completeIncome = {
 };
 
 describe("getFinancialReviewState", () => {
+  it("counts the same review states shown in the inbox", () => {
+    expect(
+      countOpenFinancialReviews([
+        { ...completeIncome, documentCount: 1 },
+        { ...completeIncome, status: "imported", documentCount: 1 },
+        { ...completeIncome, status: "ignored", documentCount: 1 },
+      ]),
+    ).toBe(1);
+  });
+
   it("requires an actual booking assignment for rental revenue", () => {
     expect(
       getFinancialReviewState({

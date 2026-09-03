@@ -39,6 +39,7 @@ export type EuerSummary = {
   outputVatCents: number;
   profitCents: number;
   outstandingCents: number;
+  remainingDepreciationCents: number;
   unresolvedCents: number;
   excludedInternalCents: number;
   rows: EuerRow[];
@@ -211,6 +212,22 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     .groupBy(journalEntries.bookingId)
     .all();
   const outstandingCents = outstandingByBooking.reduce((sum, row) => sum + Math.max(0, row.amountCents), 0);
+  const remainingDepreciationCents = db
+    .select({
+      acquisitionCostCents: fixedAssets.acquisitionCostCents,
+      residualValueCents: fixedAssets.residualValueCents,
+      postedDepreciationCents: sql<number>`coalesce(sum(${fixedAssetDepreciationEntries.amountCents}), 0)`,
+    })
+    .from(fixedAssets)
+    .leftJoin(fixedAssetDepreciationEntries, eq(fixedAssetDepreciationEntries.fixedAssetId, fixedAssets.id))
+    .where(eq(fixedAssets.status, "active"))
+    .groupBy(fixedAssets.id)
+    .all()
+    .reduce(
+      (total, asset) =>
+        total + Math.max(0, asset.acquisitionCostCents - asset.residualValueCents - asset.postedDepreciationCents),
+      0,
+    );
   let unresolvedCents = 0;
   let excludedInternalCents = 0;
   for (const row of rows) {
@@ -235,6 +252,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     outputVatCents,
     profitCents: incomeCents - expenseCents,
     outstandingCents,
+    remainingDepreciationCents,
     unresolvedCents,
     excludedInternalCents,
     rows,

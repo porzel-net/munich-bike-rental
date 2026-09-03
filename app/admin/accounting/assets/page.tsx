@@ -46,6 +46,7 @@ export default async function FixedAssetsPage() {
       assetType: asset.assetType,
       acquisitionDate: asset.acquisitionDate,
       inServiceDate: asset.inServiceDate,
+      serialNumber: asset.serialNumber,
       acquisitionCostCents: asset.acquisitionCostCents,
       usefulLifeMonths: asset.usefulLifeMonths,
       status: asset.status,
