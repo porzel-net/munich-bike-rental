@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
@@ -26,9 +27,13 @@ export default async function TeamCallsPage() {
       }
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Anrufe" />
-        <main className="flex flex-1 flex-col p-8 lg:p-12" />
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader title="Anrufe" description="Verwalte Rückrufe und offene Telefonnotizen im Team." />
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

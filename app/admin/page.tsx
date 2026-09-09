@@ -1,8 +1,9 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminDashboardOverview } from "@/components/admin-dashboard-overview";
 import { SiteHeader } from "@/components/site-header";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,7 +68,12 @@ export default async function AdminPage() {
           amountCents: financialTransactions.amountCents,
         })
         .from(financialTransactions)
-        .where(inArray(financialTransactions.financialAccountId, bankAccountIds))
+        .where(
+          and(
+            inArray(financialTransactions.financialAccountId, bankAccountIds),
+            ne(financialTransactions.status, "deleted"),
+          ),
+        )
         .all()
     : [];
   const movementsByAccount = new Map<number, number>();
@@ -462,26 +468,32 @@ export default async function AdminPage() {
       <AppSidebar user={session.user} isAdmin={administrator} variant="inset" />
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Dashboard" />
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-muted dark:bg-background">
+        <div className="admin-page-surface admin-dashboard-surface">
           <ScrollArea className="h-full min-h-0 w-full">
-            <AdminDashboardOverview
-              userId={session.user.id}
-              bankBalanceCents={bankBalanceCents}
-              bankCurrency={bankCurrency}
-              activityData={activityData}
-              currentMonthIndex={currentMonthIndex}
-              initialRevenueGoals={revenueGoals ?? { annualGoalCents: 0, monthlyGoalCents: 0 }}
-              revenueBySize={revenueBySize}
-              utilizationData={utilizationData}
-              bookingDaysByLocation={bookingDaysByLocation}
-              weekdayBookingDays={weekdayBookingDays}
-              munichRequestCapacity={munichRequestCapacity}
-              rentalDaysByLocation={rentalDaysByLocation}
-              bookingFunnelData={bookingFunnelData}
-              bookingFunnelSummary={bookingFunnelSummary}
-              potentialRevenueData={potentialRevenueData.map(({ month, amount }) => ({ month, amount }))}
-              activities={visibleActivities}
-            />
+            <main className="relative z-10 flex flex-1 flex-col gap-6 p-8 lg:p-12">
+              <AdminPageHeader
+                title="Dashboard"
+                description="Die wichtigsten Kennzahlen, Aktivitäten und Entwicklungen auf einen Blick."
+              />
+              <AdminDashboardOverview
+                userId={session.user.id}
+                bankBalanceCents={bankBalanceCents}
+                bankCurrency={bankCurrency}
+                activityData={activityData}
+                currentMonthIndex={currentMonthIndex}
+                initialRevenueGoals={revenueGoals ?? { annualGoalCents: 0, monthlyGoalCents: 0 }}
+                revenueBySize={revenueBySize}
+                utilizationData={utilizationData}
+                bookingDaysByLocation={bookingDaysByLocation}
+                weekdayBookingDays={weekdayBookingDays}
+                munichRequestCapacity={munichRequestCapacity}
+                rentalDaysByLocation={rentalDaysByLocation}
+                bookingFunnelData={bookingFunnelData}
+                bookingFunnelSummary={bookingFunnelSummary}
+                potentialRevenueData={potentialRevenueData.map(({ month, amount }) => ({ month, amount }))}
+                activities={visibleActivities}
+              />
+            </main>
           </ScrollArea>
         </div>
       </SidebarInset>

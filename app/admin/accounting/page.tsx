@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { EuerSummary } from "@/components/euer-summary";
+import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
 import { StripeAutoSyncStatus } from "@/components/stripe-auto-sync-status";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -71,14 +73,25 @@ export default async function AccountingPage() {
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
       <SidebarInset className="min-w-0 overflow-hidden">
-        <SiteHeader title={`EÜR ${euer.year}`} />
+        <SiteHeader title="Buchhaltung" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col p-8 lg:p-12">
-            <div className="mb-2 flex flex-col items-end gap-3">
-              <StripeAutoSyncStatus />
-            </div>
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
+              title={`EÜR ${euer.year}`}
+              description="Einnahmen und Ausgaben nach steuerlicher Kategorie. Interne Umbuchungen bleiben ausgeschlossen."
+              actions={
+                <div className="flex flex-col items-end gap-2">
+                  <ManualFinancialTransactionLauncher
+                    categories={categories}
+                    accounts={accounts}
+                    bookings={bookingReferences}
+                  />
+                  <StripeAutoSyncStatus />
+                </div>
+              }
+            />
             <div className="flex flex-col gap-6">
-              <EuerSummary data={euer} categories={categories} accounts={accounts} bookings={bookingReferences} />
+              <EuerSummary data={euer} />
             </div>
           </main>
         </div>

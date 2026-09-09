@@ -57,6 +57,7 @@ export type FinancialReviewTransaction = {
   accountName: string;
   accountCode: string;
   source: string;
+  provider: string | null;
   kind: string;
   status: string;
   euerTreatment: string | null;
@@ -79,7 +80,7 @@ export type FinancialReviewTransaction = {
   description: string;
   notes: string;
   documentCount: number;
-  documents: Array<{ id: number; originalFileName: string }>;
+  documents: Array<{ id: number; originalFileName: string; mimeType?: string; sizeBytes?: number }>;
   fixedAsset: {
     id: number;
     name: string;
@@ -123,25 +124,47 @@ function bookingStatusLabel(status: string) {
   return bookingPresentation[status as keyof typeof bookingPresentation]?.label ?? status;
 }
 
+type FinancialReviewActionsProps = {
+  transactions: FinancialReviewTransaction[];
+  categories: FinancialReviewCategory[];
+  accounts: FinancialReviewAccount[];
+  bookings: FinancialReviewBooking[];
+};
+
+export function FinancialReviewActions({ transactions, categories, accounts, bookings }: FinancialReviewActionsProps) {
+  const router = useRouter();
+  const openCount = countOpenFinancialReviews(transactions);
+
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <ManualFinancialTransactionLauncher
+        categories={categories}
+        accounts={accounts}
+        bookings={bookings}
+        onCompleted={() => router.refresh()}
+      />
+      <NevloSyncButton />
+      <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
+    </div>
+  );
+}
+
 export function FinancialReviewInbox({
   transactions,
   categories,
   accounts,
   bookings,
   initialTransactionId,
-  title = "Buchhaltung",
 }: {
   transactions: FinancialReviewTransaction[];
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
   bookings: FinancialReviewBooking[];
   initialTransactionId?: number;
-  title?: string;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<FinancialReviewTransaction | null>(null);
   const initialReviewOpened = useRef(false);
-  const openCount = countOpenFinancialReviews(transactions);
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
   const [assignmentBookingId, setAssignmentBookingId] = useState("");
@@ -208,21 +231,6 @@ export function FinancialReviewInbox({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">{title}</h2>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <ManualFinancialTransactionLauncher
-            categories={categories}
-            accounts={accounts}
-            bookings={bookings}
-            onCompleted={() => router.refresh()}
-          />
-          <NevloSyncButton />
-          <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
-        </div>
-      </div>
       <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
         <Table className="text-sm [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
           <TableHeader className="[&_th]:h-9 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground">

@@ -2,14 +2,8 @@
 
 import { useRouter } from "next/navigation";
 
-import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
-import type {
-  FinancialReviewAccount,
-  FinancialReviewBooking,
-  FinancialReviewCategory,
-} from "@/components/financial-review-inbox";
 import type { EuerRow, EuerSummary } from "@/lib/financial/euer";
 import { formatDateOnly } from "@/lib/datetime";
 
@@ -62,17 +56,23 @@ function displaySource(row: EuerRow) {
   return `Bank · ${row.accountName || "Unbekanntes Konto"}`;
 }
 
-export function EuerSummary({
-  data,
-  categories,
-  accounts,
-  bookings,
-}: {
-  data: EuerSummary;
-  categories: FinancialReviewCategory[];
-  accounts: FinancialReviewAccount[];
-  bookings: FinancialReviewBooking[];
-}) {
+function SummaryMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <Card size="sm" className="@container/card h-full rounded-2xl shadow-xs">
+      <CardHeader className="gap-2">
+        <CardDescription className="font-medium">{label}</CardDescription>
+        <CardTitle className="text-2xl font-semibold tracking-tight tabular-nums @[240px]/card:text-3xl">
+          {value}
+        </CardTitle>
+      </CardHeader>
+      <CardFooter className="mt-auto items-start pt-0 text-sm text-muted-foreground">
+        <span>{detail}</span>
+      </CardFooter>
+    </Card>
+  );
+}
+
+export function EuerSummary({ data }: { data: EuerSummary }) {
   const router = useRouter();
   const euerRows = data.rows.filter((row) =>
     ["income", "expense", "tax_payment", "input_vat", "output_vat", "needs_review"].includes(row.euerTreatment),
@@ -80,58 +80,23 @@ export function EuerSummary({
   const profitMargin = data.incomeCents > 0 ? (data.profitCents / data.incomeCents) * 100 : 0;
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">EÜR {data.year}</h2>
-          <p className="text-sm text-muted-foreground">
-            Einnahmen und Ausgaben nach steuerlicher Kategorie. Interne Umbuchungen bleiben ausgeschlossen.
-          </p>
-        </div>
-        <ManualFinancialTransactionLauncher categories={categories} accounts={accounts} bookings={bookings} />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Einnahmen</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.incomeCents)}</CardTitle>
-            <CardDescription className="tabular-nums">Laufendes Jahr</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Ausgaben</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.expenseCents)}</CardTitle>
-            <CardDescription className="tabular-nums">Laufendes Jahr</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Ausstehend</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.outstandingCents)}</CardTitle>
-            <CardDescription className="tabular-nums">zu überweisen</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Noch abzuschreiben</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.remainingDepreciationCents)}</CardTitle>
-            <CardDescription className="tabular-nums">Aktive Anlagegüter</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Gewinn vor Steuer</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatAmount(data.profitCents)}</CardTitle>
-            <CardDescription className="tabular-nums">Einnahmen − Ausgaben</CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="h-full">
-          <CardContent className="flex h-full flex-col gap-1">
-            <CardDescription>Gewinnmarge</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{formatPercentage(profitMargin)}</CardTitle>
-            <CardDescription className="tabular-nums">Gewinn / Einnahmen</CardDescription>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <SummaryMetric label="Einnahmen" value={formatAmount(data.incomeCents)} detail="Laufendes Jahr" />
+        <SummaryMetric label="Ausgaben" value={formatAmount(data.expenseCents)} detail="Laufendes Jahr" />
+        <SummaryMetric label="Ausstehend" value={formatAmount(data.outstandingCents)} detail="Zu überweisen" />
+        <SummaryMetric
+          label="Noch abzuschreiben"
+          value={formatAmount(data.remainingDepreciationCents)}
+          detail="Aktive Anlagegüter"
+        />
+        <SummaryMetric
+          label="Schon abgeschrieben"
+          value={formatAmount(data.postedDepreciationCents)}
+          detail="Aktive Anlagegüter"
+        />
+        <SummaryMetric label="Gewinn vor Steuer" value={formatAmount(data.profitCents)} detail="Einn. − Ausg." />
+        <SummaryMetric label="EBITDA" value={formatAmount(data.ebitdaCents)} detail="Gewinn + USt + AfA" />
+        <SummaryMetric label="Gewinnmarge" value={formatPercentage(profitMargin)} detail="Gewinn / Einnahmen" />
       </div>
       <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
         <Table className="text-sm [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">

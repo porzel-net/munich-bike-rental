@@ -48,11 +48,11 @@ export function FixedAssetsTable({
   const activeCount = useMemo(() => rows.filter((asset) => asset.status === "active").length, [rows]);
 
   return (
-    <Card className="mt-6 overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
+    <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
       <CardContent className="flex flex-col gap-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle>Anlageverzeichnis</CardTitle>
+            <CardTitle>Anlagegüter</CardTitle>
             <CardDescription>
               {activeCount} aktive Anlagegüter · AfA wird automatisch bis zum aktuellen Monat gebucht.
             </CardDescription>

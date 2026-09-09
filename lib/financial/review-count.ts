@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 
 import type { AppDatabase } from "@/lib/db/client";
 import {
@@ -40,10 +40,13 @@ export function getOpenFinancialTransactionCount(db: AppDatabase) {
     )
     .leftJoin(financialCategories, eq(financialCategories.id, financialTransactionAllocations.categoryId))
     .where(
-      or(
-        and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")),
-        eq(financialTransactions.source, "cash"),
-        eq(financialTransactions.source, "manual"),
+      and(
+        ne(financialTransactions.status, "deleted"),
+        or(
+          and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")),
+          eq(financialTransactions.source, "cash"),
+          eq(financialTransactions.source, "manual"),
+        ),
       ),
     )
     .all();

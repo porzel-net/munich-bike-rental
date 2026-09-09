@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import type { CalendarAccountState } from "@/components/admin-calendar/calendar-subscription";
 import type { CalendarFilterOption } from "@/components/admin-calendar/calendar-filters";
 import { AdminCalendarView } from "@/components/admin-calendar/admin-calendar-view";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
@@ -282,7 +283,11 @@ export default async function CalendarPage({
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Kalender" />
         <div className="relative isolate min-h-0 min-w-0 flex-1 overflow-auto bg-muted dark:bg-background">
-          <main className="relative z-10 flex flex-1 flex-col gap-6 p-4 lg:p-8">
+          <main className="relative z-10 flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
+              title="Kalender"
+              description="Behalte Buchungszeiträume, Verfügbarkeiten und Standortauslastung im Blick."
+            />
             <AdminCalendarView
               hasBookings={events.length > 0}
               locationItems={locationItems}

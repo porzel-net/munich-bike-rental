@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import type { CSSProperties } from "react";
 
 import { ManualBookingForm } from "@/components/manual-booking-form";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
@@ -9,6 +10,7 @@ import { bikeModels, bikeVariants, rentalAssets } from "@/lib/db/schema";
 import { getLocationInventory } from "@/lib/inventory/repository";
 import { rentalLocations } from "@/lib/inquiries/catalog";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
@@ -48,19 +50,26 @@ export default async function NewBookingPage() {
     ]),
   );
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as CSSProperties
+      }
+    >
       <AppSidebar user={session.user} isAdmin={administrator} variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Manuelle Buchung" />
-        <main className="mx-auto w-full max-w-5xl p-8 lg:p-12">
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold">Manuelle Buchung</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Die Sprache ist Pflicht. Eine Direktbuchung reserviert jedes ausgewählte konkrete Fahrrad atomar.
-            </p>
-          </div>
-          <ManualBookingForm assets={assets} pricingByLocation={pricingByLocation} />
-        </main>
+        <div className="admin-page-surface">
+          <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
+              title="Manuelle Buchung"
+              description="Die Sprache ist Pflicht. Eine Direktbuchung reserviert jedes ausgewählte konkrete Fahrrad atomar."
+            />
+            <ManualBookingForm assets={assets} pricingByLocation={pricingByLocation} />
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

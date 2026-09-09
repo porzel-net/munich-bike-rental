@@ -51,6 +51,23 @@ export type OfferMailInput = {
   alternativeReason?: string;
 };
 
+const alternativeReasonTranslations: Record<string, string> = {
+  "Das gewünschte Fahrrad ist leider nicht verfügbar. Wir können dir stattdessen dieses Fahrrad anbieten.":
+    "Unfortunately, the bike you requested is not available. We can offer you this bike instead.",
+  "Wir können dir stattdessen ein anderes Modell derselben Kategorie anbieten.":
+    "We can offer you a different model from the same category instead.",
+  "Wir können dir stattdessen ein Fahrrad einer anderen Kategorie anbieten.":
+    "We can offer you a bike from a different category instead.",
+  "Das gewünschte Fahrrad ist in einem anderen Zeitraum verfügbar.":
+    "The bike you requested is available during a different period.",
+};
+
+function getAlternativeReason(reason: string | undefined, locale: "de" | "en") {
+  const trimmedReason = reason?.trim() ?? "";
+  if (locale === "de" || !trimmedReason) return trimmedReason;
+  return alternativeReasonTranslations[trimmedReason] ?? trimmedReason;
+}
+
 function bookingPageUrl(token: string) {
   const origin = siteConfig.url.replace(/\/$/, "");
   return `${origin}/angebot/${encodeURIComponent(token)}`;
@@ -80,6 +97,7 @@ function cancellationPolicyDescription(period: string | undefined, locale: "de" 
 
 export function renderOfferMail(input: OfferMailInput) {
   const de = input.locale === "de";
+  const alternativeReason = getAlternativeReason(input.alternativeReason, input.locale);
   const offerItems = input.requested.map((item) => {
     const bikeName =
       input.alternative && item.requestedLabel !== item.assetName
@@ -162,11 +180,11 @@ export function renderOfferMail(input: OfferMailInput) {
           ? [personalMessage]
           : [
               input.alternative
-                ? `${alternativeIntro}${input.alternativeReason ? `\n\nGrund für die Änderung: ${input.alternativeReason}` : ""}`
+                ? `${alternativeIntro}${alternativeReason ? `\n\nGrund für die Änderung: ${alternativeReason}` : ""}`
                 : standardIntro,
             ]),
-        ...(personalMessage && input.alternative && input.alternativeReason
-          ? [`Grund für die Änderung: ${input.alternativeReason}`]
+        ...(personalMessage && input.alternative && alternativeReason
+          ? [`Grund für die Änderung: ${alternativeReason}`]
           : []),
         "",
         `Auftragsnummer: ${input.orderNumber}`,
@@ -207,11 +225,11 @@ export function renderOfferMail(input: OfferMailInput) {
           ? [personalMessage]
           : [
               input.alternative
-                ? `${alternativeIntro}${input.alternativeReason ? `\n\nReason for the change: ${input.alternativeReason}` : ""}`
+                ? `${alternativeIntro}${alternativeReason ? `\n\nReason for the change: ${alternativeReason}` : ""}`
                 : standardIntro,
             ]),
-        ...(personalMessage && input.alternative && input.alternativeReason
-          ? [`Reason for the change: ${input.alternativeReason}`]
+        ...(personalMessage && input.alternative && alternativeReason
+          ? [`Reason for the change: ${alternativeReason}`]
           : []),
         "",
         `Order number: ${input.orderNumber}`,
@@ -301,7 +319,7 @@ export function renderOfferMail(input: OfferMailInput) {
       ? `Dein ${input.alternative ? "Alternativ " : "Bike-"}Angebot`
       : `Your ${input.alternative ? "alternative " : "bike "}offer`,
     intro: personalMessage || (input.alternative ? alternativeIntro : standardIntro),
-    content: `${input.alternative && input.alternativeReason ? emailCard(`${emailLabel(de ? "Grund für die Änderung" : "Reason for the change")}${emailParagraph(input.alternativeReason)}`, "#eef2ff") : ""}${details}<div style="margin:26px 0 0">${emailLabel(de ? "Für dich reserviert" : "Reserved for you")}${bikeCards}</div><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 18px"><tr><td style="color:#697177;font-size:13px">${escapeHtml(de ? "Gesamtpreis" : "Total price")}</td><td align="right" style="color:#171a1d;font-size:24px;font-weight:800;letter-spacing:-.03em">${escapeHtml(formatEuro(input.totalCents, input.locale))}</td></tr></table>${customPriceNote}${emailCard(`<strong style="display:block;margin-bottom:8px;color:#171a1d;font-size:14px">${escapeHtml(de ? "Nächster Schritt" : "Next step")}</strong>${emailParagraph(de ? "Dieses Angebot bleibt 36 Stunden für dich reserviert. Wenn du es verbindlich buchen möchtest, öffne den Buchungslink und bezahle den Gesamtpreis über Stripe. Nach erfolgreicher Zahlung wird deine Buchung automatisch bestätigt." : "This offer remains reserved for you for 36 hours. If you would like to book it, open the booking link and pay the total through Stripe. After successful payment, your booking is confirmed automatically.")}`, "#eef2ff")}${input.customerMessage ? emailCard(`${emailLabel(de ? "Deine Nachricht" : "Your message")}${emailParagraph(input.customerMessage)}`) : ""}<div style="margin-top:23px">${emailLabel(de ? "Checkliste für die Abholung" : "Pickup checklist")}<ul style="margin:0;padding:0 0 0 19px;color:#4f5960;font-size:13px;line-height:1.8">${checklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`,
+    content: `${input.alternative && alternativeReason ? emailCard(`${emailLabel(de ? "Grund für die Änderung" : "Reason for the change")}${emailParagraph(alternativeReason)}`, "#eef2ff") : ""}${details}<div style="margin:26px 0 0">${emailLabel(de ? "Für dich reserviert" : "Reserved for you")}${bikeCards}</div><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:22px 0 18px"><tr><td style="color:#697177;font-size:13px">${escapeHtml(de ? "Gesamtpreis" : "Total price")}</td><td align="right" style="color:#171a1d;font-size:24px;font-weight:800;letter-spacing:-.03em">${escapeHtml(formatEuro(input.totalCents, input.locale))}</td></tr></table>${customPriceNote}${emailCard(`<strong style="display:block;margin-bottom:8px;color:#171a1d;font-size:14px">${escapeHtml(de ? "Nächster Schritt" : "Next step")}</strong>${emailParagraph(de ? "Dieses Angebot bleibt 36 Stunden für dich reserviert. Wenn du es verbindlich buchen möchtest, öffne den Buchungslink und bezahle den Gesamtpreis über Stripe. Nach erfolgreicher Zahlung wird deine Buchung automatisch bestätigt." : "This offer remains reserved for you for 36 hours. If you would like to book it, open the booking link and pay the total through Stripe. After successful payment, your booking is confirmed automatically.")}`, "#eef2ff")}${input.customerMessage ? emailCard(`${emailLabel(de ? "Deine Nachricht" : "Your message")}${emailParagraph(input.customerMessage)}`) : ""}<div style="margin-top:23px">${emailLabel(de ? "Checkliste für die Abholung" : "Pickup checklist")}<ul style="margin:0;padding:0 0 0 19px;color:#4f5960;font-size:13px;line-height:1.8">${checklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>`,
     cta: { label: de ? "Angebot öffnen" : "Open offer", href: bookingPageUrl(input.token) },
   });
   return { subject, text, html };

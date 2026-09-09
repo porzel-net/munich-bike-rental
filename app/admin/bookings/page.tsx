@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
 import { BookingAiBatchAnalysisButton } from "@/components/booking-ai-batch-analysis-button";
 import { BookingPreflightDialog } from "@/components/booking-preflight-dialog";
@@ -228,21 +229,19 @@ export default async function BookingsPage({
         <div className="relative isolate min-h-0 min-w-0 flex-1 overflow-hidden bg-muted dark:bg-background">
           <ScrollArea className="h-full min-h-0 w-full">
             <main className="relative z-10 flex flex-1 flex-col gap-6 p-8 lg:p-12">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-semibold">Buchungsübersicht</h1>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Bearbeite Status, Fahrräder, Preise und Nachrichten direkt in der jeweiligen Buchung.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {administrator && <BookingAiBatchAnalysisButton />}
-                  {administrator && preflight && <BookingPreflightDialog result={preflight} />}
-                  <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
-                    Manuelle Buchung
-                  </Button>
-                </div>
-              </div>
+              <AdminPageHeader
+                title="Buchungsübersicht"
+                description="Bearbeite Status, Fahrräder, Preise und Nachrichten direkt in der jeweiligen Buchung."
+                actions={
+                  <>
+                    {administrator && <BookingAiBatchAnalysisButton />}
+                    {administrator && preflight && <BookingPreflightDialog result={preflight} />}
+                    <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
+                      Manuelle Buchung
+                    </Button>
+                  </>
+                }
+              />
               <div className="flex flex-col gap-4">
                 <BookingStatusFilter
                   canFilterLocations={administrator}

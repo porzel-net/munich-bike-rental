@@ -1,7 +1,13 @@
 import { and, eq, gt, inArray, ne } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
-import { accountingAccounts, financialAccounts, journalEntries, journalLines } from "../db/schema";
+import {
+  accountingAccounts,
+  financialAccounts,
+  financialTransactions,
+  journalEntries,
+  journalLines,
+} from "../db/schema";
 
 import { BookingCommandError } from "./errors";
 
@@ -178,9 +184,10 @@ export function hasBookingCharge(db: AppDatabase, bookingId: number) {
 /** Cash payments and refunds recorded for a booking, independent of their posting order. */
 export function getReceivedPaymentCents(db: AppDatabase, bookingId: number) {
   return db
-    .select({ amountCents: journalLines.amountCents })
+    .select({ amountCents: journalLines.amountCents, transactionStatus: financialTransactions.status })
     .from(journalLines)
     .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
+    .leftJoin(financialTransactions, eq(financialTransactions.id, journalEntries.financialTransactionId))
     .where(
       and(
         eq(journalEntries.bookingId, bookingId),
@@ -189,5 +196,6 @@ export function getReceivedPaymentCents(db: AppDatabase, bookingId: number) {
       ),
     )
     .all()
+    .filter((row) => row.transactionStatus !== "deleted")
     .reduce((sum, line) => sum + line.amountCents, 0);
 }

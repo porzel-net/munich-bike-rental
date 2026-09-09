@@ -897,7 +897,7 @@ describe("financial reconciliation", () => {
 
     postFixedAssetDepreciation(db, { assetId: asset.id, periodStart: "2026-01-01", actorUserId: "admin" });
     expect(db.select().from(fixedAssetDepreciationEntries).all()).toHaveLength(1);
-    expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 1_190, profitCents: -1_190 });
+    expect(getEuerSummary(db, 2026)).toMatchObject({ expenseCents: 1_190, profitCents: -1_190, ebitdaCents: 0 });
   });
 
   it("records a manual account payment against a booking", () => {

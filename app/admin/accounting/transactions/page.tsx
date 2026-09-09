@@ -1,15 +1,17 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, ne, or } from "drizzle-orm";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 
 import {
+  FinancialReviewActions,
   FinancialReviewInbox,
   type FinancialReviewAccount,
   type FinancialReviewCategory,
   type FinancialReviewTransaction,
 } from "@/components/financial-review-inbox";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
@@ -114,10 +116,13 @@ export default async function BankTransactionsPage({
     )
     .leftJoin(financialCategories, eq(financialCategories.id, financialTransactionAllocations.categoryId))
     .where(
-      or(
-        and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")),
-        eq(financialTransactions.source, "cash"),
-        eq(financialTransactions.source, "manual"),
+      and(
+        ne(financialTransactions.status, "deleted"),
+        or(
+          and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")),
+          eq(financialTransactions.source, "cash"),
+          eq(financialTransactions.source, "manual"),
+        ),
       ),
     )
     .orderBy(desc(financialTransactions.bookedAt), desc(financialTransactions.id))
@@ -127,6 +132,8 @@ export default async function BankTransactionsPage({
       transactionId: financialDocumentLinks.transactionId,
       documentId: financialDocuments.id,
       originalFileName: financialDocuments.originalFileName,
+      mimeType: financialDocuments.mimeType,
+      sizeBytes: financialDocuments.sizeBytes,
     })
     .from(financialDocumentLinks)
     .innerJoin(financialDocuments, eq(financialDocumentLinks.documentId, financialDocuments.id))
@@ -134,11 +141,16 @@ export default async function BankTransactionsPage({
     .reduce((documents, link) => {
       if (link.transactionId) {
         const existing = documents.get(link.transactionId) ?? [];
-        existing.push({ id: link.documentId, originalFileName: link.originalFileName });
+        existing.push({
+          id: link.documentId,
+          originalFileName: link.originalFileName,
+          mimeType: link.mimeType,
+          sizeBytes: link.sizeBytes,
+        });
         documents.set(link.transactionId, existing);
       }
       return documents;
-    }, new Map<number, Array<{ id: number; originalFileName: string }>>());
+    }, new Map<number, Array<{ id: number; originalFileName: string; mimeType: string; sizeBytes: number }>>());
   const groupedTransactions = new Map<number, (typeof reviewTransactions)[number] & { allocatedCents: number }>();
   for (const row of reviewTransactions) {
     const existing = groupedTransactions.get(row.id);
@@ -210,9 +222,20 @@ export default async function BankTransactionsPage({
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Finanztransaktionen" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col p-8 lg:p-12">
-            <FinancialReviewInbox
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
               title="Finanztransaktionen"
+              description="Prüfe, ordne und verbuche deine Bank- und manuellen Transaktionen."
+              actions={
+                <FinancialReviewActions
+                  transactions={reviewTransactionsForClient}
+                  categories={categories as FinancialReviewCategory[]}
+                  accounts={availableAccounts as FinancialReviewAccount[]}
+                  bookings={bookingReferences}
+                />
+              }
+            />
+            <FinancialReviewInbox
               transactions={reviewTransactionsForClient}
               categories={categories as FinancialReviewCategory[]}
               accounts={availableAccounts as FinancialReviewAccount[]}

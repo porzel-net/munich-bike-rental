@@ -300,7 +300,7 @@ export function AccountingJournalTable({ entries }: { entries: JournalEntry[] })
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Finanzjournal</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Finanzjournal</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Unveränderliche Erträge und Aufwände mit nachvollziehbarer Quelle.
           </p>

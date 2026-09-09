@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
 
 import type { AppDatabase } from "@/lib/db/client";
 import { bookings, financialTransactions, journalEntries } from "@/lib/db/schema";
@@ -58,7 +58,14 @@ export function getDashboardActivities(
     .select({ bookingId: journalEntries.bookingId, occurredAt: journalEntries.occurredAt })
     .from(journalEntries)
     .innerJoin(bookings, eq(journalEntries.bookingId, bookings.id))
-    .where(and(eq(journalEntries.kind, "payment_received"), location ? eq(bookings.location, location) : undefined))
+    .leftJoin(financialTransactions, eq(financialTransactions.id, journalEntries.financialTransactionId))
+    .where(
+      and(
+        eq(journalEntries.kind, "payment_received"),
+        or(isNull(financialTransactions.id), ne(financialTransactions.status, "deleted")),
+        location ? eq(bookings.location, location) : undefined,
+      ),
+    )
     .all();
   const paidAtByBooking = new Map<number, Date>();
   for (const row of paidBookingRows) {

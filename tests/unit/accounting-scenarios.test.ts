@@ -149,6 +149,7 @@ describe("end-to-end accounting scenarios", () => {
       incomeCents: 100_000,
       expenseCents: 33_000,
       profitCents: 67_000,
+      ebitdaCents: 75_000,
       vatPaymentCents: 8_000,
       inputVatCents: 4_750,
       outputVatCents: 1_900,

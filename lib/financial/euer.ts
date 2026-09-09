@@ -38,7 +38,9 @@ export type EuerSummary = {
   inputVatCents: number;
   outputVatCents: number;
   profitCents: number;
+  ebitdaCents: number;
   outstandingCents: number;
+  postedDepreciationCents: number;
   remainingDepreciationCents: number;
   unresolvedCents: number;
   excludedInternalCents: number;
@@ -201,6 +203,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
   let vatPaymentCents = 0;
   let inputVatCents = 0;
   let outputVatCents = 0;
+  let depreciationCents = 0;
   const outstandingByBooking = db
     .select({
       bookingId: journalEntries.bookingId,
@@ -212,7 +215,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     .groupBy(journalEntries.bookingId)
     .all();
   const outstandingCents = outstandingByBooking.reduce((sum, row) => sum + Math.max(0, row.amountCents), 0);
-  const remainingDepreciationCents = db
+  const activeAssetValues = db
     .select({
       acquisitionCostCents: fixedAssets.acquisitionCostCents,
       residualValueCents: fixedAssets.residualValueCents,
@@ -222,19 +225,22 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     .leftJoin(fixedAssetDepreciationEntries, eq(fixedAssetDepreciationEntries.fixedAssetId, fixedAssets.id))
     .where(eq(fixedAssets.status, "active"))
     .groupBy(fixedAssets.id)
-    .all()
-    .reduce(
-      (total, asset) =>
-        total + Math.max(0, asset.acquisitionCostCents - asset.residualValueCents - asset.postedDepreciationCents),
-      0,
-    );
+    .all();
+  const postedDepreciationCents = activeAssetValues.reduce((total, asset) => total + asset.postedDepreciationCents, 0);
+  const remainingDepreciationCents = activeAssetValues.reduce(
+    (total, asset) =>
+      total + Math.max(0, asset.acquisitionCostCents - asset.residualValueCents - asset.postedDepreciationCents),
+    0,
+  );
   let unresolvedCents = 0;
   let excludedInternalCents = 0;
   for (const row of rows) {
     const amount = Math.abs(row.amountCents);
     if (row.euerTreatment === "income") incomeCents += row.amountCents;
-    else if (row.euerTreatment === "expense") expenseCents += row.source === "depreciation" ? amount : -row.amountCents;
-    else if (row.euerTreatment === "tax_payment") {
+    else if (row.euerTreatment === "expense") {
+      if (row.source === "depreciation") depreciationCents += amount;
+      expenseCents += row.source === "depreciation" ? amount : -row.amountCents;
+    } else if (row.euerTreatment === "tax_payment") {
       vatPaymentCents += amount;
       expenseCents += amount;
     } else if (row.euerTreatment === "input_vat") inputVatCents += amount;
@@ -243,6 +249,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     else if (row.euerTreatment === "transfer") excludedInternalCents += amount;
   }
 
+  const profitCents = incomeCents - expenseCents;
+
   return {
     year,
     incomeCents,
@@ -250,8 +258,10 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
     vatPaymentCents,
     inputVatCents,
     outputVatCents,
-    profitCents: incomeCents - expenseCents,
+    profitCents,
+    ebitdaCents: profitCents + vatPaymentCents + depreciationCents,
     outstandingCents,
+    postedDepreciationCents,
     remainingDepreciationCents,
     unresolvedCents,
     excludedInternalCents,

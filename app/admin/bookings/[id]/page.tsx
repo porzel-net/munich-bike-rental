@@ -1,5 +1,5 @@
 import * as React from "react";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -192,7 +192,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
         })
         .from(financialTransactions)
         .innerJoin(financialAccounts, eq(financialTransactions.financialAccountId, financialAccounts.id))
-        .where(inArray(financialTransactions.id, [...new Set(transactionIds)]))
+        .where(
+          and(
+            inArray(financialTransactions.id, [...new Set(transactionIds)]),
+            ne(financialTransactions.status, "deleted"),
+          ),
+        )
         .orderBy(desc(financialTransactions.bookedAt), desc(financialTransactions.id))
         .all()
     : [];

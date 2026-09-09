@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
 
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -151,17 +152,17 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
 
   return (
     <>
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Team</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Nutzer und Berechtigungen verwalten.</p>
-          </div>
-          <Button variant="outline" size="icon-sm" onClick={() => setIsInviteOpen(true)}>
-            <Plus />
-            <span className="sr-only">Neuen Einladungslink erstellen</span>
-          </Button>
-        </div>
+      <div className="flex flex-col gap-6">
+        <AdminPageHeader
+          title="Team"
+          description="Nutzer und Berechtigungen verwalten."
+          actions={
+            <Button variant="outline" size="sm" onClick={() => setIsInviteOpen(true)}>
+              <Plus />
+              Einladungslink erstellen
+            </Button>
+          }
+        />
         {message ? <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{message}</p> : null}
         <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
           <CardContent className="p-0">

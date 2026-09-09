@@ -805,6 +805,47 @@ describe("booking commands", () => {
     expect(mail.html).toContain('href="https://www.munich-bike-rental.de/angebot/test-token"');
   });
 
+  it.each([
+    [
+      "Das gewünschte Fahrrad ist leider nicht verfügbar. Wir können dir stattdessen dieses Fahrrad anbieten.",
+      "Unfortunately, the bike you requested is not available. We can offer you this bike instead.",
+    ],
+    [
+      "Wir können dir stattdessen ein anderes Modell derselben Kategorie anbieten.",
+      "We can offer you a different model from the same category instead.",
+    ],
+    [
+      "Wir können dir stattdessen ein Fahrrad einer anderen Kategorie anbieten.",
+      "We can offer you a bike from a different category instead.",
+    ],
+    [
+      "Das gewünschte Fahrrad ist in einem anderen Zeitraum verfügbar.",
+      "The bike you requested is available during a different period.",
+    ],
+  ])("translates the predefined alternative reason in an English offer (%s)", (germanReason, englishReason) => {
+    const mail = renderOfferMail({
+      locale: "en",
+      alternative: true,
+      alternativeReason: germanReason,
+      name: "Ada Lovelace",
+      orderNumber: "#2026",
+      requested: [{ requestedLabel: "Wunschrad", assetName: "Alternativrad", heightCm: 170 }],
+      totalCents: 10_000,
+      periodFrom: "2026-07-20",
+      periodTo: "2026-07-21",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      location: "munich",
+      token: "VORSCHAU",
+      senderFirstName: "Julius",
+    });
+
+    expect(mail.text).toContain(`Reason for the change: ${englishReason}`);
+    expect(mail.html).toContain(englishReason);
+    expect(mail.text).not.toContain(germanReason);
+    expect(mail.html).not.toContain(germanReason);
+  });
+
   it("queues a localized offer and atomically reserves the chosen asset only on confirmation", () => {
     const { db, assetId } = setup();
     db.update(rentalAssets).set({ nickname: "Interner Spitzname" }).where(eq(rentalAssets.id, assetId)).run();

@@ -104,7 +104,7 @@ export function WhatsAppSettingsPanel() {
         )}
 
         <div className="text-center">
-          <h2 className="text-lg font-semibold">WhatsApp-Konto verbinden</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Konto verbinden</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Öffne WhatsApp auf deinem Handy und gehe zu Einstellungen → Verknüpfte Geräte → Gerät hinzufügen. Scanne
             anschließend diesen QR-Code. Das verbundene Konto steht danach allen Admins zur Verfügung.

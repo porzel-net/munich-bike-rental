@@ -5,6 +5,7 @@ import { BookingCommandError } from "@/lib/bookings/errors";
 import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { deleteManualFinancialTransaction } from "@/lib/financial/manual-transactions";
 import {
   assignNevloTransactionToBooking,
   ignoreFinancialTransaction,
@@ -53,6 +54,41 @@ const schema = z.discriminatedUnion("action", [
 
 function authorized(request: Request, session: Awaited<ReturnType<typeof getServerSession>>) {
   return hasTrustedOrigin(request) && session && canUseAdminApiAsAdmin(session.user);
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession();
+  if (!session)
+    return NextResponse.json(
+      { message: "Deine Admin-Sitzung ist nicht mehr gültig. Bitte melde dich erneut an." },
+      { status: 401 },
+    );
+  if (!authorized(request, session))
+    return NextResponse.json(
+      { message: "Du hast keine Berechtigung, diese Finanztransaktion zu löschen." },
+      { status: 401 },
+    );
+  const transactionId = Number((await context.params).id);
+  if (!Number.isInteger(transactionId) || transactionId <= 0)
+    return NextResponse.json({ message: "Die ausgewählte Finanztransaktion ist ungültig." }, { status: 400 });
+
+  try {
+    const result = deleteManualFinancialTransaction(getDatabase(), {
+      transactionId,
+      actorUserId: session.user.id,
+    });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof BookingCommandError
+            ? error.message
+            : "Die manuelle Finanztransaktion konnte nicht gelöscht werden. Aktualisiere die Liste und versuche es erneut.",
+      },
+      { status: 409 },
+    );
+  }
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {

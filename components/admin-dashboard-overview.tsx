@@ -957,7 +957,7 @@ export function AdminDashboardOverview({
   return (
     <div
       data-slot="demo"
-      className="theme-neutral relative isolate flex min-w-0 max-w-full flex-col gap-(--gap) overflow-hidden bg-muted p-6 pb-48 [--gap:--spacing(6)] dark:bg-background min-[1900px]:p-12 min-[1900px]:[--gap:--spacing(8)]"
+      className="theme-neutral relative isolate flex min-w-0 max-w-full flex-col gap-(--gap) overflow-hidden bg-transparent p-2 pb-48 [--gap:--spacing(6)] dark:bg-transparent min-[1900px]:[--gap:--spacing(8)]"
     >
       <div className="relative z-10 mx-auto grid min-w-0 max-w-full grid-cols-1 gap-(--gap) md:grid-cols-2 lg:grid-cols-3 xl:max-w-[1600px] 2xl:max-w-[1900px]">
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
@@ -975,6 +975,7 @@ export function AdminDashboardOverview({
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
           <ActivityInformer activities={activities} />
           <PowerUsage utilizationData={utilizationData} currentMonthIndex={currentMonthIndex} />
+          <BookingFunnel data={bookingFunnelData} summary={bookingFunnelSummary} />
           <TrafficChannels rentalDaysByLocation={rentalDaysByLocation} />
         </div>
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
@@ -986,10 +987,8 @@ export function AdminDashboardOverview({
           />
           <BookingDevelopment bookingDaysByLocation={bookingDaysByLocation} />
           <EnduraceRevenue revenueBySize={revenueBySize} currency={bankCurrency} />
-          <BookingFunnel data={bookingFunnelData} summary={bookingFunnelSummary} />
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-1 h-48 bg-linear-to-b from-background via-muted to-transparent dark:hidden" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-48 bg-linear-to-t from-background via-muted/80 to-transparent dark:via-background/80" />
     </div>
   );

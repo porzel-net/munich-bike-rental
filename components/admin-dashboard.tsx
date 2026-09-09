@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -54,16 +55,16 @@ export function AdminDashboard({ userName }: { userName: string }) {
   }
 
   return (
-    <main className="container py-12">
-      <div className="mb-10 flex items-start justify-between gap-6">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">Geschützter Bereich</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Willkommen, {userName}</h1>
-        </div>
-        <Button variant="outline" type="button" onClick={signOut}>
-          Abmelden
-        </Button>
-      </div>
+    <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+      <AdminPageHeader
+        title={`Willkommen, ${userName}`}
+        description="Geschützter Bereich für Team- und Benutzerverwaltung."
+        actions={
+          <Button variant="outline" type="button" onClick={signOut}>
+            Abmelden
+          </Button>
+        }
+      />
       <Card className="max-w-xl">
         <CardHeader>
           <CardTitle>Einladung erzeugen</CardTitle>

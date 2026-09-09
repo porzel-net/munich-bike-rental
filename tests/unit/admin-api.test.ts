@@ -63,7 +63,10 @@ import {
   PATCH as inventoryPatch,
   POST as inventoryPost,
 } from "../../app/api/admin/inventory/route";
-import { POST as financialTransactionPost } from "../../app/api/admin/financial/transactions/[id]/route";
+import {
+  DELETE as financialTransactionDelete,
+  POST as financialTransactionPost,
+} from "../../app/api/admin/financial/transactions/[id]/route";
 import { POST as manualTransactionPost } from "../../app/api/admin/financial/transactions/manual/route";
 import { POST as financialAccountPost } from "../../app/api/admin/financial/accounts/route";
 import { PATCH as financialAccountPatch } from "../../app/api/admin/financial/accounts/[id]/route";
@@ -78,6 +81,7 @@ import {
   financialAccounts,
   financialCategories,
   financialTransactions,
+  journalEntries,
   fixedAssets,
   bikeModels,
   bikeVariants,
@@ -655,6 +659,8 @@ describe("admin financial APIs", () => {
       }),
     );
     expect(manual.status).toBe(200);
+    const manualResult = await manual.json();
+    const manualTransactionId = manualResult.transactionId as number;
     expect(
       db
         .select()
@@ -662,6 +668,19 @@ describe("admin financial APIs", () => {
         .all()
         .some((row) => row.status === "posted"),
     ).toBe(true);
+
+    const deleted = await financialTransactionDelete(
+      request(`/api/admin/financial/transactions/${manualTransactionId}`, "DELETE"),
+      { params: Promise.resolve({ id: String(manualTransactionId) }) },
+    );
+    expect(deleted.status).toBe(200);
+    const deletedTransactionId = (await deleted.json()).transactionId;
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, deletedTransactionId)).get()?.status,
+    ).toBe("deleted");
+    expect(
+      db.select().from(journalEntries).where(eq(journalEntries.financialTransactionId, deletedTransactionId)).all(),
+    ).toHaveLength(2);
 
     const createdAccountResponse = await financialAccountPost(
       request("/api/admin/financial/accounts", "POST", {

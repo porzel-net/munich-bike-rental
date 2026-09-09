@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 
+import { recordAdminAuditEvent } from "../auth/audit";
 import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import {
   bookings,
@@ -7,7 +8,9 @@ import {
   financialCategories,
   financialTransactionAllocations,
   financialTransactions,
+  fixedAssets,
   journalEntries,
+  journalLines,
 } from "../db/schema";
 import { postFinancialTransactionInTransaction } from "./reconciliation";
 import { getBookingRevenueCategory } from "./categories";
@@ -22,6 +25,90 @@ type ManualTransactionResult = {
   bookingId?: number;
   orderNumber?: string;
 };
+
+function isDeletableManualTransaction(transaction: typeof financialTransactions.$inferSelect) {
+  return (
+    ["cash", "manual"].includes(transaction.source) &&
+    (transaction.provider === "manual" || transaction.provider === "manual_booking")
+  );
+}
+
+/**
+ * Hides a manually entered transaction from operational views while keeping
+ * the append-only journal auditable. Existing postings are neutralized with
+ * correction entries instead of deleting journal history.
+ */
+export function deleteManualFinancialTransaction(
+  db: AppDatabase,
+  input: { transactionId: number; actorUserId: string },
+) {
+  return runInImmediateTransaction(db, () => {
+    const transaction = db
+      .select()
+      .from(financialTransactions)
+      .where(eq(financialTransactions.id, input.transactionId))
+      .get();
+    if (!transaction) throw new BookingCommandError("Manuelle Finanztransaktion nicht gefunden.");
+    if (!isDeletableManualTransaction(transaction))
+      throw new BookingCommandError("Nur manuell erfasste Transaktionen können gelöscht werden.");
+    if (transaction.status === "deleted") return { transactionId: transaction.id };
+
+    const linkedAsset = db
+      .select({ id: fixedAssets.id })
+      .from(financialTransactionAllocations)
+      .innerJoin(fixedAssets, eq(financialTransactionAllocations.fixedAssetId, fixedAssets.id))
+      .where(eq(financialTransactionAllocations.transactionId, transaction.id))
+      .get();
+    if (linkedAsset)
+      throw new BookingCommandError(
+        "Transaktionen mit einem verknüpften Anlagegut können nicht gelöscht werden. Korrigiere die Anlagebuchung bitte separat.",
+      );
+
+    const entries = db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.financialTransactionId, transaction.id))
+      .all();
+    const now = new Date();
+    for (const entry of entries) {
+      const lines = db
+        .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+        .from(journalLines)
+        .where(eq(journalLines.entryId, entry.id))
+        .all();
+      if (!lines.length) throw new BookingCommandError("Die Transaktion hat einen unvollständigen Journalposten.");
+      appendJournalEntry(db, {
+        bookingId: entry.bookingId ?? undefined,
+        financialTransactionId: transaction.id,
+        actorUserId: input.actorUserId,
+        kind: "correction",
+        reason: `Manuelle Transaktion gelöscht: ${transaction.description || transaction.reference || transaction.id}`,
+        reversesEntryId: entry.id,
+        occurredAt: now,
+        lines: lines.map((line) => ({ account: line.account, amountCents: -line.amountCents })),
+      });
+    }
+
+    db.update(financialTransactions)
+      .set({
+        status: "deleted",
+        notes: [transaction.notes, "Im Admin gelöscht"].filter(Boolean).join("\n"),
+        reconciledAt: now,
+        reconciledByUserId: input.actorUserId,
+        updatedAt: now,
+      })
+      .where(eq(financialTransactions.id, transaction.id))
+      .run();
+    recordAdminAuditEvent(db, {
+      actorUserId: input.actorUserId,
+      action: "financial_transaction_deleted",
+      targetType: "financial_transaction",
+      targetId: transaction.id,
+      metadata: { source: transaction.source, provider: transaction.provider, amountCents: transaction.amountCents },
+    });
+    return { transactionId: transaction.id };
+  });
+}
 
 export function getOrCreateCashAccount(db: AppDatabase) {
   const existing = db.select().from(financialAccounts).where(eq(financialAccounts.code, "cash_main")).get();

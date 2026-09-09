@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { FixedAssetsTable, type FixedAssetRow } from "@/components/fixed-assets-table";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -73,7 +74,11 @@ export default async function FixedAssetsPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Anlageverzeichnis" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col p-8 lg:p-12">
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
+              title="Anlageverzeichnis"
+              description="Verwalte Anlagegüter, Abschreibungen und aktuelle Buchwerte."
+            />
             <FixedAssetsTable assets={assets} financialAccounts={financialAccountOptions} />
           </main>
         </div>

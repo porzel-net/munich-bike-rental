@@ -1,6 +1,7 @@
 import { AdminSettingsForm } from "@/components/admin-settings-form";
 import type { Metadata } from "next";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { GlobalSettingsPanel } from "@/components/global-settings-panel";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -69,12 +70,10 @@ export default async function SettingsPage() {
                 ) : null}
               </TabsList>
               <TabsContent value="personal" className="flex flex-col gap-6">
-                <div>
-                  <h1 className="text-2xl font-semibold">Persönliche Einstellungen</h1>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Hinterlege deine Kontaktdaten für die Kommunikation im Team.
-                  </p>
-                </div>
+                <AdminPageHeader
+                  title="Persönliche Einstellungen"
+                  description="Hinterlege deine Kontaktdaten für die Kommunikation im Team."
+                />
                 <AdminSettingsForm
                   initialWhatsappPhone={user?.whatsappPhone ?? ""}
                   initialPrivateAddress={user?.privateAddress ?? ""}
@@ -82,12 +81,10 @@ export default async function SettingsPage() {
               </TabsContent>
               {admin ? (
                 <TabsContent value="global" className="flex flex-col gap-6">
-                  <div>
-                    <h1 className="text-2xl font-semibold">Globale Einstellungen</h1>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Diese Einstellungen gelten für die gesamte Buchhaltung und sind nur für Admins sichtbar.
-                    </p>
-                  </div>
+                  <AdminPageHeader
+                    title="Globale Einstellungen"
+                    description="Diese Einstellungen gelten für die gesamte Buchhaltung und sind nur für Admins sichtbar."
+                  />
                   <GlobalSettingsPanel initialAccounts={accounts} />
                 </TabsContent>
               ) : null}

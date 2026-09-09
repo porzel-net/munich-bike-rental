@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { ExternalLinkIcon, FileTextIcon, Trash2Icon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, Trash2Icon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import type {
@@ -35,6 +35,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Attachment,
+  AttachmentAction,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentDescription,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTitle,
+  AttachmentTrigger,
+} from "@/components/ui/attachment";
 import { requiresFinancialDocument } from "@/lib/financial/receipt-requirements";
 import { getBankTransactionSaveMode } from "@/lib/financial/transaction-save-mode";
 import { berlinDateKey } from "@/lib/datetime";
@@ -54,6 +65,41 @@ function formatBookedDate(value: string) {
   if (!dateOnly) return value || "Datum unbekannt";
   const [year, month, day] = dateOnly.split("-");
   return `${day}.${month}.${year}`;
+}
+
+function formatFileSize(bytes: number | undefined) {
+  if (!Number.isFinite(bytes) || !bytes || bytes < 0) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function shortenFileName(fileName: string, maxLength = 42) {
+  if (fileName.length <= maxLength) return fileName;
+  const extensionIndex = fileName.lastIndexOf(".");
+  const extension = extensionIndex > 0 ? fileName.slice(extensionIndex) : "";
+  const name = extension ? fileName.slice(0, extensionIndex) : fileName;
+  const visibleNameLength = Math.max(1, maxLength - extension.length - 1);
+  return `${name.slice(0, visibleNameLength)}…${extension}`;
+}
+
+function fileTypeLabel(mimeType: string | undefined, fileName: string) {
+  if (mimeType === "application/pdf") return "PDF";
+  if (mimeType === "image/jpeg") return "JPG";
+  if (mimeType === "image/png") return "PNG";
+  if (mimeType === "image/webp") return "WebP";
+  const extension = fileName.split(".").pop()?.trim().toUpperCase();
+  return extension || "Beleg";
+}
+
+function attachmentDescription(
+  file: { originalFileName: string; mimeType?: string; sizeBytes?: number },
+  pending = false,
+) {
+  if (pending) return "Bereit zum Hochladen";
+  return [fileTypeLabel(file.mimeType, file.originalFileName), formatFileSize(file.sizeBytes)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function transactionSourceLabel(source: string | undefined) {
@@ -161,7 +207,11 @@ export function FinancialTransactionDialog({
   accounts: FinancialReviewAccount[];
   bookings?: FinancialReviewBooking[];
   bankTransaction?: FinancialReviewTransaction | null;
-  onBankCompleted?: (result: { transactionId: number; status: "posted" | "ignored"; euerTreatment?: string }) => void;
+  onBankCompleted?: (result: {
+    transactionId: number;
+    status: "posted" | "ignored" | "deleted";
+    euerTreatment?: string;
+  }) => void;
   onDocumentChanged?: () => void;
   onManualCompleted?: (result: { transactionId: number }) => void;
 }) {
@@ -186,7 +236,11 @@ export function FinancialTransactionDialog({
   const [assetSerialNumber, setAssetSerialNumber] = useState("");
   const [privateShare, setPrivateShare] = useState("0");
   const [file, setFile] = useState<File | null>(null);
-  const [documents, setDocuments] = useState<Array<{ id: number; originalFileName: string }>>([]);
+  const [documents, setDocuments] = useState<
+    Array<{ id: number; originalFileName: string; mimeType?: string; sizeBytes?: number }>
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const initializedDialogRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -196,6 +250,10 @@ export function FinancialTransactionDialog({
   const selectedDestinationAccount = accounts.find((account) => String(account.id) === destinationAccountId);
   const isManuallyEnteredTransaction =
     isBank && (bankTransaction?.source === "cash" || bankTransaction?.source === "manual");
+  const canDeleteManualTransaction = Boolean(
+    isManuallyEnteredTransaction &&
+    (bankTransaction?.provider === "manual" || bankTransaction?.provider === "manual_booking"),
+  );
   const canEditManualTransactionAccount = Boolean(isPosted && isManuallyEnteredTransaction);
   const selectableAccounts = accounts.filter(
     (account) => canEditManualTransactionAccount || account.status !== "archived",
@@ -216,6 +274,7 @@ export function FinancialTransactionDialog({
       : "post";
   const isDocumentOnlyUpdate = saveMode === "document_only";
   const isAsset = selectedCategory?.euerTreatment === "asset_acquisition";
+  const dialogInitializationKey = open ? (isBank ? `bank:${bankTransaction?.id ?? "missing"}` : "manual") : null;
   const receiptExpected = Boolean(
     selectedCategory &&
     requiresFinancialDocument({ categoryType: selectedCategory.categoryType, euerLine: selectedCategory.euerLine }) &&
@@ -223,8 +282,13 @@ export function FinancialTransactionDialog({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      initializedDialogRef.current = null;
+      return;
+    }
+    if (initializedDialogRef.current === dialogInitializationKey) return;
     const timer = window.setTimeout(() => {
+      initializedDialogRef.current = dialogInitializationKey;
       if (isBank && bankTransaction) {
         const suggestedCategory = isLikelyStripePayout(bankTransaction)
           ? categories.find((category) => category.code === "internal_transfer")
@@ -287,7 +351,7 @@ export function FinancialTransactionDialog({
       setError(null);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [accounts, bankTransaction, categories, isBank, open]);
+  }, [accounts, bankTransaction, categories, dialogInitializationKey, isBank, open]);
 
   function close(openState: boolean) {
     if (!openState && !busy) onOpenChange(false);
@@ -313,7 +377,12 @@ export function FinancialTransactionDialog({
         );
       if (!result?.documentId)
         throw new Error("Der Beleg wurde ohne Beleg-ID zurückgegeben. Bitte versuche es erneut.");
-      const document = { id: result.documentId, originalFileName: file.name };
+      const document = {
+        id: result.documentId,
+        originalFileName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+      };
       setDocuments((current) =>
         current.some((existing) => existing.id === document.id) ? current : [...current, document],
       );
@@ -348,6 +417,11 @@ export function FinancialTransactionDialog({
     } finally {
       setBusy(false);
     }
+  }
+
+  function removePendingFile() {
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function updateLinkedAsset() {
@@ -608,6 +682,29 @@ export function FinancialTransactionDialog({
           ? caught.message
           : "Die Transaktion konnte nicht ignoriert werden. Prüfe die Begründung und versuche es erneut.",
       );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteManualTransaction() {
+    if (
+      !bankTransaction ||
+      !canDeleteManualTransaction ||
+      !window.confirm("Diese manuelle Transaktion wirklich löschen?")
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/financial/transactions/${bankTransaction.id}`, { method: "DELETE" });
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) throw new Error(result?.message ?? "Die manuelle Transaktion konnte nicht gelöscht werden.");
+      onBankCompleted?.({ transactionId: bankTransaction.id, status: "deleted" });
+      toast.success("Manuelle Transaktion wurde gelöscht.");
+      onOpenChange(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Die manuelle Transaktion konnte nicht gelöscht werden.");
     } finally {
       setBusy(false);
     }
@@ -1048,43 +1145,91 @@ export function FinancialTransactionDialog({
                 <FieldLabel htmlFor="financial-document">
                   Beleg anhängen{receiptExpected ? " (erwartet, kann später ergänzt werden)" : " (optional)"}
                 </FieldLabel>
-                {documents.length > 0 ? (
-                  <div className="grid gap-2">
-                    {documents.map((document) => (
-                      <div
-                        key={document.id}
-                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300"
-                      >
-                        <a
-                          href={`/api/admin/financial/documents/${document.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex min-w-0 flex-1 items-center gap-2 hover:underline"
-                        >
-                          <FileTextIcon className="size-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate">{document.originalFileName}</span>
-                          <ExternalLinkIcon className="size-4 shrink-0" />
-                        </a>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 shrink-0 text-destructive hover:text-destructive"
-                          aria-label={`${document.originalFileName} löschen`}
-                          title="Beleg löschen"
-                          disabled={busy}
-                          onClick={() => void removeDocument(document.id)}
-                        >
-                          <Trash2Icon className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                {documents.length > 0 || file ? (
+                  <AttachmentGroup aria-label="Belege zur Transaktion">
+                    {documents.map((document) => {
+                      const documentUrl = `/api/admin/financial/documents/${document.id}`;
+                      return (
+                        <Attachment key={document.id} className="w-full">
+                          <AttachmentMedia>
+                            <FileTextIcon />
+                          </AttachmentMedia>
+                          <AttachmentContent>
+                            <AttachmentTitle title={document.originalFileName}>
+                              {shortenFileName(document.originalFileName)}
+                            </AttachmentTitle>
+                            <AttachmentDescription>{attachmentDescription(document)}</AttachmentDescription>
+                          </AttachmentContent>
+                          <AttachmentActions>
+                            <AttachmentAction
+                              nativeButton={false}
+                              render={
+                                <a
+                                  href={`${documentUrl}?download=1`}
+                                  download
+                                  aria-label={`${document.originalFileName} herunterladen`}
+                                />
+                              }
+                              title="Beleg herunterladen"
+                            >
+                              <DownloadIcon />
+                            </AttachmentAction>
+                            <AttachmentAction
+                              variant="destructive"
+                              aria-label={`${document.originalFileName} löschen`}
+                              title="Beleg löschen"
+                              disabled={busy}
+                              onClick={() => void removeDocument(document.id)}
+                            >
+                              <Trash2Icon />
+                            </AttachmentAction>
+                          </AttachmentActions>
+                          <AttachmentTrigger
+                            render={
+                              <a
+                                href={documentUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label={`${document.originalFileName} im Browser ansehen`}
+                              />
+                            }
+                            title="Beleg im Browser ansehen"
+                          />
+                        </Attachment>
+                      );
+                    })}
+                    {file ? (
+                      <Attachment state="idle" className="w-full">
+                        <AttachmentMedia>
+                          <FileTextIcon />
+                        </AttachmentMedia>
+                        <AttachmentContent>
+                          <AttachmentTitle title={file.name}>{shortenFileName(file.name)}</AttachmentTitle>
+                          <AttachmentDescription>
+                            {attachmentDescription(
+                              { originalFileName: file.name, mimeType: file.type, sizeBytes: file.size },
+                              true,
+                            )}
+                          </AttachmentDescription>
+                        </AttachmentContent>
+                        <AttachmentActions>
+                          <AttachmentAction
+                            aria-label={`${file.name} entfernen`}
+                            title="Auswahl entfernen"
+                            onClick={removePendingFile}
+                          >
+                            <XIcon />
+                          </AttachmentAction>
+                        </AttachmentActions>
+                      </Attachment>
+                    ) : null}
+                  </AttachmentGroup>
                 ) : null}
                 <Input
                   id="financial-document"
                   type="file"
                   accept="application/pdf,image/jpeg,image/png,image/webp"
+                  ref={fileInputRef}
                   onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 />
               </Field>
@@ -1105,7 +1250,16 @@ export function FinancialTransactionDialog({
         </ScrollArea>
         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between">
           <div>
-            {isBank ? (
+            {canDeleteManualTransaction ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={busy}
+                onClick={() => void deleteManualTransaction()}
+              >
+                Transaktion löschen
+              </Button>
+            ) : isBank ? (
               <Button type="button" variant="destructive" disabled={busy || isPosted} onClick={ignore}>
                 Ignorieren
               </Button>

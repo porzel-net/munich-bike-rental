@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -32,18 +33,21 @@ export async function AdminPlaceholderPage({
       }
     >
       <AppSidebar user={session.user} isAdmin={isAdmin(session.user)} variant="inset" />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title={title} />
-        <main className="flex flex-1 flex-col p-8 lg:p-12">
-          {showPlaceholder && (
-            <Card className="min-h-64 flex-1">
-              <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description ?? "Diese Seite wird vorbereitet."}</CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-        </main>
+        <div className="admin-page-surface">
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader title={title} description={description ?? "Diese Seite wird vorbereitet."} />
+            {showPlaceholder && (
+              <Card className="min-h-64 flex-1">
+                <CardHeader>
+                  <CardTitle>{title} – in Vorbereitung</CardTitle>
+                  <CardDescription>{description ?? "Diese Seite wird vorbereitet."}</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

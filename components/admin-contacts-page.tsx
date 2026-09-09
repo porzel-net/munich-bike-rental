@@ -12,6 +12,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -188,23 +189,24 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Kontakte</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={openCarddavDialog}>
-            <SmartphoneIcon />
-            iPhone verbinden
-          </Button>
-          {account?.enabled ? (
-            <Button type="button" variant="outline" onClick={() => void syncContacts()} disabled={busy !== null}>
-              <RefreshCwIcon className={busy === "sync" ? "animate-spin" : undefined} />
-              Kontakte synchronisieren
+      <AdminPageHeader
+        title="Kontakte"
+        description="Kundendaten und zugehörige Buchungen zentral verwalten."
+        actions={
+          <>
+            <Button type="button" variant="outline" onClick={openCarddavDialog}>
+              <SmartphoneIcon />
+              iPhone verbinden
             </Button>
-          ) : null}
-        </div>
-      </div>
+            {account?.enabled ? (
+              <Button type="button" variant="outline" onClick={() => void syncContacts()} disabled={busy !== null}>
+                <RefreshCwIcon className={busy === "sync" ? "animate-spin" : undefined} />
+                Kontakte synchronisieren
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       <Card className="rounded-3xl border-border/60 bg-card shadow-sm">
         <CardHeader className="grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border/60 pb-5">

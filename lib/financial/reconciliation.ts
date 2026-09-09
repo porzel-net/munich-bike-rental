@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
 import {
@@ -781,7 +781,7 @@ export function getFinancialAccountReconciliation(db: AppDatabase, accountId: nu
   const movements = db
     .select({ amountCents: financialTransactions.amountCents })
     .from(financialTransactions)
-    .where(eq(financialTransactions.financialAccountId, accountId))
+    .where(and(eq(financialTransactions.financialAccountId, accountId), ne(financialTransactions.status, "deleted")))
     .all();
   const mirroredTransfers = db
     .select({ amountCents: financialTransactionAllocations.amountCents })

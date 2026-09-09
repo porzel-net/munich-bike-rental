@@ -44,7 +44,14 @@ export const financialTransactionKinds = [
   "other",
 ] as const;
 export type FinancialTransactionKind = (typeof financialTransactionKinds)[number];
-export const financialTransactionStatuses = ["imported", "needs_review", "matched", "posted", "ignored"] as const;
+export const financialTransactionStatuses = [
+  "imported",
+  "needs_review",
+  "matched",
+  "posted",
+  "ignored",
+  "deleted",
+] as const;
 export const financialAllocationKinds = [
   "booking_payment",
   "booking_refund",

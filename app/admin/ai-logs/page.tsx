@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { AiLogsFilter } from "@/components/ai-logs-filter";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -104,20 +105,18 @@ export default async function AiLogsPage({
         <SiteHeader title="AI Logs" />
         <div className="admin-page-surface">
           <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold">AI-Logs</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Zentrale Übersicht über die Ausführungen der verschiedenen KI-Agenten.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{totalCount} Prüfungen</Badge>
-                <Badge variant={needsActionCount || errorCount ? "destructive" : "success"}>
-                  {needsActionCount + errorCount} mit Handlungsbedarf
-                </Badge>
-              </div>
-            </div>
+            <AdminPageHeader
+              title="AI-Logs"
+              description="Zentrale Übersicht über die Ausführungen der verschiedenen KI-Agenten."
+              actions={
+                <>
+                  <Badge variant="outline">{totalCount} Prüfungen</Badge>
+                  <Badge variant={needsActionCount || errorCount ? "destructive" : "success"}>
+                    {needsActionCount + errorCount} mit Handlungsbedarf
+                  </Badge>
+                </>
+              }
+            />
 
             <AiLogsFilter search={params.q ?? ""} status={status} source={source} />
 

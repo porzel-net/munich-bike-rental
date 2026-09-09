@@ -138,6 +138,16 @@
   background: var(--muted);
 }
 
+.admin-dashboard-surface {
+  background: linear-gradient(
+    to bottom,
+    var(--background) 0,
+    color-mix(in srgb, var(--muted) 88%, var(--background)) 12rem,
+    var(--muted) 24rem,
+    var(--muted) 100%
+  );
+}
+
 .admin-page-surface > main {
   position: relative;
   z-index: 10;
@@ -169,6 +179,10 @@
 }
 
 .dark .admin-page-surface {
+  background: var(--background);
+}
+
+.dark .admin-dashboard-surface {
   background: var(--background);
 }
 

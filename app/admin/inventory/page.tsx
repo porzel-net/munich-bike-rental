@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { InventoryTable } from "@/components/inventory-table";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, isAdmin } from "@/lib/auth/authorization";
@@ -109,7 +110,11 @@ export default async function InventoryPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Inventar" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col p-8 lg:p-12">
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
+              title="Inventar"
+              description="Verwalte Fahrräder, Ausrüstung und ihre Verfügbarkeit je Standort."
+            />
             <InventoryTable
               initialBikes={bikes}
               initialEquipment={equipment}

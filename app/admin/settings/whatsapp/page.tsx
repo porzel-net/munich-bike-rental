@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { WhatsAppSettingsPanel } from "@/components/whatsapp-settings-panel";
@@ -28,7 +29,11 @@ export default async function WhatsAppSettingsPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="WhatsApp" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 items-center justify-center p-6 lg:p-12">
+          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <AdminPageHeader
+              title="WhatsApp"
+              description="Verbinde das gemeinsame WhatsApp-Konto für die Kommunikation im Team."
+            />
             <WhatsAppSettingsPanel />
           </main>
         </div>

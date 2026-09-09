@@ -32,13 +32,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   try {
     const body = await readFile(financialDocumentPath(document.storageKey));
     const supportedMimeTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+    const shouldDownload = new URL(request.url).searchParams.get("download") === "1";
     return new NextResponse(body, {
       headers: {
         "Content-Type": supportedMimeTypes.has(document.mimeType) ? document.mimeType : "application/octet-stream",
         "Content-Length": String(body.byteLength),
-        // Uploaded content is untrusted even after magic-byte validation;
-        // force a download instead of allowing inline browser execution.
-        "Content-Disposition": `attachment; filename="${safeFinancialDocumentFileName(document.originalFileName)}"`,
+        // Uploaded content is untrusted even after magic-byte validation. The
+        // sandboxed preview is opt-in via the regular browser view; downloads
+        // always use an explicit attachment disposition.
+        "Content-Disposition": `${shouldDownload ? "attachment" : "inline"}; filename="${safeFinancialDocumentFileName(document.originalFileName)}"`,
         "Cache-Control": "private, no-store",
         "Content-Security-Policy": "sandbox; default-src 'none'",
         "Cross-Origin-Resource-Policy": "same-origin",
