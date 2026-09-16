@@ -84,7 +84,7 @@ export function BookingStatusFilter({
   }, [searchValue, searchParams, updateParam]);
 
   return (
-    <div className="flex w-full flex-wrap items-center gap-1.5 sm:flex-nowrap">
+    <div data-booking-filters className="flex w-full flex-wrap items-center gap-1.5 sm:flex-nowrap">
       <InputGroup className="w-full bg-card sm:w-80">
         <InputGroupAddon>
           <SearchIcon />
@@ -97,7 +97,7 @@ export function BookingStatusFilter({
           aria-label="Buchungen suchen"
         />
       </InputGroup>
-      <div className="ml-auto flex w-full justify-end gap-1.5 sm:w-auto">
+      <div data-booking-filter-controls className="ml-auto flex w-full justify-end gap-1.5 sm:w-auto">
         {canFilterLocations ? (
           <Select
             items={locationItems}
@@ -109,7 +109,7 @@ export function BookingStatusFilter({
               className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
               aria-label="Standort auswählen"
             >
-              <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
+              <SelectValue className="truncate text-sm font-normal">{selectedLocationLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -132,7 +132,7 @@ export function BookingStatusFilter({
             className="min-w-0 flex-1 bg-card sm:w-48 sm:flex-none"
             aria-label="Nach Sachbearbeiter filtern"
           >
-            <SelectValue className="text-sm font-normal">{selectedAssigneeLabel}</SelectValue>
+            <SelectValue className="truncate text-sm font-normal">{selectedAssigneeLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -154,7 +154,7 @@ export function BookingStatusFilter({
             className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
             aria-label="Zeitraum auswählen"
           >
-            <SelectValue className="text-sm font-normal">{selectedPeriodLabel}</SelectValue>
+            <SelectValue className="truncate text-sm font-normal">{selectedPeriodLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -176,7 +176,7 @@ export function BookingStatusFilter({
             className="min-w-0 flex-1 bg-card sm:w-40 sm:flex-none"
             aria-label="Nach Status filtern"
           >
-            <SelectValue className="text-sm font-normal">{selectedLabel}</SelectValue>
+            <SelectValue className="truncate text-sm font-normal">{selectedLabel}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

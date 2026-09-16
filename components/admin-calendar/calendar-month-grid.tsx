@@ -58,6 +58,9 @@ function CalendarWeekRow({ week }: { week: CalendarWeek }) {
 export function CalendarMonthGrid({ weeks }: { weeks: CalendarWeek[] }) {
   return (
     <div className="calendar-grid-wrap">
+      <div className="calendar-mobile-hint" aria-hidden="true">
+        Wische nach rechts für die ganze Woche
+      </div>
       <div className="calendar-grid">
         <div className="calendar-weekdays">
           {calendarWeekdayLabels.map((label, index) => (

@@ -46,7 +46,7 @@ export default async function TeamPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Team" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col p-8 lg:p-12">
+          <main className="admin-main flex flex-1 flex-col p-4 sm:p-8 lg:p-12">
             <AdminTeamTable users={users} currentUserId={session.user.id} locationLabels={rentalLocationLabels.de} />
           </main>
         </div>

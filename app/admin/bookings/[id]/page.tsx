@@ -95,8 +95,8 @@ const nextActionCopy: Record<string, { title: string; description: string }> = {
     description: "Bei der Übergabe kannst du die Ausgabe direkt dokumentieren.",
   },
   checked_out: {
-    title: "Buchung abschließen",
-    description: "Nach der Rückgabe wird die Buchung endgültig abgeschlossen.",
+    title: "Annahme erfassen",
+    description: "Nach der Rückgabe wird die Buchung endgültig angenommen.",
   },
   completed: {
     title: "Vorgang abgeschlossen",
@@ -376,8 +376,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Buchung bearbeiten" />
         <div className="admin-page-surface bg-muted dark:bg-background">
-          <main className="min-w-0 max-w-full overflow-x-hidden flex flex-1 flex-col gap-6 p-8 lg:p-12">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <main className="admin-main min-w-0 max-w-full overflow-x-hidden flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
+            <div className="flex flex-wrap items-start justify-between gap-4" data-admin-page-header>
               <div>
                 <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/admin/bookings" />}>
                   ← Buchungsübersicht
@@ -409,7 +409,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   {booking.pickupTime} – {booking.periodTo} {booking.dropoffTime}
                 </p>
               </div>
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex flex-wrap justify-end gap-2" data-admin-page-actions>
                 {hasAssignedCaseworker && booking.source !== "legacy" && (
                   <BookingAiAnalysisButton bookingId={booking.id} />
                 )}
@@ -534,10 +534,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <CardTitle>Kundenfeedback</CardTitle>
-                      <CardDescription className="mt-1">Kurze Bewertung nach der Fahrradausgabe.</CardDescription>
+                      <CardDescription className="mt-1">Kurze Bewertung nach der Fahrradannahme.</CardDescription>
                     </div>
                     <Badge variant={feedback?.submittedAt ? "success" : "outline"}>
-                      {feedback?.submittedAt ? "Eingegangen" : feedback ? "Noch offen" : "Wird nach Ausgabe angelegt"}
+                      {feedback?.submittedAt ? "Eingegangen" : feedback ? "Noch offen" : "Wird nach Annahme angelegt"}
                     </Badge>
                   </div>
                 </CardHeader>

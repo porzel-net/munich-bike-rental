@@ -18,11 +18,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type AssetType = "bike" | "equipment" | "other";
+type AssetMethod = "straight_line" | "declining_balance";
 
 export type EditableFixedAsset = {
   id: number;
   name: string;
   assetType: AssetType;
+  method: AssetMethod;
   serialNumber: string | null;
   acquisitionDate: string;
   acquisitionCostCents: number;
@@ -53,6 +55,7 @@ function FixedAssetEditDialog({
 }) {
   const [name, setName] = useState(asset.name);
   const [assetType, setAssetType] = useState<AssetType>(asset.assetType);
+  const [method, setMethod] = useState<AssetMethod>(asset.method);
   const [serialNumber, setSerialNumber] = useState(asset.serialNumber ?? "");
   const [inServiceDate, setInServiceDate] = useState(asset.inServiceDate);
   const [usefulLifeMonths, setUsefulLifeMonths] = useState(String(asset.usefulLifeMonths));
@@ -72,7 +75,7 @@ function FixedAssetEditDialog({
       const response = await fetch(`/api/admin/financial/assets/${asset.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, assetType, serialNumber, inServiceDate, usefulLifeMonths: life }),
+        body: JSON.stringify({ name, assetType, method, serialNumber, inServiceDate, usefulLifeMonths: life }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) throw new Error(result?.message ?? "Das Anlagegut konnte nicht geändert werden.");
@@ -138,6 +141,26 @@ function FixedAssetEditDialog({
                 />
               </Field>
             </div>
+            <Field>
+              <FieldLabel htmlFor={`fixed-asset-method-${asset.id}`}>AfA-Verfahren</FieldLabel>
+              <Select value={method} onValueChange={(value) => setMethod((value || "straight_line") as AssetMethod)}>
+                <SelectTrigger id={`fixed-asset-method-${asset.id}`} className="w-full">
+                  <SelectValue>
+                    {(value) => (value === "declining_balance" ? "Degressiv vom Restbuchwert" : "Linear")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="straight_line">Linear</SelectItem>
+                    <SelectItem value="declining_balance">Degressiv vom Restbuchwert</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Ein Wechsel korrigiert bereits gebuchte AfA über Storno- und Neubuchungen. Linear → degressiv ist
+                steuerlich nur als dokumentierte Korrektur nach Prüfung zu verwenden.
+              </p>
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor={`fixed-asset-service-date-${asset.id}`}>Inbetriebnahme</FieldLabel>

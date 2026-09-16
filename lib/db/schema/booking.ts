@@ -447,7 +447,7 @@ export const mailOutbox = sqliteTable(
   ],
 );
 
-/** One feedback link is created when a bike is handed over and can be submitted once. */
+/** One feedback link is created after a returned bike is accepted and can be submitted once. */
 export const bookingFeedback = sqliteTable(
   "booking_feedback",
   {

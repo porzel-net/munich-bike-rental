@@ -930,13 +930,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     if (!confirmAction) return;
     try {
       setBusy(true);
-      await request({ command: confirmAction, ...(confirmAction === "check_out" ? { sendMail } : {}) });
+      await request({ command: confirmAction, ...(confirmAction === "complete" ? { sendMail } : {}) });
       if (confirmAction === "delete_permanently") {
         toast.success("Buchung wurde endgültig gelöscht.");
         router.push("/admin/bookings");
         return;
       }
-      toast.success(confirmAction === "check_out" ? "Ausgabe wurde erfasst." : "Buchung wurde abgeschlossen.");
+      toast.success(confirmAction === "check_out" ? "Ausgabe wurde erfasst." : "Annahme wurde erfasst.");
       setConfirmAction(null);
       router.refresh();
     } catch (error) {
@@ -1098,8 +1098,8 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         {status === "checked_out" && (
           <ActionItem
             icon={<CheckIcon />}
-            title="Buchung abschließen"
-            description="Rückgabe bestätigen und Vorgang beenden"
+            title="Annahme erfassen"
+            description="Rückgabe annehmen und Vorgang beenden"
             disabled={actionsLocked}
             onClick={() => setConfirmAction("complete")}
           />
@@ -2053,16 +2053,16 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 ? "Ausgabe wirklich erfassen?"
                 : confirmAction === "delete_permanently"
                   ? "Buchung endgültig löschen?"
-                  : "Buchung wirklich abschließen?"}
+                  : "Annahme wirklich erfassen?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "check_out"
                 ? "Das Fahrrad wird als ausgegeben markiert."
                 : confirmAction === "delete_permanently"
                   ? "Der Vorgang wird vollständig aus der Datenbank entfernt. Diese Aktion kann nicht rückgängig gemacht werden. Finanz-, Rechnungs- und Ausgabedaten verhindern die Löschung automatisch."
-                  : "Nach dem Abschluss sind keine weiteren Statuswechsel möglich."}
+                  : "Nach der Annahme sind keine weiteren Statuswechsel möglich."}
             </AlertDialogDescription>
-            {confirmAction === "check_out" ? (
+            {confirmAction === "complete" ? (
               <label className="flex items-center gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
                 <Checkbox checked={sendMail} onCheckedChange={(checked) => setSendMail(Boolean(checked))} />
                 <span>

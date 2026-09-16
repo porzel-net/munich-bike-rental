@@ -209,54 +209,97 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
       />
 
       <Card className="rounded-3xl border-border/60 bg-card shadow-sm">
-        <CardHeader className="grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border/60 pb-5">
+        <CardHeader className="grid grid-cols-1 items-stretch gap-3 border-b border-border/60 pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Kontakte suchen …"
             className="min-w-0 flex-1 lg:max-w-xs"
           />
-          <CardTitle className="shrink-0 text-right">{contacts.length} Kontakte</CardTitle>
+          <CardTitle className="shrink-0 text-left sm:text-right">{contacts.length} Kontakte</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {filteredContacts.length ? (
-            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>E-Mail</TableHead>
-                  <TableHead>Telefonnummer</TableHead>
-                  <TableHead>Aufträge</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="hidden sm:block">
+                <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>E-Mail</TableHead>
+                      <TableHead>Telefonnummer</TableHead>
+                      <TableHead>Aufträge</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredContacts.map((contact) => (
+                      <TableRow key={contact.key}>
+                        <TableCell className="min-w-52">
+                          <div className="flex items-center gap-3">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                              <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
+                                {contactInitials(contact.name)}
+                              </span>
+                            </div>
+                            <span className="truncate font-medium">{contact.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="min-w-56">
+                          <a
+                            className="truncate text-sm text-muted-foreground hover:text-foreground"
+                            href={`mailto:${contact.email}`}
+                          >
+                            {contact.email}
+                          </a>
+                        </TableCell>
+                        <TableCell className="min-w-44">
+                          <a
+                            className="text-sm text-muted-foreground hover:text-foreground"
+                            href={`tel:${contact.phone}`}
+                          >
+                            {contact.phone}
+                          </a>
+                        </TableCell>
+                        <TableCell className="min-w-64">
+                          <div className="flex flex-wrap gap-2">
+                            {contact.bookings.map((booking) => (
+                              <Link key={booking.id} href={`/admin/bookings/${booking.id}`}>
+                                <Badge variant="outline" className="hover:bg-muted">
+                                  {booking.orderNumber}
+                                </Badge>
+                              </Link>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="grid gap-2 p-3 sm:hidden">
                 {filteredContacts.map((contact) => (
-                  <TableRow key={contact.key}>
-                    <TableCell className="min-w-52">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                          <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
-                            {contactInitials(contact.name)}
-                          </span>
-                        </div>
-                        <span className="truncate font-medium">{contact.name}</span>
+                  <article className="rounded-2xl border border-border/60 bg-background p-4" key={contact.key}>
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                        <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
+                          {contactInitials(contact.name)}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="min-w-56">
-                      <a
-                        className="truncate text-sm text-muted-foreground hover:text-foreground"
-                        href={`mailto:${contact.email}`}
-                      >
-                        {contact.email}
-                      </a>
-                    </TableCell>
-                    <TableCell className="min-w-44">
-                      <a className="text-sm text-muted-foreground hover:text-foreground" href={`tel:${contact.phone}`}>
-                        {contact.phone}
-                      </a>
-                    </TableCell>
-                    <TableCell className="min-w-64">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{contact.name}</p>
+                        <a className="block truncate text-sm text-muted-foreground" href={`mailto:${contact.email}`}>
+                          {contact.email}
+                        </a>
+                        <a className="block text-sm text-muted-foreground" href={`tel:${contact.phone}`}>
+                          {contact.phone}
+                        </a>
+                      </div>
+                    </div>
+                    {contact.bookings.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                        <span className="w-full text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Aufträge
+                        </span>
                         {contact.bookings.map((booking) => (
                           <Link key={booking.id} href={`/admin/bookings/${booking.id}`}>
                             <Badge variant="outline" className="hover:bg-muted">
@@ -265,11 +308,11 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
                           </Link>
                         ))}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    ) : null}
+                  </article>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           ) : (
             <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
               <ContactRoundIcon className="size-8 text-muted-foreground" />

@@ -51,6 +51,7 @@ import { getBankTransactionSaveMode } from "@/lib/financial/transaction-save-mod
 import { berlinDateKey } from "@/lib/datetime";
 
 type Mode = "bank" | "manual";
+type AssetMethod = "straight_line" | "declining_balance";
 
 function today() {
   return berlinDateKey();
@@ -233,6 +234,7 @@ export function FinancialTransactionDialog({
   const [assetCost, setAssetCost] = useState("");
   const [assetInServiceDate, setAssetInServiceDate] = useState(today());
   const [assetUsefulLifeMonths, setAssetUsefulLifeMonths] = useState("84");
+  const [assetMethod, setAssetMethod] = useState<AssetMethod>("straight_line");
   const [assetSerialNumber, setAssetSerialNumber] = useState("");
   const [privateShare, setPrivateShare] = useState("0");
   const [file, setFile] = useState<File | null>(null);
@@ -322,8 +324,11 @@ export function FinancialTransactionDialog({
         setAssetCost((Math.abs(bankTransaction.amountCents) / 100).toFixed(2));
         setAssetInServiceDate(bankTransaction.fixedAsset?.inServiceDate ?? bankTransaction.bookedAt.slice(0, 10));
         setAssetUsefulLifeMonths(String(bankTransaction.fixedAsset?.usefulLifeMonths ?? 84));
+        setAssetMethod(bankTransaction.fixedAsset?.method ?? "straight_line");
         setAssetSerialNumber(bankTransaction.fixedAsset?.serialNumber ?? "");
-        setPrivateShare("0");
+        setPrivateShare(
+          bankTransaction.categoryCode === "business_meal" ? (bankTransaction.privateShareCents / 100).toFixed(2) : "0",
+        );
         setFile(null);
         setDocuments(bankTransaction.documents);
       } else if (!isBank) {
@@ -343,6 +348,7 @@ export function FinancialTransactionDialog({
         setAssetCost("");
         setAssetInServiceDate(today());
         setAssetUsefulLifeMonths("84");
+        setAssetMethod("straight_line");
         setAssetSerialNumber("");
         setPrivateShare("0");
         setFile(null);
@@ -435,6 +441,7 @@ export function FinancialTransactionDialog({
         serialNumber: assetSerialNumber,
         inServiceDate: assetInServiceDate,
         usefulLifeMonths: Number(assetUsefulLifeMonths),
+        method: assetMethod,
       }),
     });
     const result = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -548,6 +555,7 @@ export function FinancialTransactionDialog({
                   acquisitionCostCents: assetCostCents,
                   inputVatCents: assetInputVatCents,
                   usefulLifeMonths: assetLife,
+                  method: assetMethod,
                 }
               : undefined,
           }),
@@ -594,6 +602,7 @@ export function FinancialTransactionDialog({
                   acquisitionCostCents: assetCostCents,
                   inputVatCents: assetInputVatCents,
                   usefulLifeMonths: assetLife,
+                  method: assetMethod,
                 }
               : undefined,
           }),
@@ -629,6 +638,7 @@ export function FinancialTransactionDialog({
                     acquisitionCostCents: assetCostCents,
                     inputVatCents: assetInputVatCents,
                     usefulLifeMonths: assetLife,
+                    method: assetMethod,
                   }
                 : undefined,
             }),
@@ -1080,6 +1090,29 @@ export function FinancialTransactionDialog({
                       value={assetUsefulLifeMonths}
                       onChange={(event) => setAssetUsefulLifeMonths(event.target.value)}
                     />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="financial-asset-method">AfA-Verfahren</FieldLabel>
+                    <Select
+                      value={assetMethod}
+                      onValueChange={(value) => setAssetMethod((value || "straight_line") as AssetMethod)}
+                    >
+                      <SelectTrigger id="financial-asset-method" className="w-full">
+                        <SelectValue>
+                          {(value) => (value === "declining_balance" ? "Degressiv vom Restbuchwert" : "Linear")}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="straight_line">Linear</SelectItem>
+                          <SelectItem value="declining_balance">Degressiv vom Restbuchwert</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      Degressiv wird vom Restbuchwert berechnet. Methodenwechsel korrigieren bereits gebuchte AfA;
+                      linear → degressiv nur nach steuerlicher Prüfung.
+                    </FieldDescription>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="financial-asset-serial">

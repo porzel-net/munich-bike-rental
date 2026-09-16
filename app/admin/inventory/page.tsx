@@ -110,7 +110,7 @@ export default async function InventoryPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Inventar" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+          <main className="admin-main flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <AdminPageHeader
               title="Inventar"
               description="Verwalte Fahrräder, Ausrüstung und ihre Verfügbarkeit je Standort."

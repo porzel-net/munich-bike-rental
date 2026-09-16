@@ -5,6 +5,7 @@ node_modules
 # next.js
 .next
 .next-build
+.next-seo-check
 out
 
 # misc

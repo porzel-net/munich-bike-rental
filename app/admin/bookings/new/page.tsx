@@ -62,7 +62,7 @@ export default async function NewBookingPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Manuelle Buchung" />
         <div className="admin-page-surface">
-          <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-8 lg:p-12">
+          <main className="admin-main mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <AdminPageHeader
               title="Manuelle Buchung"
               description="Die Sprache ist Pflicht. Eine Direktbuchung reserviert jedes ausgewählte konkrete Fahrrad atomar."

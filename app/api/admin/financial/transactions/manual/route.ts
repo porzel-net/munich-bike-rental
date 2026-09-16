@@ -34,6 +34,7 @@ const schema = z.object({
     .object({
       name: z.string().trim().min(1).max(200),
       assetType: z.enum(["bike", "equipment", "other"]),
+      method: z.enum(["straight_line", "declining_balance"]).optional(),
       serialNumber: z.string().trim().max(200).optional(),
       acquisitionDate: z.string().refine(isValidIsoDate, "Ungültiges Anschaffungsdatum"),
       inServiceDate: z.string().refine(isValidIsoDate, "Ungültiges Inbetriebnahmedatum"),

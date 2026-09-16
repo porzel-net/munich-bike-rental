@@ -86,6 +86,8 @@ SMTP_MAIN_USER=dein-main-user
 # SMTP_MAIN_PASSWORD=dein-main-passwort
 SMTP_MAIN_PASSWORD_FILE=/run/secrets/smtp_main_password
 MAIL_MAIN_FROM_ADDRESS=hallo@deine-domain.tld
+# Optional: internal BCC copy for offers, booking confirmations and feedback mails
+MAIL_MAIN_TO_ADDRESS=hallo@deine-domain.tld
 IMAP_MAIN_HOST=imap.example.com
 IMAP_MAIN_PORT=993
 IMAP_MAIN_SECURE=true
@@ -123,6 +125,7 @@ Wichtig:
 - SQLite ist für diesen einzelnen App-Container vorgesehen. Mehrere parallele App-Replikas dürfen nicht dasselbe SQLite-Volume beschreiben.
 - `SMTP_SECURE` oder alternativ `MAIL_USE_SSL` steuern die TLS-Variante für den SMTP-Login
 - `SMTP_REQUEST_*` steuert den Versand der Website-Anfragen; `SMTP_MAIN_*` steuert Buchungsbestätigungen und Ablehnungen aus dem Adminbereich
+- `MAIL_MAIN_TO_ADDRESS` erhält zusätzlich eine BCC-Kopie aller über den `main`-Account versendeten Kundenmails, also insbesondere Angebote, Buchungsbestätigungen und Feedback-Mails. Wenn die Variable leer ist, wird `MAIL_REQUEST_TO_ADDRESS` als Fallback verwendet.
 - `IMAP_MAIN_*` wird für die Suche automatischer Mailverläufe in allen IMAP-Postfächern einschließlich Papierkorb/Müll verwendet. Abgelehnte Buchungs-Mails werden automatisch in das feste Postfach `Abgelehnt` verschoben.
 - Der App-Server synchronisiert neue Mailnachrichten und löst die Fragenprüfung standardmäßig selbstständig minütlich aus. Der geschützte Endpunkt `POST /api/internal/sync-incoming-mail` mit `Authorization: Bearer $MAIL_SYNC_TOKEN` bleibt als manueller bzw. unabhängiger Fallback verfügbar.
 - Für die Fragenprüfung wird serverseitig die OpenAI Responses API mit `OPENAI_MODEL` (Standard `gpt-5.6-luna`) und dem Produktlabel `OPENAI_REASONING_EFFORT=middle` verwendet. Der öffentliche API-Parameter wird dafür auf `medium` abgebildet. Der alte Kurzname `gpt-luna` wird automatisch auf `gpt-5.6-luna` abgebildet. Der API-Key darf nicht mit `NEXT_PUBLIC_` beginnen.

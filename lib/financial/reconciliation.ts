@@ -164,6 +164,7 @@ export type FinancialTransactionPostingInput = {
   asset?: {
     name: string;
     assetType: "bike" | "equipment" | "other";
+    method?: "straight_line" | "declining_balance";
     serialNumber?: string | null;
     acquisitionDate: string;
     inServiceDate: string;

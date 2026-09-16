@@ -192,7 +192,7 @@ export function InventoryTable({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-inventory-controls className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
@@ -243,122 +243,218 @@ export function InventoryTable({
           <PlusIcon />
         </Button>
       </div>
-      <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
-        <CardContent className="p-0">
-          {kind === "bike" ? (
-            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Bike / Typ</TableHead>
-                  <TableHead>Größe</TableHead>
-                  <TableHead>Standort</TableHead>
-                  <TableHead>Landingpage</TableHead>
-                  <TableHead>Buchungen</TableHead>
-                  <TableHead className="text-right">Preise / Tag</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleBikes.length === 0 ? (
-                  <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
-                ) : (
-                  visibleBikes.map((bike) => (
-                    <TableRow
-                      key={bike.id}
-                      className="cursor-pointer"
-                      tabIndex={0}
-                      onClick={() => openEdit({ ...bike, kind: "bike" })}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          openEdit({ ...bike, kind: "bike" });
-                        }
-                      }}
-                    >
-                      <TableCell>
-                        <div className="font-medium">{bike.nickname || bike.title}</div>
-                        {bike.nickname ? <div className="text-xs text-muted-foreground">{bike.title}</div> : null}
-                      </TableCell>
-                      <TableCell>{bike.size}</TableCell>
-                      <TableCell>
-                        {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
-                      </TableCell>
-                      <TableCell>
-                        <StatusButton
-                          active={bike.isVisibleOnLanding}
-                          onClick={() => void toggleLandingVisibility(bike)}
-                          activeLabel="Angezeigt"
-                          inactiveLabel="Ausgeblendet"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <StatusButton
-                          active={bike.isBookable}
-                          onClick={() => void toggleAvailability({ ...bike, kind: "bike" })}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        <div>Mo-Fr {euroFormatter.format(bike.weekdayPriceCents / 100)}</div>
-                        <div>Sa-So {euroFormatter.format(bike.weekendPriceCents / 100)}</div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          ) : (
-            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ausrüstung</TableHead>
-                  <TableHead>Art</TableHead>
-                  <TableHead>Standort</TableHead>
-                  <TableHead className="text-right">Bestand</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Preis</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleEquipment.length === 0 ? (
-                  <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
-                ) : (
-                  visibleEquipment.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className="cursor-pointer"
-                      tabIndex={0}
-                      onClick={() => openEdit({ ...item, kind: "equipment" })}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          openEdit({ ...item, kind: "equipment" });
-                        }
-                      }}
-                    >
-                      <TableCell className="font-medium">{equipmentCategoryLabels[item.category]}</TableCell>
-                      <TableCell>{item.labelDe}</TableCell>
-                      <TableCell>
-                        {locations.find((location) => location.key === item.location)?.label ?? item.location}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {item.quantityRelevant ? item.availableQuantity : "Nicht gezählt"}
-                      </TableCell>
-                      <TableCell>
-                        <StatusButton
-                          active={item.isAvailable}
-                          onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {euroFormatter.format(item.priceCents / 100)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <div className="hidden sm:block">
+        <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
+          <CardContent className="p-0">
+            {kind === "bike" ? (
+              <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bike / Typ</TableHead>
+                    <TableHead>Größe</TableHead>
+                    <TableHead>Standort</TableHead>
+                    <TableHead>Landingpage</TableHead>
+                    <TableHead>Buchungen</TableHead>
+                    <TableHead className="text-right">Preise / Tag</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleBikes.length === 0 ? (
+                    <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
+                  ) : (
+                    visibleBikes.map((bike) => (
+                      <TableRow
+                        key={bike.id}
+                        className="cursor-pointer"
+                        tabIndex={0}
+                        onClick={() => openEdit({ ...bike, kind: "bike" })}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openEdit({ ...bike, kind: "bike" });
+                          }
+                        }}
+                      >
+                        <TableCell>
+                          <div className="font-medium">{bike.nickname || bike.title}</div>
+                          {bike.nickname ? <div className="text-xs text-muted-foreground">{bike.title}</div> : null}
+                        </TableCell>
+                        <TableCell>{bike.size}</TableCell>
+                        <TableCell>
+                          {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
+                        </TableCell>
+                        <TableCell>
+                          <StatusButton
+                            active={bike.isVisibleOnLanding}
+                            onClick={() => void toggleLandingVisibility(bike)}
+                            activeLabel="Angezeigt"
+                            inactiveLabel="Ausgeblendet"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <StatusButton
+                            active={bike.isBookable}
+                            onClick={() => void toggleAvailability({ ...bike, kind: "bike" })}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          <div>Mo-Fr {euroFormatter.format(bike.weekdayPriceCents / 100)}</div>
+                          <div>Sa-So {euroFormatter.format(bike.weekendPriceCents / 100)}</div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            ) : (
+              <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ausrüstung</TableHead>
+                    <TableHead>Art</TableHead>
+                    <TableHead>Standort</TableHead>
+                    <TableHead className="text-right">Bestand</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Preis</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleEquipment.length === 0 ? (
+                    <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
+                  ) : (
+                    visibleEquipment.map((item) => (
+                      <TableRow
+                        key={item.id}
+                        className="cursor-pointer"
+                        tabIndex={0}
+                        onClick={() => openEdit({ ...item, kind: "equipment" })}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openEdit({ ...item, kind: "equipment" });
+                          }
+                        }}
+                      >
+                        <TableCell className="font-medium">{equipmentCategoryLabels[item.category]}</TableCell>
+                        <TableCell>{item.labelDe}</TableCell>
+                        <TableCell>
+                          {locations.find((location) => location.key === item.location)?.label ?? item.location}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {item.quantityRelevant ? item.availableQuantity : "Nicht gezählt"}
+                        </TableCell>
+                        <TableCell>
+                          <StatusButton
+                            active={item.isAvailable}
+                            onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {euroFormatter.format(item.priceCents / 100)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-3 sm:hidden">
+        {kind === "bike"
+          ? visibleBikes.map((bike) => (
+              <div
+                className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                key={bike.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openEdit({ ...bike, kind: "bike" })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openEdit({ ...bike, kind: "bike" });
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{bike.nickname || bike.title}</p>
+                    {bike.nickname ? <p className="text-xs text-muted-foreground">{bike.title}</p> : null}
+                  </div>
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">Größe {bike.size}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {locations.find((entry) => entry.key === bike.location)?.label ?? bike.location}
+                  </span>
+                  <span className="text-right font-semibold tabular-nums">
+                    {euroFormatter.format(bike.weekdayPriceCents / 100)} / Tag
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3 text-sm">
+                  <StatusButton
+                    active={bike.isVisibleOnLanding}
+                    onClick={() => void toggleLandingVisibility(bike)}
+                    activeLabel="Landingpage: an"
+                    inactiveLabel="Landingpage: aus"
+                  />
+                  <StatusButton
+                    active={bike.isBookable}
+                    onClick={() => void toggleAvailability({ ...bike, kind: "bike" })}
+                    activeLabel="Buchungen: an"
+                    inactiveLabel="Buchungen: aus"
+                  />
+                </div>
+              </div>
+            ))
+          : visibleEquipment.map((item) => (
+              <div
+                className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openEdit({ ...item, kind: "equipment" })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openEdit({ ...item, kind: "equipment" });
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{item.labelDe}</p>
+                    <p className="text-xs text-muted-foreground">{equipmentCategoryLabels[item.category]}</p>
+                  </div>
+                  <span className="text-right font-semibold tabular-nums">
+                    {euroFormatter.format(item.priceCents / 100)}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {locations.find((entry) => entry.key === item.location)?.label ?? item.location}
+                  </span>
+                  <span className="font-medium">
+                    {item.quantityRelevant ? `${item.availableQuantity} Stück` : "Nicht gezählt"}
+                  </span>
+                </div>
+                <div className="mt-3 border-t pt-3 text-sm">
+                  <StatusButton
+                    active={item.isAvailable}
+                    onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
+                    activeLabel="Für Buchungen aktiv"
+                    inactiveLabel="Für Buchungen pausiert"
+                  />
+                </div>
+              </div>
+            ))}
+        {(kind === "bike" ? visibleBikes : visibleEquipment).length === 0 ? (
+          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Noch keine Einträge für diesen Standort.
+          </div>
+        ) : null}
+      </div>
       <InventoryDialog
         key={`${kind}-${editingItem?.kind ?? "new"}-${editingItem?.id ?? "new"}-${dialogOpen}`}
         open={dialogOpen}

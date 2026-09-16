@@ -75,7 +75,7 @@ export default async function AccountingPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Buchhaltung" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+          <main className="admin-main flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <AdminPageHeader
               title={`EÜR ${euer.year}`}
               description="Einnahmen und Ausgaben nach steuerlicher Kategorie. Interne Umbuchungen bleiben ausgeschlossen."

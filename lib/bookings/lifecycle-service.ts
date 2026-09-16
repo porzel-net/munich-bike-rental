@@ -164,7 +164,7 @@ export function advanceBooking(
         });
     }
     let queuedMailId: number | null = null;
-    if (target === "checked_out" && sendMail) {
+    if (target === "completed" && sendMail) {
       const feedbackToken = randomBytes(32).toString("hex");
       const feedbackMail = renderFeedbackRequestMail({
         locale: booking.communicationLocale,

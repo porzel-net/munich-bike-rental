@@ -99,7 +99,7 @@ export const financialReconciliationStatuses = ["open", "matched", "difference",
 export const financialDocumentTypes = ["receipt", "invoice", "contract", "bank_statement", "other"] as const;
 export const financialDocumentLinkTypes = ["evidence", "source", "correction", "related"] as const;
 export const fixedAssetTypes = ["bike", "equipment", "other"] as const;
-export const fixedAssetMethods = ["straight_line"] as const;
+export const fixedAssetMethods = ["straight_line", "declining_balance"] as const;
 export const fixedAssetStatuses = ["active", "disposed"] as const;
 export const fixedAssetDisposalReasons = ["sold", "scrapped", "private_withdrawal", "other"] as const;
 export const fixedAssetAcquisitionSources = ["transaction", "private_contribution"] as const;
@@ -307,6 +307,8 @@ export const fixedAssets = sqliteTable(
     inputVatCents: integer("input_vat_cents").notNull().default(0),
     usefulLifeMonths: integer("useful_life_months").notNull(),
     method: text("method", { enum: fixedAssetMethods }).notNull().default("straight_line"),
+    degressiveRateBps: integer("degressive_rate_bps"),
+    depreciationRevision: integer("depreciation_revision").notNull().default(0),
     residualValueCents: integer("residual_value_cents").notNull().default(0),
     status: text("status", { enum: fixedAssetStatuses }).notNull().default("active"),
     disposedAt: text("disposed_at"),

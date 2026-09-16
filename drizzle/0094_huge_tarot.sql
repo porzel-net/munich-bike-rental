@@ -1,0 +1,1 @@
+ALTER TABLE `fixed_assets` ADD `degressive_rate_bps` integer;

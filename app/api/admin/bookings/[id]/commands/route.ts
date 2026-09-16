@@ -98,9 +98,12 @@ const commandSchema = z.discriminatedUnion("command", [
   z.object({
     command: z.literal("check_out"),
     reason: z.string().trim().max(500).optional(),
+  }),
+  z.object({
+    command: z.literal("complete"),
+    reason: z.string().trim().max(500).optional(),
     sendMail: z.boolean().optional(),
   }),
-  z.object({ command: z.literal("complete"), reason: z.string().trim().max(500).optional() }),
   z.object({
     command: z.literal("assign_stripe_payment"),
     offerId: z.number().int().positive(),
@@ -338,13 +341,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "check_out":
         {
+          advanceBooking(command.db, id, "checked_out", command.user.id, input.data.reason);
+        }
+        break;
+      case "complete":
+        {
           const mailId =
             input.data.sendMail === undefined
-              ? advanceBooking(command.db, id, "checked_out", command.user.id, input.data.reason)
+              ? advanceBooking(command.db, id, "completed", command.user.id, input.data.reason)
               : advanceBooking(
                   command.db,
                   id,
-                  "checked_out",
+                  "completed",
                   command.user.id,
                   input.data.reason,
                   undefined,
@@ -354,15 +362,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           if (mailResult?.status === "failed")
             return NextResponse.json(
               {
-                message: "Die Ausgabe wurde erfasst, aber die Feedback-Mail konnte nicht versendet werden.",
+                message: "Die Annahme wurde erfasst, aber die Feedback-Mail konnte nicht versendet werden.",
                 mailStatus: mailResult.status,
               },
               { status: 502 },
             );
         }
-        break;
-      case "complete":
-        advanceBooking(command.db, id, "completed", command.user.id, input.data.reason);
         break;
       case "assign_stripe_payment": {
         const session = await getStripeCheckoutSession(input.data.sessionId);

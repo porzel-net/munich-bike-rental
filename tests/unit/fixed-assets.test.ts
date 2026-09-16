@@ -15,6 +15,7 @@ import { getEuerSummary } from "../../lib/financial/euer";
 import {
   createFixedAsset,
   disposeFixedAsset,
+  getMaximumDegressiveRateBps,
   fixedAssetDepreciationSchedule,
   monthlyDepreciationCents,
   postDueFixedAssetDepreciation,
@@ -48,6 +49,105 @@ describe("fixed asset depreciation", () => {
     expect(monthlyDepreciationCents(asset, "2033-08-01")).toBe(0);
   });
 
+  it("calculates the legal maximum declining-balance rates by acquisition date", () => {
+    expect(getMaximumDegressiveRateBps({ acquisitionDate: "2026-01-01", usefulLifeMonths: 84 })).toBe(3_000);
+    expect(getMaximumDegressiveRateBps({ acquisitionDate: "2026-01-01", usefulLifeMonths: 144 })).toBe(2_500);
+    expect(getMaximumDegressiveRateBps({ acquisitionDate: "2024-04-01", usefulLifeMonths: 84 })).toBe(2_000);
+    expect(getMaximumDegressiveRateBps({ acquisitionDate: "2025-06-30", usefulLifeMonths: 84 })).toBeNull();
+    expect(getMaximumDegressiveRateBps({ acquisitionDate: "2028-01-01", usefulLifeMonths: 84 })).toBeNull();
+  });
+
+  it("calculates declining depreciation from the opening book value and switches to linear", () => {
+    const degressiveAsset = {
+      ...asset,
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      usefulLifeMonths: 48,
+      method: "declining_balance" as const,
+      degressiveRateBps: 3_000,
+    };
+    const schedule = fixedAssetDepreciationSchedule(degressiveAsset);
+    const yearly = new Map<string, number>();
+    for (const entry of schedule) {
+      const year = entry.periodStart.slice(0, 4);
+      yearly.set(year, (yearly.get(year) ?? 0) + entry.amountCents);
+    }
+
+    expect(schedule).toHaveLength(48);
+    expect(yearly.get("2026")).toBe(30_000);
+    expect(yearly.get("2027")).toBe(23_333);
+    expect(yearly.get("2028")).toBe(23_333);
+    expect(yearly.get("2029")).toBe(23_334);
+    expect(schedule.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(100_000);
+  });
+
+  it("uses the BMF-style partial year and later linear switch for a 2024 asset", () => {
+    const schedule = fixedAssetDepreciationSchedule({
+      acquisitionCostCents: 60_000,
+      residualValueCents: 0,
+      usefulLifeMonths: 72,
+      acquisitionDate: "2024-04-15",
+      inServiceDate: "2024-04-15",
+      method: "declining_balance" as const,
+      degressiveRateBps: 2_000,
+    });
+    const yearly = new Map<string, number>();
+    for (const entry of schedule) {
+      const year = entry.periodStart.slice(0, 4);
+      yearly.set(year, (yearly.get(year) ?? 0) + entry.amountCents);
+    }
+
+    expect(yearly.get("2024")).toBe(9_000);
+    expect(yearly.get("2025")).toBe(10_200);
+    expect(yearly.get("2026")).toBe(9_600);
+    expect(yearly.get("2027")).toBe(9_600);
+    expect(schedule.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(60_000);
+  });
+
+  it("preserves the residual value with declining depreciation", () => {
+    const schedule = fixedAssetDepreciationSchedule({
+      acquisitionCostCents: 100_000,
+      residualValueCents: 10_000,
+      usefulLifeMonths: 48,
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      method: "declining_balance" as const,
+      degressiveRateBps: 3_000,
+    });
+
+    expect(schedule.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(90_000);
+    expect(schedule.at(-1)?.amountCents).toBeGreaterThan(0);
+  });
+
+  it("rejects declining depreciation outside the statutory acquisition windows", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Nicht zulässiges Anlagegut",
+        assetType: "equipment",
+        acquisitionDate: "2025-06-30",
+        inServiceDate: "2025-06-30",
+        acquisitionCostCents: 100_000,
+        usefulLifeMonths: 84,
+        method: "declining_balance",
+      }),
+    ).toThrow("degressive AfA");
+  });
+
+  it("does not offer declining depreciation for private contributions", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Privat eingebrachtes Anlagegut",
+        assetType: "equipment",
+        acquisitionSource: "private_contribution",
+        acquisitionDate: "2026-01-01",
+        inServiceDate: "2026-01-01",
+        acquisitionCostCents: 100_000,
+        usefulLifeMonths: 84,
+        method: "declining_balance",
+      }),
+    ).toThrow("Privateinlagen");
+  });
+
   it("reports the remaining depreciable amount for active assets", () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);
@@ -67,6 +167,70 @@ describe("fixed asset depreciation", () => {
     postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-01", actorUserId: null });
 
     expect(getEuerSummary(connection.db, 2026).remainingDepreciationCents).toBe(81_000);
+  });
+
+  it("persists the selected depreciation method and its legal rate", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Degressives Testfahrrad",
+      assetType: "bike",
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 84,
+      method: "declining_balance",
+      createdByUserId: null,
+    });
+
+    expect(created.method).toBe("declining_balance");
+    expect(created.degressiveRateBps).toBe(3_000);
+  });
+
+  it("recalculates the stored maximum rate when the useful life changes", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Nutzungsdaueränderung",
+      assetType: "equipment",
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 84,
+      method: "declining_balance",
+      createdByUserId: null,
+    });
+
+    updateFixedAsset(connection.db, {
+      assetId: created.id,
+      name: "Nutzungsdaueränderung",
+      assetType: "equipment",
+      inServiceDate: "2026-01-01",
+      usefulLifeMonths: 144,
+      method: "declining_balance",
+      actorUserId: null,
+    });
+
+    expect(connection.db.select().from(fixedAssets).get()).toMatchObject({
+      method: "declining_balance",
+      degressiveRateBps: 2_500,
+      usefulLifeMonths: 144,
+    });
+  });
+
+  it("rejects a manually supplied declining rate above the statutory maximum", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Ungültiger Satz",
+        assetType: "equipment",
+        acquisitionDate: "2026-01-01",
+        inServiceDate: "2026-01-01",
+        acquisitionCostCents: 100_000,
+        usefulLifeMonths: 84,
+        method: "declining_balance",
+        degressiveRateBps: 3_001,
+      }),
+    ).toThrow("Höchstsatz");
   });
 
   it("posts AfA through the sale month and includes the sale in the EÜR", () => {
@@ -163,4 +327,100 @@ describe("fixed asset depreciation", () => {
         .all(),
     ).toEqual([]);
   });
+
+  it("allows an explicit audited method correction in both directions", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Methodenwechsel",
+      assetType: "equipment",
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 48,
+      method: "declining_balance",
+      createdByUserId: null,
+    });
+    postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-02", actorUserId: null });
+
+    updateFixedAsset(connection.db, {
+      assetId: created.id,
+      name: "Methodenwechsel",
+      assetType: "equipment",
+      inServiceDate: "2026-01-01",
+      usefulLifeMonths: 48,
+      method: "straight_line",
+      actorUserId: null,
+    });
+    expect(connection.db.select().from(fixedAssets).get()).toMatchObject({
+      method: "straight_line",
+      degressiveRateBps: null,
+    });
+    expect(
+      connection.db
+        .select()
+        .from(fixedAssetDepreciationEntries)
+        .where(eq(fixedAssetDepreciationEntries.fixedAssetId, created.id))
+        .all(),
+    ).toEqual([]);
+
+    postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-02", actorUserId: null });
+
+    updateFixedAsset(connection.db, {
+      assetId: created.id,
+      name: "Methodenwechsel",
+      assetType: "equipment",
+      inServiceDate: "2026-01-01",
+      usefulLifeMonths: 48,
+      method: "declining_balance",
+      actorUserId: null,
+    });
+    expect(connection.db.select().from(fixedAssets).get()).toMatchObject({
+      method: "declining_balance",
+      degressiveRateBps: 3_000,
+    });
+    expect(
+      connection.db
+        .select()
+        .from(fixedAssetDepreciationEntries)
+        .where(eq(fixedAssetDepreciationEntries.fixedAssetId, created.id))
+        .all(),
+    ).toEqual([]);
+  });
+
+  it("posts a declining schedule idempotently through the requested month", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Automatische degressive AfA",
+      assetType: "equipment",
+      acquisitionDate: "2026-01-01",
+      inServiceDate: "2026-01-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 48,
+      method: "declining_balance",
+      createdByUserId: null,
+    });
+
+    expect(postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-03", actorUserId: null })).toEqual({
+      posted: 3,
+    });
+    expect(postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-03", actorUserId: null })).toEqual({
+      posted: 0,
+    });
+    expect(
+      connection.db
+        .select()
+        .from(fixedAssetDepreciationEntries)
+        .where(eq(fixedAssetDepreciationEntries.fixedAssetId, created.id))
+        .all()
+        .reduce((sum, entry) => sum + entry.amountCents, 0),
+    ).toBe(7_500);
+  });
 });
+
+function connectionForTest() {
+  const connection = createDatabaseConnection(":memory:");
+  connections.push(connection);
+  return connection;
+}

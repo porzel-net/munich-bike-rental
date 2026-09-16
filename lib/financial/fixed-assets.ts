@@ -13,6 +13,7 @@ import {
   financialCategories,
   financialTransactionAllocations,
   financialTransactions,
+  fixedAssetMethods,
   fixedAssetDepreciationEntries,
   fixedAssets,
   journalLines,
@@ -59,13 +60,71 @@ function monthDate(index: number) {
   return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
-export function monthlyDepreciationCents(
-  asset: Pick<
-    typeof fixedAssets.$inferSelect,
-    "acquisitionCostCents" | "residualValueCents" | "usefulLifeMonths" | "inServiceDate"
-  >,
-  periodStart: string,
-) {
+type FixedAssetMethod = (typeof fixedAssetMethods)[number];
+
+type DepreciationAsset = Pick<
+  typeof fixedAssets.$inferSelect,
+  "acquisitionCostCents" | "residualValueCents" | "usefulLifeMonths" | "inServiceDate"
+> & {
+  acquisitionDate?: string;
+  acquisitionSource?: "transaction" | "private_contribution";
+  method?: FixedAssetMethod;
+  degressiveRateBps?: number | null;
+};
+
+/** Returns the maximum statutory declining-balance rate in basis points. */
+export function getMaximumDegressiveRateBps(input: { acquisitionDate: string; usefulLifeMonths: number }) {
+  if (!Number.isSafeInteger(input.usefulLifeMonths) || input.usefulLifeMonths < 1) return null;
+
+  const rule =
+    input.acquisitionDate >= "2025-07-01" && input.acquisitionDate < "2028-01-01"
+      ? { factor: 3, capBps: 3_000 }
+      : input.acquisitionDate >= "2024-04-01" && input.acquisitionDate < "2025-01-01"
+        ? { factor: 2, capBps: 2_000 }
+        : null;
+  if (!rule) return null;
+  return Math.min(rule.capBps, Math.floor((rule.factor * 120_000) / input.usefulLifeMonths));
+}
+
+function resolveDegressiveRateBps(input: {
+  method: FixedAssetMethod;
+  acquisitionDate: string;
+  usefulLifeMonths: number;
+  acquisitionSource?: "transaction" | "private_contribution";
+  degressiveRateBps?: number | null;
+}) {
+  if (input.method === "straight_line") return null;
+  if (input.acquisitionSource === "private_contribution")
+    throw new BookingCommandError("Für Privateinlagen ist keine degressive AfA vorgesehen.");
+  const maximum = getMaximumDegressiveRateBps(input);
+  if (maximum === null)
+    throw new BookingCommandError(
+      "Für dieses Anschaffungsdatum ist keine degressive AfA nach § 7 Abs. 2 EStG zulässig.",
+    );
+  const rate = input.degressiveRateBps ?? maximum;
+  if (!Number.isSafeInteger(rate) || rate < 1 || rate > maximum)
+    throw new BookingCommandError("Der degressive AfA-Satz überschreitet den gesetzlich zulässigen Höchstsatz.");
+  return rate;
+}
+
+function depreciationMethod(asset: DepreciationAsset) {
+  return asset.method ?? "straight_line";
+}
+
+function depreciationRateBps(asset: DepreciationAsset) {
+  const method = depreciationMethod(asset);
+  if (method === "straight_line") return null;
+  if (!asset.acquisitionDate) throw new BookingCommandError("Für degressive AfA fehlt das Anschaffungsdatum.");
+  return resolveDegressiveRateBps({
+    method,
+    acquisitionDate: asset.acquisitionDate,
+    usefulLifeMonths: asset.usefulLifeMonths,
+    acquisitionSource: asset.acquisitionSource,
+    degressiveRateBps: asset.degressiveRateBps,
+  });
+}
+
+function straightLineDepreciationCents(asset: DepreciationAsset, periodStart: string) {
   if (!Number.isSafeInteger(asset.usefulLifeMonths) || asset.usefulLifeMonths < 1)
     throw new BookingCommandError("Die Nutzungsdauer muss mindestens einen Monat betragen.");
   const depreciableCents = asset.acquisitionCostCents - asset.residualValueCents;
@@ -78,12 +137,69 @@ export function monthlyDepreciationCents(
   return monthlyBase;
 }
 
-export function fixedAssetDepreciationSchedule(
-  asset: Pick<
-    typeof fixedAssets.$inferSelect,
-    "acquisitionCostCents" | "residualValueCents" | "usefulLifeMonths" | "inServiceDate"
-  >,
-) {
+function splitAcrossMonths(amountCents: number, monthCount: number) {
+  const base = Math.floor(amountCents / monthCount);
+  return Array.from({ length: monthCount }, (_, index) =>
+    index === monthCount - 1 ? amountCents - base * (monthCount - 1) : base,
+  );
+}
+
+function decliningBalanceDepreciationSchedule(asset: DepreciationAsset) {
+  const rateBps = depreciationRateBps(asset);
+  if (rateBps === null) throw new BookingCommandError("Für dieses Anlagegut ist keine degressive AfA hinterlegt.");
+
+  let cursor = monthIndex(asset.inServiceDate);
+  let remainingLifeMonths = asset.usefulLifeMonths;
+  let remainingDepreciableCents = asset.acquisitionCostCents - asset.residualValueCents;
+  let declining = true;
+  const schedule: Array<{ periodStart: string; periodEnd: string; amountCents: number }> = [];
+
+  while (remainingLifeMonths > 0 && remainingDepreciableCents > 0) {
+    const monthsUntilYearEnd = 12 - (cursor % 12);
+    const segmentMonths = Math.min(monthsUntilYearEnd, remainingLifeMonths);
+    const decliningAnnualCents = Math.min(
+      remainingDepreciableCents,
+      Math.floor(((asset.residualValueCents + remainingDepreciableCents) * rateBps) / 10_000),
+    );
+
+    // The transition is evaluated at the beginning of a tax year. This is
+    // the same comparison used in the BMF example: switch when linear AfA
+    // for the remaining life exceeds the declining annual amount.
+    if (declining && decliningAnnualCents * remainingLifeMonths < remainingDepreciableCents * 12) {
+      declining = false;
+    }
+
+    const segmentAmountCents = declining
+      ? Math.min(remainingDepreciableCents, Math.floor((decliningAnnualCents * segmentMonths) / 12))
+      : segmentMonths === remainingLifeMonths
+        ? remainingDepreciableCents
+        : Math.floor((remainingDepreciableCents * segmentMonths) / remainingLifeMonths);
+    const monthlyAmounts = splitAcrossMonths(segmentAmountCents, segmentMonths);
+    for (let index = 0; index < segmentMonths; index += 1) {
+      const periodStart = monthDate(cursor + index);
+      schedule.push({
+        periodStart,
+        periodEnd: monthDate(cursor + index + 1),
+        amountCents: monthlyAmounts[index],
+      });
+    }
+    cursor += segmentMonths;
+    remainingLifeMonths -= segmentMonths;
+    remainingDepreciableCents -= segmentAmountCents;
+  }
+
+  return schedule.filter((entry) => entry.amountCents > 0);
+}
+
+export function monthlyDepreciationCents(asset: DepreciationAsset, periodStart: string) {
+  if (depreciationMethod(asset) === "straight_line") return straightLineDepreciationCents(asset, periodStart);
+  return (
+    decliningBalanceDepreciationSchedule(asset).find((entry) => entry.periodStart === periodStart)?.amountCents ?? 0
+  );
+}
+
+export function fixedAssetDepreciationSchedule(asset: DepreciationAsset) {
+  if (depreciationMethod(asset) === "declining_balance") return decliningBalanceDepreciationSchedule(asset);
   const start = monthIndex(asset.inServiceDate);
   return Array.from({ length: asset.usefulLifeMonths }, (_, index) => {
     const periodStart = monthDate(start + index);
@@ -107,6 +223,8 @@ export function createFixedAsset(
     acquisitionCostCents: number;
     inputVatCents?: number;
     usefulLifeMonths: number;
+    method?: FixedAssetMethod;
+    degressiveRateBps?: number | null;
     residualValueCents?: number;
     sourceTransactionId?: number | null;
     notes?: string;
@@ -133,6 +251,14 @@ export function createFixedAsset(
     throw new BookingCommandError("Der Restwert muss zwischen 0 und den Anschaffungskosten liegen.");
   if (input.inServiceDate < input.acquisitionDate)
     throw new BookingCommandError("Die Inbetriebnahme darf nicht vor der Anschaffung liegen.");
+  const method = input.method ?? "straight_line";
+  const degressiveRateBps = resolveDegressiveRateBps({
+    method,
+    acquisitionDate: input.acquisitionDate,
+    usefulLifeMonths: input.usefulLifeMonths,
+    acquisitionSource: input.acquisitionSource,
+    degressiveRateBps: input.degressiveRateBps,
+  });
 
   const now = new Date();
   const asset = db
@@ -148,6 +274,8 @@ export function createFixedAsset(
       acquisitionCostCents: input.acquisitionCostCents,
       inputVatCents,
       usefulLifeMonths: input.usefulLifeMonths,
+      method,
+      degressiveRateBps,
       residualValueCents,
       sourceTransactionId: input.sourceTransactionId ?? null,
       notes: input.notes?.trim() ?? "",
@@ -169,6 +297,7 @@ export function updateFixedAsset(
     serialNumber?: string | null;
     inServiceDate: string;
     usefulLifeMonths: number;
+    method?: FixedAssetMethod;
     notes?: string;
     actorUserId: string | null;
   },
@@ -188,8 +317,24 @@ export function updateFixedAsset(
     if (!Number.isSafeInteger(input.usefulLifeMonths) || input.usefulLifeMonths < 1)
       throw new BookingCommandError("Die Nutzungsdauer muss mindestens einen Monat betragen.");
 
+    const method = input.method ?? asset.method;
+    const degressiveRateBps = resolveDegressiveRateBps({
+      method,
+      acquisitionDate: asset.acquisitionDate,
+      usefulLifeMonths: input.usefulLifeMonths,
+      acquisitionSource: asset.acquisitionSource,
+      degressiveRateBps:
+        method === "declining_balance" && input.usefulLifeMonths === asset.usefulLifeMonths
+          ? asset.degressiveRateBps
+          : null,
+    });
+
     const scheduleChanged =
-      input.inServiceDate !== asset.inServiceDate || input.usefulLifeMonths !== asset.usefulLifeMonths;
+      input.inServiceDate !== asset.inServiceDate ||
+      input.usefulLifeMonths !== asset.usefulLifeMonths ||
+      method !== asset.method ||
+      degressiveRateBps !== asset.degressiveRateBps;
+    const depreciationRevision = scheduleChanged ? asset.depreciationRevision + 1 : asset.depreciationRevision;
     if (scheduleChanged) {
       const depreciationEntries = db
         .select()
@@ -225,6 +370,9 @@ export function updateFixedAsset(
         serialNumber: input.serialNumber?.trim() || null,
         inServiceDate: input.inServiceDate,
         usefulLifeMonths: input.usefulLifeMonths,
+        method,
+        degressiveRateBps,
+        depreciationRevision,
         notes: input.notes?.trim() ?? asset.notes,
         updatedAt: new Date(),
       })
@@ -271,7 +419,7 @@ function postFixedAssetDepreciationInTransaction(
     kind: "depreciation",
     actorUserId: input.actorUserId,
     reason: `AfA: ${asset.assetNumber} · ${asset.name} · ${input.periodStart.slice(0, 7)}`,
-    idempotencyKey: `fixed-asset-depreciation:${asset.id}:${input.periodStart}`,
+    idempotencyKey: `fixed-asset-depreciation:${asset.id}:${asset.depreciationRevision}:${input.periodStart}`,
     occurredAt: new Date(`${periodEnd}T00:00:00Z`),
     lines: [
       { account: "expense", amountCents },

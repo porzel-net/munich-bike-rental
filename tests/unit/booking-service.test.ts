@@ -901,6 +901,7 @@ describe("booking commands", () => {
     });
     confirmOffer(db, checkedOutOffer.confirmationToken, "admin");
     advanceBooking(db, checkedOut.id, "checked_out", "admin");
+    advanceBooking(db, checkedOut.id, "completed", "admin");
 
     const changed = inquiry(db, "2026-07-26", "2026-07-27");
     assignAdminBooking(db, changed.id);
@@ -1083,14 +1084,18 @@ describe("booking commands", () => {
     ).toMatchObject({ invoiceNumber: expect.stringMatching(/^YBR-\d{4}-0001$/) });
   });
 
-  it("creates a one-time feedback link and queues the request after handover", () => {
+  it("does not create feedback at handover and queues it after acceptance", () => {
     const { db, assetId } = setup();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");
     assignAdminBooking(db, booking.id);
     const offer = createOffer(db, { bookingId: booking.id, assetsByRequestedItem: { [booking.itemId]: assetId } });
     confirmOffer(db, offer.confirmationToken, "admin");
 
-    const mailId = advanceBooking(db, booking.id, "checked_out", "admin");
+    const handoverMailId = advanceBooking(db, booking.id, "checked_out", "admin");
+    expect(handoverMailId).toBeNull();
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.kind, "feedback_request")).all()).toHaveLength(0);
+
+    const mailId = advanceBooking(db, booking.id, "completed", "admin");
     expect(mailId).toBeTypeOf("number");
     const mail = db.select().from(mailOutbox).where(eq(mailOutbox.kind, "feedback_request")).get();
     expect(mail?.html).toContain("How was your ride?");

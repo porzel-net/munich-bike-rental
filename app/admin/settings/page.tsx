@@ -57,7 +57,7 @@ export default async function SettingsPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Einstellungen" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col gap-6 p-8 lg:p-12">
+          <main className="admin-main flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <Tabs defaultValue="personal" className="w-full gap-8">
               <TabsList variant="line" className="w-full justify-start gap-6 border-b px-0">
                 <TabsTrigger value="personal" className="flex-none px-0 pb-3">

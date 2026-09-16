@@ -151,17 +151,24 @@ export default async function BankTransactionsPage({
       }
       return documents;
     }, new Map<number, Array<{ id: number; originalFileName: string; mimeType: string; sizeBytes: number }>>());
-  const groupedTransactions = new Map<number, (typeof reviewTransactions)[number] & { allocatedCents: number }>();
+  const groupedTransactions = new Map<
+    number,
+    (typeof reviewTransactions)[number] & { allocatedCents: number; privateShareCents: number }
+  >();
   for (const row of reviewTransactions) {
     const existing = groupedTransactions.get(row.id);
     if (!existing) {
       groupedTransactions.set(row.id, {
         ...row,
         allocatedCents: row.allocationAmountCents ?? 0,
+        privateShareCents: row.categoryCode === "private_meal_share" ? Math.abs(row.allocationAmountCents ?? 0) : 0,
       });
       continue;
     }
     existing.allocatedCents += row.allocationAmountCents ?? 0;
+    if (row.categoryCode === "private_meal_share") {
+      existing.privateShareCents += Math.abs(row.allocationAmountCents ?? 0);
+    }
     if (existing.categoryId === null && row.categoryId !== null) {
       existing.categoryId = row.categoryId;
       existing.categoryCode = row.categoryCode;
@@ -187,6 +194,7 @@ export default async function BankTransactionsPage({
     return {
       ...row,
       allocatedCents: row.allocatedCents,
+      privateShareCents: row.privateShareCents,
       remainingCents: Math.max(0, row.amountCents - row.allocatedCents),
       matchedBooking:
         matchedBooking && matchedBooking.status !== "rejected" && matchedBooking.status !== "cancelled"
@@ -199,6 +207,7 @@ export default async function BankTransactionsPage({
             id: fixedAsset.id,
             name: fixedAsset.name,
             assetType: fixedAsset.assetType,
+            method: fixedAsset.method,
             serialNumber: fixedAsset.serialNumber,
             acquisitionDate: fixedAsset.acquisitionDate,
             inServiceDate: fixedAsset.inServiceDate,

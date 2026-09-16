@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import MailComposer from "nodemailer/lib/mail-composer";
+import type { SendMailOptions } from "nodemailer";
 import { NextResponse } from "next/server";
 import type { z } from "zod";
 
@@ -230,8 +231,11 @@ export async function getMailConfig(
       firstNonBlank(environment[names.from], environment.MAIL_FROM_ADDRESS) ??
       (account === "main" ? user : "anfrage@munich-bike-rental.de"),
     toAddress:
-      firstNonBlank(environment[names.to], environment.MAIL_TO_ADDRESS) ??
-      (account === "main" ? "" : "hallo@munich-bike-rental.de"),
+      firstNonBlank(
+        environment[names.to],
+        environment.MAIL_TO_ADDRESS,
+        account === "main" ? environment.MAIL_REQUEST_TO_ADDRESS : undefined,
+      ) ?? (account === "main" ? "" : "hallo@munich-bike-rental.de"),
   };
 }
 
@@ -402,12 +406,14 @@ export async function sendConfiguredMail({
 
   const sentAt = new Date();
   const messageId = `<${randomUUID()}@${config.fromAddress.split("@").at(-1) ?? "munich-bike-rental.de"}>`;
+  const internalCopyAddress = account === "main" ? config.toAddress : "";
   const mailOptions = {
     from: `Your Bike Rental <${config.fromAddress}>`,
     // Keep the SMTP envelope sender on the same domain as the visible From:
     // header so SPF can align with DMARC for direct customer mail.
-    envelope: { from: config.fromAddress, to },
+    envelope: { from: config.fromAddress, to: internalCopyAddress ? [to, internalCopyAddress] : to },
     to,
+    bcc: internalCopyAddress || undefined,
     replyTo,
     inReplyTo,
     references,
@@ -419,7 +425,7 @@ export async function sendConfiguredMail({
     attachments: mailAttachments,
     date: sentAt,
     messageId,
-  } satisfies Parameters<ReturnType<typeof nodemailer.createTransport>["sendMail"]>[0];
+  } as unknown as SendMailOptions;
   const rawMessage = await new MailComposer(mailOptions).compile().build();
 
   const transporter = nodemailer.createTransport({

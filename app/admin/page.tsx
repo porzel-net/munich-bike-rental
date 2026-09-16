@@ -470,7 +470,7 @@ export default async function AdminPage() {
         <SiteHeader title="Dashboard" />
         <div className="admin-page-surface admin-dashboard-surface">
           <ScrollArea className="h-full min-h-0 w-full">
-            <main className="relative z-10 flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <main className="admin-main relative z-10 flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
               <AdminPageHeader
                 title="Dashboard"
                 description="Die wichtigsten Kennzahlen, Aktivitäten und Entwicklungen auf einen Blick."

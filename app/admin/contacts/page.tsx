@@ -63,7 +63,7 @@ export default async function ContactsPage() {
       <SidebarInset className="min-w-0 overflow-hidden">
         <SiteHeader title="Kontakte" />
         <div className="admin-page-surface">
-          <main className="flex flex-1 flex-col p-8 lg:p-12">
+          <main className="admin-main flex flex-1 flex-col p-4 sm:p-8 lg:p-12">
             <AdminContactsPage contacts={contacts} carddav={carddav} />
           </main>
         </div>

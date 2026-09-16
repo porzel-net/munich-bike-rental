@@ -228,7 +228,7 @@ export default async function BookingsPage({
         <SiteHeader title="Buchungen" />
         <div className="relative isolate min-h-0 min-w-0 flex-1 overflow-hidden bg-muted dark:bg-background">
           <ScrollArea className="h-full min-h-0 w-full">
-            <main className="relative z-10 flex flex-1 flex-col gap-6 p-8 lg:p-12">
+            <main className="admin-main relative z-10 flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
               <AdminPageHeader
                 title="Buchungsübersicht"
                 description="Bearbeite Status, Fahrräder, Preise und Nachrichten direkt in der jeweiligen Buchung."
@@ -288,7 +288,7 @@ export default async function BookingsPage({
                       const rowHasPendingAttention = pendingBookingAttentionIds.has(row.id);
                       return (
                         <Item
-                          className="transform-gpu bg-card cursor-pointer transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"
+                          className="admin-booking-item transform-gpu cursor-pointer bg-card transition-[transform,background-color,box-shadow] duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.002] hover:!bg-card hover:shadow-md"
                           key={row.id}
                           render={<Link href={`/admin/bookings/${row.id}`} />}
                           variant="default"
@@ -314,7 +314,7 @@ export default async function BookingsPage({
                               {row.periodTo}
                             </ItemDescription>
                           </ItemContent>
-                          <div className="flex shrink-0 items-center gap-4">
+                          <div className="admin-booking-item__meta flex shrink-0 items-center gap-4">
                             <Badge variant={view.badge}>{view.label}</Badge>
                             {likelyUnavailable && (
                               <Badge

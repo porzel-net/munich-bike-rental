@@ -1,0 +1,1 @@
+ALTER TABLE `fixed_assets` ADD `depreciation_revision` integer DEFAULT 0 NOT NULL;

@@ -14,6 +14,7 @@ export type FixedAssetRow = {
   assetNumber: string;
   name: string;
   assetType: "bike" | "equipment" | "other";
+  method: "straight_line" | "declining_balance";
   acquisitionDate: string;
   inServiceDate: string;
   serialNumber: string | null;
@@ -35,6 +36,10 @@ function assetTypeLabel(value: string) {
   if (value === "bike") return "Fahrrad";
   if (value === "equipment") return "Ausstattung";
   return "Sonstiges";
+}
+
+function methodLabel(value: FixedAssetRow["method"]) {
+  return value === "declining_balance" ? "degressiv" : "linear";
 }
 
 export function FixedAssetsTable({
@@ -80,7 +85,8 @@ export function FixedAssetsTable({
                   <TableCell>
                     <div className="font-medium">{asset.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {assetTypeLabel(asset.assetType)} · {asset.status === "active" ? "aktiv" : "ausgeschieden"}
+                      {assetTypeLabel(asset.assetType)} · {methodLabel(asset.method)} ·{" "}
+                      {asset.status === "active" ? "aktiv" : "ausgeschieden"}
                     </div>
                   </TableCell>
                   <TableCell>{formatDate(asset.acquisitionDate)}</TableCell>

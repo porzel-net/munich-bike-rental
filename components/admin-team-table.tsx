@@ -166,59 +166,103 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
         {message ? <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{message}</p> : null}
         <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
           <CardContent className="p-0">
-            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-              <TableBody>
-                {users.map((user) => {
-                  const isCurrentUser = user.id === currentUserId;
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell className="w-10">
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                          <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{user.name}</span>
-                          <span className="text-sm text-muted-foreground">{user.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        <div className="flex flex-col">
-                          <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
-                          <span>
-                            {user.role === "admin"
-                              ? "Alle Standorte"
-                              : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="w-8">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                            <MoreHorizontal />
-                            <span className="sr-only">Aktionen für {user.name}</span>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
-                              Bearbeiten
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => void deleteUser(user)}
-                              disabled={isCurrentUser}
-                            >
-                              Löschen
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <div className="hidden sm:block">
+              <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+                <TableBody>
+                  {users.map((user) => {
+                    const isCurrentUser = user.id === currentUserId;
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="w-10">
+                          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                            <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{user.name}</span>
+                            <span className="text-sm text-muted-foreground">{user.email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <div className="flex flex-col">
+                            <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
+                            <span>
+                              {user.role === "admin"
+                                ? "Alle Standorte"
+                                : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="w-8">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                              <MoreHorizontal />
+                              <span className="sr-only">Aktionen für {user.name}</span>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
+                                Bearbeiten
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => void deleteUser(user)}
+                                disabled={isCurrentUser}
+                              >
+                                Löschen
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="grid gap-2 p-3 sm:hidden">
+              {users.map((user) => {
+                const isCurrentUser = user.id === currentUserId;
+                return (
+                  <article className="rounded-2xl border border-border/60 bg-background p-4" key={user.id}>
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                        <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">{user.name}</p>
+                        <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {user.role === "admin"
+                            ? "Admin · Alle Standorte"
+                            : `Standortuser · ${(user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}`}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                          <MoreHorizontal />
+                          <span className="sr-only">Aktionen für {user.name}</span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
+                            Bearbeiten
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => void deleteUser(user)}
+                            disabled={isCurrentUser}
+                          >
+                            Löschen
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
