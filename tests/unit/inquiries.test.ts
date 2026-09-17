@@ -193,7 +193,6 @@ describe("inquiry server helpers", () => {
       SMTP_MAIN_PORT: "465",
       SMTP_MAIN_SECURE: "true",
       MAIL_MAIN_FROM_ADDRESS: "main@example.com",
-      MAIL_MAIN_TO_ADDRESS: "inbox@example.com",
     };
     sendMail.mockResolvedValue({ messageId: "<test@example.com>" });
 
@@ -207,8 +206,7 @@ describe("inquiry server helpers", () => {
     expect(sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
         to: "customer@example.com",
-        bcc: "inbox@example.com",
-        envelope: { from: "main@example.com", to: ["customer@example.com", "inbox@example.com"] },
+        envelope: { from: "main@example.com", to: "customer@example.com" },
         html: expect.stringContaining('src="cid:your-bike-rental-logo@munich-bike-rental.de"'),
         attachments: [
           expect.objectContaining({

@@ -194,7 +194,6 @@ const accountEnv = {
     user: "SMTP_MAIN_USER",
     password: "SMTP_MAIN_PASSWORD",
     from: "MAIL_MAIN_FROM_ADDRESS",
-    to: "MAIL_MAIN_TO_ADDRESS",
   },
 } as const;
 
@@ -219,6 +218,8 @@ export async function getMailConfig(
     parseBoolean(environment.SMTP_SECURE) ??
     parseBoolean(environment.MAIL_USE_SSL) ??
     port === 465;
+  const configuredToAddress =
+    account === "request" ? firstNonBlank(environment[names.to], environment.MAIL_TO_ADDRESS) : undefined;
   return {
     host,
     port,
@@ -230,12 +231,7 @@ export async function getMailConfig(
     fromAddress:
       firstNonBlank(environment[names.from], environment.MAIL_FROM_ADDRESS) ??
       (account === "main" ? user : "anfrage@munich-bike-rental.de"),
-    toAddress:
-      firstNonBlank(
-        environment[names.to],
-        environment.MAIL_TO_ADDRESS,
-        account === "main" ? environment.MAIL_REQUEST_TO_ADDRESS : undefined,
-      ) ?? (account === "main" ? "" : "hallo@munich-bike-rental.de"),
+    toAddress: configuredToAddress ?? (account === "main" ? "" : "hallo@munich-bike-rental.de"),
   };
 }
 
@@ -406,14 +402,12 @@ export async function sendConfiguredMail({
 
   const sentAt = new Date();
   const messageId = `<${randomUUID()}@${config.fromAddress.split("@").at(-1) ?? "munich-bike-rental.de"}>`;
-  const internalCopyAddress = account === "main" ? config.toAddress : "";
   const mailOptions = {
     from: `Your Bike Rental <${config.fromAddress}>`,
     // Keep the SMTP envelope sender on the same domain as the visible From:
     // header so SPF can align with DMARC for direct customer mail.
-    envelope: { from: config.fromAddress, to: internalCopyAddress ? [to, internalCopyAddress] : to },
+    envelope: { from: config.fromAddress, to },
     to,
-    bcc: internalCopyAddress || undefined,
     replyTo,
     inReplyTo,
     references,
