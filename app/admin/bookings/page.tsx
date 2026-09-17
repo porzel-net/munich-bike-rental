@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AdminPageHeader } from "@/components/admin-page-header";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
-import { BookingAiBatchAnalysisButton } from "@/components/booking-ai-batch-analysis-button";
 import { BookingPreflightDialog } from "@/components/booking-preflight-dialog";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -234,7 +233,6 @@ export default async function BookingsPage({
                 description="Bearbeite Status, Fahrräder, Preise und Nachrichten direkt in der jeweiligen Buchung."
                 actions={
                   <>
-                    {administrator && <BookingAiBatchAnalysisButton />}
                     {administrator && preflight && <BookingPreflightDialog result={preflight} />}
                     <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings/new" />}>
                       Manuelle Buchung

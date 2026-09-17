@@ -780,6 +780,7 @@ describe("booking commands", () => {
       pickupTime: "10:00",
       dropoffTime: "10:00",
       location: "munich",
+      contactPhone: "+49 176 24742317",
       token: "test-token",
       senderFirstName: "Julius",
     });
@@ -789,6 +790,8 @@ describe("booking commands", () => {
     expect(mail.text).toContain("Dieses Angebot bleibt 36 Stunden für dich reserviert.");
     expect(mail.text).toContain("Deine Checkliste für die Abholung:");
     expect(mail.text).toContain("Gabelsbergerstraße 79a, 80333 München, Maxvorstadt");
+    expect(mail.text).toContain("Danach bei +49 176 24742317 anrufen.");
+    expect(mail.text).not.toContain("+49 152 51330962");
     expect(mail.text).not.toContain("WICHTIG:");
     expect(mail.text).not.toContain("**");
     expect(mail.text).toContain("bezahle den Gesamtpreis über Stripe");
@@ -848,6 +851,7 @@ describe("booking commands", () => {
 
   it("queues a localized offer and atomically reserves the chosen asset only on confirmation", () => {
     const { db, assetId } = setup();
+    db.update(authUser).set({ whatsappPhone: "+49 176 24742317" }).where(eq(authUser.id, "admin")).run();
     db.update(rentalAssets).set({ nickname: "Interner Spitzname" }).where(eq(rentalAssets.id, assetId)).run();
     const booking = inquiry(db, "2026-07-20", "2026-07-21");
     assignAdminBooking(db, booking.id);
@@ -855,6 +859,8 @@ describe("booking commands", () => {
     const outbox = db.select().from(mailOutbox).get()!;
     expect(outbox.locale).toBe("en");
     expect(outbox.plainText).toContain("remains reserved for you for 36 hours");
+    expect(outbox.plainText).toContain("Then call +49 176 24742317.");
+    expect(outbox.plainText).not.toContain("+49 152 51330962");
     expect(outbox.plainText).not.toContain("Interner Spitzname");
     expect(outbox.html).toContain("Your Bike Rental");
     expect(outbox.html).toContain("Open offer");

@@ -50,7 +50,7 @@ export const rentalLocationConfigs = [
     postalCode: "80333",
     mapImage: "/assets/img/location/munich-maps.webp",
     mapsUrl: "https://www.google.com/maps/search/?api=1&query=Gabelsbergerstra%C3%9Fe+79a%2C+80333+M%C3%BCnchen",
-    pickupNote: { de: "Danach bei +49 152 51330962 anrufen.", en: "Then call +49 152 51330962." },
+    pickupNote: { de: "Danach bei {{contactPhone}} anrufen.", en: "Then call {{contactPhone}}." },
   },
   {
     key: "regensburg",

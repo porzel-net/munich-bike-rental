@@ -46,6 +46,7 @@ export type OfferMailInput = {
   dropoffTime: string;
   location: string;
   pickupAddress?: string;
+  contactPhone?: string;
   token: string;
   senderFirstName: string;
   alternativeReason?: string;
@@ -162,8 +163,10 @@ export function renderOfferMail(input: OfferMailInput) {
     rentalLocationConfigs.find((location) => location.key === input.location)?.address ||
     input.location;
   const pickupLocation = rentalLocationConfigs.find((location) => location.key === input.location);
-  const pickupNote =
-    pickupLocation && "pickupNote" in pickupLocation ? pickupLocation.pickupNote?.[input.locale] : undefined;
+  const contactPhone = input.contactPhone?.trim() || siteConfig.phone;
+  const pickupNoteTemplate =
+    pickupLocation && "pickupNote" in pickupLocation ? pickupLocation.pickupNote[input.locale] : undefined;
+  const pickupNote = pickupNoteTemplate?.replaceAll("{{contactPhone}}", contactPhone);
   const subject = de
     ? `${input.alternative ? "Alternativangebot" : "Angebot"} ${input.orderNumber}`
     : `${input.alternative ? "Alternative offer" : "Offer"} ${input.orderNumber}`;

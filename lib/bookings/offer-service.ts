@@ -19,7 +19,15 @@ import { BookingCommandError } from "./errors";
 import { hasAssetConflict } from "./availability";
 import { renderOfferMail, type RenderedMail } from "./messages";
 import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
-import { assertBookingHasAssignee, event, firstName, getBookingPickupAddress, now, transition } from "./service-shared";
+import {
+  assertBookingHasAssignee,
+  event,
+  firstName,
+  getBookingContactPhone,
+  getBookingPickupAddress,
+  now,
+  transition,
+} from "./service-shared";
 import { isValidIsoDate, isValidTime } from "./validation";
 
 type OfferCommandInput = {
@@ -87,6 +95,7 @@ function renderOfferContent(
     dropoffTime: input.dropoffTime ?? booking.dropoffTime,
     location: booking.location,
     pickupAddress: getBookingPickupAddress(db, booking),
+    contactPhone: getBookingContactPhone(db, booking),
     token,
     senderFirstName: firstName(
       input.actorUserId
