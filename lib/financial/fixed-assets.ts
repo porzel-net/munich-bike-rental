@@ -67,6 +67,7 @@ type DepreciationAsset = Pick<
   "acquisitionCostCents" | "residualValueCents" | "usefulLifeMonths" | "inServiceDate"
 > & {
   acquisitionDate?: string;
+  originalAcquisitionDate?: string | null;
   acquisitionSource?: "transaction" | "private_contribution";
   method?: FixedAssetMethod;
   degressiveRateBps?: number | null;
@@ -89,14 +90,22 @@ export function getMaximumDegressiveRateBps(input: { acquisitionDate: string; us
 function resolveDegressiveRateBps(input: {
   method: FixedAssetMethod;
   acquisitionDate: string;
+  originalAcquisitionDate?: string | null;
   usefulLifeMonths: number;
   acquisitionSource?: "transaction" | "private_contribution";
   degressiveRateBps?: number | null;
 }) {
   if (input.method === "straight_line") return null;
-  if (input.acquisitionSource === "private_contribution")
-    throw new BookingCommandError("Für Privateinlagen ist keine degressive AfA vorgesehen.");
-  const maximum = getMaximumDegressiveRateBps(input);
+  const eligibilityDate =
+    input.acquisitionSource === "private_contribution" ? input.originalAcquisitionDate : input.acquisitionDate;
+  if (!eligibilityDate)
+    throw new BookingCommandError(
+      "Für eine degressive Privateinlage muss das ursprüngliche Anschaffungsdatum hinterlegt sein.",
+    );
+  const maximum = getMaximumDegressiveRateBps({
+    acquisitionDate: eligibilityDate,
+    usefulLifeMonths: input.usefulLifeMonths,
+  });
   if (maximum === null)
     throw new BookingCommandError(
       "Für dieses Anschaffungsdatum ist keine degressive AfA nach § 7 Abs. 2 EStG zulässig.",
@@ -118,6 +127,7 @@ function depreciationRateBps(asset: DepreciationAsset) {
   return resolveDegressiveRateBps({
     method,
     acquisitionDate: asset.acquisitionDate,
+    originalAcquisitionDate: asset.originalAcquisitionDate,
     usefulLifeMonths: asset.usefulLifeMonths,
     acquisitionSource: asset.acquisitionSource,
     degressiveRateBps: asset.degressiveRateBps,
@@ -219,6 +229,7 @@ export function createFixedAsset(
     acquisitionSource?: "transaction" | "private_contribution";
     serialNumber?: string | null;
     acquisitionDate: string;
+    originalAcquisitionDate?: string | null;
     inServiceDate: string;
     acquisitionCostCents: number;
     inputVatCents?: number;
@@ -235,6 +246,14 @@ export function createFixedAsset(
   if (!name) throw new BookingCommandError("Bitte benenne das Anlagegut.");
   if (!isValidIsoDate(input.acquisitionDate) || !isValidIsoDate(input.inServiceDate))
     throw new BookingCommandError("Bitte verwende gültige Anschaffungs- und Inbetriebnahmedaten.");
+  const acquisitionSource = input.acquisitionSource ?? "transaction";
+  const originalAcquisitionDate = input.originalAcquisitionDate ?? null;
+  if (originalAcquisitionDate !== null && !isValidIsoDate(originalAcquisitionDate))
+    throw new BookingCommandError("Bitte gib ein gültiges ursprüngliches Anschaffungsdatum an.");
+  if (acquisitionSource === "private_contribution" && originalAcquisitionDate === null)
+    throw new BookingCommandError("Für eine Privateinlage muss das ursprüngliche Anschaffungsdatum hinterlegt sein.");
+  if (originalAcquisitionDate !== null && originalAcquisitionDate > input.acquisitionDate)
+    throw new BookingCommandError("Das ursprüngliche Anschaffungsdatum darf nicht nach der Einlage liegen.");
   if (input.acquisitionCostCents <= 0 || !Number.isSafeInteger(input.acquisitionCostCents))
     throw new BookingCommandError("Die Anschaffungskosten müssen größer als 0 sein.");
   const inputVatCents = input.inputVatCents ?? 0;
@@ -250,13 +269,14 @@ export function createFixedAsset(
   )
     throw new BookingCommandError("Der Restwert muss zwischen 0 und den Anschaffungskosten liegen.");
   if (input.inServiceDate < input.acquisitionDate)
-    throw new BookingCommandError("Die Inbetriebnahme darf nicht vor der Anschaffung liegen.");
+    throw new BookingCommandError("Die Inbetriebnahme darf nicht vor der Anschaffung oder Einlage liegen.");
   const method = input.method ?? "straight_line";
   const degressiveRateBps = resolveDegressiveRateBps({
     method,
     acquisitionDate: input.acquisitionDate,
+    originalAcquisitionDate,
     usefulLifeMonths: input.usefulLifeMonths,
-    acquisitionSource: input.acquisitionSource,
+    acquisitionSource,
     degressiveRateBps: input.degressiveRateBps,
   });
 
@@ -267,9 +287,10 @@ export function createFixedAsset(
       assetNumber: `ANL-${new Date(`${input.acquisitionDate}T00:00:00Z`).getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`,
       name,
       assetType: input.assetType,
-      acquisitionSource: input.acquisitionSource ?? "transaction",
+      acquisitionSource,
       serialNumber: input.serialNumber?.trim() || null,
       acquisitionDate: input.acquisitionDate,
+      originalAcquisitionDate,
       inServiceDate: input.inServiceDate,
       acquisitionCostCents: input.acquisitionCostCents,
       inputVatCents,
@@ -297,6 +318,7 @@ export function updateFixedAsset(
     serialNumber?: string | null;
     inServiceDate: string;
     usefulLifeMonths: number;
+    originalAcquisitionDate?: string | null;
     method?: FixedAssetMethod;
     notes?: string;
     actorUserId: string | null;
@@ -318,13 +340,26 @@ export function updateFixedAsset(
       throw new BookingCommandError("Die Nutzungsdauer muss mindestens einen Monat betragen.");
 
     const method = input.method ?? asset.method;
+    const originalAcquisitionDate =
+      asset.acquisitionSource === "private_contribution"
+        ? (input.originalAcquisitionDate ?? asset.originalAcquisitionDate)
+        : null;
+    if (originalAcquisitionDate !== null && originalAcquisitionDate !== undefined) {
+      if (!isValidIsoDate(originalAcquisitionDate))
+        throw new BookingCommandError("Bitte gib ein gültiges ursprüngliches Anschaffungsdatum an.");
+      if (originalAcquisitionDate > asset.acquisitionDate)
+        throw new BookingCommandError("Das ursprüngliche Anschaffungsdatum darf nicht nach der Einlage liegen.");
+    }
     const degressiveRateBps = resolveDegressiveRateBps({
       method,
       acquisitionDate: asset.acquisitionDate,
+      originalAcquisitionDate,
       usefulLifeMonths: input.usefulLifeMonths,
       acquisitionSource: asset.acquisitionSource,
       degressiveRateBps:
-        method === "declining_balance" && input.usefulLifeMonths === asset.usefulLifeMonths
+        method === "declining_balance" &&
+        input.usefulLifeMonths === asset.usefulLifeMonths &&
+        originalAcquisitionDate === asset.originalAcquisitionDate
           ? asset.degressiveRateBps
           : null,
     });
@@ -370,6 +405,7 @@ export function updateFixedAsset(
         serialNumber: input.serialNumber?.trim() || null,
         inServiceDate: input.inServiceDate,
         usefulLifeMonths: input.usefulLifeMonths,
+        originalAcquisitionDate: originalAcquisitionDate ?? null,
         method,
         degressiveRateBps,
         depreciationRevision,
@@ -446,10 +482,13 @@ export function createPrivateAssetContribution(
   input: {
     name: string;
     assetType: "bike" | "equipment" | "other";
-    acquisitionDate: string;
+    originalAcquisitionDate: string;
+    contributionDate: string;
     inServiceDate: string;
     acquisitionCostCents: number;
     usefulLifeMonths: number;
+    method?: FixedAssetMethod;
+    degressiveRateBps?: number | null;
     serialNumber?: string | null;
     notes?: string;
     actorUserId: string;
@@ -458,6 +497,7 @@ export function createPrivateAssetContribution(
   return runInImmediateTransaction(db, () => {
     const asset = createFixedAsset(db, {
       ...input,
+      acquisitionDate: input.contributionDate,
       acquisitionSource: "private_contribution",
       createdByUserId: input.actorUserId,
       inputVatCents: 0,

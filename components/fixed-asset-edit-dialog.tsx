@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,20 +25,32 @@ export type EditableFixedAsset = {
   name: string;
   assetType: AssetType;
   method: AssetMethod;
+  acquisitionSource: "transaction" | "private_contribution";
   serialNumber: string | null;
   acquisitionDate: string;
+  originalAcquisitionDate: string | null;
   acquisitionCostCents: number;
   inServiceDate: string;
   usefulLifeMonths: number;
 };
 
-export function FixedAssetEditLauncher({ asset }: { asset: EditableFixedAsset }) {
+export function FixedAssetEditLauncher({
+  asset,
+  trigger,
+}: {
+  asset: EditableFixedAsset;
+  trigger?: (open: () => void) => ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Bearbeiten
-      </Button>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Bearbeiten
+        </Button>
+      )}
       <FixedAssetEditDialog asset={asset} open={open} onOpenChange={setOpen} />
     </>
   );
@@ -56,6 +68,7 @@ function FixedAssetEditDialog({
   const [name, setName] = useState(asset.name);
   const [assetType, setAssetType] = useState<AssetType>(asset.assetType);
   const [method, setMethod] = useState<AssetMethod>(asset.method);
+  const [originalAcquisitionDate, setOriginalAcquisitionDate] = useState(asset.originalAcquisitionDate ?? "");
   const [serialNumber, setSerialNumber] = useState(asset.serialNumber ?? "");
   const [inServiceDate, setInServiceDate] = useState(asset.inServiceDate);
   const [usefulLifeMonths, setUsefulLifeMonths] = useState(String(asset.usefulLifeMonths));
@@ -75,7 +88,15 @@ function FixedAssetEditDialog({
       const response = await fetch(`/api/admin/financial/assets/${asset.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, assetType, method, serialNumber, inServiceDate, usefulLifeMonths: life }),
+        body: JSON.stringify({
+          name,
+          assetType,
+          method,
+          serialNumber,
+          inServiceDate,
+          usefulLifeMonths: life,
+          ...(asset.acquisitionSource === "private_contribution" ? { originalAcquisitionDate } : {}),
+        }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) throw new Error(result?.message ?? "Das Anlagegut konnte nicht geändert werden.");
@@ -96,8 +117,10 @@ function FixedAssetEditDialog({
           <DialogHeader>
             <DialogTitle>Anlagegut bearbeiten</DialogTitle>
             <DialogDescription>
-              Anschaffung: {asset.acquisitionDate} · Anschaffungskosten: {(asset.acquisitionCostCents / 100).toFixed(2)}{" "}
-              €
+              {asset.acquisitionSource === "private_contribution"
+                ? `Einlage: ${asset.acquisitionDate} · Ursprüngliche Anschaffung: ${asset.originalAcquisitionDate ?? "nicht hinterlegt"}`
+                : `Anschaffung: ${asset.acquisitionDate}`}{" "}
+              · Anschaffungskosten: {(asset.acquisitionCostCents / 100).toFixed(2)} €
             </DialogDescription>
           </DialogHeader>
           <FieldGroup className="mt-6">
@@ -141,6 +164,25 @@ function FixedAssetEditDialog({
                 />
               </Field>
             </div>
+            {asset.acquisitionSource === "private_contribution" ? (
+              <Field>
+                <FieldLabel htmlFor={`fixed-asset-original-date-${asset.id}`}>
+                  Ursprüngliches Anschaffungsdatum
+                </FieldLabel>
+                <Input
+                  id={`fixed-asset-original-date-${asset.id}`}
+                  required={method === "declining_balance"}
+                  type="date"
+                  max={asset.acquisitionDate}
+                  value={originalAcquisitionDate}
+                  onChange={(event) => setOriginalAcquisitionDate(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Dieses Datum entscheidet über die gesetzliche Berechtigung zur degressiven AfA; das Einlagedatum
+                  bleibt der Beginn der betrieblichen AfA.
+                </p>
+              </Field>
+            ) : null}
             <Field>
               <FieldLabel htmlFor={`fixed-asset-method-${asset.id}`}>AfA-Verfahren</FieldLabel>
               <Select value={method} onValueChange={(value) => setMethod((value || "straight_line") as AssetMethod)}>

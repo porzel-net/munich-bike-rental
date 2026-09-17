@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -33,16 +33,22 @@ function today() {
 export function FixedAssetDisposalLauncher({
   asset,
   financialAccounts,
+  trigger,
 }: {
   asset: Asset;
   financialAccounts: FinancialAccount[];
+  trigger?: (open: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Verkauf erfassen
-      </Button>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Verkauf erfassen
+        </Button>
+      )}
       <FixedAssetDisposalDialog
         asset={asset}
         financialAccounts={financialAccounts}

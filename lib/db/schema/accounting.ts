@@ -302,6 +302,7 @@ export const fixedAssets = sqliteTable(
       .default("transaction"),
     serialNumber: text("serial_number"),
     acquisitionDate: text("acquisition_date").notNull(),
+    originalAcquisitionDate: text("original_acquisition_date"),
     inServiceDate: text("in_service_date").notNull(),
     acquisitionCostCents: integer("acquisition_cost_cents").notNull(),
     inputVatCents: integer("input_vat_cents").notNull().default(0),

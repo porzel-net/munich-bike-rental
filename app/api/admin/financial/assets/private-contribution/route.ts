@@ -13,10 +13,12 @@ export const runtime = "nodejs";
 const schema = z.object({
   name: z.string().trim().min(1).max(200),
   assetType: z.enum(["bike", "equipment", "other"]),
-  acquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  originalAcquisitionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  contributionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   inServiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   acquisitionCostCents: z.number().int().positive(),
   usefulLifeMonths: z.number().int().positive(),
+  method: z.enum(["straight_line", "declining_balance"]).default("straight_line"),
   serialNumber: z.string().trim().max(200).optional(),
 });
 
@@ -35,7 +37,10 @@ export async function POST(request: Request) {
   const input = schema.safeParse(await readBoundedJson(request));
   if (!input.success)
     return NextResponse.json(
-      { message: "Die Privateinlage ist unvollständig. Prüfe Betrag, Datum, Nutzungsdauer und Anlageart." },
+      {
+        message:
+          "Die Privateinlage ist unvollständig. Prüfe Anschaffungsdatum, Einlagedatum, Betrag, Nutzungsdauer und Anlageart.",
+      },
       { status: 400 },
     );
   try {
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
         message:
           error instanceof BookingCommandError
             ? error.message
-            : "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anlageart, Betrag, Anschaffungsdatum und Nutzungsdauer.",
+            : "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anschaffungsdatum, Einlagedatum, Anlageart, Betrag und Nutzungsdauer.",
       },
       { status: 409 },
     );

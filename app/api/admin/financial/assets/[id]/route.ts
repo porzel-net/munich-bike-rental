@@ -15,6 +15,11 @@ const schema = z.object({
   assetType: z.enum(["bike", "equipment", "other"]),
   method: z.enum(["straight_line", "declining_balance"]),
   serialNumber: z.string().trim().max(200).optional().nullable(),
+  originalAcquisitionDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .nullable(),
   inServiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   usefulLifeMonths: z.number().int().positive(),
   notes: z.string().trim().max(1_000).optional(),
@@ -36,7 +41,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const input = schema.safeParse(await readBoundedJson(request));
   if (!input.success)
     return NextResponse.json(
-      { message: "Die Anlagedaten sind unvollständig. Prüfe Bezeichnung, Datum und Nutzungsdauer." },
+      { message: "Die Anlagedaten sind unvollständig. Prüfe Bezeichnung, Anschaffungsdatum, Datum und Nutzungsdauer." },
       { status: 400 },
     );
 

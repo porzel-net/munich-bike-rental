@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { berlinDateKey } from "@/lib/datetime";
 
+type AssetMethod = "straight_line" | "declining_balance";
+
 function today() {
   return berlinDateKey();
 }
@@ -31,10 +33,12 @@ export function PrivateAssetContributionDialog({
 }) {
   const [name, setName] = useState("");
   const [assetType, setAssetType] = useState<"bike" | "equipment" | "other">("bike");
-  const [date, setDate] = useState(today());
+  const [originalAcquisitionDate, setOriginalAcquisitionDate] = useState(today());
+  const [contributionDate, setContributionDate] = useState(today());
   const [inServiceDate, setInServiceDate] = useState(today());
   const [value, setValue] = useState("");
   const [usefulLifeMonths, setUsefulLifeMonths] = useState("84");
+  const [method, setMethod] = useState<AssetMethod>("straight_line");
   const [serialNumber, setSerialNumber] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,10 +46,12 @@ export function PrivateAssetContributionDialog({
   function reset() {
     setName("");
     setAssetType("bike");
-    setDate(today());
+    setOriginalAcquisitionDate(today());
+    setContributionDate(today());
     setInServiceDate(today());
     setValue("");
     setUsefulLifeMonths("84");
+    setMethod("straight_line");
     setSerialNumber("");
     setError(null);
   }
@@ -73,10 +79,12 @@ export function PrivateAssetContributionDialog({
         body: JSON.stringify({
           name,
           assetType,
-          acquisitionDate: date,
+          originalAcquisitionDate,
+          contributionDate,
           inServiceDate,
           acquisitionCostCents,
           usefulLifeMonths: life,
+          method,
           serialNumber,
         }),
       });
@@ -84,7 +92,7 @@ export function PrivateAssetContributionDialog({
       if (!response.ok)
         throw new Error(
           result?.message ??
-            "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anlageart, Betrag, Anschaffungsdatum und Nutzungsdauer.",
+            "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anschaffungsdatum, Einlagedatum, Anlageart, Betrag und Nutzungsdauer.",
         );
       toast.success("Privateinlage wurde im Anlageverzeichnis erfasst.");
       reset();
@@ -94,7 +102,7 @@ export function PrivateAssetContributionDialog({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anlageart, Betrag, Anschaffungsdatum und Nutzungsdauer.",
+          : "Die Privateinlage konnte nicht gespeichert werden. Prüfe Anschaffungsdatum, Einlagedatum, Anlageart, Betrag und Nutzungsdauer.",
       );
     } finally {
       setBusy(false);
@@ -166,15 +174,48 @@ export function PrivateAssetContributionDialog({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="private-asset-date">Einlagedatum</FieldLabel>
+                <FieldLabel htmlFor="private-asset-original-date">Ursprüngliches Anschaffungsdatum</FieldLabel>
                 <Input
-                  id="private-asset-date"
+                  id="private-asset-original-date"
                   required
                   type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
+                  value={originalAcquisitionDate}
+                  onChange={(event) => setOriginalAcquisitionDate(event.target.value)}
                 />
               </Field>
+              <Field>
+                <FieldLabel htmlFor="private-asset-contribution-date">Einlagedatum</FieldLabel>
+                <Input
+                  id="private-asset-contribution-date"
+                  required
+                  type="date"
+                  min={originalAcquisitionDate}
+                  value={contributionDate}
+                  onChange={(event) => setContributionDate(event.target.value)}
+                />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="private-asset-method">AfA-Verfahren</FieldLabel>
+              <Select value={method} onValueChange={(value) => setMethod((value || "straight_line") as AssetMethod)}>
+                <SelectTrigger id="private-asset-method" className="w-full">
+                  <SelectValue>
+                    {(value) => (value === "declining_balance" ? "Degressiv vom Restbuchwert" : "Linear")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="straight_line">Linear</SelectItem>
+                    <SelectItem value="declining_balance">Degressiv vom Restbuchwert</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Für die degressive AfA zählt das ursprüngliche Anschaffungsdatum; die AfA-Bemessungsgrundlage ist der
+                Einlagewert.
+              </p>
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="private-asset-service-date">Inbetriebnahme</FieldLabel>
                 <Input
@@ -234,7 +275,7 @@ export function PrivateAssetContributionLauncher() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
         Privateinlage erfassen
       </Button>
       <PrivateAssetContributionDialog open={open} onOpenChange={setOpen} />

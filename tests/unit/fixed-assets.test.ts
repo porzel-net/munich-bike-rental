@@ -9,11 +9,13 @@ import {
   financialTransactions,
   fixedAssetDepreciationEntries,
   fixedAssets,
+  authUser,
   journalLines,
 } from "../../lib/db/schema";
 import { getEuerSummary } from "../../lib/financial/euer";
 import {
   createFixedAsset,
+  createPrivateAssetContribution,
   disposeFixedAsset,
   getMaximumDegressiveRateBps,
   fixedAssetDepreciationSchedule,
@@ -133,19 +135,142 @@ describe("fixed asset depreciation", () => {
     ).toThrow("degressive AfA");
   });
 
-  it("does not offer declining depreciation for private contributions", () => {
+  it("requires the original private acquisition date for declining depreciation", () => {
     expect(() =>
       createFixedAsset(connectionForTest().db, {
         name: "Privat eingebrachtes Anlagegut",
         assetType: "equipment",
         acquisitionSource: "private_contribution",
-        acquisitionDate: "2026-01-01",
-        inServiceDate: "2026-01-01",
+        acquisitionDate: "2026-08-01",
+        inServiceDate: "2026-08-01",
         acquisitionCostCents: 100_000,
         usefulLifeMonths: 84,
         method: "declining_balance",
       }),
-    ).toThrow("Privateinlagen");
+    ).toThrow("ursprüngliche Anschaffungsdatum");
+  });
+
+  it("allows declining depreciation for a private contribution when the original purchase qualifies", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Privat gekauftes Anlagegut",
+      assetType: "equipment",
+      acquisitionSource: "private_contribution",
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-07-24",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 84,
+      method: "declining_balance",
+      createdByUserId: null,
+    });
+
+    expect(created).toMatchObject({
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-07-24",
+      method: "declining_balance",
+      degressiveRateBps: 3_000,
+    });
+  });
+
+  it("uses the original purchase date instead of the contribution date for eligibility", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Zu alte Privateinlage",
+        assetType: "equipment",
+        acquisitionSource: "private_contribution",
+        acquisitionDate: "2026-08-01",
+        originalAcquisitionDate: "2025-06-30",
+        inServiceDate: "2026-08-01",
+        acquisitionCostCents: 100_000,
+        usefulLifeMonths: 84,
+        method: "declining_balance",
+      }),
+    ).toThrow("Anschaffungsdatum");
+  });
+
+  it("creates a private contribution with separate purchase and contribution dates", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    connection.db
+      .insert(authUser)
+      .values({
+        id: "test-user",
+        name: "Test User",
+        email: "test@example.com",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
+    const result = createPrivateAssetContribution(connection.db, {
+      name: "Privat eingebrachtes Fahrrad",
+      assetType: "bike",
+      originalAcquisitionDate: "2026-07-24",
+      contributionDate: "2026-08-01",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 195_000,
+      usefulLifeMonths: 84,
+      method: "declining_balance",
+      actorUserId: "test-user",
+    });
+    const created = connection.db.select().from(fixedAssets).where(eq(fixedAssets.id, result.assetId)).get();
+
+    expect(created).toMatchObject({
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-07-24",
+      acquisitionSource: "private_contribution",
+      method: "declining_balance",
+      degressiveRateBps: 3_000,
+    });
+  });
+
+  it("supports correcting a posted private contribution from linear to declining and back", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Korrigierbare Privateinlage",
+      assetType: "bike",
+      acquisitionSource: "private_contribution",
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-07-24",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 48,
+      method: "straight_line",
+      createdByUserId: null,
+    });
+    postDueFixedAssetDepreciation(connection.db, { throughMonth: "2026-08", actorUserId: null });
+
+    updateFixedAsset(connection.db, {
+      assetId: created.id,
+      name: created.name,
+      assetType: created.assetType,
+      inServiceDate: created.inServiceDate,
+      usefulLifeMonths: created.usefulLifeMonths,
+      originalAcquisitionDate: created.originalAcquisitionDate,
+      method: "declining_balance",
+      actorUserId: null,
+    });
+    expect(connection.db.select().from(fixedAssets).get()).toMatchObject({
+      method: "declining_balance",
+      degressiveRateBps: 3_000,
+    });
+
+    updateFixedAsset(connection.db, {
+      assetId: created.id,
+      name: created.name,
+      assetType: created.assetType,
+      inServiceDate: created.inServiceDate,
+      usefulLifeMonths: created.usefulLifeMonths,
+      originalAcquisitionDate: created.originalAcquisitionDate,
+      method: "straight_line",
+      actorUserId: null,
+    });
+    expect(connection.db.select().from(fixedAssets).get()).toMatchObject({
+      method: "straight_line",
+      degressiveRateBps: null,
+    });
   });
 
   it("reports the remaining depreciable amount for active assets", () => {

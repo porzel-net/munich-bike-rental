@@ -1,0 +1,1 @@
+ALTER TABLE `fixed_assets` ADD `original_acquisition_date` text;
