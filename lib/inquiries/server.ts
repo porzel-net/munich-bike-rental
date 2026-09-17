@@ -219,7 +219,7 @@ export async function getMailConfig(
     parseBoolean(environment.MAIL_USE_SSL) ??
     port === 465;
   const configuredToAddress =
-    account === "request" ? firstNonBlank(environment[names.to], environment.MAIL_TO_ADDRESS) : undefined;
+    account === "request" ? firstNonBlank(environment.MAIL_REQUEST_TO_ADDRESS, environment.MAIL_TO_ADDRESS) : undefined;
   return {
     host,
     port,
