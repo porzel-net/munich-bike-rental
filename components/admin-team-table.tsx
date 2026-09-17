@@ -1,7 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { MoreHorizontal, Plus } from "lucide-react";
+import * as React from "react";
+import { useMemo, useState } from "react";
+import {
+  ArrowUpDownIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+  MoreHorizontal,
+} from "lucide-react";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type Column,
+  type ColumnDef,
+  type FilterFn,
+  type SortingState,
+  type VisibilityState,
+  useReactTable,
+} from "@tanstack/react-table";
 
 import { AdminPageHeader } from "@/components/admin-page-header";
 import { Button } from "@/components/ui/button";
@@ -18,13 +40,16 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const pageSizeItems = [10, 20, 30, 50].map((pageSize) => ({ value: `${pageSize}`, label: `${pageSize}` }));
 
 type TeamUser = {
   id: string;
@@ -47,8 +72,102 @@ function getInitials(name: string) {
   return `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase();
 }
 
+function SortableTeamHeader({ column, children }: { column: Column<TeamUser, unknown>; children: React.ReactNode }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="-ml-3"
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+    >
+      {children}
+      <ArrowUpDownIcon className="size-3.5 text-muted-foreground" />
+    </Button>
+  );
+}
+
+const teamGlobalFilter: FilterFn<TeamUser> = (row, _columnId, value) => {
+  const search = String(value).trim().toLocaleLowerCase("de-DE");
+  if (!search) return true;
+  const user = row.original;
+  return [user.name, user.email, user.role, user.locationKey]
+    .filter(Boolean)
+    .some((item) => item!.toLocaleLowerCase("de-DE").includes(search));
+};
+
+function getTeamColumns(
+  locationLabels: Record<string, string>,
+  currentUserId: string,
+  onEdit: (user: TeamUser) => void,
+  onDelete: (user: TeamUser) => void,
+): ColumnDef<TeamUser>[] {
+  return [
+    {
+      accessorKey: "name",
+      header: ({ column }) => <SortableTeamHeader column={column}>Nutzer</SortableTeamHeader>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+            <span className="text-sm font-semibold uppercase">{getInitials(row.original.name)}</span>
+          </div>
+          <div className="min-w-0">
+            <div className="truncate font-medium">{row.original.name}</div>
+            <div className="truncate text-sm text-muted-foreground">{row.original.email}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "role",
+      header: ({ column }) => <SortableTeamHeader column={column}>Rolle</SortableTeamHeader>,
+      cell: ({ row }) => (row.original.role === "admin" ? "Admin" : "Standortuser"),
+    },
+    {
+      id: "location",
+      accessorFn: (row) =>
+        row.role === "admin" ? "Alle Standorte" : (locationLabels[row.locationKey ?? ""] ?? "Kein Standort"),
+      header: ({ column }) => <SortableTeamHeader column={column}>Standort</SortableTeamHeader>,
+      cell: ({ row }) =>
+        row.original.role === "admin"
+          ? "Alle Standorte"
+          : (row.original.locationKey && locationLabels[row.original.locationKey]) || "Kein Standort",
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      enableSorting: false,
+      header: () => <span className="sr-only">Aktionen</span>,
+      cell: ({ row }) => {
+        const isCurrentUser = row.original.id === currentUserId;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+              <MoreHorizontal />
+              <span className="sr-only">Aktionen für {row.original.name}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(row.original)} disabled={isCurrentUser}>
+                Bearbeiten
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => onDelete(row.original)} disabled={isCurrentUser}>
+                Löschen
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ];
+}
+
 export function AdminTeamTable({ users: initialUsers, currentUserId, locationLabels }: AdminTeamTableProps) {
   const [users, setUsers] = useState(initialUsers);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const [editingUser, setEditingUser] = useState<TeamUser | null>(null);
   const [role, setRole] = useState<"admin" | "standortuser">("standortuser");
   const [locationKey, setLocationKey] = useState("munich");
@@ -150,118 +269,194 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
     }
   }
 
+  const columns = useMemo(
+    () => getTeamColumns(locationLabels, currentUserId, openEdit, (user) => void deleteUser(user)),
+    [currentUserId, locationLabels],
+  );
+  // TanStack Table exposes an intentionally mutable table instance; React Compiler cannot memoize it safely.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: users,
+    columns,
+    state: { globalFilter, sorting, columnVisibility, pagination },
+    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: setPagination,
+    globalFilterFn: teamGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  const visibleRows = table.getRowModel().rows;
+  const filteredUserCount = table.getFilteredRowModel().rows.length;
+  const pageCount = Math.max(table.getPageCount(), 1);
+
   return (
     <>
       <div className="flex flex-col gap-6">
-        <AdminPageHeader
-          title="Team"
-          description="Nutzer und Berechtigungen verwalten."
-          actions={
-            <Button variant="outline" size="sm" onClick={() => setIsInviteOpen(true)}>
-              <Plus />
-              Einladungslink erstellen
-            </Button>
-          }
-        />
+        <AdminPageHeader title="Team" description="Nutzer und Berechtigungen verwalten." />
         {message ? <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{message}</p> : null}
-        <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
-          <CardContent className="p-0">
-            <div className="hidden sm:block">
-              <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+        <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-1">
+                <Input
+                  value={globalFilter}
+                  onChange={(event) => {
+                    setGlobalFilter(event.target.value);
+                    setPagination((current) => ({ ...current, pageIndex: 0 }));
+                  }}
+                  placeholder="Team durchsuchen …"
+                  aria-label="Team durchsuchen"
+                  className="w-full sm:max-w-sm"
+                />
+              </div>
+              <div className="flex w-full items-center justify-end gap-2 md:w-auto">
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" />}>
+                    Spalten
+                    <ChevronDownIcon data-icon="inline-end" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    {table
+                      .getAllLeafColumns()
+                      .filter((column) => column.getCanHide())
+                      .map((column) => (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          checked={column.getIsVisible()}
+                          onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                        >
+                          {column.id === "name" ? "Nutzer" : column.id === "role" ? "Rolle" : "Standort"}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsInviteOpen(true)}>
+                  Einladungslink erstellen
+                </Button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border">
+              <Table className="min-w-[640px] text-sm [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+                <TableHeader className="bg-muted/40">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          colSpan={header.colSpan}
+                          className={header.column.id === "actions" ? "w-12" : undefined}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
                 <TableBody>
-                  {users.map((user) => {
-                    const isCurrentUser = user.id === currentUserId;
-                    return (
-                      <TableRow key={user.id}>
-                        <TableCell className="w-10">
-                          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                            <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{user.name}</span>
-                            <span className="text-sm text-muted-foreground">{user.email}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          <div className="flex flex-col">
-                            <span>{user.role === "admin" ? "Admin" : "Standortuser"}</span>
-                            <span>
-                              {user.role === "admin"
-                                ? "Alle Standorte"
-                                : (user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-8">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                              <MoreHorizontal />
-                              <span className="sr-only">Aktionen für {user.name}</span>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
-                                Bearbeiten
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => void deleteUser(user)}
-                                disabled={isCurrentUser}
-                              >
-                                Löschen
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
+                  {visibleRows.length ? (
+                    visibleRows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className={cell.column.id === "actions" ? "w-12" : undefined}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    );
-                  })}
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-28 text-center">
+                        {users.length && filteredUserCount === 0
+                          ? "Keine Teammitglieder entsprechen dem Suchbegriff."
+                          : "Keine Teammitglieder gefunden."}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
-            <div className="grid gap-2 p-3 sm:hidden">
-              {users.map((user) => {
-                const isCurrentUser = user.id === currentUserId;
-                return (
-                  <article className="rounded-2xl border border-border/60 bg-background p-4" key={user.id}>
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                        <span className="text-sm font-semibold uppercase">{getInitials(user.name)}</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold">{user.name}</p>
-                        <p className="truncate text-sm text-muted-foreground">{user.email}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {user.role === "admin"
-                            ? "Admin · Alle Standorte"
-                            : `Standortuser · ${(user.locationKey && locationLabels[user.locationKey]) || "Kein Standort"}`}
-                        </p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                          <MoreHorizontal />
-                          <span className="sr-only">Aktionen für {user.name}</span>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(user)} disabled={isCurrentUser}>
-                            Bearbeiten
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => void deleteUser(user)}
-                            disabled={isCurrentUser}
-                          >
-                            Löschen
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </article>
-                );
-              })}
+
+            <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                {filteredUserCount} {filteredUserCount === 1 ? "Teammitglied" : "Teammitglieder"}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end">
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">Zeilen pro Seite</span>
+                  <Select
+                    items={pageSizeItems}
+                    value={`${table.getState().pagination.pageSize}`}
+                    onValueChange={(value) => table.setPageSize(Number(value))}
+                  >
+                    <SelectTrigger size="sm" className="w-20" aria-label="Zeilen pro Seite">
+                      <SelectValue placeholder={table.getState().pagination.pageSize} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      <SelectGroup>
+                        {pageSizeItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-28 text-center font-medium text-foreground">
+                  Seite {table.getState().pagination.pageIndex + 1} von {pageCount}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="hidden sm:inline-flex"
+                    onClick={() => table.setPageIndex(0)}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Erste Seite</span>
+                    <ChevronsLeftIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Vorherige Seite</span>
+                    <ChevronLeftIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Nächste Seite</span>
+                    <ChevronRightIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="hidden sm:inline-flex"
+                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Letzte Seite</span>
+                    <ChevronsRightIcon />
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

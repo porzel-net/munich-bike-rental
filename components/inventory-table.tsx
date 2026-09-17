@@ -1,7 +1,28 @@
 "use client";
 
+import * as React from "react";
 import { useMemo, useState } from "react";
-import { PlusIcon } from "lucide-react";
+import {
+  ArrowUpDownIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+} from "lucide-react";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type Column,
+  type ColumnDef,
+  type FilterFn,
+  type SortingState,
+  type VisibilityState,
+  useReactTable,
+} from "@tanstack/react-table";
 
 import type { AdminInventoryBike, AdminInventoryEquipment } from "@/app/admin/inventory/page";
 import { Button } from "@/components/ui/button";
@@ -17,6 +38,12 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -29,11 +56,296 @@ import { compareInventoryBikes } from "@/lib/inventory/sorting";
 
 type LocationOption = { key: AdminInventoryBike["location"]; label: string };
 type InventoryKind = "bike" | "equipment";
+type InventoryKindFilter = "all" | InventoryKind;
 type EditingItem = (AdminInventoryBike & { kind: "bike" }) | (AdminInventoryEquipment & { kind: "equipment" });
 type LocationFilter = "all" | LocationOption["key"];
 
+function SortableInventoryHeader({
+  column,
+  children,
+  align = "left",
+}: {
+  column: Column<EditingItem, unknown>;
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={align === "right" ? "-mr-3 ml-auto" : "-ml-3"}
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+    >
+      {children}
+      <ArrowUpDownIcon className="size-3.5 text-muted-foreground" />
+    </Button>
+  );
+}
+
+const inventoryGlobalFilter: FilterFn<EditingItem> = (row, _columnId, value) => {
+  const search = String(value).trim().toLocaleLowerCase("de-DE");
+  if (!search) return true;
+  const item = row.original;
+  const values =
+    item.kind === "bike"
+      ? ["bike", "fahrrad", item.title, item.nickname, item.frameNumber, item.size, item.location]
+      : ["ausrüstung", "equipment", item.labelDe, item.labelEn, equipmentCategoryLabels[item.category], item.location];
+  return values.filter(Boolean).some((entry) => entry!.toLocaleLowerCase("de-DE").includes(search));
+};
+
+function getInventoryColumns(
+  kind: InventoryKindFilter,
+  locations: LocationOption[],
+  toggleLandingVisibility: (bike: AdminInventoryBike) => void,
+  toggleAvailability: (item: EditingItem) => void,
+): ColumnDef<EditingItem>[] {
+  const locationLabel = (location: LocationOption["key"]) =>
+    locations.find((entry) => entry.key === location)?.label ?? location;
+
+  if (kind === "all") {
+    return [
+      {
+        id: "name",
+        accessorFn: (row) => (row.kind === "bike" ? row.nickname || row.title : row.labelDe),
+        header: ({ column }) => <SortableInventoryHeader column={column}>Inventar</SortableInventoryHeader>,
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div>
+              <div className="font-medium">{item.kind === "bike" ? item.nickname || item.title : item.labelDe}</div>
+              <div className="text-xs text-muted-foreground">
+                {item.kind === "bike" ? item.title : equipmentCategoryLabels[item.category]}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        id: "type",
+        accessorFn: (row) => (row.kind === "bike" ? "Bike" : "Ausrüstung"),
+        header: ({ column }) => <SortableInventoryHeader column={column}>Typ</SortableInventoryHeader>,
+        cell: ({ row }) => (row.original.kind === "bike" ? "Bike" : "Ausrüstung"),
+      },
+      {
+        id: "location",
+        accessorFn: (row) => locationLabel(row.location),
+        header: ({ column }) => <SortableInventoryHeader column={column}>Standort</SortableInventoryHeader>,
+        cell: ({ row }) => locationLabel(row.original.location),
+      },
+      {
+        id: "details",
+        accessorFn: (row) =>
+          row.kind === "bike"
+            ? `Größe ${row.size}`
+            : row.quantityRelevant
+              ? `${row.availableQuantity} Stück`
+              : "Nicht gezählt",
+        header: ({ column }) => <SortableInventoryHeader column={column}>Details</SortableInventoryHeader>,
+        cell: ({ row }) => {
+          const item = row.original;
+          return item.kind === "bike"
+            ? `Größe ${item.size}`
+            : item.quantityRelevant
+              ? `${item.availableQuantity} Stück`
+              : "Nicht gezählt";
+        },
+      },
+      {
+        id: "landingPage",
+        accessorFn: (row) => (row.kind === "bike" ? row.isVisibleOnLanding : null),
+        header: "Landingpage",
+        enableSorting: false,
+        cell: ({ row }) => {
+          if (row.original.kind !== "bike") return <span className="text-muted-foreground">—</span>;
+          const bike = row.original;
+          return (
+            <StatusButton
+              active={bike.isVisibleOnLanding}
+              onClick={() => toggleLandingVisibility(bike)}
+              activeLabel="Angezeigt"
+              inactiveLabel="Ausgeblendet"
+            />
+          );
+        },
+      },
+      {
+        id: "availability",
+        accessorFn: (row) => (row.kind === "bike" ? row.isBookable : row.isAvailable),
+        header: "Status",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <StatusButton
+            active={row.original.kind === "bike" ? row.original.isBookable : row.original.isAvailable}
+            onClick={() => toggleAvailability(row.original)}
+            activeLabel={row.original.kind === "bike" ? "Buchungen: an" : "Für Buchungen aktiv"}
+            inactiveLabel={row.original.kind === "bike" ? "Buchungen: aus" : "Für Buchungen pausiert"}
+          />
+        ),
+      },
+      {
+        id: "price",
+        accessorFn: (row) => (row.kind === "bike" ? row.weekdayPriceCents : row.priceCents),
+        header: ({ column }) => (
+          <SortableInventoryHeader column={column} align="right">
+            Preis
+          </SortableInventoryHeader>
+        ),
+        cell: ({ row }) =>
+          row.original.kind === "bike" ? (
+            <div className="text-right font-semibold tabular-nums">
+              <div>Mo-Fr {euroFormatter.format(row.original.weekdayPriceCents / 100)}</div>
+              <div>Sa-So {euroFormatter.format(row.original.weekendPriceCents / 100)}</div>
+            </div>
+          ) : (
+            <div className="text-right font-semibold tabular-nums">
+              {euroFormatter.format(row.original.priceCents / 100)}
+            </div>
+          ),
+      },
+    ];
+  }
+
+  if (kind === "bike") {
+    return [
+      {
+        id: "name",
+        accessorFn: (row) => (row.kind === "bike" ? row.nickname || row.title : ""),
+        header: ({ column }) => <SortableInventoryHeader column={column}>Bike / Typ</SortableInventoryHeader>,
+        cell: ({ row }) => {
+          const bike = row.original as AdminInventoryBike & { kind: "bike" };
+          return (
+            <div>
+              <div className="font-medium">{bike.nickname || bike.title}</div>
+              {bike.nickname ? <div className="text-xs text-muted-foreground">{bike.title}</div> : null}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "size",
+        header: ({ column }) => <SortableInventoryHeader column={column}>Größe</SortableInventoryHeader>,
+      },
+      {
+        id: "location",
+        accessorFn: (row) => locationLabel(row.location),
+        header: ({ column }) => <SortableInventoryHeader column={column}>Standort</SortableInventoryHeader>,
+        cell: ({ row }) => locationLabel(row.original.location),
+      },
+      {
+        id: "landingPage",
+        accessorFn: (row) => (row.kind === "bike" ? row.isVisibleOnLanding : false),
+        header: "Landingpage",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const bike = row.original as AdminInventoryBike & { kind: "bike" };
+          return (
+            <StatusButton
+              active={bike.isVisibleOnLanding}
+              onClick={() => toggleLandingVisibility(bike)}
+              activeLabel="Angezeigt"
+              inactiveLabel="Ausgeblendet"
+            />
+          );
+        },
+      },
+      {
+        id: "bookable",
+        accessorFn: (row) => (row.kind === "bike" ? row.isBookable : false),
+        header: "Buchungen",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const bike = row.original as AdminInventoryBike & { kind: "bike" };
+          return <StatusButton active={bike.isBookable} onClick={() => toggleAvailability(bike)} />;
+        },
+      },
+      {
+        accessorKey: "weekdayPriceCents",
+        header: ({ column }) => (
+          <SortableInventoryHeader column={column} align="right">
+            Preise / Tag
+          </SortableInventoryHeader>
+        ),
+        cell: ({ row }) => {
+          const bike = row.original as AdminInventoryBike & { kind: "bike" };
+          return (
+            <div className="text-right font-semibold tabular-nums">
+              <div>Mo-Fr {euroFormatter.format(bike.weekdayPriceCents / 100)}</div>
+              <div>Sa-So {euroFormatter.format(bike.weekendPriceCents / 100)}</div>
+            </div>
+          );
+        },
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "category",
+      accessorFn: (row) => (row.kind === "equipment" ? equipmentCategoryLabels[row.category] : ""),
+      header: ({ column }) => <SortableInventoryHeader column={column}>Ausrüstung</SortableInventoryHeader>,
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {equipmentCategoryLabels[(row.original as AdminInventoryEquipment & { kind: "equipment" }).category]}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "labelDe",
+      header: ({ column }) => <SortableInventoryHeader column={column}>Art</SortableInventoryHeader>,
+    },
+    {
+      id: "location",
+      accessorFn: (row) => locationLabel(row.location),
+      header: ({ column }) => <SortableInventoryHeader column={column}>Standort</SortableInventoryHeader>,
+      cell: ({ row }) => locationLabel(row.original.location),
+    },
+    {
+      accessorKey: "availableQuantity",
+      header: ({ column }) => (
+        <SortableInventoryHeader column={column} align="right">
+          Bestand
+        </SortableInventoryHeader>
+      ),
+      cell: ({ row }) => {
+        const item = row.original as AdminInventoryEquipment & { kind: "equipment" };
+        return (
+          <div className="text-right font-semibold tabular-nums">
+            {item.quantityRelevant ? item.availableQuantity : "Nicht gezählt"}
+          </div>
+        );
+      },
+    },
+    {
+      id: "availability",
+      accessorFn: (row) => (row.kind === "equipment" ? row.isAvailable : false),
+      header: "Status",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const item = row.original as AdminInventoryEquipment & { kind: "equipment" };
+        return <StatusButton active={item.isAvailable} onClick={() => toggleAvailability(item)} />;
+      },
+    },
+    {
+      accessorKey: "priceCents",
+      header: ({ column }) => (
+        <SortableInventoryHeader column={column} align="right">
+          Preis
+        </SortableInventoryHeader>
+      ),
+      cell: ({ row }) => (
+        <div className="text-right font-semibold tabular-nums">
+          {euroFormatter.format((row.original as AdminInventoryEquipment & { kind: "equipment" }).priceCents / 100)}
+        </div>
+      ),
+    },
+  ];
+}
+
 const euroFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+const pageSizeItems = [10, 20, 30, 50].map((pageSize) => ({ value: `${pageSize}`, label: `${pageSize}` }));
 const allLocationsItem = { value: "all", label: "Alle Standorte" } as const;
+const allInventoryKindsItem = { value: "all", label: "Alle Inventararten" } as const;
 function priceToInput(cents: number) {
   return (cents / 100).toFixed(2).replace(".00", "");
 }
@@ -51,7 +363,8 @@ export function InventoryTable({
 }) {
   const [bikes, setBikes] = useState(initialBikes);
   const [equipment, setEquipment] = useState(initialEquipment);
-  const [kind, setKind] = useState<InventoryKind>("bike");
+  const [kindFilter, setKindFilter] = useState<InventoryKindFilter>("all");
+  const [dialogKind, setDialogKind] = useState<InventoryKind>("bike");
   const [locationFilter, setLocationFilter] = useState<LocationFilter>(
     canManageAllLocations ? "all" : (locations[0]?.key ?? "all"),
   );
@@ -64,6 +377,13 @@ export function InventoryTable({
       label: location.label,
     })),
   ] as const;
+  const inventoryKindItems = [
+    allInventoryKindsItem,
+    { value: "bike", label: "Bikes" },
+    { value: "equipment", label: "Ausrüstung" },
+  ] as const;
+  const selectedInventoryKindLabel =
+    inventoryKindItems.find((item) => item.value === kindFilter)?.label ?? allInventoryKindsItem.label;
   const selectedLocationLabel =
     locationFilter === "all"
       ? allLocationsItem.label
@@ -77,15 +397,55 @@ export function InventoryTable({
     () => (locationFilter === "all" ? equipment : equipment.filter((item) => item.location === locationFilter)),
     [equipment, locationFilter],
   );
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const inventoryRows = useMemo<EditingItem[]>(
+    () =>
+      kindFilter === "bike"
+        ? visibleBikes.map((bike) => ({ ...bike, kind: "bike" as const }))
+        : kindFilter === "equipment"
+          ? visibleEquipment.map((item) => ({ ...item, kind: "equipment" as const }))
+          : [
+              ...visibleBikes.map((bike) => ({ ...bike, kind: "bike" as const })),
+              ...visibleEquipment.map((item) => ({ ...item, kind: "equipment" as const })),
+            ],
+    [kindFilter, visibleBikes, visibleEquipment],
+  );
+  // The callbacks only use stable React state setters and the row passed at click time.
+  const columns = useMemo(
+    () => getInventoryColumns(kindFilter, locations, toggleLandingVisibility, toggleAvailability),
+    [kindFilter, locations],
+  );
+  // TanStack Table exposes an intentionally mutable table instance; React Compiler cannot memoize it safely.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: inventoryRows,
+    columns,
+    state: { globalFilter, sorting, columnVisibility, pagination },
+    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: setPagination,
+    globalFilterFn: inventoryGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  const visibleRows = table.getRowModel().rows;
+  const filteredRowCount = table.getFilteredRowModel().rows.length;
+  const pageCount = Math.max(table.getPageCount(), 1);
 
   function openCreate(nextKind: InventoryKind) {
-    setKind(nextKind);
+    setDialogKind(nextKind);
     setEditingItem(null);
     setDialogOpen(true);
   }
 
   function openEdit(item: EditingItem) {
-    setKind(item.kind);
+    setDialogKind(item.kind);
     setEditingItem(item);
     setDialogOpen(true);
   }
@@ -192,274 +552,264 @@ export function InventoryTable({
 
   return (
     <div className="flex flex-col gap-6">
-      <div data-inventory-controls className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={kind === "bike" ? "default" : "outline"}
-          onClick={() => setKind("bike")}
-        >
-          Bikes ({visibleBikes.length})
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={kind === "equipment" ? "default" : "outline"}
-          onClick={() => setKind("equipment")}
-        >
-          Ausrüstung ({visibleEquipment.length})
-        </Button>
-        {canManageAllLocations ? (
-          <Select
-            items={locationItems}
-            value={locationFilter}
-            onValueChange={(value) => value && setLocationFilter(value as LocationFilter)}
-          >
-            <SelectTrigger
-              size="sm"
-              className="min-w-0 flex-1 bg-white sm:w-40 sm:flex-none"
-              aria-label="Standort filtern"
-            >
-              <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {locationItems.map((location) => (
-                  <SelectItem key={location.value} value={location.value}>
-                    {location.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        ) : null}
-        <Button
-          type="button"
-          size="icon-sm"
-          aria-label="Inventar hinzufügen"
-          title="Inventar hinzufügen"
-          onClick={() => openCreate(kind)}
-        >
-          <PlusIcon />
-        </Button>
-      </div>
-      <div className="hidden sm:block">
-        <Card className="overflow-hidden rounded-3xl border-border/60 bg-card shadow-sm">
-          <CardContent className="p-0">
-            {kind === "bike" ? (
-              <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Bike / Typ</TableHead>
-                    <TableHead>Größe</TableHead>
-                    <TableHead>Standort</TableHead>
-                    <TableHead>Landingpage</TableHead>
-                    <TableHead>Buchungen</TableHead>
-                    <TableHead className="text-right">Preise / Tag</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleBikes.length === 0 ? (
-                    <EmptyRow colSpan={6} label="Noch keine Bikes für diesen Standort erfasst." />
-                  ) : (
-                    visibleBikes.map((bike) => (
-                      <TableRow
-                        key={bike.id}
-                        className="cursor-pointer"
-                        tabIndex={0}
-                        onClick={() => openEdit({ ...bike, kind: "bike" })}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openEdit({ ...bike, kind: "bike" });
-                          }
-                        }}
-                      >
-                        <TableCell>
-                          <div className="font-medium">{bike.nickname || bike.title}</div>
-                          {bike.nickname ? <div className="text-xs text-muted-foreground">{bike.title}</div> : null}
-                        </TableCell>
-                        <TableCell>{bike.size}</TableCell>
-                        <TableCell>
-                          {locations.find((location) => location.key === bike.location)?.label ?? bike.location}
-                        </TableCell>
-                        <TableCell>
-                          <StatusButton
-                            active={bike.isVisibleOnLanding}
-                            onClick={() => void toggleLandingVisibility(bike)}
-                            activeLabel="Angezeigt"
-                            inactiveLabel="Ausgeblendet"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <StatusButton
-                            active={bike.isBookable}
-                            onClick={() => void toggleAvailability({ ...bike, kind: "bike" })}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
-                          <div>Mo-Fr {euroFormatter.format(bike.weekdayPriceCents / 100)}</div>
-                          <div>Sa-So {euroFormatter.format(bike.weekendPriceCents / 100)}</div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            ) : (
-              <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ausrüstung</TableHead>
-                    <TableHead>Art</TableHead>
-                    <TableHead>Standort</TableHead>
-                    <TableHead className="text-right">Bestand</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Preis</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleEquipment.length === 0 ? (
-                    <EmptyRow colSpan={6} label="Noch keine Ausrüstung für diesen Standort erfasst." />
-                  ) : (
-                    visibleEquipment.map((item) => (
-                      <TableRow
-                        key={item.id}
-                        className="cursor-pointer"
-                        tabIndex={0}
-                        onClick={() => openEdit({ ...item, kind: "equipment" })}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openEdit({ ...item, kind: "equipment" });
-                          }
-                        }}
-                      >
-                        <TableCell className="font-medium">{equipmentCategoryLabels[item.category]}</TableCell>
-                        <TableCell>{item.labelDe}</TableCell>
-                        <TableCell>
-                          {locations.find((location) => location.key === item.location)?.label ?? item.location}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
-                          {item.quantityRelevant ? item.availableQuantity : "Nicht gezählt"}
-                        </TableCell>
-                        <TableCell>
-                          <StatusButton
-                            active={item.isAvailable}
-                            onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">
-                          {euroFormatter.format(item.priceCents / 100)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      <div className="grid gap-3 sm:hidden">
-        {kind === "bike"
-          ? visibleBikes.map((bike) => (
-              <div
-                className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
-                key={bike.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => openEdit({ ...bike, kind: "bike" })}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openEdit({ ...bike, kind: "bike" });
-                  }
+      <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-6">
+          <div data-inventory-controls className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-1">
+              <Input
+                value={globalFilter}
+                onChange={(event) => {
+                  setGlobalFilter(event.target.value);
+                  setPagination((current) => ({ ...current, pageIndex: 0 }));
+                }}
+                placeholder="Inventar suchen …"
+                aria-label="Inventar durchsuchen"
+                className="w-full sm:max-w-sm"
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Select
+                items={inventoryKindItems}
+                value={kindFilter}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  setKindFilter(value as InventoryKindFilter);
+                  setPagination((current) => ({ ...current, pageIndex: 0 }));
                 }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{bike.nickname || bike.title}</p>
-                    {bike.nickname ? <p className="text-xs text-muted-foreground">{bike.title}</p> : null}
-                  </div>
-                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">Größe {bike.size}</span>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted-foreground">
-                    {locations.find((entry) => entry.key === bike.location)?.label ?? bike.location}
-                  </span>
-                  <span className="text-right font-semibold tabular-nums">
-                    {euroFormatter.format(bike.weekdayPriceCents / 100)} / Tag
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3 text-sm">
-                  <StatusButton
-                    active={bike.isVisibleOnLanding}
-                    onClick={() => void toggleLandingVisibility(bike)}
-                    activeLabel="Landingpage: an"
-                    inactiveLabel="Landingpage: aus"
-                  />
-                  <StatusButton
-                    active={bike.isBookable}
-                    onClick={() => void toggleAvailability({ ...bike, kind: "bike" })}
-                    activeLabel="Buchungen: an"
-                    inactiveLabel="Buchungen: aus"
-                  />
-                </div>
-              </div>
-            ))
-          : visibleEquipment.map((item) => (
-              <div
-                className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => openEdit({ ...item, kind: "equipment" })}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openEdit({ ...item, kind: "equipment" });
-                  }
-                }}
+                <SelectTrigger className="w-44" aria-label="Inventarart filtern">
+                  <SelectValue className="text-sm font-normal">{selectedInventoryKindLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {inventoryKindItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {canManageAllLocations ? (
+                <Select
+                  items={locationItems}
+                  value={locationFilter}
+                  onValueChange={(value) => value && setLocationFilter(value as LocationFilter)}
+                >
+                  <SelectTrigger className="w-44" aria-label="Standort filtern">
+                    <SelectValue className="text-sm font-normal">{selectedLocationLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {locationItems.map((location) => (
+                        <SelectItem key={location.value} value={location.value}>
+                          {location.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              ) : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" />}>
+                  Spalten
+                  <ChevronDownIcon data-icon="inline-end" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {table
+                    .getAllLeafColumns()
+                    .filter((column) => column.getCanHide())
+                    .map((column) => (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                        {kindFilter === "all"
+                          ? column.id === "name"
+                            ? "Inventar"
+                            : column.id === "type"
+                              ? "Typ"
+                              : column.id === "location"
+                                ? "Standort"
+                                : column.id === "details"
+                                  ? "Details"
+                                  : column.id === "landingPage"
+                                    ? "Landingpage"
+                                    : column.id === "availability"
+                                      ? "Status"
+                                      : "Preis"
+                          : kindFilter === "bike"
+                            ? column.id === "name"
+                              ? "Bike / Typ"
+                              : column.id === "size"
+                                ? "Größe"
+                                : column.id === "location"
+                                  ? "Standort"
+                                  : column.id === "landingPage"
+                                    ? "Landingpage"
+                                    : column.id === "bookable"
+                                      ? "Buchungen"
+                                      : "Preise / Tag"
+                            : column.id === "category"
+                              ? "Ausrüstung"
+                              : column.id === "labelDe"
+                                ? "Art"
+                                : column.id === "location"
+                                  ? "Standort"
+                                  : column.id === "availableQuantity"
+                                    ? "Bestand"
+                                    : column.id === "availability"
+                                      ? "Status"
+                                      : "Preis"}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openCreate(kindFilter === "equipment" ? "equipment" : "bike")}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{item.labelDe}</p>
-                    <p className="text-xs text-muted-foreground">{equipmentCategoryLabels[item.category]}</p>
-                  </div>
-                  <span className="text-right font-semibold tabular-nums">
-                    {euroFormatter.format(item.priceCents / 100)}
-                  </span>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted-foreground">
-                    {locations.find((entry) => entry.key === item.location)?.label ?? item.location}
-                  </span>
-                  <span className="font-medium">
-                    {item.quantityRelevant ? `${item.availableQuantity} Stück` : "Nicht gezählt"}
-                  </span>
-                </div>
-                <div className="mt-3 border-t pt-3 text-sm">
-                  <StatusButton
-                    active={item.isAvailable}
-                    onClick={() => toggleAvailability({ ...item, kind: "equipment" })}
-                    activeLabel="Für Buchungen aktiv"
-                    inactiveLabel="Für Buchungen pausiert"
-                  />
-                </div>
-              </div>
-            ))}
-        {(kind === "bike" ? visibleBikes : visibleEquipment).length === 0 ? (
-          <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Noch keine Einträge für diesen Standort.
+                Inventar hinzufügen
+              </Button>
+            </div>
           </div>
-        ) : null}
-      </div>
+          <div className="overflow-x-auto rounded-xl border">
+            <Table className="min-w-[920px] [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+              <TableHeader className="bg-muted/40">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} colSpan={header.colSpan}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {visibleRows.length ? (
+                  visibleRows.map((row) => (
+                    <TableRow
+                      key={`${row.original.kind}-${row.original.id}`}
+                      className="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50"
+                      tabIndex={0}
+                      onClick={() => openEdit(row.original)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openEdit(row.original);
+                        }
+                      }}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={table.getVisibleLeafColumns().length}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      {inventoryRows.length && filteredRowCount === 0
+                        ? "Keine Inventareinträge entsprechen der Suche."
+                        : kindFilter === "bike"
+                          ? "Noch keine Bikes für diesen Standort erfasst."
+                          : kindFilter === "equipment"
+                            ? "Noch keine Ausrüstung für diesen Standort erfasst."
+                            : "Noch keine Inventareinträge für diesen Standort erfasst."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              {filteredRowCount} {filteredRowCount === 1 ? "Eintrag" : "Einträge"}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline">Zeilen pro Seite</span>
+                <Select
+                  items={pageSizeItems}
+                  value={`${table.getState().pagination.pageSize}`}
+                  onValueChange={(value) => table.setPageSize(Number(value))}
+                >
+                  <SelectTrigger size="sm" className="w-20" aria-label="Zeilen pro Seite">
+                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    <SelectGroup>
+                      {pageSizeItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-28 text-center font-medium text-foreground">
+                Seite {table.getState().pagination.pageIndex + 1} von {pageCount}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Erste Seite</span>
+                  <ChevronsLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Vorherige Seite</span>
+                  <ChevronLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Nächste Seite</span>
+                  <ChevronRightIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Letzte Seite</span>
+                  <ChevronsRightIcon />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <InventoryDialog
-        key={`${kind}-${editingItem?.kind ?? "new"}-${editingItem?.id ?? "new"}-${dialogOpen}`}
+        key={`${dialogKind}-${editingItem?.kind ?? "new"}-${editingItem?.id ?? "new"}-${dialogOpen}`}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        kind={kind}
+        kind={dialogKind}
         item={editingItem}
         locations={locations}
         defaultLocation={locationFilter === "all" ? locations[0]?.key : (locationFilter as LocationOption["key"])}
@@ -467,16 +817,6 @@ export function InventoryTable({
         onDelete={editingItem ? () => deleteItem(editingItem) : undefined}
       />
     </div>
-  );
-}
-
-function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="h-24 text-center text-muted-foreground">
-        {label}
-      </TableCell>
-    </TableRow>
   );
 }
 

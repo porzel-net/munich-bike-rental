@@ -2,17 +2,15 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronDownIcon } from "lucide-react";
 
 import {
-  Combobox,
-  ComboboxChip,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type CalendarFilterOption = {
@@ -58,6 +56,14 @@ export function CalendarFilters({
   const selectedLocationLabel = locationItems.find((item) => item.value === locationValue)?.label ?? "Alle Standorte";
   const statusValues = statusItems.map((item) => item.value);
   const selectedStatusValues = statusValue.split(",").filter((value) => statusValues.includes(value));
+  const selectedStatusLabel = selectedStatusValues.length ? "Ausgewählt" : "Alle Status";
+
+  function toggleStatus(value: string, checked: boolean) {
+    const nextValues = checked
+      ? [...new Set([...selectedStatusValues, value])]
+      : selectedStatusValues.filter((selectedValue) => selectedValue !== value);
+    updateParam("status", nextValues);
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -80,33 +86,33 @@ export function CalendarFilters({
         </SelectContent>
       </Select>
 
-      <Combobox
-        items={statusValues}
-        multiple
-        value={selectedStatusValues}
-        onValueChange={(nextValue) => updateParam("status", nextValue)}
-      >
-        <ComboboxChips className="min-h-8 min-w-56 max-w-96">
-          {selectedStatusValues.map((value) => {
-            const item = statusItems.find((option) => option.value === value);
-            return item ? <ComboboxChip key={value}>{item.label}</ComboboxChip> : null;
-          })}
-          <ComboboxChipsInput placeholder={selectedStatusValues.length ? "" : "Alle Status"} />
-        </ComboboxChips>
-        <ComboboxContent>
-          <ComboboxEmpty>Kein Status gefunden.</ComboboxEmpty>
-          <ComboboxList>
-            {(value) => {
-              const item = statusItems.find((option) => option.value === value);
-              return item ? (
-                <ComboboxItem key={value} value={value}>
-                  {item.label}
-                </ComboboxItem>
-              ) : null;
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button type="button" variant="outline" size="sm" className="min-w-44 justify-between" />}
+        >
+          {selectedStatusLabel}
+          <ChevronDownIcon data-icon="inline-end" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuCheckboxItem
+            checked={selectedStatusValues.length === 0}
+            onCheckedChange={(checked) => {
+              if (checked) updateParam("status", null);
             }}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
+          >
+            Alle Status
+          </DropdownMenuCheckboxItem>
+          {statusItems.map((item) => (
+            <DropdownMenuCheckboxItem
+              key={item.value}
+              checked={selectedStatusValues.includes(item.value)}
+              onCheckedChange={(checked) => toggleStatus(item.value, !!checked)}
+            >
+              {item.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

@@ -1,21 +1,45 @@
 "use client";
 
+import * as React from "react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowUpDownIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   CheckIcon,
   ClipboardIcon,
-  ContactRoundIcon,
   KeyRoundIcon,
-  RefreshCwIcon,
   SmartphoneIcon,
   XCircleIcon,
 } from "lucide-react";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type Column,
+  type ColumnDef,
+  type FilterFn,
+  type SortingState,
+  type VisibilityState,
+  useReactTable,
+} from "@tanstack/react-table";
 
 import { AdminPageHeader } from "@/components/admin-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +49,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
+
+const pageSizeItems = [10, 20, 30, 50].map((pageSize) => ({ value: `${pageSize}`, label: `${pageSize}` }));
 
 type ContactBooking = {
   id: number;
@@ -80,6 +107,95 @@ function contactInitials(name: string) {
   return `${Array.from(parts[0])[0] ?? ""}${Array.from(parts.at(-1) ?? "")[0] ?? ""}`.toUpperCase();
 }
 
+function SortableContactHeader({ column, children }: { column: Column<Contact, unknown>; children: React.ReactNode }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="-ml-3"
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+    >
+      {children}
+      <ArrowUpDownIcon className="size-3.5 text-muted-foreground" />
+    </Button>
+  );
+}
+
+const contactGlobalFilter: FilterFn<Contact> = (row, _columnId, value) => {
+  const search = String(value).trim().toLocaleLowerCase("de-DE");
+  if (!search) return true;
+  return [
+    row.original.name,
+    row.original.email,
+    row.original.phone,
+    ...row.original.bookings.map((booking) => booking.orderNumber),
+  ]
+    .filter(Boolean)
+    .some((item) => item!.toLocaleLowerCase("de-DE").includes(search));
+};
+
+function getContactColumns(): ColumnDef<Contact>[] {
+  return [
+    {
+      accessorKey: "name",
+      header: ({ column }) => <SortableContactHeader column={column}>Name</SortableContactHeader>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+            <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
+              {contactInitials(row.original.name)}
+            </span>
+          </div>
+          <span className="truncate font-medium">{row.original.name}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: ({ column }) => <SortableContactHeader column={column}>E-Mail</SortableContactHeader>,
+      cell: ({ row }) => (
+        <a
+          className="block max-w-64 truncate text-sm text-muted-foreground hover:text-foreground"
+          href={`mailto:${row.original.email}`}
+          title={row.original.email}
+        >
+          {row.original.email}
+        </a>
+      ),
+    },
+    {
+      accessorKey: "phone",
+      header: ({ column }) => <SortableContactHeader column={column}>Telefonnummer</SortableContactHeader>,
+      cell: ({ row }) => (
+        <a className="text-sm text-muted-foreground hover:text-foreground" href={`tel:${row.original.phone}`}>
+          {row.original.phone}
+        </a>
+      ),
+    },
+    {
+      id: "bookings",
+      accessorFn: (row) => row.bookings.length,
+      header: ({ column }) => <SortableContactHeader column={column}>Aufträge</SortableContactHeader>,
+      cell: ({ row }) => (
+        <div className="flex min-w-64 flex-wrap gap-2">
+          {row.original.bookings.length ? (
+            row.original.bookings.map((booking) => (
+              <Link key={booking.id} href={`/admin/bookings/${booking.id}`}>
+                <Badge variant="outline" className="hover:bg-muted">
+                  {booking.orderNumber}
+                </Badge>
+              </Link>
+            ))
+          ) : (
+            <span className="text-sm text-muted-foreground">Keine Aufträge</span>
+          )}
+        </div>
+      ),
+    },
+  ];
+}
+
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -98,27 +214,35 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
 export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; carddav: CarddavAccountState }) {
   const [query, setQuery] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [busy, setBusy] = useState<"credentials" | "sync" | "revoke" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [account, setAccount] = useState(carddav.account);
 
-  const filteredContacts = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("de-DE");
-    if (!normalized) return contacts;
-    return contacts.filter((contact) => {
-      const haystack = [
-        contact.name,
-        contact.email,
-        contact.phone,
-        ...contact.bookings.map((booking) => booking.orderNumber),
-      ]
-        .join(" ")
-        .toLocaleLowerCase("de-DE");
-      return haystack.includes(normalized);
-    });
-  }, [contacts, query]);
+  const columns = useMemo(() => getContactColumns(), []);
+  // TanStack Table exposes an intentionally mutable table instance; React Compiler cannot memoize it safely.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: contacts,
+    columns,
+    state: { globalFilter: query, sorting, columnVisibility, pagination },
+    onGlobalFilterChange: setQuery,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: setPagination,
+    globalFilterFn: contactGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  const visibleRows = table.getRowModel().rows;
+  const filteredContactCount = table.getFilteredRowModel().rows.length;
+  const pageCount = Math.max(table.getPageCount(), 1);
 
   function openCarddavDialog() {
     setMessage(null);
@@ -189,139 +313,175 @@ export function AdminContactsPage({ contacts, carddav }: { contacts: Contact[]; 
 
   return (
     <div className="flex flex-col gap-6">
-      <AdminPageHeader
-        title="Kontakte"
-        description="Kundendaten und zugehörige Buchungen zentral verwalten."
-        actions={
-          <>
-            <Button type="button" variant="outline" onClick={openCarddavDialog}>
-              <SmartphoneIcon />
-              iPhone verbinden
-            </Button>
-            {account?.enabled ? (
-              <Button type="button" variant="outline" onClick={() => void syncContacts()} disabled={busy !== null}>
-                <RefreshCwIcon className={busy === "sync" ? "animate-spin" : undefined} />
-                Kontakte synchronisieren
-              </Button>
-            ) : null}
-          </>
-        }
-      />
+      <AdminPageHeader title="Kontakte" description="Kundendaten und zugehörige Buchungen zentral verwalten." />
 
-      <Card className="rounded-3xl border-border/60 bg-card shadow-sm">
-        <CardHeader className="grid grid-cols-1 items-stretch gap-3 border-b border-border/60 pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Kontakte suchen …"
-            className="min-w-0 flex-1 lg:max-w-xs"
-          />
-          <CardTitle className="shrink-0 text-left sm:text-right">{contacts.length} Kontakte</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filteredContacts.length ? (
-            <>
-              <div className="hidden sm:block">
-                <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>E-Mail</TableHead>
-                      <TableHead>Telefonnummer</TableHead>
-                      <TableHead>Aufträge</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredContacts.map((contact) => (
-                      <TableRow key={contact.key}>
-                        <TableCell className="min-w-52">
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                              <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
-                                {contactInitials(contact.name)}
-                              </span>
-                            </div>
-                            <span className="truncate font-medium">{contact.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="min-w-56">
-                          <a
-                            className="truncate text-sm text-muted-foreground hover:text-foreground"
-                            href={`mailto:${contact.email}`}
-                          >
-                            {contact.email}
-                          </a>
-                        </TableCell>
-                        <TableCell className="min-w-44">
-                          <a
-                            className="text-sm text-muted-foreground hover:text-foreground"
-                            href={`tel:${contact.phone}`}
-                          >
-                            {contact.phone}
-                          </a>
-                        </TableCell>
-                        <TableCell className="min-w-64">
-                          <div className="flex flex-wrap gap-2">
-                            {contact.bookings.map((booking) => (
-                              <Link key={booking.id} href={`/admin/bookings/${booking.id}`}>
-                                <Badge variant="outline" className="hover:bg-muted">
-                                  {booking.orderNumber}
-                                </Badge>
-                              </Link>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+      <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <Input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPagination((current) => ({ ...current, pageIndex: 0 }));
+              }}
+              placeholder="Kontakte suchen …"
+              aria-label="Kontakte durchsuchen"
+              className="w-full sm:max-w-sm"
+            />
+            <div className="flex w-full items-center justify-end gap-2 md:w-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" />}>
+                  Spalten
+                  <ChevronDownIcon data-icon="inline-end" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  {table
+                    .getAllLeafColumns()
+                    .filter((column) => column.getCanHide())
+                    .map((column) => (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                        {column.id === "bookings"
+                          ? "Aufträge"
+                          : column.id === "email"
+                            ? "E-Mail"
+                            : column.id === "phone"
+                              ? "Telefonnummer"
+                              : "Name"}
+                      </DropdownMenuCheckboxItem>
                     ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="grid gap-2 p-3 sm:hidden">
-                {filteredContacts.map((contact) => (
-                  <article className="rounded-2xl border border-border/60 bg-background p-4" key={contact.key}>
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                        <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">
-                          {contactInitials(contact.name)}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold">{contact.name}</p>
-                        <a className="block truncate text-sm text-muted-foreground" href={`mailto:${contact.email}`}>
-                          {contact.email}
-                        </a>
-                        <a className="block text-sm text-muted-foreground" href={`tel:${contact.phone}`}>
-                          {contact.phone}
-                        </a>
-                      </div>
-                    </div>
-                    {contact.bookings.length ? (
-                      <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
-                        <span className="w-full text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          Aufträge
-                        </span>
-                        {contact.bookings.map((booking) => (
-                          <Link key={booking.id} href={`/admin/bookings/${booking.id}`}>
-                            <Badge variant="outline" className="hover:bg-muted">
-                              {booking.orderNumber}
-                            </Badge>
-                          </Link>
-                        ))}
-                      </div>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-              <ContactRoundIcon className="size-8 text-muted-foreground" />
-              <p className="font-medium">Keine Kontakte gefunden.</p>
-              <p className="text-sm text-muted-foreground">
-                Passe den Suchbegriff an oder prüfe die Standortberechtigung.
-              </p>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button type="button" variant="outline" size="sm" onClick={openCarddavDialog}>
+                iPhone verbinden
+              </Button>
+              {account?.enabled ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void syncContacts()}
+                  disabled={busy !== null}
+                >
+                  Kontakte synchronisieren
+                </Button>
+              ) : null}
             </div>
-          )}
+          </div>
+
+          <div className="overflow-hidden rounded-xl border">
+            <Table className="[&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+              <TableHeader className="bg-muted/40">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} colSpan={header.colSpan}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {visibleRows.length ? (
+                  visibleRows.map((row) => (
+                    <TableRow key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-28 text-center">
+                      {contacts.length && filteredContactCount === 0
+                        ? "Keine Kontakte entsprechen dem Suchbegriff."
+                        : "Keine Kontakte gefunden."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              {filteredContactCount} {filteredContactCount === 1 ? "Kontakt" : "Kontakte"}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline">Zeilen pro Seite</span>
+                <Select
+                  items={pageSizeItems}
+                  value={`${table.getState().pagination.pageSize}`}
+                  onValueChange={(value) => table.setPageSize(Number(value))}
+                >
+                  <SelectTrigger size="sm" className="w-20" aria-label="Zeilen pro Seite">
+                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    <SelectGroup>
+                      {pageSizeItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-28 text-center font-medium text-foreground">
+                Seite {table.getState().pagination.pageIndex + 1} von {pageCount}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Erste Seite</span>
+                  <ChevronsLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Vorherige Seite</span>
+                  <ChevronLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Nächste Seite</span>
+                  <ChevronRightIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Letzte Seite</span>
+                  <ChevronsRightIcon />
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
