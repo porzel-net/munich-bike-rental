@@ -24,7 +24,7 @@ export function NevloSyncButton() {
           result.message ||
             "Die Nevlo-Synchronisation konnte nicht abgeschlossen werden. Prüfe Zeitraum, Kontoauswahl und Nevlo-Verbindung.",
         );
-      setMessage(`${result.inserted ?? 0} neue Transaktionen importiert, ${result.skipped ?? 0} bereits vorhanden.`);
+      setMessage(null);
       router.refresh();
     } catch (error) {
       setMessage(

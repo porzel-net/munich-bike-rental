@@ -24,7 +24,7 @@ export function ManualFinancialTransactionLauncher({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
         Manuelle Transaktion
       </Button>
       <FinancialTransactionDialog

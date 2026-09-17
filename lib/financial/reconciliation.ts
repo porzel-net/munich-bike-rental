@@ -293,6 +293,16 @@ function assignNevloTransactionToBookingInTransaction(
         .where(eq(financialTransactionAllocations.id, existingAllocation.id))
         .run();
     }
+    const timestamp = new Date();
+    db.update(financialTransactions)
+      .set({
+        status: allocatedCents === transaction.amountCents ? "posted" : "matched",
+        reconciledAt: timestamp,
+        reconciledByUserId: input.actorUserId,
+        updatedAt: timestamp,
+      })
+      .where(eq(financialTransactions.id, transaction.id))
+      .run();
     return {
       journalEntryId: existingAllocation.journalEntryId,
       transactionId: transaction.id,
@@ -352,7 +362,7 @@ function assignNevloTransactionToBookingInTransaction(
           { account: "accounts_receivable", amountCents: -allocationAmountCents },
         ],
       });
-  const now = new Date();
+  const timestamp = new Date();
   if (existingAllocation && !isPartialAllocation) {
     // Allocation identity is immutable. Replace the old category allocation
     // with the booking-payment allocation after the correction journal entry.
@@ -372,17 +382,19 @@ function assignNevloTransactionToBookingInTransaction(
       journalEntryId,
       note: `Auftrag ${booking.orderNumber}`,
       matchedByUserId: input.actorUserId,
-      matchedAt: now,
-      createdAt: now,
-      updatedAt: now,
+      matchedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     })
     .run();
+  const replacedAllocationCents = existingAllocation && !isPartialAllocation ? existingAllocation.amountCents : 0;
+  const finalAllocatedCents = allocatedCents - replacedAllocationCents + allocationAmountCents;
   db.update(financialTransactions)
     .set({
-      status: allocatedCents + allocationAmountCents === transaction.amountCents ? "posted" : "matched",
-      reconciledAt: now,
+      status: finalAllocatedCents === transaction.amountCents ? "posted" : "matched",
+      reconciledAt: timestamp,
       reconciledByUserId: input.actorUserId,
-      updatedAt: now,
+      updatedAt: timestamp,
     })
     .where(eq(financialTransactions.id, transaction.id))
     .run();

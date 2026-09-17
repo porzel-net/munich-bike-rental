@@ -235,14 +235,7 @@ export default async function BankTransactionsPage({
             <AdminPageHeader
               title="Finanztransaktionen"
               description="Prüfe, ordne und verbuche deine Bank- und manuellen Transaktionen."
-              actions={
-                <FinancialReviewActions
-                  transactions={reviewTransactionsForClient}
-                  categories={categories as FinancialReviewCategory[]}
-                  accounts={availableAccounts as FinancialReviewAccount[]}
-                  bookings={bookingReferences}
-                />
-              }
+              actions={<FinancialReviewActions />}
             />
             <FinancialReviewInbox
               transactions={reviewTransactionsForClient}

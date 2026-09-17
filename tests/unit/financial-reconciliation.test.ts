@@ -347,7 +347,30 @@ describe("financial reconciliation", () => {
       actorUserId: "admin",
     });
 
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, imported.id))
+        .get(),
+    ).toEqual({ status: "posted" });
     expect(getReceivableStatus(db, booking.id)).toMatchObject({ openCents: 0, status: "settled" });
+
+    db.update(financialTransactions).set({ status: "matched" }).where(eq(financialTransactions.id, imported.id)).run();
+    postFinancialTransaction(db, {
+      transactionId: imported.id,
+      categoryId: income.id,
+      bookingId: booking.id,
+      note: "Bereits abgestimmte Buchung erneut bestätigt",
+      actorUserId: "admin",
+    });
+    expect(
+      db
+        .select({ status: financialTransactions.status })
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, imported.id))
+        .get(),
+    ).toEqual({ status: "posted" });
     expect(
       db
         .select()

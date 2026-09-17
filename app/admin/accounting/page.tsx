@@ -6,7 +6,6 @@ import type { CSSProperties } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AdminPageHeader } from "@/components/admin-page-header";
 import { EuerSummary } from "@/components/euer-summary";
-import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
 import { StripeAutoSyncStatus } from "@/components/stripe-auto-sync-status";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -79,19 +78,10 @@ export default async function AccountingPage() {
             <AdminPageHeader
               title={`EÜR ${euer.year}`}
               description="Einnahmen und Ausgaben nach steuerlicher Kategorie. Interne Umbuchungen bleiben ausgeschlossen."
-              actions={
-                <div className="flex flex-col items-end gap-2">
-                  <ManualFinancialTransactionLauncher
-                    categories={categories}
-                    accounts={accounts}
-                    bookings={bookingReferences}
-                  />
-                  <StripeAutoSyncStatus />
-                </div>
-              }
+              actions={<StripeAutoSyncStatus />}
             />
             <div className="flex flex-col gap-6">
-              <EuerSummary data={euer} />
+              <EuerSummary data={euer} categories={categories} accounts={accounts} bookings={bookingReferences} />
             </div>
           </main>
         </div>

@@ -2,13 +2,42 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownLeftIcon, ArrowUpRightIcon, FileTextIcon } from "lucide-react";
+import {
+  ArrowDownLeftIcon,
+  ArrowUpDownIcon,
+  ArrowUpRightIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+  FileTextIcon,
+} from "lucide-react";
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type Column,
+  type ColumnDef,
+  type FilterFn,
+  type SortingState,
+  type VisibilityState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { NevloSyncButton } from "@/components/nevlo-sync-button";
 import { ManualFinancialTransactionLauncher } from "@/components/manual-financial-transaction-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FinancialTransactionDialog } from "@/components/financial-transaction-dialog";
 import { Button } from "@/components/ui/button";
@@ -22,10 +51,12 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { bookingPresentation } from "@/lib/bookings/presentation";
 import { BUSINESS_TIME_ZONE } from "@/lib/datetime";
 import { countOpenFinancialReviews, getFinancialReviewState } from "@/lib/financial/review-status";
+
+const pageSizeItems = [10, 20, 30, 50].map((pageSize) => ({ value: `${pageSize}`, label: `${pageSize}` }));
 
 export type FinancialReviewCategory = {
   id: number;
@@ -126,29 +157,197 @@ function bookingStatusLabel(status: string) {
   return bookingPresentation[status as keyof typeof bookingPresentation]?.label ?? status;
 }
 
-type FinancialReviewActionsProps = {
-  transactions: FinancialReviewTransaction[];
-  categories: FinancialReviewCategory[];
-  accounts: FinancialReviewAccount[];
-  bookings: FinancialReviewBooking[];
+type TransactionStatusFilter = "all" | "needs_review" | "posted" | "ignored";
+const transactionStatusItems = [
+  { value: "all", label: "Alle Status" },
+  { value: "needs_review", label: "Prüfung offen" },
+  { value: "posted", label: "Gebucht" },
+  { value: "ignored", label: "Ignoriert" },
+] as const;
+
+function SortableTransactionHeader({
+  column,
+  children,
+  align = "left",
+}: {
+  column: Column<FinancialReviewTransaction, unknown>;
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={align === "right" ? "-mr-3 ml-auto" : "-ml-3"}
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+    >
+      {children}
+      <ArrowUpDownIcon className="size-3.5 text-muted-foreground" />
+    </Button>
+  );
+}
+
+const financialTransactionGlobalFilter: FilterFn<FinancialReviewTransaction> = (row, _columnId, value) => {
+  const search = String(value).trim().toLocaleLowerCase("de-DE");
+  if (!search) return true;
+
+  return [
+    row.original.accountName,
+    row.original.accountCode,
+    row.original.counterpartyName,
+    row.original.description,
+    row.original.reference,
+    row.original.matchedBooking?.orderNumber,
+    statusLabel(row.original),
+    String(row.original.id),
+  ]
+    .filter(Boolean)
+    .some((item) => item!.toLocaleLowerCase("de-DE").includes(search));
 };
 
-export function FinancialReviewActions({ transactions, categories, accounts, bookings }: FinancialReviewActionsProps) {
-  const router = useRouter();
-  const openCount = countOpenFinancialReviews(transactions);
-
+function canAssignBooking(row: FinancialReviewTransaction) {
   return (
-    <div className="flex flex-col items-end gap-2">
-      <ManualFinancialTransactionLauncher
-        categories={categories}
-        accounts={accounts}
-        bookings={bookings}
-        onCompleted={() => router.refresh()}
-      />
-      <NevloSyncButton />
-      <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
-    </div>
+    row.source === "bank" &&
+    row.amountCents > 0 &&
+    row.remainingCents > 0 &&
+    row.status !== "posted" &&
+    row.status !== "ignored"
   );
+}
+
+function getFinancialTransactionColumns({
+  openBookingAssignment,
+  assignBooking,
+  assigningId,
+  openCount,
+}: {
+  openBookingAssignment: (row: FinancialReviewTransaction) => void;
+  assignBooking: (row: FinancialReviewTransaction, bookingId: number) => Promise<void>;
+  assigningId: number | null;
+  openCount: number;
+}): ColumnDef<FinancialReviewTransaction>[] {
+  return [
+    {
+      id: "direction",
+      header: () => null,
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <div
+          className={`flex size-8 items-center justify-center rounded-md ${row.original.amountCents >= 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}
+        >
+          {row.original.amountCents >= 0 ? (
+            <ArrowDownLeftIcon className="size-4" />
+          ) : (
+            <ArrowUpRightIcon className="size-4" />
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "bookedAt",
+      header: ({ column }) => <SortableTransactionHeader column={column}>Datum / Konto</SortableTransactionHeader>,
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{formatBookedDate(row.original.bookedAt)}</span>
+          <span className="text-xs text-muted-foreground">{row.original.accountName}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "description",
+      header: ({ column }) => (
+        <SortableTransactionHeader column={column}>Gegenpartei / Verwendungszweck</SortableTransactionHeader>
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original;
+        return (
+          <div className="min-w-0 max-w-80">
+            <span
+              className="block max-w-full truncate font-medium"
+              title={transaction.counterpartyName || "Unbekannte Gegenpartei"}
+            >
+              {transaction.counterpartyName || "Unbekannte Gegenpartei"}
+            </span>
+            <span
+              className="block max-w-full truncate text-xs text-muted-foreground"
+              title={transaction.description || transaction.reference || "Kein Verwendungszweck"}
+            >
+              {transaction.description || transaction.reference || "Kein Verwendungszweck"}
+            </span>
+            {transaction.documentCount > 0 ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
+                <FileTextIcon className="size-3" /> Beleg hinterlegt
+              </span>
+            ) : null}
+            {canAssignBooking(transaction) ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto justify-start p-0 text-xs text-primary"
+                disabled={assigningId === transaction.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (transaction.matchedBooking) void assignBooking(transaction, transaction.matchedBooking.id);
+                  else openBookingAssignment(transaction);
+                }}
+              >
+                {assigningId === transaction.id
+                  ? "Wird zugewiesen …"
+                  : transaction.matchedBooking
+                    ? `Auftrag ${transaction.matchedBooking.orderNumber} zuweisen`
+                    : "Auftrag zuweisen"}
+              </Button>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      id: "status",
+      accessorFn: (row) => getFinancialReviewState(row).status,
+      header: ({ column }) => (
+        <div className="flex items-center gap-2">
+          <SortableTransactionHeader column={column}>Status</SortableTransactionHeader>
+          <Badge variant={openCount ? "destructive" : "outline"}>{openCount} offen</Badge>
+        </div>
+      ),
+      cell: ({ row }) => {
+        const transaction = row.original;
+        const reviewState = getFinancialReviewState(transaction);
+        return (
+          <Badge
+            variant={
+              reviewState.status === "posted" ? "default" : reviewState.status === "ignored" ? "outline" : "destructive"
+            }
+          >
+            {statusLabel(transaction)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "amountCents",
+      header: ({ column }) => (
+        <SortableTransactionHeader column={column} align="right">
+          Betrag
+        </SortableTransactionHeader>
+      ),
+      cell: ({ row }) => (
+        <div
+          className={`text-right font-semibold tabular-nums ${row.original.amountCents >= 0 ? "text-emerald-600" : "text-destructive"}`}
+        >
+          {row.original.amountCents >= 0 ? "+" : "−"}
+          {formatAmount(Math.abs(row.original.amountCents), row.original.currency)}
+        </div>
+      ),
+    },
+  ];
+}
+
+export function FinancialReviewActions() {
+  return <NevloSyncButton />;
 }
 
 export function FinancialReviewInbox({
@@ -171,6 +370,11 @@ export function FinancialReviewInbox({
   const [assignmentRow, setAssignmentRow] = useState<FinancialReviewTransaction | null>(null);
   const [assignmentBookingId, setAssignmentBookingId] = useState("");
   const [assignmentAmount, setAssignmentAmount] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TransactionStatusFilter>("all");
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const sortedRows = useMemo(
     () =>
       [...transactions].sort((left, right) => {
@@ -179,48 +383,91 @@ export function FinancialReviewInbox({
       }),
     [transactions],
   );
+  const openCount = countOpenFinancialReviews(transactions);
 
-  function openBookingAssignment(row: FinancialReviewTransaction) {
+  const openBookingAssignment = useCallback((row: FinancialReviewTransaction) => {
     setAssignmentRow(row);
     setAssignmentBookingId(row.matchedBooking ? String(row.matchedBooking.id) : "");
     setAssignmentAmount((Math.max(0, row.remainingCents) / 100).toFixed(2));
-  }
+  }, []);
 
-  async function assignBooking(row: FinancialReviewTransaction, bookingId: number, amountCents = row.remainingCents) {
-    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > row.remainingCents) {
-      toast.error("Bitte gib einen gültigen Teilbetrag innerhalb des offenen Bankbetrags an.");
-      return;
-    }
-    setAssigningId(row.id);
-    try {
-      const response = await fetch(`/api/admin/financial/transactions/${row.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "assign_booking", bookingId, amountCents }),
-      });
-      const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok)
-        throw new Error(
-          result?.message ?? "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
+  const assignBooking = useCallback(
+    async (row: FinancialReviewTransaction, bookingId: number, amountCents = row.remainingCents) => {
+      if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > row.remainingCents) {
+        toast.error("Bitte gib einen gültigen Teilbetrag innerhalb des offenen Bankbetrags an.");
+        return;
+      }
+      setAssigningId(row.id);
+      try {
+        const response = await fetch(`/api/admin/financial/transactions/${row.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "assign_booking", bookingId, amountCents }),
+        });
+        const result = (await response.json().catch(() => null)) as { message?: string } | null;
+        if (!response.ok)
+          throw new Error(
+            result?.message ??
+              "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
+          );
+        const booking = bookings.find((item) => item.id === bookingId);
+        router.refresh();
+        toast.success(`Auftrag ${booking?.orderNumber ?? bookingId} wurde zugewiesen.`);
+        setAssignmentRow(null);
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
         );
-      const booking = bookings.find((item) => item.id === bookingId);
-      router.refresh();
-      toast.success(`Auftrag ${booking?.orderNumber ?? bookingId} wurde zugewiesen.`);
-      setAssignmentRow(null);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Der Auftrag konnte nicht zugewiesen werden. Prüfe Buchung, Standort und Zahlungsstatus.",
-      );
-    } finally {
-      setAssigningId(null);
-    }
-  }
+      } finally {
+        setAssigningId(null);
+      }
+    },
+    [bookings, router],
+  );
 
   const openReview = useCallback((row: FinancialReviewTransaction) => {
     setSelected(row);
   }, []);
+
+  const filteredRows = useMemo(
+    () =>
+      statusFilter === "all"
+        ? sortedRows
+        : sortedRows.filter((row) => getFinancialReviewState(row).status === statusFilter),
+    [sortedRows, statusFilter],
+  );
+  const columns = useMemo(
+    () =>
+      getFinancialTransactionColumns({
+        openBookingAssignment,
+        assignBooking,
+        assigningId,
+        openCount,
+      }),
+    [assignBooking, assigningId, openBookingAssignment, openCount],
+  );
+  // TanStack Table exposes an intentionally mutable table instance; React Compiler cannot memoize it safely.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: filteredRows,
+    columns,
+    state: { globalFilter, sorting, columnVisibility, pagination },
+    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: setPagination,
+    globalFilterFn: financialTransactionGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const visibleRows = table.getRowModel().rows;
+  const filteredRowCount = table.getFilteredRowModel().rows.length;
+  const pageCount = Math.max(table.getPageCount(), 1);
 
   useEffect(() => {
     if (!initialTransactionId || initialReviewOpened.current) return;
@@ -234,114 +481,210 @@ export function FinancialReviewInbox({
   return (
     <section className="flex flex-col gap-4">
       <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
-        <Table className="text-sm [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
-          <TableHeader className="[&_th]:h-9 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-12" />
-              <TableHead>Datum / Konto</TableHead>
-              <TableHead>Gegenpartei / Verwendungszweck</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Betrag</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-28 text-center text-muted-foreground">
-                  Noch keine Finanztransaktionen erfasst.
-                </TableCell>
-              </TableRow>
-            ) : (
-              sortedRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50"
-                  tabIndex={0}
-                  onClick={() => openReview(row)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openReview(row);
-                    }
+        <CardContent className="flex flex-col gap-4 p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+              <div className="flex-1">
+                <label htmlFor="financial-transactions-search" className="sr-only">
+                  Finanztransaktionen durchsuchen
+                </label>
+                <Input
+                  id="financial-transactions-search"
+                  placeholder="Gegenpartei, Verwendungszweck oder Konto suchen …"
+                  value={globalFilter}
+                  onChange={(event) => {
+                    setGlobalFilter(event.target.value);
+                    setPagination((current) => ({ ...current, pageIndex: 0 }));
                   }}
+                  className="w-full sm:max-w-sm"
+                />
+              </div>
+              <Select
+                items={transactionStatusItems}
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter((value ?? "all") as TransactionStatusFilter);
+                  setPagination((current) => ({ ...current, pageIndex: 0 }));
+                }}
+              >
+                <SelectTrigger className="w-44" aria-label="Status filtern">
+                  <SelectValue className="truncate text-sm font-normal">
+                    {transactionStatusItems.find((item) => item.value === statusFilter)?.label ?? "Alle Status"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {transactionStatusItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" />}>
+                  Spalten
+                  <ChevronDownIcon data-icon="inline-end" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {table
+                    .getAllLeafColumns()
+                    .filter((column) => column.getCanHide())
+                    .map((column) => (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                        {column.id === "bookedAt"
+                          ? "Datum / Konto"
+                          : column.id === "description"
+                            ? "Gegenpartei / Verwendungszweck"
+                            : column.id === "status"
+                              ? "Status"
+                              : "Betrag"}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ManualFinancialTransactionLauncher
+                categories={categories}
+                accounts={accounts}
+                bookings={bookings}
+                onCompleted={() => router.refresh()}
+              />
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border">
+            <Table className="text-sm [&_td]:px-6 [&_td]:py-5 [&_th]:px-6 [&_th]:py-4">
+              <TableHeader className="bg-muted/40">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} colSpan={header.colSpan}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {visibleRows.length ? (
+                  visibleRows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50"
+                      tabIndex={0}
+                      onClick={() => openReview(row.original)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openReview(row.original);
+                        }
+                      }}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={table.getVisibleLeafColumns().length}
+                      className="h-28 text-center text-muted-foreground"
+                    >
+                      {transactions.length && filteredRowCount === 0
+                        ? "Keine Finanztransaktionen entsprechen den Filtern."
+                        : "Noch keine Finanztransaktionen erfasst."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              {filteredRowCount} {filteredRowCount === 1 ? "Finanztransaktion" : "Finanztransaktionen"}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline">Zeilen pro Seite</span>
+                <Select
+                  items={pageSizeItems}
+                  value={`${table.getState().pagination.pageSize}`}
+                  onValueChange={(value) => table.setPageSize(Number(value))}
                 >
-                  <TableCell>
-                    <div
-                      className={`flex size-8 items-center justify-center rounded-md ${row.amountCents >= 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}
-                    >
-                      {row.amountCents >= 0 ? (
-                        <ArrowDownLeftIcon className="size-4" />
-                      ) : (
-                        <ArrowUpRightIcon className="size-4" />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{formatBookedDate(row.bookedAt)}</span>
-                      <span className="text-xs text-muted-foreground">{row.accountName}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex max-w-xs flex-col">
-                      <span className="truncate font-medium">{row.counterpartyName || "Unbekannte Gegenpartei"}</span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {row.description || row.reference || "Kein Verwendungszweck"}
-                      </span>
-                      {row.documentCount > 0 ? (
-                        <span className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
-                          <FileTextIcon className="size-3" /> Beleg hinterlegt
-                        </span>
-                      ) : null}
-                      {row.source === "bank" &&
-                      row.amountCents > 0 &&
-                      row.remainingCents > 0 &&
-                      row.status !== "posted" &&
-                      row.status !== "ignored" ? (
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="h-auto justify-start p-0 text-xs text-primary"
-                          disabled={assigningId === row.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            if (row.matchedBooking) void assignBooking(row, row.matchedBooking.id);
-                            else openBookingAssignment(row);
-                          }}
-                        >
-                          {assigningId === row.id
-                            ? "Wird zugewiesen …"
-                            : row.matchedBooking
-                              ? `Auftrag ${row.matchedBooking.orderNumber} zuweisen`
-                              : "Auftrag zuweisen"}
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        getFinancialReviewState(row).status === "posted"
-                          ? "default"
-                          : getFinancialReviewState(row).status === "ignored"
-                            ? "outline"
-                            : "destructive"
-                      }
-                    >
-                      {statusLabel(row)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-semibold tabular-nums ${row.amountCents >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                  >
-                    {row.amountCents >= 0 ? "+" : "−"}
-                    {formatAmount(Math.abs(row.amountCents), row.currency)}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  <SelectTrigger size="sm" className="w-20" aria-label="Zeilen pro Seite">
+                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    <SelectGroup>
+                      {pageSizeItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-28 text-center font-medium text-foreground">
+                Seite {table.getState().pagination.pageIndex + 1} von {pageCount}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Erste Seite</span>
+                  <ChevronsLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  <span className="sr-only">Vorherige Seite</span>
+                  <ChevronLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Nächste Seite</span>
+                  <ChevronRightIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="hidden sm:inline-flex"
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                >
+                  <span className="sr-only">Letzte Seite</span>
+                  <ChevronsRightIcon />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
       </Card>
       <Dialog
         open={Boolean(assignmentRow)}
