@@ -8,6 +8,7 @@ import { rentalLocationLabels, type RentalLocation } from "@/lib/inquiries/catal
 export const calendarWeekdayLabels = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
 
 export type CalendarStatusTone = "amber" | "violet" | "blue" | "emerald" | "indigo" | "rose" | "slate";
+export type CalendarOfferStatus = "sent" | "accepted" | "expired" | "revoked";
 
 const locationCodes: Record<RentalLocation, string> = {
   munich: "MUC",
@@ -25,6 +26,8 @@ export type CalendarBookingSource = {
   periodFrom: string;
   periodTo: string;
   status: BookingStatus;
+  latestOfferStatus?: CalendarOfferStatus | null;
+  latestOfferExpiresAt?: Date | null;
   requestedItems: string[];
   selectedItems?: string[];
   selectedBikes?: CalendarBookingBike[];
@@ -137,6 +140,29 @@ export function getCalendarStatusTone(status: BookingStatus): CalendarStatusTone
   return statusTones[status];
 }
 
+function isInactiveOffer(booking: CalendarBookingSource, now = new Date()) {
+  if (booking.status === "expired") return true;
+  if (booking.status !== "offer_sent") return false;
+
+  return (
+    booking.latestOfferStatus !== "sent" ||
+    (booking.latestOfferExpiresAt?.getTime() ?? Number.POSITIVE_INFINITY) <= now.getTime() ||
+    booking.periodFrom < berlinDateKey(now)
+  );
+}
+
+function getCalendarStatusLabel(booking: CalendarBookingSource, inactiveOffer: boolean, now = new Date()) {
+  if (!inactiveOffer || booking.status !== "offer_sent") return bookingPresentation[booking.status].label;
+  if (booking.latestOfferStatus === "revoked") return "Angebot zurückgezogen";
+  if (
+    booking.latestOfferStatus === "expired" ||
+    (booking.latestOfferExpiresAt?.getTime() ?? Number.POSITIVE_INFINITY) <= now.getTime() ||
+    booking.periodFrom < berlinDateKey(now)
+  )
+    return "Angebot abgelaufen";
+  return "Angebot nicht mehr verfügbar";
+}
+
 export function getCalendarMonthKey(date: Date) {
   return berlinDateKey(date).slice(0, 7);
 }
@@ -185,7 +211,9 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
   const endDate = parseCalendarDate(booking.periodTo);
   const locationLabel = rentalLocationLabels.de[booking.location] ?? booking.location;
   const locationCode = locationCodes[booking.location];
-  const statusLabel = bookingPresentation[booking.status].label;
+  const now = new Date();
+  const inactiveOffer = isInactiveOffer(booking, now);
+  const statusLabel = getCalendarStatusLabel(booking, inactiveOffer, now);
   const selectedItems = booking.selectedItems?.length ? booking.selectedItems : booking.requestedItems;
   const selectedBikes = booking.selectedBikes?.length
     ? booking.selectedBikes
@@ -209,7 +237,7 @@ export function toCalendarBookingEvent(booking: CalendarBookingSource): Calendar
     locationCode,
     status: booking.status,
     statusLabel,
-    tone: getCalendarStatusTone(booking.status),
+    tone: inactiveOffer ? "slate" : getCalendarStatusTone(booking.status),
     startDate,
     endDate,
     periodFrom: booking.periodFrom,

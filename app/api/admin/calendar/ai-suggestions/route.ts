@@ -3,15 +3,14 @@ import { NextResponse } from "next/server";
 import { evaluateBikeDisposition } from "@/lib/ai/bike-disposition";
 import { getBikeDispositionInput } from "@/lib/ai/bike-disposition-data";
 import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
+import { readBoundedJson } from "@/lib/security/request-body";
 
 export const runtime = "nodejs";
 
 /** Read-only admin analysis. No booking, allocation, offer, or event is written here. */
 export async function POST(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const body = await readBoundedJson(request, 8 * 1024);
+  if (body === null) {
     return NextResponse.json({ message: "Ungültige Anfrage." }, { status: 400 });
   }
   const targetBookingId =

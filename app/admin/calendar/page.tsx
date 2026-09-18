@@ -22,6 +22,7 @@ import {
   parseCalendarMonthKey,
   toCalendarBookingEvent,
   type CalendarBookingBike,
+  type CalendarOfferStatus,
 } from "@/lib/calendar/admin-calendar";
 import { getDatabase } from "@/lib/db/client";
 import { berlinDateKey } from "@/lib/datetime";
@@ -148,9 +149,13 @@ export default async function CalendarPage({
     : [];
   const latestOfferIds = new Set<number>();
   const latestOfferByBooking = new Map<number, number>();
+  const latestOfferStatusByBooking = new Map<number, CalendarOfferStatus>();
+  const latestOfferExpiresAtByBooking = new Map<number, Date>();
   for (const offer of offers) {
     if (!latestOfferByBooking.has(offer.bookingId)) {
       latestOfferByBooking.set(offer.bookingId, offer.id);
+      latestOfferStatusByBooking.set(offer.bookingId, offer.status);
+      latestOfferExpiresAtByBooking.set(offer.bookingId, offer.expiresAt);
       latestOfferIds.add(offer.id);
     }
   }
@@ -209,6 +214,8 @@ export default async function CalendarPage({
       periodFrom: row.periodFrom,
       periodTo: row.periodTo,
       status: row.status,
+      latestOfferStatus: latestOfferStatusByBooking.get(row.id) ?? null,
+      latestOfferExpiresAt: latestOfferExpiresAtByBooking.get(row.id) ?? null,
       requestedItems: (itemsByBooking.get(row.id) ?? []).map((item) => item.requestedLabel),
       selectedItems: (allocatedAssetsByBooking.get(row.id) ?? offeredAssetsByBooking.get(row.id) ?? []).map(
         (bike) => bike.displayName,

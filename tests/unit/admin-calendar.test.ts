@@ -43,4 +43,70 @@ describe("admin calendar booking events", () => {
     expect(bikesByBooking.get(13)).toHaveLength(2);
     expect(assetIdsByBooking.get(13)).toEqual(new Set([101, 102]));
   });
+
+  it("uses a slate tone when the current offer was revoked", () => {
+    const event = toCalendarBookingEvent({
+      id: 14,
+      orderNumber: "#20260721135925",
+      customerName: "Erika Mustermann",
+      location: "munich",
+      periodFrom: "2099-07-24",
+      periodTo: "2099-07-25",
+      status: "offer_sent",
+      latestOfferStatus: "revoked",
+      latestOfferExpiresAt: new Date("2099-07-25T12:00:00.000Z"),
+      requestedItems: ["Endurace CF SL 8 - M"],
+      customerPhone: "",
+      pickupTime: "08:00",
+      dropoffTime: "18:00",
+      requestedEquipment: [],
+    });
+
+    expect(event.tone).toBe("slate");
+    expect(event.statusLabel).toBe("Angebot zurückgezogen");
+  });
+
+  it("uses a slate tone when an offer's rental period has already started", () => {
+    const event = toCalendarBookingEvent({
+      id: 15,
+      orderNumber: "#20260721135926",
+      customerName: "Erika Mustermann",
+      location: "munich",
+      periodFrom: "2020-07-24",
+      periodTo: "2020-07-25",
+      status: "offer_sent",
+      latestOfferStatus: "sent",
+      latestOfferExpiresAt: new Date("2099-07-25T12:00:00.000Z"),
+      requestedItems: ["Endurace CF SL 8 - M"],
+      customerPhone: "",
+      pickupTime: "08:00",
+      dropoffTime: "18:00",
+      requestedEquipment: [],
+    });
+
+    expect(event.tone).toBe("slate");
+    expect(event.statusLabel).toBe("Angebot abgelaufen");
+  });
+
+  it("uses a slate tone as soon as the offer expiry is reached", () => {
+    const event = toCalendarBookingEvent({
+      id: 16,
+      orderNumber: "#20260721135927",
+      customerName: "Erika Mustermann",
+      location: "munich",
+      periodFrom: "2099-07-24",
+      periodTo: "2099-07-25",
+      status: "offer_sent",
+      latestOfferStatus: "sent",
+      latestOfferExpiresAt: new Date("2020-07-25T12:00:00.000Z"),
+      requestedItems: ["Endurace CF SL 8 - M"],
+      customerPhone: "",
+      pickupTime: "08:00",
+      dropoffTime: "18:00",
+      requestedEquipment: [],
+    });
+
+    expect(event.tone).toBe("slate");
+    expect(event.statusLabel).toBe("Angebot abgelaufen");
+  });
 });
