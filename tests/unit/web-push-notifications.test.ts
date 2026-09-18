@@ -44,6 +44,8 @@ describe("Browser-Push-Aktivitätsbenachrichtigungen", () => {
         name: "Ada Admin",
         email: "ada@example.com",
         role: "admin",
+        twoFactorEnabled: true,
+        mustChangePassword: false,
         createdAt,
         updatedAt: createdAt,
       })
@@ -90,5 +92,72 @@ describe("Browser-Push-Aktivitätsbenachrichtigungen", () => {
       .all();
     expect(jobs).toHaveLength(1);
     expect(jobs[0]?.body).toBe("Max Mustermann");
+  });
+
+  it("does not queue notifications for an account that still requires setup", () => {
+    const vapid = createECDH("prime256v1");
+    const vapidPublicKey = vapid.generateKeys();
+    process.env.WEB_PUSH_VAPID_PUBLIC_KEY = vapidPublicKey.toString("base64url");
+    process.env.WEB_PUSH_VAPID_PRIVATE_KEY = vapid.getPrivateKey().toString("base64url");
+    process.env.WEB_PUSH_VAPID_SUBJECT = "mailto:test@example.com";
+
+    const client = createECDH("prime256v1");
+    const clientPublicKey = client.generateKeys();
+    const createdAt = new Date("2026-08-27T09:00:00.000Z");
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+
+    db.insert(authUser)
+      .values({
+        id: "setup-pending-1",
+        name: "Setup Pending",
+        email: "setup-pending@example.com",
+        role: "admin",
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .run();
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260827090001",
+        assignedUserId: "setup-pending-1",
+        customerName: "Max Mustermann",
+        customerEmail: "max@example.com",
+        customerPhone: "+49 170 7654321",
+        location: "munich",
+        periodFrom: "2026-08-30",
+        periodTo: "2026-09-01",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        customerMessage: "",
+        communicationLocale: "de",
+        source: "web",
+        status: "inquiry_received",
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .run();
+    db.insert(webPushSubscriptions)
+      .values({
+        userId: "setup-pending-1",
+        endpoint: "https://push.example.test/setup-pending",
+        p256dh: clientPublicKey.toString("base64url"),
+        auth: Buffer.alloc(16, 8).toString("base64url"),
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .run();
+
+    queueWebPushNotifications(db, createdAt);
+
+    expect(
+      db
+        .select()
+        .from(webPushNotificationOutbox)
+        .where(eq(webPushNotificationOutbox.activityId, `incoming-booking-${booking.lastInsertRowid}`))
+        .all(),
+    ).toHaveLength(0);
   });
 });

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
@@ -22,14 +22,14 @@ import {
   EuroIcon,
   LayoutDashboardIcon,
   ListIcon,
+  MailIcon,
   MessageCircleIcon,
-  ScrollTextIcon,
   Settings2Icon,
   UserIcon,
   UsersIcon,
 } from "lucide-react";
 import { getDatabase } from "@/lib/db/client";
-import { bookings, dashboardActivityDismissals } from "@/lib/db/schema";
+import { bookings, dashboardActivityDismissals, mailOutbox } from "@/lib/db/schema";
 import { getAssignedLocation } from "@/lib/auth/authorization";
 import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
 import { getDashboardActivities } from "@/lib/dashboard/activities";
@@ -82,9 +82,9 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "AI Logs",
-      url: "/admin/ai-logs",
-      icon: <ScrollTextIcon />,
+      title: "E-Mail-Postausgang",
+      url: "/admin/mail-outbox",
+      icon: <MailIcon />,
       adminOnly: true,
     },
     {
@@ -147,6 +147,13 @@ export async function AppSidebar({
     (activity) => !dismissedDashboardActivityIds.has(activity.id),
   ).length;
   const openBankTransactionCount = isAdmin ? getOpenFinancialTransactionCount(db) : 0;
+  const openMailCount = isAdmin
+    ? (db
+        .select({ value: count() })
+        .from(mailOutbox)
+        .where(or(eq(mailOutbox.status, "queued"), eq(mailOutbox.status, "leased"), eq(mailOutbox.status, "failed")))
+        .get()?.value ?? 0)
+    : 0;
   const openBookings = db
     .select({ id: bookings.id, status: bookings.status, createdAt: bookings.createdAt, updatedAt: bookings.updatedAt })
     .from(bookings)
@@ -169,7 +176,9 @@ export async function AppSidebar({
               }
             : item,
     );
-  const secondaryNavItems = data.navSecondary.filter((item) => !item.adminOnly || isAdmin);
+  const secondaryNavItems = data.navSecondary
+    .filter((item) => !item.adminOnly || isAdmin)
+    .map((item) => (item.title === "E-Mail-Postausgang" ? { ...item, badge: openMailCount } : item));
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

@@ -1,7 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Label, Pie, PieChart, XAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Label,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  XAxis,
+} from "recharts";
 import { CalendarX2, Check, CircleCheck, Inbox, Landmark } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -111,6 +126,13 @@ const trafficChartConfig = {
 
 const bookingFunnelChartConfig = {
   count: { label: "Buchungen", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
+const feedbackRadarChartConfig = {
+  average: {
+    label: "Durchschnitt",
+    color: "var(--chart-1)",
+  },
 } satisfies ChartConfig;
 
 type ActivityKind = "expired_booking" | "paid_booking" | "bank_transaction" | "incoming_booking_request";
@@ -291,6 +313,39 @@ function TrafficChannels({
   );
 }
 
+function FeedbackRadar({ data }: { data: Array<{ category: string; average: number }> }) {
+  return (
+    <Card className="overflow-visible">
+      <CardHeader className="items-center">
+        <CardTitle>Kundenfeedback</CardTitle>
+        <CardDescription>Durchschnittliche Bewertung aus allen abgegebenen Feedbacks</CardDescription>
+      </CardHeader>
+      <CardContent className="pb-0">
+        <ChartContainer
+          config={feedbackRadarChartConfig}
+          className="mx-auto aspect-square max-h-[250px] overflow-visible [&_.recharts-wrapper]:overflow-visible [&_.recharts-surface]:overflow-visible"
+        >
+          <RadarChart data={data}>
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <PolarAngleAxis dataKey="category" />
+            <PolarRadiusAxis domain={[0, 5]} tickCount={6} tick={false} axisLine={false} />
+            <PolarGrid />
+            <Radar
+              dataKey="average"
+              fill="var(--color-average)"
+              fillOpacity={0.6}
+              dot={{
+                r: 4,
+                fillOpacity: 1,
+              }}
+            />
+          </RadarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
 function BookingFunnel({
   data,
   summary,
@@ -345,14 +400,14 @@ function MunichRequestCapacity({
   const acceptedPercent = requestCapacity.total
     ? Math.round((requestCapacity.accepted / requestCapacity.total) * 100)
     : 0;
-  const remaining = Math.max(0, requestCapacity.total - requestCapacity.accepted);
+  const notAccepted = Math.max(0, requestCapacity.total - requestCapacity.accepted);
   const chartData = [
     { name: "accepted", value: requestCapacity.accepted, fill: "var(--color-accepted)" },
-    { name: "remaining", value: remaining, fill: "var(--color-remaining)" },
+    { name: "notAccepted", value: notAccepted, fill: "var(--color-notAccepted)" },
   ];
   const chartConfig = {
     accepted: { label: "Angenommen", color: "var(--chart-2)" },
-    remaining: { label: "Noch nicht angenommen", color: "var(--chart-1)" },
+    notAccepted: { label: "Nicht angenommen", color: "var(--chart-1)" },
   } satisfies ChartConfig;
 
   return (
@@ -921,6 +976,7 @@ export function AdminDashboardOverview({
   rentalDaysByLocation,
   bookingFunnelData,
   bookingFunnelSummary,
+  feedbackRadarData,
   potentialRevenueData,
   activities,
 }: {
@@ -951,6 +1007,7 @@ export function AdminDashboardOverview({
     acceptanceRate: number;
     open: number;
   };
+  feedbackRadarData: Array<{ category: string; average: number }>;
   potentialRevenueData: Array<{ month: string; amount: number }>;
   activities: ActivityItem[];
 }) {
@@ -977,6 +1034,7 @@ export function AdminDashboardOverview({
           <PowerUsage utilizationData={utilizationData} currentMonthIndex={currentMonthIndex} />
           <BookingFunnel data={bookingFunnelData} summary={bookingFunnelSummary} />
           <TrafficChannels rentalDaysByLocation={rentalDaysByLocation} />
+          <FeedbackRadar data={feedbackRadarData} />
         </div>
         <div className="flex min-w-0 flex-col gap-(--gap) **:data-[slot=card]:w-full **:data-[slot=card]:min-w-0">
           <SavingsTargets

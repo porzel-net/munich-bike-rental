@@ -23,6 +23,8 @@ describe("WhatsApp activity notifications", () => {
         email: "ada@example.com",
         role: "admin",
         whatsappPhone: "+49 170 1234567",
+        twoFactorEnabled: true,
+        mustChangePassword: false,
         createdAt,
         updatedAt: createdAt,
       })
@@ -35,6 +37,8 @@ describe("WhatsApp activity notifications", () => {
         role: "standortuser",
         locationKey: "munich",
         whatsappPhone: "+49 170 2222222",
+        twoFactorEnabled: true,
+        mustChangePassword: false,
         createdAt,
         updatedAt: createdAt,
       })
@@ -76,5 +80,31 @@ describe("WhatsApp activity notifications", () => {
           job.messageText.includes("*_📋 Tagesübersicht offene Aktivitäten_*"),
       ),
     ).toBe(true);
+  });
+
+  it("does not queue notifications for a banned user", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const createdAt = new Date("2026-08-27T09:00:00.000Z");
+
+    db.insert(authUser)
+      .values({
+        id: "banned-1",
+        name: "Banned User",
+        email: "banned@example.com",
+        role: "admin",
+        whatsappPhone: "+49 170 9999999",
+        twoFactorEnabled: true,
+        mustChangePassword: false,
+        banned: true,
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .run();
+
+    queueWhatsAppNotifications(db, createdAt);
+
+    expect(db.select().from(whatsappNotificationOutbox).all()).toHaveLength(0);
   });
 });

@@ -81,7 +81,14 @@ export function AdminDashboard({ userName }: { userName: string }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="invitation-role">Rolle</FieldLabel>
-              <Select value={role} onValueChange={(value) => value && setRole(value as typeof role)}>
+              <Select
+                items={[
+                  { value: "standortuser", label: "Standortuser" },
+                  { value: "admin", label: "Admin" },
+                ]}
+                value={role}
+                onValueChange={(value) => value && setRole(value as typeof role)}
+              >
                 <SelectTrigger id="invitation-role" className="w-full">
                   <SelectValue>{role === "admin" ? "Admin" : "Standortuser"}</SelectValue>
                 </SelectTrigger>
@@ -94,7 +101,17 @@ export function AdminDashboard({ userName }: { userName: string }) {
             {role === "standortuser" ? (
               <Field>
                 <FieldLabel htmlFor="invitation-location">Zugeordneter Standort</FieldLabel>
-                <Select value={locationKey} onValueChange={(value) => value && setLocationKey(value)}>
+                <Select
+                  items={[
+                    { value: "munich", label: "München" },
+                    { value: "regensburg", label: "Regensburg" },
+                    { value: "lindau", label: "Lindau Bodensee" },
+                    { value: "friedrichshafen", label: "Friedrichshafen" },
+                    { value: "konstanz", label: "Konstanz" },
+                  ]}
+                  value={locationKey}
+                  onValueChange={(value) => value && setLocationKey(value)}
+                >
                   <SelectTrigger id="invitation-location" className="w-full">
                     <SelectValue>
                       {

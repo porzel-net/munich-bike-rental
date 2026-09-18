@@ -69,6 +69,15 @@ export function hasCompletedAdminSetup(user: AuthorizedUser) {
 }
 
 export function canUseAdminApi(user: AuthorizedUser) {
+  return canReceiveOperationalNotifications(user);
+}
+
+/**
+ * Operational notifications contain the same sensitive dashboard data as the
+ * admin UI. They therefore require a current, fully initialized admin account
+ * instead of only a role and a stored notification channel.
+ */
+export function canReceiveOperationalNotifications(user: AuthorizedUser) {
   return hasCompletedAdminSetup(user) && canAccessAdmin(user);
 }
 

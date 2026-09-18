@@ -5,6 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { runInImmediateTransaction, type AppDatabase } from "../db/client";
 import { bookingFeedback, bookings } from "../db/schema";
 import { siteConfig } from "../site";
+import { queueFeedbackWhatsAppNotifications } from "../whatsapp/notifications";
 
 import { feedbackCriteria, type FeedbackRatings, type PublicFeedback } from "./feedback-shared";
 
@@ -77,6 +78,17 @@ export function submitPublicFeedback(db: AppDatabase, token: string, input: Feed
       })
       .where(and(eq(bookingFeedback.id, row.feedback.id), isNull(bookingFeedback.submittedAt)))
       .run();
+    queueFeedbackWhatsAppNotifications(db, {
+      bookingId: row.booking.id,
+      feedbackId: row.feedback.id,
+      bikeRating: input.bikeRating,
+      handoverRating: input.handoverRating,
+      communicationRating: input.communicationRating,
+      priceRating: input.priceRating,
+      overallRating: input.overallRating,
+      comment: input.comment,
+      submittedAt,
+    });
     return submittedAt;
   });
 }

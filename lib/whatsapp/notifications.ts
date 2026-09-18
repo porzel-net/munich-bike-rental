@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/schema";
 import { BUSINESS_TIME_ZONE, berlinDateKey, formatDateOnly } from "@/lib/datetime";
 import { getDashboardActivities, type DashboardActivity } from "@/lib/dashboard/activities";
+import { canReceiveOperationalNotifications } from "@/lib/auth/authorization";
 import { rentalLocationLabels } from "@/lib/inquiries/catalog";
 
 import { whatsappConnection } from "./connection";
@@ -23,7 +24,17 @@ const LEASE_MS = 60_000;
 const RETRY_CAP_MS = 60 * 60 * 1_000;
 const MAX_DRAIN_PER_CYCLE = 50;
 
-type WhatsAppRecipient = { id: string; name: string; phone: string; role: string; locationKey: string | null };
+type WhatsAppRecipient = {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  locationKey: string | null;
+  twoFactorEnabled: boolean;
+  mustChangePassword: boolean;
+  banned: boolean;
+  banExpires: Date | null;
+};
 
 function normalizePhone(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -173,6 +184,40 @@ function bookingEventMessage(
   return `🔔 *Buchung aktualisiert*\n\n*Kunde:* ${booking.customerName}\n*Auftrag:* ${booking.orderNumber}\n${status ? `*Status:* ${status}\n` : ""}${reason ? `*Hinweis:* ${reason}\n` : ""}${link}`.trim();
 }
 
+function feedbackMessage(
+  booking: { customerName: string; orderNumber: string; location: string; id: number },
+  input: {
+    bikeRating: number;
+    handoverRating: number;
+    communicationRating: number;
+    priceRating: number;
+    overallRating: number;
+    comment: string;
+  },
+) {
+  const origin = process.env.APP_ORIGIN?.trim() || process.env.SITE_URL?.trim();
+  const link = origin ? `${origin.replace(/\/$/, "")}/admin/bookings/${booking.id}` : "";
+  const location =
+    rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
+  const comment = input.comment.trim();
+  return [
+    "⭐ *Neues Kundenfeedback*",
+    "",
+    `*Kunde:* ${booking.customerName}`,
+    `*Auftrag:* ${booking.orderNumber}`,
+    `*Standort:* ${location}`,
+    `*Fahrrad:* ${input.bikeRating}/5`,
+    `*Übergabe:* ${input.handoverRating}/5`,
+    `*Kommunikation:* ${input.communicationRating}/5`,
+    `*Preis-Leistung:* ${input.priceRating}/5`,
+    `*Gesamterlebnis:* ${input.overallRating}/5`,
+    comment ? `*Kommentar:* ${comment}` : "*Kommentar:* –",
+    link,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function enqueue(
   db: AppDatabase,
   input: {
@@ -209,13 +254,58 @@ function getUsersWithWhatsApp(db: AppDatabase) {
       phone: authUser.whatsappPhone,
       role: authUser.role,
       locationKey: authUser.locationKey,
+      twoFactorEnabled: authUser.twoFactorEnabled,
+      mustChangePassword: authUser.mustChangePassword,
+      banned: authUser.banned,
+      banExpires: authUser.banExpires,
     })
     .from(authUser)
     .all()
     .flatMap((user) => {
       const phone = user.phone ? recipientPhone(user.phone) : null;
-      return phone ? [{ ...user, phone }] : [];
+      return phone && canReceiveOperationalNotifications(user) ? [{ ...user, phone }] : [];
     });
+}
+
+export function queueFeedbackWhatsAppNotifications(
+  db: AppDatabase,
+  input: {
+    bookingId: number;
+    feedbackId: number;
+    bikeRating: number;
+    handoverRating: number;
+    communicationRating: number;
+    priceRating: number;
+    overallRating: number;
+    comment: string;
+    submittedAt: Date;
+  },
+) {
+  const booking = db
+    .select({
+      id: bookings.id,
+      customerName: bookings.customerName,
+      orderNumber: bookings.orderNumber,
+      location: bookings.location,
+    })
+    .from(bookings)
+    .where(eq(bookings.id, input.bookingId))
+    .get();
+  if (!booking) return 0;
+
+  const users = getUsersWithWhatsApp(db);
+  const recipients = users.filter((user) => user.role === "admin" || user.locationKey === booking.location);
+  const messageText = feedbackMessage(booking, input);
+  for (const recipient of recipients) {
+    enqueue(db, {
+      recipient,
+      kind: "feedback_received",
+      idempotencyKey: `feedback:${input.feedbackId}:${recipient.id}:${recipient.phone}`,
+      messageText,
+      createdAt: input.submittedAt,
+    });
+  }
+  return recipients.length;
 }
 
 function queueDailySummaries(db: AppDatabase, users: WhatsAppRecipient[], activities: DashboardActivity[], now: Date) {
@@ -364,6 +454,23 @@ export async function dispatchNextWhatsAppNotification(db: AppDatabase = getData
     return { ...row, attempts: row.attempts + 1 };
   });
   if (!job) return null;
+
+  const recipient = db
+    .select({
+      role: authUser.role,
+      locationKey: authUser.locationKey,
+      twoFactorEnabled: authUser.twoFactorEnabled,
+      mustChangePassword: authUser.mustChangePassword,
+      banned: authUser.banned,
+      banExpires: authUser.banExpires,
+    })
+    .from(authUser)
+    .where(eq(authUser.id, job.recipientUserId))
+    .get();
+  if (!recipient || !canReceiveOperationalNotifications(recipient)) {
+    db.delete(whatsappNotificationOutbox).where(eq(whatsappNotificationOutbox.id, job.id)).run();
+    return { id: job.id, status: "discarded" as const };
+  }
 
   try {
     await whatsappConnection.sendTextMessage(job.phone, job.messageText);

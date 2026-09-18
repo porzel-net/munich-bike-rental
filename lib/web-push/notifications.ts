@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { and, asc, desc, eq, inArray, lte, or } from "drizzle-orm";
 
 import { getDatabase, runInImmediateTransaction, type AppDatabase } from "@/lib/db/client";
+import { canReceiveOperationalNotifications } from "@/lib/auth/authorization";
 import {
   authUser,
   bookings,
@@ -30,6 +31,10 @@ type PushSubscriptionRow = {
   auth: string;
   role: string;
   locationKey: string | null;
+  twoFactorEnabled: boolean;
+  mustChangePassword: boolean;
+  banned: boolean;
+  banExpires: Date | null;
 };
 
 function activityBookingId(activityId: string) {
@@ -99,10 +104,15 @@ export function queueWebPushNotifications(db: AppDatabase = getDatabase(), now =
         auth: webPushSubscriptions.auth,
         role: authUser.role,
         locationKey: authUser.locationKey,
+        twoFactorEnabled: authUser.twoFactorEnabled,
+        mustChangePassword: authUser.mustChangePassword,
+        banned: authUser.banned,
+        banExpires: authUser.banExpires,
       })
       .from(webPushSubscriptions)
       .innerJoin(authUser, eq(webPushSubscriptions.userId, authUser.id))
-      .all();
+      .all()
+      .filter((subscription) => canReceiveOperationalNotifications(subscription));
     const activities = getDashboardActivities(db, { isAdmin: true, location: null });
     const dismissedByUser = new Map<string, Set<string>>();
     const userIds = [...new Set(subscriptions.map((subscription) => subscription.userId))];
@@ -187,6 +197,23 @@ export async function dispatchNextWebPushNotification(db: AppDatabase = getDatab
     .where(eq(webPushSubscriptions.id, job.subscriptionId))
     .get();
   if (!subscription) return { id: job.id, status: "discarded" as const };
+
+  const recipient = db
+    .select({
+      role: authUser.role,
+      locationKey: authUser.locationKey,
+      twoFactorEnabled: authUser.twoFactorEnabled,
+      mustChangePassword: authUser.mustChangePassword,
+      banned: authUser.banned,
+      banExpires: authUser.banExpires,
+    })
+    .from(authUser)
+    .where(eq(authUser.id, subscription.userId))
+    .get();
+  if (!recipient || !canReceiveOperationalNotifications(recipient)) {
+    db.delete(webPushNotificationOutbox).where(eq(webPushNotificationOutbox.id, job.id)).run();
+    return { id: job.id, status: "discarded" as const };
+  }
 
   try {
     await sendWebPushNotification(

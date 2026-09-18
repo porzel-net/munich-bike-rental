@@ -4,6 +4,7 @@ import { auth } from "../auth";
 export {
   canAccessAdmin,
   canAccessLocation,
+  canReceiveOperationalNotifications,
   canUseAdminApi,
   canUseAdminApiAsAdmin,
   getAssignedLocation,

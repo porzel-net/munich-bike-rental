@@ -4,6 +4,7 @@ import { z } from "zod";
 import { FeedbackError, submitPublicFeedback } from "@/lib/bookings/feedback";
 import { getDatabase } from "@/lib/db/client";
 import { readBoundedJson } from "@/lib/security/request-body";
+import { runWhatsAppNotificationCycle } from "@/lib/whatsapp/notifications";
 
 export const runtime = "nodejs";
 
@@ -22,7 +23,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if (!input.success)
     return NextResponse.json({ message: "Bitte bewerte alle Punkte und prüfe den Kommentar." }, { status: 400 });
   try {
-    submitPublicFeedback(getDatabase(), token, input.data);
+    const database = getDatabase();
+    submitPublicFeedback(database, token, input.data);
+    void runWhatsAppNotificationCycle(database).catch((error) => {
+      console.error("Failed to notify WhatsApp about received feedback", error);
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(

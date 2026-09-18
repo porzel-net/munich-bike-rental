@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 
@@ -12,6 +12,7 @@ import { getServerSession, getVisibleLocationScope, isAdmin } from "@/lib/auth/s
 import { getDatabase } from "@/lib/db/client";
 import {
   bookingRequestedItems,
+  bookingFeedback,
   bookings,
   dashboardActivityDismissals,
   dashboardRevenueGoals,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/db/schema";
 import { getRentalDays } from "@/lib/inventory/pricing";
 import { receivedAtFromOrderNumber } from "@/lib/bookings/order-number";
+import { feedbackCriteria } from "@/lib/bookings/feedback-shared";
 import { berlinDateKey, BUSINESS_TIME_ZONE } from "@/lib/datetime";
 import { getDashboardActivities } from "@/lib/dashboard/activities";
 import { allocateAmountByMonthCents } from "@/lib/dashboard/metrics";
@@ -330,14 +332,7 @@ export default async function AdminPage() {
       status: bookings.status,
     })
     .from(bookings)
-    .where(
-      visibleLocation
-        ? and(
-            eq(bookings.location, visibleLocation),
-            inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
-          )
-        : inArray(bookings.status, ["inquiry_received", "offer_sent", "confirmed", "checked_out", "completed"]),
-    )
+    .where(visibleLocation ? eq(bookings.location, visibleLocation) : undefined)
     .all();
   const munichRequestCapacity = capacityBookings.reduce(
     (result, booking) => {
@@ -455,6 +450,38 @@ export default async function AdminPage() {
     if (point) point.amount += booking.quotedTotalCents / 100;
   }
   const rentalDaysByLocation = [...rentalDaysByLocationMap.values()];
+  const feedbackRows = db
+    .select({
+      bikeRating: bookingFeedback.bikeRating,
+      handoverRating: bookingFeedback.handoverRating,
+      communicationRating: bookingFeedback.communicationRating,
+      priceRating: bookingFeedback.priceRating,
+      overallRating: bookingFeedback.overallRating,
+    })
+    .from(bookingFeedback)
+    .innerJoin(bookings, eq(bookingFeedback.bookingId, bookings.id))
+    .where(
+      visibleLocation
+        ? and(eq(bookings.location, visibleLocation), isNotNull(bookingFeedback.submittedAt))
+        : isNotNull(bookingFeedback.submittedAt),
+    )
+    .all();
+  const feedbackRadarCriteria = [
+    feedbackCriteria[0],
+    feedbackCriteria[1],
+    feedbackCriteria[2],
+    feedbackCriteria[4],
+    feedbackCriteria[3],
+  ];
+  const feedbackRadarData = feedbackRadarCriteria.map(({ de, key }) => {
+    const ratings = feedbackRows.map((feedback) => feedback[key]).filter((rating): rating is number => rating !== null);
+    return {
+      category: de,
+      average: ratings.length
+        ? Math.round((ratings.reduce((total, rating) => total + rating, 0) / ratings.length) * 10) / 10
+        : 0,
+    };
+  });
 
   return (
     <SidebarProvider
@@ -490,6 +517,7 @@ export default async function AdminPage() {
                 rentalDaysByLocation={rentalDaysByLocation}
                 bookingFunnelData={bookingFunnelData}
                 bookingFunnelSummary={bookingFunnelSummary}
+                feedbackRadarData={feedbackRadarData}
                 potentialRevenueData={potentialRevenueData.map(({ month, amount }) => ({ month, amount }))}
                 activities={visibleActivities}
               />
