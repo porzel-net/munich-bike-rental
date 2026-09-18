@@ -20,6 +20,12 @@ export default defineConfig({
       SITE_URL: "https://browser-test.local",
       BETTER_AUTH_SECRET: "browser-test-secret-that-is-at-least-32-characters-long",
       DATABASE_URL: "/tmp/munich-bike-rental-browser-test.db",
+      // Keep local .env.local integrations out of the browser fixture. CI has
+      // no Nevlo credentials, and browser tests must not depend on a developer
+      // token or make an external API request during startup.
+      NEVLO_CLIENT_ID: "",
+      NEVLO_ACCESS_TOKEN: "",
+      NEVLO_REFRESH_TOKEN: "",
     },
   },
   projects: [
