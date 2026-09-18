@@ -81,7 +81,7 @@ describe("migration edge cases", () => {
 
     const first = createDatabaseConnection(databasePath);
     connections.push(first);
-    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(99);
+    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(100);
     expect(first.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
     expect(first.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
     first.close();
@@ -89,7 +89,7 @@ describe("migration edge cases", () => {
 
     const reopened = createDatabaseConnection(databasePath);
     connections.push(reopened);
-    expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(99);
+    expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(100);
     expect(reopened.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });
 
@@ -129,6 +129,69 @@ describe("migration edge cases", () => {
     expect(
       migrated.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM booking_asset_allocations`)?.count,
     ).toBe(1);
+    expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
+  });
+
+  it("restores concrete offer assets without relying on requested labels", () => {
+    const migrated = migrateFrom(99, (db) => {
+      run(
+        db,
+        `
+          INSERT INTO bike_models (id, location, model_key, title, description_de, description_en, image, gallery_json, facts_json, equipment_json, created_at)
+          VALUES (1, 'munich', 'test-road', 'Test Road', '', '', '', '[]', '[]', '{}', 1000);
+          INSERT INTO bike_variants (id, model_id, size, created_at) VALUES (1, 1, 'M', 1000);
+          INSERT INTO rental_assets (id, variant_id, location, asset_code, display_name, weekday_price_cents, weekend_price_cents, state, created_at, updated_at)
+          VALUES (1, 1, 'munich', 'TEST-1', 'Test Road - M', 4900, 6900, 'active', 1000, 1000);
+
+          INSERT INTO bookings (id, order_number, customer_name, customer_email, customer_phone, location, period_from, period_to, pickup_time, dropoff_time, customer_message, communication_locale, source, status, quoted_total_cents, version, created_at, updated_at)
+          VALUES
+            (1, 'SAFE', 'Safe', 'safe@example.com', '1', 'munich', '2026-09-01', '2026-09-01', '09:00', '18:00', '', 'de', 'web', 'confirmed', 4900, 1, 1000, 1000),
+            (2, 'MULTI-OFFER', 'Multi', 'multi@example.com', '2', 'munich', '2026-09-02', '2026-09-02', '09:00', '18:00', '', 'de', 'legacy', 'completed', 4900, 1, 1000, 1000),
+            (3, 'DUPLICATE-ASSET', 'Duplicate', 'duplicate@example.com', '3', 'munich', '2026-09-03', '2026-09-03', '09:00', '18:00', '', 'de', 'legacy', 'completed', 9800, 1, 1000, 1000),
+            (4, 'CONFLICT', 'Conflict', 'conflict@example.com', '4', 'munich', '2026-09-04', '2026-09-04', '09:00', '18:00', '', 'de', 'legacy', 'completed', 4900, 1, 1000, 1000),
+            (5, 'EXISTING', 'Existing', 'existing@example.com', '5', 'munich', '2026-09-04', '2026-09-04', '10:00', '17:00', '', 'de', 'legacy', 'completed', 4900, 1, 1000, 1000);
+
+          INSERT INTO booking_requested_items (id, booking_id, position, requested_label, height_cm, needs_pedals, needs_computer_mount, needs_helmet, needs_clothing)
+          VALUES
+            (11, 1, 0, 'Customer requested road bike', 180, 0, 0, 0, 0),
+            (21, 2, 0, 'Test Road - M', 180, 0, 0, 0, 0),
+            (31, 3, 0, 'Test Road - M', 180, 0, 0, 0, 0),
+            (32, 3, 1, 'Test Road - M', 180, 0, 0, 0, 0),
+            (41, 4, 0, 'Test Road - M', 180, 0, 0, 0, 0),
+            (51, 5, 0, 'Test Road - M', 180, 0, 0, 0, 0);
+
+          INSERT INTO booking_offers (id, booking_id, offer_number, status, token_hash, expires_at, total_cents, created_at, accepted_at)
+          VALUES
+            (101, 1, 1, 'accepted', 'safe-token', 2000, 4900, 1000, 1000),
+            (201, 2, 1, 'accepted', 'multi-token-1', 2000, 4900, 1000, 1000),
+            (202, 2, 2, 'accepted', 'multi-token-2', 2000, 4900, 1000, 1000),
+            (301, 3, 1, 'accepted', 'duplicate-token', 2000, 9800, 1000, 1000),
+            (401, 4, 1, 'accepted', 'conflict-token', 2000, 4900, 1000, 1000),
+            (501, 5, 1, 'accepted', 'existing-token', 2000, 4900, 1000, 1000);
+
+          INSERT INTO booking_offer_items (id, offer_id, requested_item_id, asset_id, item_price_cents)
+          VALUES
+            (1001, 101, 11, 1, 4900),
+            (2001, 201, 21, 1, 4900),
+            (2002, 202, 21, 1, 4900),
+            (3001, 301, 31, 1, 4900),
+            (3002, 301, 32, 1, 4900),
+            (4001, 401, 41, 1, 4900),
+            (5001, 501, 51, 1, 4900);
+
+          INSERT INTO booking_asset_allocations (booking_id, offer_id, asset_id, period_from, period_to, pickup_time, dropoff_time, created_at)
+          VALUES (5, 501, 1, '2026-09-04', '2026-09-04', '10:00', '17:00', 1000);
+        `,
+      );
+    });
+
+    expect(
+      migrated.db.all<{ booking_id: number; asset_id: number }>(sql`
+        SELECT booking_id, asset_id
+        FROM booking_asset_allocations
+        ORDER BY booking_id
+      `),
+    ).toEqual([{ booking_id: 1, asset_id: 1 }, { booking_id: 5, asset_id: 1 }]);
     expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });
 

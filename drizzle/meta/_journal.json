@@ -694,6 +694,13 @@
       "when": 1789733000000,
       "tag": "0099_repair_legacy_allocations",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "6",
+      "when": 1789750000000,
+      "tag": "0100_restore_unambiguous_asset_allocations",
+      "breakpoints": true
     }
   ]
 }
