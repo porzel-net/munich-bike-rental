@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { chmodSync, writeFileSync } from "node:fs";
 import { and, count, eq, isNull } from "drizzle-orm";
 
 import { getDatabase } from "../db/client";
@@ -49,16 +50,27 @@ function decryptInvitationToken(value: string) {
 
 function publishBootstrapInvitation(link: string) {
   // The build database is disposable. Never emit a usable invitation into
-  // build logs.
+  // build logs or production application logs. Operators can opt into a
+  // dedicated 0600 file on a protected secret volume instead.
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
-  console.info(`BOOTSTRAP_ADMIN_INVITATION=${link}`);
-  console.info("Der Link ist 24 Stunden gültig und wird nach einmaliger Verwendung ungültig.");
+  const outputPath = process.env.BOOTSTRAP_ADMIN_INVITATION_FILE?.trim() || "/tmp/bootstrap-admin-invitation";
+
+  try {
+    writeFileSync(outputPath, `${link}\n`, { encoding: "utf8", mode: 0o600 });
+    chmodSync(outputPath, 0o600);
+    console.info(`Bootstrap-Admin-Einladung in geschützte Datei geschrieben: ${outputPath}`);
+  } catch (error) {
+    console.error("Bootstrap-Admin-Einladung konnte nicht in die konfigurierte Datei geschrieben werden.", {
+      path: outputPath,
+      error: error instanceof Error ? { name: error.name, message: error.message } : error,
+    });
+  }
 }
 
 /**
  * Creates a one-time first-admin invitation without creating a user. The link
- * is handed off through the application log for the deployment operator.
+ * is handed off through a protected file for the deployment operator.
  */
 export function ensureBootstrapInvitation() {
   const db = getDatabase();
