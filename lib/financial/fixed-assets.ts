@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 
+import { recordAdminAuditEvent } from "../auth/audit";
 import type { AppDatabase } from "../db/client";
 import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry } from "../bookings/ledger";
@@ -14,8 +15,11 @@ import {
   financialTransactionAllocations,
   financialTransactions,
   fixedAssetMethods,
+  fixedAssetOriginalConditions,
+  fixedAssetPrivateUseTypes,
   fixedAssetDepreciationEntries,
   fixedAssets,
+  journalEntries,
   journalLines,
 } from "../db/schema";
 
@@ -61,6 +65,8 @@ function monthDate(index: number) {
 }
 
 type FixedAssetMethod = (typeof fixedAssetMethods)[number];
+type FixedAssetOriginalCondition = (typeof fixedAssetOriginalConditions)[number];
+type FixedAssetPrivateUseType = (typeof fixedAssetPrivateUseTypes)[number];
 
 type DepreciationAsset = Pick<
   typeof fixedAssets.$inferSelect,
@@ -68,6 +74,7 @@ type DepreciationAsset = Pick<
 > & {
   acquisitionDate?: string;
   originalAcquisitionDate?: string | null;
+  originalUsefulLifeMonths?: number | null;
   acquisitionSource?: "transaction" | "private_contribution";
   method?: FixedAssetMethod;
   degressiveRateBps?: number | null;
@@ -92,6 +99,7 @@ function resolveDegressiveRateBps(input: {
   acquisitionDate: string;
   originalAcquisitionDate?: string | null;
   usefulLifeMonths: number;
+  statutoryUsefulLifeMonths?: number;
   acquisitionSource?: "transaction" | "private_contribution";
   degressiveRateBps?: number | null;
 }) {
@@ -104,7 +112,7 @@ function resolveDegressiveRateBps(input: {
     );
   const maximum = getMaximumDegressiveRateBps({
     acquisitionDate: eligibilityDate,
-    usefulLifeMonths: input.usefulLifeMonths,
+    usefulLifeMonths: input.statutoryUsefulLifeMonths ?? input.usefulLifeMonths,
   });
   if (maximum === null)
     throw new BookingCommandError(
@@ -129,6 +137,7 @@ function depreciationRateBps(asset: DepreciationAsset) {
     acquisitionDate: asset.acquisitionDate,
     originalAcquisitionDate: asset.originalAcquisitionDate,
     usefulLifeMonths: asset.usefulLifeMonths,
+    statutoryUsefulLifeMonths: asset.originalUsefulLifeMonths ?? undefined,
     acquisitionSource: asset.acquisitionSource,
     degressiveRateBps: asset.degressiveRateBps,
   });
@@ -145,6 +154,103 @@ function straightLineDepreciationCents(asset: DepreciationAsset, periodStart: st
   if (monthNumber < 0 || monthNumber >= asset.usefulLifeMonths) return 0;
   if (monthNumber === asset.usefulLifeMonths - 1) return depreciableCents - monthlyBase * monthNumber;
   return monthlyBase;
+}
+
+function calendarDateAfterYears(value: string, years: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const targetYear = year + years;
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
+  return `${targetYear}-${String(month).padStart(2, "0")}-${String(Math.min(day, lastDayOfTargetMonth)).padStart(2, "0")}`;
+}
+
+function calculatePreEntryDepreciationCents(input: {
+  originalAcquisitionDate: string;
+  contributionDate: string;
+  originalAcquisitionCostCents: number;
+  originalUsefulLifeMonths: number;
+}) {
+  const monthsBeforeContribution = monthIndex(input.contributionDate) - monthIndex(input.originalAcquisitionDate);
+  if (monthsBeforeContribution <= 0) return 0;
+  const originalAsset: DepreciationAsset = {
+    acquisitionCostCents: input.originalAcquisitionCostCents,
+    residualValueCents: 0,
+    usefulLifeMonths: input.originalUsefulLifeMonths,
+    inServiceDate: input.originalAcquisitionDate,
+  };
+  return Math.min(
+    input.originalAcquisitionCostCents,
+    Array.from({ length: monthsBeforeContribution }, (_, index) =>
+      straightLineDepreciationCents(originalAsset, monthDate(monthIndex(input.originalAcquisitionDate) + index)),
+    ).reduce((sum, amount) => sum + amount, 0),
+  );
+}
+
+function resolvePrivateContributionDetails(input: {
+  originalAcquisitionDate: string | null;
+  originalAcquisitionCostCents: number | null;
+  originalUsefulLifeMonths: number | null;
+  originalCondition: FixedAssetOriginalCondition | null;
+  privateUseType: FixedAssetPrivateUseType | null;
+  contributionDate: string;
+  entryValueCents: number;
+  remainingUsefulLifeMonths: number;
+}) {
+  if (!input.originalAcquisitionDate)
+    throw new BookingCommandError("Für eine Privateinlage muss das ursprüngliche Anschaffungsdatum hinterlegt sein.");
+  if (!isValidIsoDate(input.originalAcquisitionDate))
+    throw new BookingCommandError("Bitte gib ein gültiges ursprüngliches Anschaffungsdatum an.");
+  if (input.originalAcquisitionDate > input.contributionDate)
+    throw new BookingCommandError("Das ursprüngliche Anschaffungsdatum darf nicht nach der Einlage liegen.");
+  if (
+    !Number.isSafeInteger(input.originalAcquisitionCostCents) ||
+    input.originalAcquisitionCostCents === null ||
+    input.originalAcquisitionCostCents <= 0
+  )
+    throw new BookingCommandError(
+      "Für eine Privateinlage müssen die ursprünglichen Anschaffungskosten hinterlegt sein.",
+    );
+  if (
+    !Number.isSafeInteger(input.originalUsefulLifeMonths) ||
+    input.originalUsefulLifeMonths === null ||
+    input.originalUsefulLifeMonths < 1
+  )
+    throw new BookingCommandError("Für eine Privateinlage muss die ursprüngliche Nutzungsdauer hinterlegt sein.");
+  if (!fixedAssetPrivateUseTypes.includes(input.privateUseType as FixedAssetPrivateUseType))
+    throw new BookingCommandError("Für eine Privateinlage muss die vorherige Nutzung angegeben werden.");
+  if (!fixedAssetOriginalConditions.includes(input.originalCondition as FixedAssetOriginalCondition))
+    throw new BookingCommandError(
+      "Für eine Privateinlage muss angegeben werden, ob das Anlagegut neu oder gebraucht war.",
+    );
+
+  const monthsBeforeContribution = monthIndex(input.contributionDate) - monthIndex(input.originalAcquisitionDate);
+  const maximumRemainingLife = input.originalUsefulLifeMonths - monthsBeforeContribution;
+  if (maximumRemainingLife < 1 || input.remainingUsefulLifeMonths > maximumRemainingLife)
+    throw new BookingCommandError(
+      "Die Restnutzungsdauer der Privateinlage darf die verbleibende ursprüngliche Nutzungsdauer nicht überschreiten.",
+    );
+
+  const preEntryDepreciationCents = calculatePreEntryDepreciationCents({
+    originalAcquisitionDate: input.originalAcquisitionDate,
+    contributionDate: input.contributionDate,
+    originalAcquisitionCostCents: input.originalAcquisitionCostCents,
+    originalUsefulLifeMonths: input.originalUsefulLifeMonths,
+  });
+  const carriedForwardCostCents = input.originalAcquisitionCostCents - preEntryDepreciationCents;
+  if (input.contributionDate < calendarDateAfterYears(input.originalAcquisitionDate, 3)) {
+    if (input.entryValueCents > carriedForwardCostCents)
+      throw new BookingCommandError(
+        `Der Einlagewert darf innerhalb von drei Jahren die fortgeführten Anschaffungskosten von ${(carriedForwardCostCents / 100).toFixed(2)} € nicht überschreiten.`,
+      );
+  }
+
+  return {
+    originalAcquisitionDate: input.originalAcquisitionDate,
+    originalAcquisitionCostCents: input.originalAcquisitionCostCents,
+    originalUsefulLifeMonths: input.originalUsefulLifeMonths,
+    originalCondition: input.originalCondition as FixedAssetOriginalCondition,
+    privateUseType: input.privateUseType as FixedAssetPrivateUseType,
+    preEntryDepreciationCents,
+  };
 }
 
 function splitAcrossMonths(amountCents: number, monthCount: number) {
@@ -230,6 +336,10 @@ export function createFixedAsset(
     serialNumber?: string | null;
     acquisitionDate: string;
     originalAcquisitionDate?: string | null;
+    originalAcquisitionCostCents?: number | null;
+    originalUsefulLifeMonths?: number | null;
+    originalCondition?: FixedAssetOriginalCondition | null;
+    privateUseType?: FixedAssetPrivateUseType | null;
     inServiceDate: string;
     acquisitionCostCents: number;
     inputVatCents?: number;
@@ -247,13 +357,8 @@ export function createFixedAsset(
   if (!isValidIsoDate(input.acquisitionDate) || !isValidIsoDate(input.inServiceDate))
     throw new BookingCommandError("Bitte verwende gültige Anschaffungs- und Inbetriebnahmedaten.");
   const acquisitionSource = input.acquisitionSource ?? "transaction";
-  const originalAcquisitionDate = input.originalAcquisitionDate ?? null;
-  if (originalAcquisitionDate !== null && !isValidIsoDate(originalAcquisitionDate))
-    throw new BookingCommandError("Bitte gib ein gültiges ursprüngliches Anschaffungsdatum an.");
-  if (acquisitionSource === "private_contribution" && originalAcquisitionDate === null)
-    throw new BookingCommandError("Für eine Privateinlage muss das ursprüngliche Anschaffungsdatum hinterlegt sein.");
-  if (originalAcquisitionDate !== null && originalAcquisitionDate > input.acquisitionDate)
-    throw new BookingCommandError("Das ursprüngliche Anschaffungsdatum darf nicht nach der Einlage liegen.");
+  const originalAcquisitionDate =
+    acquisitionSource === "private_contribution" ? (input.originalAcquisitionDate ?? null) : null;
   if (input.acquisitionCostCents <= 0 || !Number.isSafeInteger(input.acquisitionCostCents))
     throw new BookingCommandError("Die Anschaffungskosten müssen größer als 0 sein.");
   const inputVatCents = input.inputVatCents ?? 0;
@@ -271,11 +376,38 @@ export function createFixedAsset(
   if (input.inServiceDate < input.acquisitionDate)
     throw new BookingCommandError("Die Inbetriebnahme darf nicht vor der Anschaffung oder Einlage liegen.");
   const method = input.method ?? "straight_line";
+  if (acquisitionSource === "private_contribution" && method === "declining_balance") {
+    // Check the statutory acquisition window before the historical-cost cap so
+    // an outdated original purchase date gets a precise legal error.
+    resolveDegressiveRateBps({
+      method,
+      acquisitionDate: input.acquisitionDate,
+      originalAcquisitionDate,
+      usefulLifeMonths: input.usefulLifeMonths,
+      statutoryUsefulLifeMonths: input.originalUsefulLifeMonths ?? undefined,
+      acquisitionSource,
+      degressiveRateBps: input.degressiveRateBps,
+    });
+  }
+  const privateContributionDetails =
+    acquisitionSource === "private_contribution"
+      ? resolvePrivateContributionDetails({
+          originalAcquisitionDate,
+          originalAcquisitionCostCents: input.originalAcquisitionCostCents ?? null,
+          originalUsefulLifeMonths: input.originalUsefulLifeMonths ?? null,
+          originalCondition: input.originalCondition ?? null,
+          privateUseType: input.privateUseType ?? null,
+          contributionDate: input.acquisitionDate,
+          entryValueCents: input.acquisitionCostCents,
+          remainingUsefulLifeMonths: input.usefulLifeMonths,
+        })
+      : null;
   const degressiveRateBps = resolveDegressiveRateBps({
     method,
     acquisitionDate: input.acquisitionDate,
     originalAcquisitionDate,
     usefulLifeMonths: input.usefulLifeMonths,
+    statutoryUsefulLifeMonths: privateContributionDetails?.originalUsefulLifeMonths,
     acquisitionSource,
     degressiveRateBps: input.degressiveRateBps,
   });
@@ -291,6 +423,11 @@ export function createFixedAsset(
       serialNumber: input.serialNumber?.trim() || null,
       acquisitionDate: input.acquisitionDate,
       originalAcquisitionDate,
+      originalAcquisitionCostCents: privateContributionDetails?.originalAcquisitionCostCents ?? null,
+      originalUsefulLifeMonths: privateContributionDetails?.originalUsefulLifeMonths ?? null,
+      originalCondition: privateContributionDetails?.originalCondition ?? null,
+      privateUseType: privateContributionDetails?.privateUseType ?? null,
+      preEntryDepreciationCents: privateContributionDetails?.preEntryDepreciationCents ?? 0,
       inServiceDate: input.inServiceDate,
       acquisitionCostCents: input.acquisitionCostCents,
       inputVatCents,
@@ -319,6 +456,10 @@ export function updateFixedAsset(
     inServiceDate: string;
     usefulLifeMonths: number;
     originalAcquisitionDate?: string | null;
+    originalAcquisitionCostCents?: number | null;
+    originalUsefulLifeMonths?: number | null;
+    originalCondition?: FixedAssetOriginalCondition | null;
+    privateUseType?: FixedAssetPrivateUseType | null;
     method?: FixedAssetMethod;
     notes?: string;
     actorUserId: string | null;
@@ -344,22 +485,52 @@ export function updateFixedAsset(
       asset.acquisitionSource === "private_contribution"
         ? (input.originalAcquisitionDate ?? asset.originalAcquisitionDate)
         : null;
-    if (originalAcquisitionDate !== null && originalAcquisitionDate !== undefined) {
-      if (!isValidIsoDate(originalAcquisitionDate))
-        throw new BookingCommandError("Bitte gib ein gültiges ursprüngliches Anschaffungsdatum an.");
-      if (originalAcquisitionDate > asset.acquisitionDate)
-        throw new BookingCommandError("Das ursprüngliche Anschaffungsdatum darf nicht nach der Einlage liegen.");
-    }
+    const originalAcquisitionCostCents =
+      asset.acquisitionSource === "private_contribution"
+        ? (input.originalAcquisitionCostCents ?? asset.originalAcquisitionCostCents)
+        : null;
+    const originalUsefulLifeMonths =
+      asset.acquisitionSource === "private_contribution"
+        ? (input.originalUsefulLifeMonths ?? asset.originalUsefulLifeMonths)
+        : null;
+    const originalCondition =
+      asset.acquisitionSource === "private_contribution" ? (input.originalCondition ?? asset.originalCondition) : null;
+    const privateUseType =
+      asset.acquisitionSource === "private_contribution" ? (input.privateUseType ?? asset.privateUseType) : null;
+    const privateMetadataWasProvided = [
+      input.originalAcquisitionDate,
+      input.originalAcquisitionCostCents,
+      input.originalUsefulLifeMonths,
+      input.originalCondition,
+      input.privateUseType,
+    ].some((value) => value !== undefined && value !== null);
+    const privateContributionDetails =
+      asset.acquisitionSource === "private_contribution" &&
+      (method === "declining_balance" || privateMetadataWasProvided)
+        ? resolvePrivateContributionDetails({
+            originalAcquisitionDate,
+            originalAcquisitionCostCents,
+            originalUsefulLifeMonths,
+            originalCondition,
+            privateUseType,
+            contributionDate: asset.acquisitionDate,
+            entryValueCents: asset.acquisitionCostCents,
+            remainingUsefulLifeMonths: input.usefulLifeMonths,
+          })
+        : null;
     const degressiveRateBps = resolveDegressiveRateBps({
       method,
       acquisitionDate: asset.acquisitionDate,
       originalAcquisitionDate,
       usefulLifeMonths: input.usefulLifeMonths,
+      statutoryUsefulLifeMonths:
+        privateContributionDetails?.originalUsefulLifeMonths ?? asset.originalUsefulLifeMonths ?? undefined,
       acquisitionSource: asset.acquisitionSource,
       degressiveRateBps:
         method === "declining_balance" &&
         input.usefulLifeMonths === asset.usefulLifeMonths &&
-        originalAcquisitionDate === asset.originalAcquisitionDate
+        originalAcquisitionDate === asset.originalAcquisitionDate &&
+        originalUsefulLifeMonths === asset.originalUsefulLifeMonths
           ? asset.degressiveRateBps
           : null,
     });
@@ -406,6 +577,13 @@ export function updateFixedAsset(
         inServiceDate: input.inServiceDate,
         usefulLifeMonths: input.usefulLifeMonths,
         originalAcquisitionDate: originalAcquisitionDate ?? null,
+        originalAcquisitionCostCents:
+          privateContributionDetails?.originalAcquisitionCostCents ?? originalAcquisitionCostCents,
+        originalUsefulLifeMonths: privateContributionDetails?.originalUsefulLifeMonths ?? originalUsefulLifeMonths,
+        originalCondition: privateContributionDetails?.originalCondition ?? originalCondition,
+        privateUseType: privateContributionDetails?.privateUseType ?? privateUseType,
+        preEntryDepreciationCents:
+          privateContributionDetails?.preEntryDepreciationCents ?? asset.preEntryDepreciationCents,
         method,
         degressiveRateBps,
         depreciationRevision,
@@ -415,6 +593,88 @@ export function updateFixedAsset(
       .where(eq(fixedAssets.id, asset.id))
       .returning()
       .get();
+  });
+}
+
+/**
+ * Removes an independently recorded private contribution from the asset register.
+ * The append-only journal is preserved by posting correction entries for the
+ * contribution and every already posted depreciation entry.
+ */
+export function deletePrivateContributionFixedAsset(db: AppDatabase, input: { assetId: number; actorUserId: string }) {
+  return runInImmediateTransaction(db, () => {
+    const asset = db.select().from(fixedAssets).where(eq(fixedAssets.id, input.assetId)).get();
+    if (!asset) throw new BookingCommandError("Anlagegut nicht gefunden.");
+    if (asset.status !== "active")
+      throw new BookingCommandError("Ausgeschiedene Anlagegüter können nicht gelöscht werden.");
+    if (asset.acquisitionSource !== "private_contribution" || asset.sourceTransactionId !== null)
+      throw new BookingCommandError(
+        "Nur unabhängig erfasste Privateinlagen können gelöscht werden. Transaktionsgebundene Anlagegüter müssen über die Finanztransaktion korrigiert werden.",
+      );
+
+    const linkedAllocation = db
+      .select({ id: financialTransactionAllocations.id })
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.fixedAssetId, asset.id))
+      .get();
+    if (linkedAllocation)
+      throw new BookingCommandError(
+        "Dieses Anlagegut ist noch mit einer Finanzbuchung verknüpft und kann nicht gelöscht werden.",
+      );
+
+    const acquisitionEntries = db
+      .select()
+      .from(journalEntries)
+      .where(
+        and(
+          eq(journalEntries.kind, "capital_contribution"),
+          like(journalEntries.reason, `Privateinlage: ${asset.assetNumber} ·%`),
+        ),
+      )
+      .all();
+    if (acquisitionEntries.length !== 1)
+      throw new BookingCommandError(
+        "Die zugehörige Privateinlage konnte nicht eindeutig gefunden werden. Das Anlagegut wurde nicht gelöscht.",
+      );
+
+    const depreciationEntries = db
+      .select()
+      .from(fixedAssetDepreciationEntries)
+      .where(eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id))
+      .all();
+    const entriesToReverse = [...depreciationEntries.map((entry) => entry.journalEntryId), acquisitionEntries[0].id];
+    const now = new Date();
+    for (const journalEntryId of entriesToReverse) {
+      const lines = db
+        .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+        .from(journalLines)
+        .where(eq(journalLines.entryId, journalEntryId))
+        .all();
+      if (!lines.length) throw new BookingCommandError("Ein zugehöriger Journalposten ist unvollständig.");
+      appendJournalEntry(db, {
+        actorUserId: input.actorUserId,
+        kind: "correction",
+        reason: `Anlagegut gelöscht: ${asset.assetNumber} · ${asset.name}`,
+        reversesEntryId: journalEntryId,
+        occurredAt: now,
+        lines: lines.map((line) => ({ account: line.account, amountCents: -line.amountCents })),
+      });
+    }
+
+    db.delete(fixedAssetDepreciationEntries).where(eq(fixedAssetDepreciationEntries.fixedAssetId, asset.id)).run();
+    db.delete(fixedAssets).where(eq(fixedAssets.id, asset.id)).run();
+    recordAdminAuditEvent(db, {
+      actorUserId: input.actorUserId,
+      action: "fixed_asset_deleted",
+      targetType: "fixed_asset",
+      targetId: asset.id,
+      metadata: {
+        assetNumber: asset.assetNumber,
+        acquisitionSource: asset.acquisitionSource,
+        reversedJournalEntryCount: entriesToReverse.length,
+      },
+    });
+    return { assetId: asset.id, reversedJournalEntryCount: entriesToReverse.length };
   });
 }
 
@@ -483,6 +743,10 @@ export function createPrivateAssetContribution(
     name: string;
     assetType: "bike" | "equipment" | "other";
     originalAcquisitionDate: string;
+    originalAcquisitionCostCents: number;
+    originalUsefulLifeMonths: number;
+    originalCondition: FixedAssetOriginalCondition;
+    privateUseType: FixedAssetPrivateUseType;
     contributionDate: string;
     inServiceDate: string;
     acquisitionCostCents: number;

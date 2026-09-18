@@ -103,6 +103,8 @@ export const fixedAssetMethods = ["straight_line", "declining_balance"] as const
 export const fixedAssetStatuses = ["active", "disposed"] as const;
 export const fixedAssetDisposalReasons = ["sold", "scrapped", "private_withdrawal", "other"] as const;
 export const fixedAssetAcquisitionSources = ["transaction", "private_contribution"] as const;
+export const fixedAssetPrivateUseTypes = ["personal", "income_generation", "mixed"] as const;
+export const fixedAssetOriginalConditions = ["new", "used"] as const;
 
 /** The chart of accounts used by journal lines. Existing journal account codes remain valid. */
 export const accountingAccounts = sqliteTable(
@@ -303,6 +305,11 @@ export const fixedAssets = sqliteTable(
     serialNumber: text("serial_number"),
     acquisitionDate: text("acquisition_date").notNull(),
     originalAcquisitionDate: text("original_acquisition_date"),
+    originalAcquisitionCostCents: integer("original_acquisition_cost_cents"),
+    originalUsefulLifeMonths: integer("original_useful_life_months"),
+    originalCondition: text("original_condition", { enum: fixedAssetOriginalConditions }),
+    privateUseType: text("private_use_type", { enum: fixedAssetPrivateUseTypes }),
+    preEntryDepreciationCents: integer("pre_entry_depreciation_cents").notNull().default(0),
     inServiceDate: text("in_service_date").notNull(),
     acquisitionCostCents: integer("acquisition_cost_cents").notNull(),
     inputVatCents: integer("input_vat_cents").notNull().default(0),

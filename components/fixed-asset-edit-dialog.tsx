@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 
 type AssetType = "bike" | "equipment" | "other";
 type AssetMethod = "straight_line" | "declining_balance";
+type OriginalCondition = "new" | "used";
+type PrivateUseType = "personal" | "income_generation" | "mixed";
 
 export type EditableFixedAsset = {
   id: number;
@@ -29,6 +31,11 @@ export type EditableFixedAsset = {
   serialNumber: string | null;
   acquisitionDate: string;
   originalAcquisitionDate: string | null;
+  originalAcquisitionCostCents: number | null;
+  originalUsefulLifeMonths: number | null;
+  originalCondition: OriginalCondition | null;
+  privateUseType: PrivateUseType | null;
+  preEntryDepreciationCents: number;
   acquisitionCostCents: number;
   inServiceDate: string;
   usefulLifeMonths: number;
@@ -56,7 +63,7 @@ export function FixedAssetEditLauncher({
   );
 }
 
-function FixedAssetEditDialog({
+export function FixedAssetEditDialog({
   asset,
   open,
   onOpenChange,
@@ -69,6 +76,14 @@ function FixedAssetEditDialog({
   const [assetType, setAssetType] = useState<AssetType>(asset.assetType);
   const [method, setMethod] = useState<AssetMethod>(asset.method);
   const [originalAcquisitionDate, setOriginalAcquisitionDate] = useState(asset.originalAcquisitionDate ?? "");
+  const [originalAcquisitionCost, setOriginalAcquisitionCost] = useState(
+    asset.originalAcquisitionCostCents === null ? "" : (asset.originalAcquisitionCostCents / 100).toFixed(2),
+  );
+  const [originalUsefulLifeMonths, setOriginalUsefulLifeMonths] = useState(
+    asset.originalUsefulLifeMonths === null ? "" : String(asset.originalUsefulLifeMonths),
+  );
+  const [originalCondition, setOriginalCondition] = useState<OriginalCondition | "">(asset.originalCondition ?? "");
+  const [privateUseType, setPrivateUseType] = useState<PrivateUseType>(asset.privateUseType ?? "personal");
   const [serialNumber, setSerialNumber] = useState(asset.serialNumber ?? "");
   const [inServiceDate, setInServiceDate] = useState(asset.inServiceDate);
   const [usefulLifeMonths, setUsefulLifeMonths] = useState(String(asset.usefulLifeMonths));
@@ -82,6 +97,36 @@ function FixedAssetEditDialog({
       setError("Bitte prüfe Bezeichnung, Inbetriebnahmedatum und Nutzungsdauer.");
       return;
     }
+    const originalCostCents = originalAcquisitionCost.trim()
+      ? Math.round(Number(originalAcquisitionCost.replace(",", ".")) * 100)
+      : null;
+    const originalLife = originalUsefulLifeMonths.trim() ? Number(originalUsefulLifeMonths) : null;
+    if (
+      asset.acquisitionSource === "private_contribution" &&
+      method === "declining_balance" &&
+      (!originalAcquisitionDate ||
+        originalCostCents === null ||
+        !Number.isSafeInteger(originalCostCents) ||
+        originalCostCents <= 0 ||
+        originalLife === null ||
+        !Number.isSafeInteger(originalLife) ||
+        originalLife < 1 ||
+        !originalCondition)
+    ) {
+      setError(
+        "Für degressive AfA müssen ursprüngliches Anschaffungsdatum, Anschaffungskosten, Zustand und Nutzungsdauer vollständig sein.",
+      );
+      return;
+    }
+    const privateAuditDataProvided =
+      asset.acquisitionSource === "private_contribution" &&
+      Boolean(
+        originalAcquisitionDate ||
+        originalCostCents !== null ||
+        originalLife !== null ||
+        originalCondition ||
+        asset.privateUseType !== null,
+      );
     setBusy(true);
     setError(null);
     try {
@@ -95,7 +140,23 @@ function FixedAssetEditDialog({
           serialNumber,
           inServiceDate,
           usefulLifeMonths: life,
-          ...(asset.acquisitionSource === "private_contribution" ? { originalAcquisitionDate } : {}),
+          ...(asset.acquisitionSource === "private_contribution" && privateAuditDataProvided
+            ? {
+                originalAcquisitionDate: originalAcquisitionDate || null,
+                originalAcquisitionCostCents: originalCostCents,
+                originalUsefulLifeMonths: originalLife,
+                originalCondition: originalCondition || null,
+                privateUseType,
+              }
+            : asset.acquisitionSource === "private_contribution"
+              ? {
+                  originalAcquisitionDate: null,
+                  originalAcquisitionCostCents: null,
+                  originalUsefulLifeMonths: null,
+                  originalCondition: null,
+                  privateUseType: null,
+                }
+              : {}),
         }),
       });
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -121,6 +182,9 @@ function FixedAssetEditDialog({
                 ? `Einlage: ${asset.acquisitionDate} · Ursprüngliche Anschaffung: ${asset.originalAcquisitionDate ?? "nicht hinterlegt"}`
                 : `Anschaffung: ${asset.acquisitionDate}`}{" "}
               · Anschaffungskosten: {(asset.acquisitionCostCents / 100).toFixed(2)} €
+              {asset.acquisitionSource === "private_contribution" && asset.preEntryDepreciationCents > 0
+                ? ` · rechnerische Vor-AfA: ${(asset.preEntryDepreciationCents / 100).toFixed(2)} €`
+                : null}
             </DialogDescription>
           </DialogHeader>
           <FieldGroup className="mt-6">
@@ -136,7 +200,15 @@ function FixedAssetEditDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor={`fixed-asset-type-${asset.id}`}>Anlageart</FieldLabel>
-                <Select value={assetType} onValueChange={(value) => setAssetType((value || "other") as AssetType)}>
+                <Select
+                  items={[
+                    { value: "bike", label: "Fahrrad" },
+                    { value: "equipment", label: "Betriebsausstattung" },
+                    { value: "other", label: "Sonstiges" },
+                  ]}
+                  value={assetType}
+                  onValueChange={(value) => setAssetType((value || "other") as AssetType)}
+                >
                   <SelectTrigger id={`fixed-asset-type-${asset.id}`} className="w-full">
                     <SelectValue>
                       {(value) =>
@@ -165,27 +237,122 @@ function FixedAssetEditDialog({
               </Field>
             </div>
             {asset.acquisitionSource === "private_contribution" ? (
-              <Field>
-                <FieldLabel htmlFor={`fixed-asset-original-date-${asset.id}`}>
-                  Ursprüngliches Anschaffungsdatum
-                </FieldLabel>
-                <Input
-                  id={`fixed-asset-original-date-${asset.id}`}
-                  required={method === "declining_balance"}
-                  type="date"
-                  max={asset.acquisitionDate}
-                  value={originalAcquisitionDate}
-                  onChange={(event) => setOriginalAcquisitionDate(event.target.value)}
-                />
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor={`fixed-asset-original-date-${asset.id}`}>
+                      Ursprüngliches Anschaffungsdatum
+                    </FieldLabel>
+                    <Input
+                      id={`fixed-asset-original-date-${asset.id}`}
+                      required={method === "declining_balance"}
+                      type="date"
+                      max={asset.acquisitionDate}
+                      value={originalAcquisitionDate}
+                      onChange={(event) => setOriginalAcquisitionDate(event.target.value)}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`fixed-asset-original-cost-${asset.id}`}>
+                      Ursprüngliche Anschaffungskosten in Euro
+                    </FieldLabel>
+                    <Input
+                      id={`fixed-asset-original-cost-${asset.id}`}
+                      required={method === "declining_balance"}
+                      min="0.01"
+                      step="0.01"
+                      type="number"
+                      value={originalAcquisitionCost}
+                      onChange={(event) => setOriginalAcquisitionCost(event.target.value)}
+                    />
+                  </Field>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor={`fixed-asset-original-condition-${asset.id}`}>
+                    Zustand beim privaten Kauf
+                  </FieldLabel>
+                  <Select
+                    items={[
+                      { value: "new", label: "Neu" },
+                      { value: "used", label: "Gebraucht" },
+                    ]}
+                    value={originalCondition || "used"}
+                    onValueChange={(value) => setOriginalCondition((value || "used") as OriginalCondition)}
+                  >
+                    <SelectTrigger id={`fixed-asset-original-condition-${asset.id}`} className="w-full">
+                      <SelectValue>{(value) => (value === "new" ? "Neu" : "Gebraucht")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="new">Neu</SelectItem>
+                        <SelectItem value="used">Gebraucht</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor={`fixed-asset-original-life-${asset.id}`}>
+                      Ursprüngliche Nutzungsdauer in Monaten
+                    </FieldLabel>
+                    <Input
+                      id={`fixed-asset-original-life-${asset.id}`}
+                      required={method === "declining_balance"}
+                      min="1"
+                      step="1"
+                      type="number"
+                      value={originalUsefulLifeMonths}
+                      onChange={(event) => setOriginalUsefulLifeMonths(event.target.value)}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`fixed-asset-use-type-${asset.id}`}>Nutzung vor der Einlage</FieldLabel>
+                    <Select
+                      items={[
+                        { value: "personal", label: "Privat / keine Einkünfte" },
+                        { value: "income_generation", label: "Zur Einkunftserzielung" },
+                        { value: "mixed", label: "Gemischt" },
+                      ]}
+                      value={privateUseType}
+                      onValueChange={(value) => setPrivateUseType((value || "personal") as PrivateUseType)}
+                    >
+                      <SelectTrigger id={`fixed-asset-use-type-${asset.id}`} className="w-full">
+                        <SelectValue>
+                          {(value) =>
+                            value === "income_generation"
+                              ? "Zur Einkunftserzielung"
+                              : value === "mixed"
+                                ? "Gemischt"
+                                : "Privat / keine Einkünfte"
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="personal">Privat / keine Einkünfte</SelectItem>
+                          <SelectItem value="income_generation">Zur Einkunftserzielung</SelectItem>
+                          <SelectItem value="mixed">Gemischt</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Dieses Datum entscheidet über die gesetzliche Berechtigung zur degressiven AfA; das Einlagedatum
-                  bleibt der Beginn der betrieblichen AfA.
+                  Bei einer Privateinlage prüft die Software die fortgeführten Anschaffungskosten und die zulässige
+                  Restnutzungsdauer. Für alte lineare Datensätze dürfen die neuen Nachweise zunächst leer bleiben.
                 </p>
-              </Field>
+              </>
             ) : null}
             <Field>
               <FieldLabel htmlFor={`fixed-asset-method-${asset.id}`}>AfA-Verfahren</FieldLabel>
-              <Select value={method} onValueChange={(value) => setMethod((value || "straight_line") as AssetMethod)}>
+              <Select
+                items={[
+                  { value: "straight_line", label: "Linear" },
+                  { value: "declining_balance", label: "Degressiv vom Restbuchwert" },
+                ]}
+                value={method}
+                onValueChange={(value) => setMethod((value || "straight_line") as AssetMethod)}
+              >
                 <SelectTrigger id={`fixed-asset-method-${asset.id}`} className="w-full">
                   <SelectValue>
                     {(value) => (value === "declining_balance" ? "Degressiv vom Restbuchwert" : "Linear")}

@@ -718,7 +718,16 @@ export function FinancialReviewInbox({
           </Field>
           <Field>
             <FieldLabel htmlFor="financial-assignment-booking">Auftrag</FieldLabel>
-            <Select value={assignmentBookingId} onValueChange={(value) => setAssignmentBookingId(value ?? "")}>
+            <Select
+              items={bookings
+                .filter((booking) => booking.status !== "rejected" && booking.status !== "cancelled")
+                .map((booking) => ({
+                  value: String(booking.id),
+                  label: `${booking.orderNumber} · ${booking.customerName} · ${bookingStatusLabel(booking.status)}`,
+                }))}
+              value={assignmentBookingId}
+              onValueChange={(value) => setAssignmentBookingId(value ?? "")}
+            >
               <SelectTrigger id="financial-assignment-booking" className="w-full">
                 <SelectValue placeholder="Auftrag auswählen">
                   {(value) => {

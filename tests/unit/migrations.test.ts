@@ -22,19 +22,23 @@ afterEach(() => {
   }
 });
 
-function legacyMigrationsFolder() {
+function legacyMigrationsFolder(version: 95 | 96) {
   const directory = mkdtempSync(join(tmpdir(), "munich-bike-rental-migrations-"));
   temporaryDirectories.push(directory);
   const source = resolve(process.cwd(), "drizzle");
   cpSync(source, directory, { recursive: true });
 
-  rmSync(join(directory, "0096_mute_cammi.sql"));
-  rmSync(join(directory, "meta", "0096_snapshot.json"));
+  rmSync(join(directory, "0098_outgoing_rachel_grey.sql"));
+  rmSync(join(directory, "meta", "0098_snapshot.json"));
+  if (version === 95) {
+    rmSync(join(directory, "0096_mute_cammi.sql"));
+    rmSync(join(directory, "meta", "0096_snapshot.json"));
+  }
   const journalPath = join(directory, "meta", "_journal.json");
   const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
     entries: Array<{ idx: number }>;
   };
-  journal.entries = journal.entries.filter((entry) => entry.idx <= 95);
+  journal.entries = journal.entries.filter((entry) => entry.idx <= version);
   writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
   return directory;
 }
@@ -168,64 +172,95 @@ function fixedAssetColumnNames(connection: ReturnType<typeof createDatabaseConne
 }
 
 describe("database migrations", () => {
-  it("migrates a version 0095 database with existing fixed assets and remains reopenable", () => {
-    const databaseDirectory = mkdtempSync(join(tmpdir(), "munich-bike-rental-db-"));
-    temporaryDirectories.push(databaseDirectory);
-    const databasePath = join(databaseDirectory, "legacy.db");
-    const legacyConnection = createDatabaseConnection(databasePath, legacyMigrationsFolder());
-    expect(fixedAssetColumnNames(legacyConnection)).not.toContain("original_acquisition_date");
-    createLegacyFixedAssetRows(legacyConnection);
-    legacyConnection.close();
+  it.each([95, 96] as const)(
+    "migrates a version %s database with existing fixed assets and remains reopenable",
+    (version) => {
+      const databaseDirectory = mkdtempSync(join(tmpdir(), "munich-bike-rental-db-"));
+      temporaryDirectories.push(databaseDirectory);
+      const databasePath = join(databaseDirectory, "legacy.db");
+      const legacyConnection = createDatabaseConnection(databasePath, legacyMigrationsFolder(version));
+      expect(fixedAssetColumnNames(legacyConnection).includes("original_acquisition_date")).toBe(version === 96);
+      expect(fixedAssetColumnNames(legacyConnection)).not.toContain("original_acquisition_cost_cents");
+      expect(fixedAssetColumnNames(legacyConnection)).not.toContain("original_condition");
+      createLegacyFixedAssetRows(legacyConnection);
+      legacyConnection.close();
 
-    execFileSync(process.execPath, [resolve(process.cwd(), "scripts/migrate.mjs")], {
-      cwd: process.cwd(),
-      env: { ...process.env, DATABASE_URL: databasePath, NODE_ENV: "test" },
-      stdio: "pipe",
-    });
+      execFileSync(process.execPath, [resolve(process.cwd(), "scripts/migrate.mjs")], {
+        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL: databasePath, NODE_ENV: "test" },
+        stdio: "pipe",
+      });
 
-    const migrated = createDatabaseConnection(databasePath);
-    connections.push(migrated);
-    const assets = migrated.db.select().from(fixedAssets).all();
-    expect(assets).toHaveLength(3);
-    expect(assets.map((asset) => asset.name)).toEqual(
-      expect.arrayContaining(["Altes lineares Anlagegut", "Alte Privateinlage", "Altes degressives Anlagegut"]),
-    );
-    expect(assets.every((asset) => asset.originalAcquisitionDate === null)).toBe(true);
-    expect(assets.find((asset) => asset.name === "Altes degressives Anlagegut")).toMatchObject({
-      method: "declining_balance",
-      degressiveRateBps: 3_000,
-      depreciationRevision: 4,
-    });
+      const migrated = createDatabaseConnection(databasePath);
+      connections.push(migrated);
+      const assets = migrated.db.select().from(fixedAssets).all();
+      expect(assets).toHaveLength(3);
+      expect(assets.map((asset) => asset.name)).toEqual(
+        expect.arrayContaining(["Altes lineares Anlagegut", "Alte Privateinlage", "Altes degressives Anlagegut"]),
+      );
+      expect(assets.every((asset) => asset.originalAcquisitionDate === null)).toBe(true);
+      expect(assets.every((asset) => asset.originalCondition === null)).toBe(true);
+      expect(assets.every((asset) => asset.preEntryDepreciationCents === 0)).toBe(true);
+      expect(assets.find((asset) => asset.name === "Altes degressives Anlagegut")).toMatchObject({
+        method: "declining_balance",
+        degressiveRateBps: 3_000,
+        depreciationRevision: 4,
+      });
 
-    const legacyPrivate = assets.find((asset) => asset.name === "Alte Privateinlage")!;
-    const updatedPrivate = updateFixedAsset(migrated.db, {
-      assetId: legacyPrivate.id,
-      name: legacyPrivate.name,
-      assetType: legacyPrivate.assetType,
-      inServiceDate: legacyPrivate.inServiceDate,
-      usefulLifeMonths: legacyPrivate.usefulLifeMonths,
-      originalAcquisitionDate: "2026-07-24",
-      method: "declining_balance",
-      actorUserId: null,
-    });
-    expect(updatedPrivate).toMatchObject({
-      originalAcquisitionDate: "2026-07-24",
-      method: "declining_balance",
-      degressiveRateBps: 3_000,
-    });
-    expect(fixedAssetDepreciationSchedule(updatedPrivate)[0]).toMatchObject({
-      periodStart: "2026-08-01",
-      amountCents: 4_875,
-    });
+      const legacyPrivate = assets.find((asset) => asset.name === "Alte Privateinlage")!;
+      const legacyLinearUpdate = updateFixedAsset(migrated.db, {
+        assetId: legacyPrivate.id,
+        name: legacyPrivate.name,
+        assetType: legacyPrivate.assetType,
+        inServiceDate: legacyPrivate.inServiceDate,
+        usefulLifeMonths: legacyPrivate.usefulLifeMonths,
+        method: "straight_line",
+        actorUserId: null,
+      });
+      expect(legacyLinearUpdate).toMatchObject({
+        method: "straight_line",
+        originalAcquisitionCostCents: null,
+        originalCondition: null,
+      });
+      const updatedPrivate = updateFixedAsset(migrated.db, {
+        assetId: legacyPrivate.id,
+        name: legacyPrivate.name,
+        assetType: legacyPrivate.assetType,
+        inServiceDate: legacyPrivate.inServiceDate,
+        originalAcquisitionDate: "2026-07-24",
+        originalAcquisitionCostCents: 220_000,
+        originalUsefulLifeMonths: 84,
+        originalCondition: "used",
+        privateUseType: "personal",
+        usefulLifeMonths: 83,
+        method: "declining_balance",
+        actorUserId: null,
+      });
+      expect(updatedPrivate).toMatchObject({
+        originalAcquisitionDate: "2026-07-24",
+        method: "declining_balance",
+        degressiveRateBps: 3_000,
+      });
+      expect(fixedAssetDepreciationSchedule(updatedPrivate)[0]).toMatchObject({
+        periodStart: "2026-08-01",
+        amountCents: 4_875,
+      });
 
-    migrated.close();
-    const reopened = createDatabaseConnection(databasePath);
-    connections.push(reopened);
-    expect(reopened.db.select().from(fixedAssets).all()).toHaveLength(3);
-    expect(fixedAssetColumnNames(reopened).filter((column) => column === "original_acquisition_date")).toHaveLength(1);
-    const migrationHash = createHash("sha256")
-      .update(readFileSync(resolve(process.cwd(), "drizzle/0096_mute_cammi.sql")))
-      .digest("hex");
-    expect(reopened.db.all(sql`SELECT * FROM __drizzle_migrations WHERE hash = ${migrationHash}`)).toHaveLength(1);
-  });
+      migrated.close();
+      const reopened = createDatabaseConnection(databasePath);
+      connections.push(reopened);
+      expect(reopened.db.select().from(fixedAssets).all()).toHaveLength(3);
+      expect(fixedAssetColumnNames(reopened).filter((column) => column === "original_acquisition_date")).toHaveLength(
+        1,
+      );
+      expect(
+        fixedAssetColumnNames(reopened).filter((column) => column === "original_acquisition_cost_cents"),
+      ).toHaveLength(1);
+      expect(fixedAssetColumnNames(reopened).filter((column) => column === "original_condition")).toHaveLength(1);
+      const migrationHash = createHash("sha256")
+        .update(readFileSync(resolve(process.cwd(), "drizzle/0098_outgoing_rachel_grey.sql")))
+        .digest("hex");
+      expect(reopened.db.all(sql`SELECT * FROM __drizzle_migrations WHERE hash = ${migrationHash}`)).toHaveLength(1);
+    },
+  );
 });

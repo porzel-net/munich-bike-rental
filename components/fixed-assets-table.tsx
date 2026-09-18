@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   flexRender,
   getCoreRowModel,
@@ -24,9 +25,19 @@ import {
   EllipsisVerticalIcon,
 } from "lucide-react";
 
-import { FixedAssetDisposalLauncher } from "@/components/fixed-asset-disposal-dialog";
-import { FixedAssetEditLauncher } from "@/components/fixed-asset-edit-dialog";
+import { FixedAssetDisposalDialog } from "@/components/fixed-asset-disposal-dialog";
+import { FixedAssetEditDialog } from "@/components/fixed-asset-edit-dialog";
 import { PrivateAssetContributionLauncher } from "@/components/private-asset-contribution-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -34,6 +45,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -49,7 +61,13 @@ export type FixedAssetRow = {
   method: "straight_line" | "declining_balance";
   acquisitionSource: "transaction" | "private_contribution";
   acquisitionDate: string;
+  sourceTransactionId: number | null;
   originalAcquisitionDate: string | null;
+  originalAcquisitionCostCents: number | null;
+  originalUsefulLifeMonths: number | null;
+  originalCondition: "new" | "used" | null;
+  privateUseType: "personal" | "income_generation" | "mixed" | null;
+  preEntryDepreciationCents: number;
   inServiceDate: string;
   serialNumber: string | null;
   acquisitionCostCents: number;
@@ -113,6 +131,101 @@ function SortableColumnHeader({
       {children}
       <ArrowUpDownIcon className="size-3.5 text-muted-foreground" />
     </Button>
+  );
+}
+
+function FixedAssetActions({
+  asset,
+  financialAccounts,
+}: {
+  asset: FixedAssetRow;
+  financialAccounts: FinancialAccountOption[];
+}) {
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [disposalOpen, setDisposalOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteBusy, setDeleteBusy] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  async function deleteAsset(event?: React.MouseEvent) {
+    event?.preventDefault();
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch(`/api/admin/financial/assets/${asset.id}`, { method: "DELETE" });
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) throw new Error(result?.message ?? "Das Anlagegut konnte nicht gelöscht werden.");
+      toast.success("Anlagegut und zugehörige AfA wurden gelöscht.");
+      setDeleteOpen(false);
+      window.location.reload();
+    } catch (caught) {
+      setDeleteError(caught instanceof Error ? caught.message : "Das Anlagegut konnte nicht gelöscht werden.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button type="button" variant="ghost" size="icon-sm" className="data-open:bg-muted" />}
+            aria-label={`Aktionen für ${asset.name}`}
+          >
+            <EllipsisVerticalIcon />
+            <span className="sr-only">Aktionen für {asset.name}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            {asset.status === "active" ? (
+              <DropdownMenuItem onClick={() => setEditOpen(true)}>Bearbeiten</DropdownMenuItem>
+            ) : null}
+            {asset.status === "active" ? (
+              <DropdownMenuItem onClick={() => setDisposalOpen(true)}>Verkauf erfassen</DropdownMenuItem>
+            ) : null}
+            {asset.acquisitionSource === "private_contribution" &&
+            asset.sourceTransactionId === null &&
+            asset.status === "active" ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                  Löschen
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <FixedAssetEditDialog asset={asset} open={editOpen} onOpenChange={setEditOpen} />
+      <FixedAssetDisposalDialog
+        asset={asset}
+        financialAccounts={financialAccounts}
+        open={disposalOpen}
+        onOpenChange={setDisposalOpen}
+      />
+      <AlertDialog open={deleteOpen} onOpenChange={(open) => !deleteBusy && setDeleteOpen(open)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Anlagegut endgültig löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              „{asset.name}“ und alle zugehörigen AfA-Datensätze werden aus dem Anlageverzeichnis entfernt. Die
+              ursprünglichen Journalbuchungen bleiben erhalten und werden durch Korrekturbuchungen neutralisiert.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => void deleteAsset(event)}
+              disabled={deleteBusy}
+            >
+              {deleteBusy ? "Wird gelöscht …" : "Endgültig löschen"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -185,35 +298,7 @@ function getFixedAssetColumns(financialAccounts: FinancialAccountOption[]): Colu
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => {
-        const asset = row.original;
-        return (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button type="button" variant="ghost" size="icon-sm" className="data-open:bg-muted" />}
-                aria-label={`Aktionen für ${asset.name}`}
-              >
-                <EllipsisVerticalIcon />
-                <span className="sr-only">Aktionen für {asset.name}</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                {asset.status === "active" ? (
-                  <FixedAssetEditLauncher
-                    asset={asset}
-                    trigger={(open) => <DropdownMenuItem onClick={open}>Bearbeiten</DropdownMenuItem>}
-                  />
-                ) : null}
-                {asset.status === "active" ? (
-                  <FixedAssetDisposalLauncher
-                    asset={asset}
-                    financialAccounts={financialAccounts}
-                    trigger={(open) => <DropdownMenuItem onClick={open}>Verkauf erfassen</DropdownMenuItem>}
-                  />
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        );
+        return <FixedAssetActions asset={row.original} financialAccounts={financialAccounts} />;
       },
     },
   ];

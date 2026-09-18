@@ -59,7 +59,7 @@ export function FixedAssetDisposalLauncher({
   );
 }
 
-function FixedAssetDisposalDialog({
+export function FixedAssetDisposalDialog({
   asset,
   financialAccounts,
   open,
@@ -174,7 +174,14 @@ function FixedAssetDisposalDialog({
             </div>
             <Field>
               <FieldLabel htmlFor="asset-disposal-account">Eingangskonto</FieldLabel>
-              <Select value={financialAccountId} onValueChange={(value) => setFinancialAccountId(value ?? "")}>
+              <Select
+                items={financialAccounts.map((account) => ({
+                  value: String(account.id),
+                  label: `${account.name} · ${account.code}`,
+                }))}
+                value={financialAccountId}
+                onValueChange={(value) => setFinancialAccountId(value ?? "")}
+              >
                 <SelectTrigger id="asset-disposal-account" className="w-full">
                   <SelectValue placeholder="Konto auswählen">
                     {(value) => {

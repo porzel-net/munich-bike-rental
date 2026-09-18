@@ -142,9 +142,13 @@ describe("fixed asset depreciation", () => {
         assetType: "equipment",
         acquisitionSource: "private_contribution",
         acquisitionDate: "2026-08-01",
+        originalAcquisitionCostCents: 100_000,
+        originalUsefulLifeMonths: 84,
+        originalCondition: "used",
+        privateUseType: "personal",
         inServiceDate: "2026-08-01",
         acquisitionCostCents: 100_000,
-        usefulLifeMonths: 84,
+        usefulLifeMonths: 70,
         method: "declining_balance",
       }),
     ).toThrow("ursprüngliche Anschaffungsdatum");
@@ -158,7 +162,11 @@ describe("fixed asset depreciation", () => {
       assetType: "equipment",
       acquisitionSource: "private_contribution",
       acquisitionDate: "2026-08-01",
-      originalAcquisitionDate: "2026-07-24",
+      originalAcquisitionDate: "2026-08-01",
+      originalAcquisitionCostCents: 100_000,
+      originalUsefulLifeMonths: 84,
+      originalCondition: "used",
+      privateUseType: "personal",
       inServiceDate: "2026-08-01",
       acquisitionCostCents: 100_000,
       usefulLifeMonths: 84,
@@ -168,7 +176,8 @@ describe("fixed asset depreciation", () => {
 
     expect(created).toMatchObject({
       acquisitionDate: "2026-08-01",
-      originalAcquisitionDate: "2026-07-24",
+      originalAcquisitionDate: "2026-08-01",
+      originalCondition: "used",
       method: "declining_balance",
       degressiveRateBps: 3_000,
     });
@@ -182,12 +191,186 @@ describe("fixed asset depreciation", () => {
         acquisitionSource: "private_contribution",
         acquisitionDate: "2026-08-01",
         originalAcquisitionDate: "2025-06-30",
+        originalAcquisitionCostCents: 100_000,
+        originalUsefulLifeMonths: 84,
+        originalCondition: "used",
+        privateUseType: "personal",
         inServiceDate: "2026-08-01",
         acquisitionCostCents: 100_000,
-        usefulLifeMonths: 84,
+        usefulLifeMonths: 70,
         method: "declining_balance",
       }),
     ).toThrow("Anschaffungsdatum");
+  });
+
+  it("calculates prior theoretical linear depreciation before a recent private contribution", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Privateinlage mit Vorlauf-AfA",
+      assetType: "equipment",
+      acquisitionSource: "private_contribution",
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-01-01",
+      originalAcquisitionCostCents: 84_000,
+      originalUsefulLifeMonths: 84,
+      originalCondition: "used",
+      privateUseType: "personal",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 70_000,
+      usefulLifeMonths: 77,
+      method: "straight_line",
+      createdByUserId: null,
+    });
+
+    expect(created).toMatchObject({
+      acquisitionCostCents: 70_000,
+      preEntryDepreciationCents: 7_000,
+      originalAcquisitionCostCents: 84_000,
+      originalUsefulLifeMonths: 84,
+      privateUseType: "personal",
+    });
+  });
+
+  it("rejects a private entry value above the three-year historical-cost cap", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Überhöhter Einlagewert",
+        assetType: "equipment",
+        acquisitionSource: "private_contribution",
+        acquisitionDate: "2026-08-01",
+        originalAcquisitionDate: "2026-01-01",
+        originalAcquisitionCostCents: 84_000,
+        originalUsefulLifeMonths: 84,
+        originalCondition: "used",
+        privateUseType: "personal",
+        inServiceDate: "2026-08-01",
+        acquisitionCostCents: 84_000,
+        usefulLifeMonths: 77,
+      }),
+    ).toThrow("Einlagewert");
+  });
+
+  it("accepts the exact three-year boundary as a Teilwert case", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Teilwert nach drei Jahren",
+      assetType: "equipment",
+      acquisitionSource: "private_contribution",
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2023-08-01",
+      originalAcquisitionCostCents: 100_000,
+      originalUsefulLifeMonths: 84,
+      originalCondition: "used",
+      privateUseType: "mixed",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 120_000,
+      usefulLifeMonths: 48,
+      method: "straight_line",
+    });
+
+    expect(created).toMatchObject({
+      acquisitionCostCents: 120_000,
+      privateUseType: "mixed",
+      preEntryDepreciationCents: 42_840,
+    });
+  });
+
+  it("accepts the exact historical-cost cap within the three-year period", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Fortgeführte Anschaffungskosten",
+      assetType: "equipment",
+      acquisitionSource: "private_contribution",
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-01-01",
+      originalAcquisitionCostCents: 84_000,
+      originalUsefulLifeMonths: 84,
+      originalCondition: "used",
+      privateUseType: "personal",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 77_000,
+      usefulLifeMonths: 77,
+      method: "straight_line",
+    });
+
+    expect(created.preEntryDepreciationCents).toBe(7_000);
+  });
+
+  it("uses the original useful life for the degressive rate after a private contribution", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const created = createFixedAsset(connection.db, {
+      name: "Privateinlage mit langer Nutzungsdauer",
+      assetType: "equipment",
+      acquisitionSource: "private_contribution",
+      acquisitionDate: "2026-08-01",
+      originalAcquisitionDate: "2026-01-01",
+      originalAcquisitionCostCents: 240_000,
+      originalUsefulLifeMonths: 240,
+      originalCondition: "used",
+      privateUseType: "income_generation",
+      inServiceDate: "2026-08-01",
+      acquisitionCostCents: 100_000,
+      usefulLifeMonths: 228,
+      method: "declining_balance",
+    });
+
+    expect(created.degressiveRateBps).toBe(1_500);
+  });
+
+  it("requires the original cost, original useful life, and prior-use classification", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Unvollständige Privateinlage",
+        assetType: "equipment",
+        acquisitionSource: "private_contribution",
+        acquisitionDate: "2026-08-01",
+        originalAcquisitionDate: "2026-07-24",
+        inServiceDate: "2026-08-01",
+        acquisitionCostCents: 100_000,
+        usefulLifeMonths: 84,
+      }),
+    ).toThrow("ursprünglichen Anschaffungskosten");
+  });
+
+  it("requires an explicit new-or-used classification", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Privateinlage ohne Zustandsangabe",
+        assetType: "equipment",
+        acquisitionSource: "private_contribution",
+        acquisitionDate: "2026-08-01",
+        originalAcquisitionDate: "2026-07-01",
+        originalAcquisitionCostCents: 100_000,
+        originalUsefulLifeMonths: 84,
+        privateUseType: "personal",
+        inServiceDate: "2026-08-01",
+        acquisitionCostCents: 98_000,
+        usefulLifeMonths: 83,
+      }),
+    ).toThrow("neu oder gebraucht");
+  });
+
+  it("rejects a remaining life longer than the original useful life after the contribution", () => {
+    expect(() =>
+      createFixedAsset(connectionForTest().db, {
+        name: "Zu lange Restnutzungsdauer",
+        assetType: "equipment",
+        acquisitionSource: "private_contribution",
+        acquisitionDate: "2026-08-01",
+        originalAcquisitionDate: "2026-01-01",
+        originalAcquisitionCostCents: 84_000,
+        originalUsefulLifeMonths: 84,
+        originalCondition: "used",
+        privateUseType: "personal",
+        inServiceDate: "2026-08-01",
+        acquisitionCostCents: 70_000,
+        usefulLifeMonths: 84,
+      }),
+    ).toThrow("Restnutzungsdauer");
   });
 
   it("creates a private contribution with separate purchase and contribution dates", () => {
@@ -207,10 +390,14 @@ describe("fixed asset depreciation", () => {
       name: "Privat eingebrachtes Fahrrad",
       assetType: "bike",
       originalAcquisitionDate: "2026-07-24",
+      originalAcquisitionCostCents: 220_000,
+      originalUsefulLifeMonths: 84,
+      originalCondition: "used",
+      privateUseType: "personal",
       contributionDate: "2026-08-01",
       inServiceDate: "2026-08-01",
       acquisitionCostCents: 195_000,
-      usefulLifeMonths: 84,
+      usefulLifeMonths: 83,
       method: "declining_balance",
       actorUserId: "test-user",
     });
@@ -233,7 +420,11 @@ describe("fixed asset depreciation", () => {
       assetType: "bike",
       acquisitionSource: "private_contribution",
       acquisitionDate: "2026-08-01",
-      originalAcquisitionDate: "2026-07-24",
+      originalAcquisitionDate: "2026-08-01",
+      originalAcquisitionCostCents: 100_000,
+      originalUsefulLifeMonths: 48,
+      originalCondition: "used",
+      privateUseType: "personal",
       inServiceDate: "2026-08-01",
       acquisitionCostCents: 100_000,
       usefulLifeMonths: 48,

@@ -778,7 +778,14 @@ export function FinancialTransactionDialog({
                   {canEditManualTransactionAccount ? (
                     <Field>
                       <FieldLabel htmlFor="financial-posted-account">Zielkonto der Buchung</FieldLabel>
-                      <Select value={accountId} onValueChange={(value) => setAccountId(value || "")}>
+                      <Select
+                        items={selectableAccounts.map((account) => ({
+                          value: String(account.id),
+                          label: `${account.name}${account.status === "archived" ? " · archiviert" : ""}`,
+                        }))}
+                        value={accountId}
+                        onValueChange={(value) => setAccountId(value || "")}
+                      >
                         <SelectTrigger id="financial-posted-account" className="w-full">
                           <SelectValue>{selectedSourceAccount?.name ?? "Zielkonto auswählen"}</SelectValue>
                         </SelectTrigger>
@@ -803,7 +810,14 @@ export function FinancialTransactionDialog({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="financial-source">Quelle</FieldLabel>
-                    <Select value={source} onValueChange={(value) => setSource((value || "cash") as "cash" | "manual")}>
+                    <Select
+                      items={[
+                        { value: "cash", label: "Bargeld / Kasse" },
+                        { value: "manual", label: "Sonstige manuelle Zahlung" },
+                      ]}
+                      value={source}
+                      onValueChange={(value) => setSource((value || "cash") as "cash" | "manual")}
+                    >
                       <SelectTrigger id="financial-source" className="w-full">
                         <SelectValue>
                           {(value) => (value === "manual" ? "Sonstige manuelle Zahlung" : "Bargeld / Kasse")}
@@ -841,7 +855,14 @@ export function FinancialTransactionDialog({
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="financial-account">Finanzkonto</FieldLabel>
-                    <Select value={accountId} onValueChange={(value) => setAccountId(value || "")}>
+                    <Select
+                      items={selectableAccounts.map((account) => ({
+                        value: String(account.id),
+                        label: `${account.name}${account.status === "archived" ? " · archiviert" : ""}`,
+                      }))}
+                      value={accountId}
+                      onValueChange={(value) => setAccountId(value || "")}
+                    >
                       <SelectTrigger id="financial-account" className="w-full">
                         <SelectValue>
                           {(value) =>
@@ -871,6 +892,15 @@ export function FinancialTransactionDialog({
                     {isBank ? "Buchung / Auftragsnummer" : "Buchung zuweisen"}
                   </FieldLabel>
                   <Select
+                    items={[
+                      { value: "none", label: "Keine Buchung / allgemeine Transaktion" },
+                      ...(bookings ?? [])
+                        .filter((booking) => booking.status !== "rejected" && booking.status !== "cancelled")
+                        .map((booking) => ({
+                          value: String(booking.id),
+                          label: `${booking.orderNumber} · ${booking.customerName}`,
+                        })),
+                    ]}
                     value={bookingId}
                     onValueChange={(value) => {
                       const nextBookingId = value === "none" ? "" : value || "";
@@ -918,6 +948,7 @@ export function FinancialTransactionDialog({
               <Field>
                 <FieldLabel htmlFor="financial-category">Sachliche Zuordnung</FieldLabel>
                 <Select
+                  items={categories.map((category) => ({ value: String(category.id), label: category.name }))}
                   value={categoryId}
                   onValueChange={(value) => {
                     const nextCategoryId = value || "";
@@ -959,7 +990,20 @@ export function FinancialTransactionDialog({
               {selectedCategory?.categoryType === "transfer" ? (
                 <Field>
                   <FieldLabel htmlFor="financial-destination-account">Zielkonto der Umbuchung</FieldLabel>
-                  <Select value={destinationAccountId} onValueChange={(value) => setDestinationAccountId(value || "")}>
+                  <Select
+                    items={accounts
+                      .filter(
+                        (account) =>
+                          (canEditManualTransactionAccount || account.status !== "archived") &&
+                          account.id !==
+                            (isBank && !canEditManualTransactionAccount
+                              ? bankTransaction?.financialAccountId
+                              : Number(accountId)),
+                      )
+                      .map((account) => ({ value: String(account.id), label: account.name }))}
+                    value={destinationAccountId}
+                    onValueChange={(value) => setDestinationAccountId(value || "")}
+                  >
                     <SelectTrigger id="financial-destination-account" className="w-full">
                       <SelectValue>{selectedDestinationAccount?.name ?? "Zielkonto auswählen"}</SelectValue>
                     </SelectTrigger>
@@ -1027,6 +1071,11 @@ export function FinancialTransactionDialog({
                   <Field>
                     <FieldLabel htmlFor="financial-asset-type">Anlageart</FieldLabel>
                     <Select
+                      items={[
+                        { value: "bike", label: "Fahrrad" },
+                        { value: "equipment", label: "Betriebsausstattung" },
+                        { value: "other", label: "Sonstiges" },
+                      ]}
                       value={assetType}
                       onValueChange={(value) => setAssetType((value || "bike") as "bike" | "equipment" | "other")}
                     >
@@ -1094,6 +1143,10 @@ export function FinancialTransactionDialog({
                   <Field>
                     <FieldLabel htmlFor="financial-asset-method">AfA-Verfahren</FieldLabel>
                     <Select
+                      items={[
+                        { value: "straight_line", label: "Linear" },
+                        { value: "declining_balance", label: "Degressiv vom Restbuchwert" },
+                      ]}
                       value={assetMethod}
                       onValueChange={(value) => setAssetMethod((value || "straight_line") as AssetMethod)}
                     >
