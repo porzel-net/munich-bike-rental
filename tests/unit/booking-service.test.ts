@@ -23,6 +23,7 @@ import {
   journalLines,
   mailOutbox,
   rentalAssets,
+  whatsappNotificationOutbox,
 } from "../../lib/db/schema";
 import {
   BookingCommandError,
@@ -72,6 +73,8 @@ function setup() {
       email: "admin@example.com",
       role: "admin",
       whatsappPhone: "+49 170 1234567",
+      twoFactorEnabled: true,
+      mustChangePassword: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -201,6 +204,16 @@ function recordManualPayment(
 }
 
 describe("booking commands", () => {
+  it("queues outgoing inquiry mails as immediately due work", () => {
+    const { db } = setup();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21", "web");
+    const mails = db.select().from(mailOutbox).where(eq(mailOutbox.bookingId, booking.id)).all();
+
+    expect(mails).toHaveLength(1);
+    expect(mails.every((mail) => mail.status === "queued")).toBe(true);
+    expect(mails.every((mail) => mail.nextAttemptAt.getTime() <= Date.now() + 100)).toBe(true);
+  });
+
   it("records and can reopen a manual clarification of email questions", () => {
     const { db } = setup();
     const booking = inquiry(db, "2026-08-20", "2026-08-21");
@@ -944,7 +957,7 @@ describe("booking commands", () => {
       [cancelled.id, "booking_confirmed", "Booking confirmed", "confirmed"],
       [cancelled.id, "booking_cancelled", "Cancellation", "cancelled"],
       [rejected.id, "booking_rejected", "Inquiry", "Unfortunately"],
-      [checkedOut.id, "feedback_request", "How was your ride", "rate"],
+      [checkedOut.id, "feedback_request", "How was your bike rental", "rate"],
       [changed.id, "booking_information_changed", "Updated booking information", "updated"],
     ] as const) {
       const mail = mailFor(bookingId, kind);
@@ -1104,7 +1117,7 @@ describe("booking commands", () => {
     const mailId = advanceBooking(db, booking.id, "completed", "admin");
     expect(mailId).toBeTypeOf("number");
     const mail = db.select().from(mailOutbox).where(eq(mailOutbox.kind, "feedback_request")).get();
-    expect(mail?.html).toContain("How was your ride?");
+    expect(mail?.html).toContain("How was your bike rental?");
     const token = new URL(mail!.plainText.split("\n").find((line) => line.includes("/feedback/"))!).pathname
       .split("/")
       .at(-1)!;
@@ -1127,6 +1140,13 @@ describe("booking commands", () => {
       comment: "Alles hat super geklappt.",
       ratings: { bikeRating: 5, handoverRating: 4, communicationRating: 5, priceRating: 4, overallRating: 5 },
     });
+    expect(db.select().from(whatsappNotificationOutbox).all()).toMatchObject([
+      {
+        kind: "feedback_received",
+        recipientUserId: "admin",
+        messageText: expect.stringContaining("*Neues Kundenfeedback*"),
+      },
+    ]);
     expect(() =>
       submitPublicFeedback(db, token, {
         bikeRating: 1,

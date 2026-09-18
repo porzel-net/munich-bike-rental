@@ -73,6 +73,7 @@ export function queueCustomerMail(
     idempotencyKey?: string;
   },
 ) {
+  const createdAt = now();
   return (
     db
       .insert(mailOutbox)
@@ -87,8 +88,8 @@ export function queueCustomerMail(
         html: input.mail.html,
         status: "queued",
         attempts: 0,
-        nextAttemptAt: now(),
-        createdAt: now(),
+        nextAttemptAt: createdAt,
+        createdAt,
       })
       .onConflictDoNothing()
       .returning({ id: mailOutbox.id })

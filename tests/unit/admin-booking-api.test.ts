@@ -239,7 +239,7 @@ describe("admin booking command API", () => {
     expect(await failed.json()).toEqual({ message: "Buchung ist bereits abgeschlossen" });
   });
 
-  it("dispatches cancellation and rejection mails only after the service creates them", async () => {
+  it("returns after cancellation and rejection mails are queued by the service", async () => {
     bookingApiMocks.cancelBooking.mockReturnValue(11);
     const cancelled = await bookingCommandPost(
       request({
@@ -251,12 +251,12 @@ describe("admin booking command API", () => {
       context(),
     );
     expect(cancelled.status).toBe(200);
-    expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(bookingApiMocks.context.db, 11);
+    expect(bookingApiMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
 
     bookingApiMocks.advanceBooking.mockReturnValue(12);
     const rejected = await bookingCommandPost(request({ command: "reject", reason: "Nicht verfügbar" }), context());
     expect(rejected.status).toBe(200);
-    expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(bookingApiMocks.context.db, 12);
+    expect(bookingApiMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
   });
 
   it("supports an idempotent partial Stripe refund directly from cancellation", async () => {
@@ -299,7 +299,7 @@ describe("admin booking command API", () => {
     expect(bookingApiMocks.refundStripeBookingPayment).not.toHaveBeenCalled();
   });
 
-  it("dispatches the confirmation mail after manually assigning a Stripe payment", async () => {
+  it("returns the queued confirmation mail after manually assigning a Stripe payment", async () => {
     const queuedMailId = 23;
     const db = {
       select: () => ({
@@ -328,6 +328,6 @@ describe("admin booking command API", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(bookingApiMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(db, queuedMailId);
+    expect(bookingApiMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
   });
 });

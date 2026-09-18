@@ -153,7 +153,9 @@ export function BookingEditDialog({
         sendMail
           ? result?.mailStatus === "sent"
             ? "Buchung wurde geändert und die Änderungsmail wurde versendet."
-            : "Buchung wurde geändert."
+            : result?.mailStatus === "queued"
+              ? "Buchung wurde geändert und die Änderungsmail wurde eingereiht."
+              : "Buchung wurde geändert."
           : "Buchung wurde gespeichert.",
       );
       setOpen(false);
@@ -249,6 +251,10 @@ export function BookingEditDialog({
             <Field>
               <FieldLabel>Kommunikationssprache</FieldLabel>
               <Select
+                items={[
+                  { value: "de", label: "Deutsch" },
+                  { value: "en", label: "English" },
+                ]}
                 value={values.communicationLocale}
                 onValueChange={(value) => update({ communicationLocale: (value ?? "de") as "de" | "en" })}
               >
@@ -346,6 +352,10 @@ export function BookingEditDialog({
                   <Field>
                     <FieldLabel htmlFor={`edit-item-label-${item.id}`}>Modell / Größe</FieldLabel>
                     <Select
+                      items={[...new Set([item.requestedLabel, ...bikeOptions])].map((option) => ({
+                        value: option,
+                        label: option,
+                      }))}
                       value={item.requestedLabel}
                       onValueChange={(value) => updateItem(item.id, { requestedLabel: value ?? item.requestedLabel })}
                     >
@@ -408,6 +418,7 @@ export function BookingEditDialog({
                   <Field>
                     <FieldLabel htmlFor={`edit-item-pedals-${item.id}`}>Pedaltyp</FieldLabel>
                     <Select
+                      items={pedalTypes.map((value) => ({ value, label: getPedalTypeLabel(value, "de") }))}
                       value={normalizePedalType(item.pedalType) ?? undefined}
                       onValueChange={(value) => updateItem(item.id, { pedalType: value ?? null })}
                       disabled={!item.needsPedals}
@@ -429,6 +440,10 @@ export function BookingEditDialog({
                   <Field>
                     <FieldLabel htmlFor={`edit-item-mount-${item.id}`}>Halterungstyp</FieldLabel>
                     <Select
+                      items={computerMountTypes.map((value) => ({
+                        value,
+                        label: getComputerMountTypeLabel(value, "de"),
+                      }))}
                       value={normalizeComputerMountType(item.computerMountType) ?? undefined}
                       onValueChange={(value) => updateItem(item.id, { computerMountType: value ?? null })}
                       disabled={!item.needsComputerMount}
@@ -465,6 +480,10 @@ export function BookingEditDialog({
                   <Field key={item.id}>
                     <FieldLabel htmlFor={`edit-concrete-asset-${item.id}`}>Fahrrad {item.position}</FieldLabel>
                     <Select
+                      items={availableAssets.map((asset) => ({
+                        value: String(asset.id),
+                        label: `${asset.nickname ? `${asset.nickname} · ` : ""}${asset.modelLabel} · ${asset.label}`,
+                      }))}
                       value={selectedAssets[item.id] ? String(selectedAssets[item.id]) : undefined}
                       onValueChange={(value) =>
                         setSelectedAssets((current) => ({ ...current, [item.id]: Number(value) }))

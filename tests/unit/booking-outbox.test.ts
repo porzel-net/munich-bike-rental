@@ -18,9 +18,35 @@ import {
   journalLines,
   mailOutbox,
 } from "../../lib/db/schema";
-import { dispatchNextOutboxMail } from "../../lib/bookings/outbox";
+import { dispatchNextOutboxMail, retryFailedOutboxMail } from "../../lib/bookings/outbox";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
+
+function createOutboxBooking(db: ReturnType<typeof createDatabaseConnection>["db"], orderNumber: string) {
+  const timestamp = new Date(Date.now() - 1_000);
+  return db
+    .insert(bookings)
+    .values({
+      orderNumber,
+      customerName: "Ada Lovelace",
+      customerEmail: "ada@example.com",
+      customerPhone: "+49",
+      location: "munich",
+      periodFrom: "2026-08-10",
+      periodTo: "2026-08-11",
+      pickupTime: "10:00",
+      dropoffTime: "10:00",
+      customerMessage: "",
+      communicationLocale: "de",
+      source: "web",
+      status: "offer_sent",
+      quotedTotalCents: 10_000,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .returning({ id: bookings.id })
+    .get();
+}
 
 afterEach(() => {
   while (connections.length) connections.pop()?.close();
@@ -403,5 +429,107 @@ describe("booking mail threads", () => {
     expect(attachment?.content.toString("utf8")).toContain("item1.TEL;TYPE=WORK,VOICE:+49 172 1122334");
     expect(attachment?.content.toString("utf8")).toContain("item2.TEL;TYPE=WORK,VOICE:+49 170 1234567");
     expect(attachment?.content.toString("utf8")).toContain("item3.TEL;TYPE=WORK,VOICE:+49 171 7654321");
+  });
+
+  it("allows only one active worker lease at a time", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const booking = createOutboxBooking(db, "#20260804190000");
+    const first = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "queue:first",
+        kind: "offer",
+        locale: "de",
+        recipient: "ada@example.com",
+        subject: "Erste Mail",
+        plainText: "Erste Mail",
+        status: "queued",
+        attempts: 0,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+        createdAt: new Date(Date.now() - 2_000),
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+    const second = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "queue:second",
+        kind: "offer",
+        locale: "de",
+        recipient: "ada@example.com",
+        subject: "Zweite Mail",
+        plainText: "Zweite Mail",
+        status: "queued",
+        attempts: 0,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+        createdAt: new Date(Date.now() - 1_000),
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+
+    let releaseSend!: (value: { messageId: string }) => void;
+    let sendStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      sendStarted = resolve;
+    });
+    sendMail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseSend = resolve;
+          sendStarted();
+        }),
+    );
+    const firstDispatch = dispatchNextOutboxMail(db, first.id);
+    await started;
+
+    expect(await dispatchNextOutboxMail(db, second.id)).toBeNull();
+    releaseSend({ messageId: "<first@example.com>" });
+    await expect(firstDispatch).resolves.toMatchObject({ id: first.id, status: "sent" });
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.id, second.id)).get()?.status).toBe("queued");
+  });
+
+  it("records SMTP failures and allows an explicit retry without losing the attempt count", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const booking = createOutboxBooking(db, "#20260804191000");
+    const mail = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "queue:retry",
+        kind: "offer",
+        locale: "de",
+        recipient: "ada@example.com",
+        subject: "Retry-Mail",
+        plainText: "Retry-Mail",
+        status: "queued",
+        attempts: 0,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+        createdAt: new Date(Date.now() - 1_000),
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+    sendMail.mockRejectedValueOnce(new Error("SMTP offline"));
+
+    await expect(dispatchNextOutboxMail(db, mail.id)).resolves.toMatchObject({ id: mail.id, status: "failed" });
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.id, mail.id)).get()).toMatchObject({
+      status: "failed",
+      attempts: 1,
+      lastError: "SMTP offline",
+    });
+
+    expect(retryFailedOutboxMail(db, mail.id)).toBe(true);
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.id, mail.id)).get()).toMatchObject({
+      status: "queued",
+      attempts: 1,
+      lastError: null,
+    });
+    sendMail.mockResolvedValueOnce({ messageId: "<retry@example.com>" });
+    await expect(dispatchNextOutboxMail(db, mail.id)).resolves.toMatchObject({ id: mail.id, status: "sent" });
   });
 });

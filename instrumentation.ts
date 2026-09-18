@@ -85,6 +85,27 @@ export async function register() {
       const incomingMailTimer = setInterval(() => void syncIncomingMailCycle(), 60_000);
       incomingMailTimer.unref?.();
 
+      // Outgoing mail is durable before the request returns. Drain it from
+      // the server process as a single-worker queue so SMTP never blocks an
+      // admin action and multiple app instances cannot send the same job.
+      const { dispatchNextOutboxMail, releaseExpiredOutboxLeases } = await import("./lib/bookings/outbox");
+      let mailOutboxInFlight = false;
+      const runMailOutboxCycle = async () => {
+        if (mailOutboxInFlight) return;
+        mailOutboxInFlight = true;
+        try {
+          releaseExpiredOutboxLeases();
+          await dispatchNextOutboxMail();
+        } catch (error) {
+          console.error("Failed to process outgoing mail queue", error);
+        } finally {
+          mailOutboxInFlight = false;
+        }
+      };
+      void runMailOutboxCycle();
+      const mailOutboxTimer = setInterval(() => void runMailOutboxCycle(), 2_000);
+      mailOutboxTimer.unref?.();
+
       // WhatsApp notifications must be processed by the server itself, not by
       // an open admin browser tab. The durable outbox and idempotency keys make
       // this safe alongside the optional deployment-host endpoint.

@@ -185,6 +185,10 @@ const rejectionReasonOptions: Array<{
     reason: "Anfrage auf Kundenwunsch zurückgezogen",
   },
 ];
+const rejectionReasonItems = [
+  ...rejectionReasonOptions.map(({ value, label }) => ({ value, label })),
+  { value: "custom" as const, label: "Anderen Grund" },
+];
 
 function errorMessage(error: unknown) {
   return error instanceof Error
@@ -689,9 +693,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
             ? isAlternativeOffer
               ? "Alternativangebot wurde versendet."
               : "Angebot wurde versendet."
-            : sendMail
-              ? "Angebot wurde versendet."
-              : "Angebot wurde gespeichert. Es wurde keine Mail versendet.",
+            : result?.mailStatus === "queued"
+              ? isAlternativeOffer
+                ? "Alternativangebot wurde gespeichert und zur Mail-Warteschlange hinzugefügt."
+                : "Angebot wurde gespeichert und zur Mail-Warteschlange hinzugefügt."
+              : sendMail
+                ? "Angebot wurde gespeichert."
+                : "Angebot wurde gespeichert. Es wurde keine Mail versendet.",
         );
       } else if (activeAction === "cancel") {
         if (!cancellationPeriod) throw new Error("Bitte wähle den Stornozeitraum aus.");
@@ -1159,7 +1167,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               <>
                 <Field>
                   <FieldLabel htmlFor="stripe-offer">Angebot dieser Buchung</FieldLabel>
-                  <Select value={stripeOfferId} onValueChange={(value) => setStripeOfferId(value ?? "")}>
+                  <Select
+                    items={offers
+                      .filter((offer) => offer.status === "sent" || offer.status === "expired")
+                      .map((offer) => ({ value: String(offer.id), label: offer.label }))}
+                    value={stripeOfferId}
+                    onValueChange={(value) => setStripeOfferId(value ?? "")}
+                  >
                     <SelectTrigger id="stripe-offer" className="w-full">
                       <SelectValue>
                         {offers.find((offer) => String(offer.id) === stripeOfferId)?.label ?? "Angebot auswählen"}
@@ -1187,7 +1201,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     </FieldDescription>
                   ) : null}
                   {stripePayments.length > 0 ? (
-                    <Select value={stripeSessionId} onValueChange={(value) => setStripeSessionId(value ?? "")}>
+                    <Select
+                      items={stripePayments.map((payment) => ({ value: payment.id, label: payment.id }))}
+                      value={stripeSessionId}
+                      onValueChange={(value) => setStripeSessionId(value ?? "")}
+                    >
                       <SelectTrigger id="stripe-payment" className="w-full">
                         <SelectValue>
                           {stripePayments.find((payment) => payment.id === stripeSessionId)?.id ??
@@ -1230,6 +1248,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   <Field>
                     <FieldLabel htmlFor="historical-booking-status">Neuer Buchungsstatus</FieldLabel>
                     <Select
+                      items={(Object.keys(bookingStatusLabels) as BookingStatus[]).map((value) => ({
+                        value,
+                        label: bookingStatusLabels[value],
+                      }))}
                       value={historicalStatus}
                       onValueChange={(value) => value && setHistoricalStatus(value as BookingStatus)}
                     >
@@ -1345,6 +1367,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                         <Field key={item.id}>
                           <FieldLabel htmlFor={`historical-asset-${item.id}`}>{item.label}</FieldLabel>
                           <Select
+                            items={availableAssets.map((asset) => ({
+                              value: String(asset.id),
+                              label: asset.nickname ? `${asset.nickname} · ${asset.modelLabel}` : asset.modelLabel,
+                            }))}
                             value={historicalAssetsByRequestedItem[String(item.id)] ?? ""}
                             onValueChange={(value) =>
                               setHistoricalAssetsByRequestedItem((current) => ({
@@ -1498,6 +1524,10 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                         <Field>
                           <FieldLabel htmlFor={`asset-${item.id}`}>{item.label}</FieldLabel>
                           <Select
+                            items={availableAssets.map((asset) => ({
+                              value: String(asset.id),
+                              label: asset.nickname ? `${asset.nickname} · ${asset.modelLabel}` : asset.modelLabel,
+                            }))}
                             value={assetsByRequestedItem[String(item.id)] ?? ""}
                             disabled={
                               availabilityLoading ||
@@ -1646,6 +1676,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                   <Field>
                     <FieldLabel htmlFor="alternative-reason">Grund für die Änderung</FieldLabel>
                     <Select
+                      items={[...alternativeReasonOptions, { value: "custom", label: "Eigener Text" }]}
                       value={alternativeReasonType}
                       onValueChange={(value) => {
                         setAlternativeReasonType((value as AlternativeReasonType) ?? "");
@@ -1782,6 +1813,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 <Field>
                   <FieldLabel htmlFor="cancel-period">Stornozeitraum</FieldLabel>
                   <Select
+                    items={cancellationPeriods}
                     value={cancellationPeriod}
                     onValueChange={(value) => {
                       const period = cancellationPeriods.find((option) => option.value === value);
@@ -1902,7 +1934,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                 </div>
                 <Field>
                   <FieldLabel htmlFor="payment-account">Zahlungskonto / IBAN</FieldLabel>
-                  <Select value={financialAccountId} onValueChange={(value) => setFinancialAccountId(value ?? "")}>
+                  <Select
+                    items={paymentAccounts.map((account) => ({
+                      value: String(account.id),
+                      label: `${account.name} · ${account.iban || (account.type === "cash" ? "Kasse" : "keine IBAN hinterlegt")}`,
+                    }))}
+                    value={financialAccountId}
+                    onValueChange={(value) => setFinancialAccountId(value ?? "")}
+                  >
                     <SelectTrigger id="payment-account" className="w-full">
                       <SelectValue>
                         {paymentAccounts.find((account) => String(account.id) === financialAccountId)?.name ??
@@ -1931,7 +1970,11 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               <>
                 <Field>
                   <FieldLabel>Zu korrigierende Journalbuchung</FieldLabel>
-                  <Select value={entryId} onValueChange={(value) => setEntryId(value ?? "")}>
+                  <Select
+                    items={journalEntries.map((entry) => ({ value: String(entry.id), label: entry.label }))}
+                    value={entryId}
+                    onValueChange={(value) => setEntryId(value ?? "")}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue>
                         {journalEntries.find((entry) => String(entry.id) === entryId)?.label ?? "Journalbuchung wählen"}
@@ -1961,6 +2004,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
               <Field>
                 <FieldLabel htmlFor="reject-reason">Grund für die Absage</FieldLabel>
                 <Select
+                  items={rejectionReasonItems}
                   value={rejectionReasonType}
                   onValueChange={(value) => {
                     setRejectionReasonType((value as RejectionReasonType) ?? "");
@@ -1971,12 +2015,13 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                     <SelectValue>{rejectionReasonLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {rejectionReasonOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="custom">Anderen Grund</SelectItem>
+                    <SelectGroup>
+                      {rejectionReasonItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
                 {rejectionReasonType === "custom" && (

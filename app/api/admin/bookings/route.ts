@@ -10,7 +10,6 @@ import {
   createDirectBooking,
   createHistoricalBooking,
 } from "../../../../lib/bookings/service";
-import { dispatchNextOutboxMail } from "../../../../lib/bookings/outbox";
 import { mailOutbox } from "../../../../lib/db/schema";
 import { adminBookingFieldsSchema } from "../../../../lib/bookings/input-schemas";
 import { getDatabase } from "../../../../lib/db/client";
@@ -94,14 +93,10 @@ export async function POST(request: Request) {
           ),
         )
         .get()?.id;
-      const mailResult = confirmationMailId ? await dispatchNextOutboxMail(database, confirmationMailId) : null;
-      if (mailResult?.status === "failed") {
-        return NextResponse.json(
-          { message: "Die Direktbuchung wurde angelegt, aber die Bestätigungsmail konnte nicht versendet werden." },
-          { status: 502 },
-        );
-      }
-      return NextResponse.json({ ok: true, ...created, mailStatus: mailResult?.status ?? "queued" }, { status: 201 });
+      return NextResponse.json(
+        { ok: true, ...created, mailStatus: confirmationMailId ? "queued" : null },
+        { status: 201 },
+      );
     }
 
     return NextResponse.json({ ok: true, ...created }, { status: 201 });

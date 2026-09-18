@@ -1,13 +1,10 @@
-import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getPublicBookingByToken, getPublicOfferByToken } from "@/lib/bookings/public";
 import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookings/service";
-import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
-import { mailOutbox } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { consumePublicOfferRequestRateLimit } from "@/lib/security/rate-limit";
 import { getStripeCheckoutSession, StripeConfigurationError } from "@/lib/stripe";
@@ -77,21 +74,6 @@ export async function POST(request: Request) {
       offerToken: input.data.token,
     });
     await importStripeCheckoutPayment(database, { sessionId: session.id, bookingId: result.bookingId });
-
-    if (!result.alreadyConfirmed) {
-      const confirmationMailId = database
-        .select({ id: mailOutbox.id })
-        .from(mailOutbox)
-        .where(
-          and(
-            eq(mailOutbox.bookingId, result.bookingId),
-            eq(mailOutbox.kind, "booking_confirmed"),
-            eq(mailOutbox.status, "queued"),
-          ),
-        )
-        .get()?.id;
-      if (confirmationMailId) await dispatchNextOutboxMail(database, confirmationMailId);
-    }
 
     const updatedOffer = getOffer(database, input.data.token);
     return NextResponse.json({ ok: true, offer: updatedOffer }, { headers: { "Cache-Control": "no-store" } });

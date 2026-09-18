@@ -19,7 +19,6 @@ import {
   setHistoricalBookingStatus,
 } from "@/lib/bookings/service";
 import { BookingCommandError } from "@/lib/bookings/errors";
-import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { mailOutbox } from "@/lib/db/schema";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
@@ -206,29 +205,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           dropoffTime: input.data.dropoffTime,
           actorUserId: command.user.id,
         });
-        const mailId = command.db
-          .select({ id: mailOutbox.id })
+        const mail = command.db
+          .select({ id: mailOutbox.id, status: mailOutbox.status })
           .from(mailOutbox)
           .where(and(eq(mailOutbox.bookingId, id), eq(mailOutbox.offerId, createdOffer.offerId)))
-          .get()?.id;
-        const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
-        if (mailResult?.status === "failed") {
-          const mailError = mailId
-            ? command.db
-                .select({ lastError: mailOutbox.lastError })
-                .from(mailOutbox)
-                .where(eq(mailOutbox.id, mailId))
-                .get()?.lastError
-            : null;
-          return NextResponse.json(
-            {
-              message: `Das Angebot wurde angelegt, aber die Angebotsmail konnte nicht versendet werden.${mailError ? ` SMTP-Fehler: ${mailError}` : ""}`,
-              mailStatus: mailResult.status,
-            },
-            { status: 502 },
-          );
-        }
-        return NextResponse.json({ ...createdOffer, mailStatus: mailResult?.status ?? null });
+          .get();
+        return NextResponse.json({ ...createdOffer, mailStatus: mail?.status ?? null });
       }
       case "cancel": {
         const mailId = cancelBooking(command.db, {
@@ -257,18 +239,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             console.error("Booking cancelled but Stripe refund is pending", { bookingId: id, error });
           }
         }
-        const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
-        if (mailResult?.status === "failed")
-          return NextResponse.json(
-            {
-              message: stripeRefundError
-                ? "Die Buchung wurde storniert, aber Rückerstattung und Stornomail sind noch offen."
-                : "Die Buchung wurde storniert, aber die Stornomail konnte nicht versendet werden.",
-              mailStatus: mailResult.status,
-              stripeRefundPending: Boolean(stripeRefundError),
-            },
-            { status: stripeRefundError ? 202 : 502 },
-          );
+        const mailStatus = mailId ? "queued" : null;
         if (stripeRefundError)
           return NextResponse.json(
             {
@@ -276,10 +247,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
               stripeRefund: null,
               stripeRefundPending: true,
               message: "Die Buchung wurde storniert. Die Stripe-Erstattung muss noch erneut ausgeführt werden.",
+              mailStatus,
             },
             { status: 202 },
           );
-        return NextResponse.json({ ok: true, stripeRefund, stripeRefundPending: false });
+        return NextResponse.json({ ok: true, stripeRefund, stripeRefundPending: false, mailStatus });
       }
       case "refund":
         recordRefund(command.db, {
@@ -313,7 +285,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "reject":
         {
-          const mailId = advanceBooking(
+          advanceBooking(
             command.db,
             id,
             "rejected",
@@ -322,15 +294,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             input.data.personalMessage,
             input.data.sendMail,
           );
-          const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
-          if (mailResult?.status === "failed")
-            return NextResponse.json(
-              {
-                message: "Die Anfrage wurde abgelehnt, aber die Absagemail konnte nicht versendet werden.",
-                mailStatus: mailResult.status,
-              },
-              { status: 502 },
-            );
+          // The mail is durable in the outbox and is delivered by the worker.
         }
         break;
       case "expire":
@@ -346,27 +310,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         break;
       case "complete":
         {
-          const mailId =
-            input.data.sendMail === undefined
-              ? advanceBooking(command.db, id, "completed", command.user.id, input.data.reason)
-              : advanceBooking(
-                  command.db,
-                  id,
-                  "completed",
-                  command.user.id,
-                  input.data.reason,
-                  undefined,
-                  input.data.sendMail,
-                );
-          const mailResult = mailId ? await dispatchNextOutboxMail(command.db, mailId) : null;
-          if (mailResult?.status === "failed")
-            return NextResponse.json(
-              {
-                message: "Die Annahme wurde erfasst, aber die Feedback-Mail konnte nicht versendet werden.",
-                mailStatus: mailResult.status,
-              },
-              { status: 502 },
+          if (input.data.sendMail === undefined) {
+            advanceBooking(command.db, id, "completed", command.user.id, input.data.reason);
+          } else {
+            advanceBooking(
+              command.db,
+              id,
+              "completed",
+              command.user.id,
+              input.data.reason,
+              undefined,
+              input.data.sendMail,
             );
+          }
+          // The feedback mail is intentionally queued so completing the
+          // booking never waits for SMTP.
         }
         break;
       case "assign_stripe_payment": {
@@ -426,16 +384,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
                   ),
                 )
                 .get()?.id;
-        const mailResult = confirmationMailId ? await dispatchNextOutboxMail(command.db, confirmationMailId) : null;
-        if (mailResult?.status === "failed") {
-          return NextResponse.json(
-            {
-              message: "Die Zahlung wurde zugeordnet, aber die Bestätigungsmail konnte nicht versendet werden.",
-              mailStatus: mailResult.status,
-            },
-            { status: 502 },
-          );
-        }
+        const mailStatus = confirmationMailId
+          ? command.db
+              .select({ status: mailOutbox.status })
+              .from(mailOutbox)
+              .where(eq(mailOutbox.id, confirmationMailId))
+              .get()?.status
+          : null;
         const unavailableAccessories = ("unavailableAccessories" in result && result.unavailableAccessories) || [];
         const accessoryWarning = unavailableAccessories.length
           ? `Folgendes Zubehör konnte nicht reserviert werden: ${unavailableAccessories.join(", ")}.`
@@ -445,7 +400,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           ...result,
           accountingWarning,
           accessoryWarning,
-          mailStatus: mailResult?.status ?? null,
+          mailStatus,
         });
       }
       case "set_historical_status":

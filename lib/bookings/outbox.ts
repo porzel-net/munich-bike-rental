@@ -1,4 +1,4 @@
-import { and, desc, eq, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, lte, or } from "drizzle-orm";
 
 import { getDatabase, runInImmediateTransaction, type AppDatabase } from "../db/client";
 import {
@@ -136,6 +136,21 @@ async function resolveThread(
 export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), mailId?: number) {
   const job = runInImmediateTransaction(db, () => {
     const current = new Date();
+    const expiredLeaseCutoff = new Date(current.getTime() - LEASE_MS);
+    // A crashed worker must not block the queue forever. The same transaction
+    // both reclaims stale work and checks that no other worker is active.
+    db.update(mailOutbox)
+      .set({ status: "queued", leasedAt: null, nextAttemptAt: current })
+      .where(and(eq(mailOutbox.status, "leased"), lte(mailOutbox.leasedAt, expiredLeaseCutoff)))
+      .run();
+    const activeLease = db
+      .select({ id: mailOutbox.id })
+      .from(mailOutbox)
+      .where(eq(mailOutbox.status, "leased"))
+      .limit(1)
+      .get();
+    if (activeLease) return null;
+
     const due = and(
       or(eq(mailOutbox.status, "queued"), and(eq(mailOutbox.status, "failed"), lte(mailOutbox.nextAttemptAt, current))),
       lte(mailOutbox.nextAttemptAt, current),
@@ -143,10 +158,11 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
     const row = db
       .select()
       .from(mailOutbox)
-      .where(mailId ? and(eq(mailOutbox.id, mailId), due) : due)
+      .where(due)
+      .orderBy(asc(mailOutbox.createdAt), asc(mailOutbox.id))
       .limit(1)
       .get();
-    if (!row) return null;
+    if (!row || (mailId !== undefined && row.id !== mailId)) return null;
     db.update(mailOutbox)
       .set({ status: "leased", leasedAt: current, attempts: row.attempts + 1 })
       .where(eq(mailOutbox.id, row.id))
@@ -248,27 +264,6 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
   }
 }
 
-/** Sends all currently due messages for one booking immediately after a user action. */
-export async function dispatchOutboxForBooking(db: AppDatabase, bookingId: number) {
-  const jobs = db.select({ id: mailOutbox.id }).from(mailOutbox).where(eq(mailOutbox.bookingId, bookingId)).all();
-  const results = [];
-  for (const job of jobs) {
-    const result = await dispatchNextOutboxMail(db, job.id);
-    if (result) {
-      results.push(result);
-      continue;
-    }
-    // An idempotent retry can find a mail that the original request already
-    // sent. Report that durable state so the retry still receives a success
-    // response and never attempts a second delivery.
-    const current = db.select({ status: mailOutbox.status }).from(mailOutbox).where(eq(mailOutbox.id, job.id)).get();
-    if (current?.status === "sent" || current?.status === "failed") {
-      results.push({ id: job.id, status: current.status });
-    }
-  }
-  return results;
-}
-
 export function releaseExpiredOutboxLeases(db: AppDatabase = getDatabase()) {
   const cutoff = new Date(Date.now() - LEASE_MS);
   return db
@@ -276,4 +271,15 @@ export function releaseExpiredOutboxLeases(db: AppDatabase = getDatabase()) {
     .set({ status: "queued", leasedAt: null, nextAttemptAt: new Date() })
     .where(and(eq(mailOutbox.status, "leased"), lte(mailOutbox.leasedAt, cutoff)))
     .run();
+}
+
+/** Makes a failed mail eligible for the next worker cycle without changing its history. */
+export function retryFailedOutboxMail(db: AppDatabase = getDatabase(), mailId: number) {
+  return (
+    db
+      .update(mailOutbox)
+      .set({ status: "queued", leasedAt: null, nextAttemptAt: new Date(), lastError: null })
+      .where(and(eq(mailOutbox.id, mailId), eq(mailOutbox.status, "failed")))
+      .run().changes > 0
+  );
 }

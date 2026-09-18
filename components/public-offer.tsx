@@ -152,6 +152,11 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
     (currentOffer.status === "sent" && expiresAtMs !== null && clientNow !== null && expiresAtMs <= clientNow);
   const canConfirm = currentOffer.status === "sent" && bookingStatus === "offer_sent" && !expired;
   const offerRevoked = currentOffer.status === "revoked";
+  const individualDiscountCents =
+    currentOffer.quote.customDiscountCents ??
+    (currentOffer.quote.standardTotalCents !== undefined
+      ? Math.max(0, currentOffer.quote.standardTotalCents - currentOffer.totalCents)
+      : 0);
   const statusLabels: Record<string, string> = de
     ? {
         inquiry_received: "Anfrage eingegangen",
@@ -549,6 +554,12 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                         {currentOffer.quote.discountCents > 0 ? "−" : "+"}
                         {formatEuro(Math.abs(currentOffer.quote.discountCents), currentOffer.booking.locale)}
                       </strong>
+                    </div>
+                  ) : null}
+                  {individualDiscountCents > 0 ? (
+                    <div className="public-offer-totals__discount">
+                      <span>{de ? "Individueller Rabatt" : "Individual discount"}</span>
+                      <strong>−{formatEuro(individualDiscountCents, currentOffer.booking.locale)}</strong>
                     </div>
                   ) : null}
                   <div className="public-offer-total">

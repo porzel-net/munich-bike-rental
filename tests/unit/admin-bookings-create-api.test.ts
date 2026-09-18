@@ -118,7 +118,7 @@ describe("admin booking creation API", () => {
     });
   });
 
-  it("dispatches a direct booking confirmation immediately", async () => {
+  it("returns immediately after queueing a direct booking confirmation", async () => {
     const response = await POST(
       request({
         mode: "direct",
@@ -140,9 +140,10 @@ describe("admin booking creation API", () => {
 
     expect(response.status).toBe(201);
     const body = (await response.json()) as { mailStatus: string };
-    expect(body.mailStatus).toBe("sent");
+    expect(body.mailStatus).toBe("queued");
     const mail = connectionMailOutbox(routeMocks.getDatabase());
-    expect(routeMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(routeMocks.getDatabase(), mail.id);
+    expect(mail.status).toBe("queued");
+    expect(routeMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
   });
 
   it("routes a historical booking to the completed-booking command without sending mail", async () => {

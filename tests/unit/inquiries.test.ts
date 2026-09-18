@@ -308,10 +308,12 @@ describe("contact route", () => {
     });
   });
 
-  it("queues the inquiry without SMTP credentials", async () => {
+  it("accepts the inquiry without SMTP credentials because delivery is asynchronous", async () => {
     delete process.env.SMTP_HOST;
-    dispatchOutboxForBooking.mockResolvedValueOnce([{ id: 1, status: "failed" }]);
-    expect((await contactPost(request(validContact))).status).toBe(502);
+    const response = await contactPost(request(validContact));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, mailStatus: "queued" });
+    expect(dispatchOutboxForBooking).not.toHaveBeenCalled();
     expect(createBooking).toHaveBeenCalledOnce();
   });
 

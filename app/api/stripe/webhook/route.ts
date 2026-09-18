@@ -1,11 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookings/service";
-import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
-import { bookingOffers, mailOutbox } from "@/lib/db/schema";
+import { bookingOffers } from "@/lib/db/schema";
 import { readBoundedText } from "@/lib/security/request-body";
 import { consumeRequestRateLimit } from "@/lib/security/rate-limit";
 import { constructStripeWebhookEvent, StripeConfigurationError } from "@/lib/stripe";
@@ -91,21 +90,6 @@ export async function POST(request: Request) {
     // Repeated webhook deliveries are safe because the Stripe balance
     // transaction ID is unique in the financial layer.
     await importStripeCheckoutPayment(database, { sessionId: session.id, bookingId: result.bookingId });
-
-    if (!result.alreadyConfirmed) {
-      const confirmationMailId = database
-        .select({ id: mailOutbox.id })
-        .from(mailOutbox)
-        .where(
-          and(
-            eq(mailOutbox.bookingId, result.bookingId),
-            eq(mailOutbox.kind, "booking_confirmed"),
-            eq(mailOutbox.status, "queued"),
-          ),
-        )
-        .get()?.id;
-      if (confirmationMailId) await dispatchNextOutboxMail(database, confirmationMailId);
-    }
 
     return NextResponse.json({ received: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

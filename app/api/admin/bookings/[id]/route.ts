@@ -5,7 +5,6 @@ import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { BookingCommandError, updateBooking } from "@/lib/bookings/service";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 import { readBoundedJson } from "@/lib/security/request-body";
-import { dispatchNextOutboxMail } from "@/lib/bookings/outbox";
 import { requestedBookingItemSchema } from "@/lib/bookings/input-schemas";
 
 export const runtime = "nodejs";
@@ -53,16 +52,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           )
         : undefined,
     });
-    const mailResult = result.mailId ? await dispatchNextOutboxMail(command.db, result.mailId) : null;
-    if (mailResult?.status === "failed")
-      return NextResponse.json(
-        {
-          message: "Die Buchung wurde gespeichert, aber die Änderungsmail konnte nicht versendet werden.",
-          mailStatus: mailResult.status,
-        },
-        { status: 502 },
-      );
-    return NextResponse.json({ ...result, mailStatus: mailResult?.status ?? null });
+    const mailStatus = result.mailId ? "queued" : null;
+    return NextResponse.json({ ...result, mailStatus });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof BookingCommandError ? error.message : "Buchung konnte nicht bearbeitet werden" },

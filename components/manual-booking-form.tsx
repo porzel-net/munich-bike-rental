@@ -290,7 +290,14 @@ export function ManualBookingForm({
             </Field>
             <Field>
               <FieldLabel>Kommunikationssprache</FieldLabel>
-              <Select value={locale} onValueChange={(value) => setLocale((value ?? "de") as "de" | "en")}>
+              <Select
+                items={[
+                  { value: "de", label: "Deutsch" },
+                  { value: "en", label: "English" },
+                ]}
+                value={locale}
+                onValueChange={(value) => setLocale((value ?? "de") as "de" | "en")}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue>{locale === "de" ? "Deutsch" : "English"}</SelectValue>
                 </SelectTrigger>
@@ -303,6 +310,7 @@ export function ManualBookingForm({
             <Field>
               <FieldLabel>Standort</FieldLabel>
               <Select
+                items={availableLocations.map(([value, label]) => ({ value, label }))}
                 value={location}
                 onValueChange={(value) => {
                   setLocation(value ?? "munich");
@@ -407,6 +415,7 @@ export function ManualBookingForm({
                 <Field>
                   <FieldLabel>Gewünschtes Modell / Größe</FieldLabel>
                   <Select
+                    items={availableBikeOptions.map((value) => ({ value, label: value }))}
                     value={item.requestedLabel}
                     onValueChange={(value) => update(item.key, { requestedLabel: value ?? "" })}
                   >
@@ -446,7 +455,11 @@ export function ManualBookingForm({
                     <FieldLabel>
                       {mode === "historical" ? "Tatsächlich vermietetes Fahrrad" : "Konkretes Fahrrad"}
                     </FieldLabel>
-                    <Select value={item.assetId} onValueChange={(value) => update(item.key, { assetId: value ?? "" })}>
+                    <Select
+                      items={availableAssets.map((asset) => ({ value: String(asset.id), label: asset.modelLabel }))}
+                      value={item.assetId}
+                      onValueChange={(value) => update(item.key, { assetId: value ?? "" })}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue>
                           {(() => {

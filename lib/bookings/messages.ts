@@ -742,13 +742,15 @@ export function renderFeedbackRequestMail(input: {
 }) {
   const de = input.locale === "de";
   const greeting = input.name.trim().split(/\s+/)[0] || input.name;
-  const subject = de ? `Wie war deine Fahrt? ${input.orderNumber}` : `How was your ride? ${input.orderNumber}`;
+  const subject = de
+    ? `Wie war deine Fahrradmiete? ${input.orderNumber}`
+    : `How was your bike rental? ${input.orderNumber}`;
   const text = [
     de ? `Hallo ${greeting},` : `Hello ${greeting},`,
     "",
     de
-      ? "dein Fahrrad wurde erfolgreich ausgegeben. Wir würden gerne kurz hören, wie alles geklappt hat."
-      : "Your bike has been handed over successfully. We would love to hear how everything went.",
+      ? "deine Fahrradmiete ist abgeschlossen. Wir würden gerne kurz hören, wie alles geklappt hat."
+      : "Your bike rental is now complete. We would love to hear how everything went.",
     "",
     de
       ? "Bewerte mit wenigen Klicks Fahrrad, Übergabe, Kommunikation, Preis-Leistung und dein Gesamterlebnis. Ein kurzer Kommentar ist optional."
@@ -768,13 +770,15 @@ export function renderFeedbackRequestMail(input: {
     .join("");
   const html = renderEmailLayout({
     locale: input.locale,
-    preheader: de ? "Dein kurzes Feedback ist uns wichtig." : "Your quick feedback matters to us.",
-    eyebrow: de ? "Deine Fahrt" : "Your ride",
-    title: de ? "Wie war deine Fahrt?" : "How was your ride?",
+    preheader: de
+      ? "Dein kurzes Feedback zu deiner Fahrradmiete ist uns wichtig."
+      : "Your quick feedback on your bike rental matters to us.",
+    eyebrow: de ? "Deine Fahrradmiete" : "Your bike rental",
+    title: de ? "Wie war deine Fahrradmiete?" : "How was your bike rental?",
     intro: de
-      ? `Hallo ${greeting}, dein Fahrrad wurde ausgegeben – jetzt zählt dein Eindruck.`
-      : `Hello ${greeting}, your bike has been handed over – now we would love to hear your impression.`,
-    content: `${emailCard(`${emailParagraph(de ? "Nimm dir bitte eine Minute und bewerte kurz, wie Fahrrad, Übergabe, Kommunikation und Preis-Leistung geklappt haben. Die Sterne sind schnell vergeben, ein Text ist vollkommen optional." : "Please take a minute to rate the bike, handover, communication and value for money. The stars are quick to select, and a comment is completely optional.")}${`<div style="margin-top:16px">${criteria}</div>`}`, "#eef2ff")}${emailCard(`${emailLabel(de ? "Buchung" : "Booking")}<strong style="color:#171a1d;font-size:15px">${escapeHtml(input.orderNumber)}</strong>`)}`,
+      ? `Hallo ${greeting}, deine Fahrradmiete ist abgeschlossen – jetzt zählt dein Eindruck.`
+      : `Hello ${greeting}, your bike rental is complete – now we would love to hear your impression.`,
+    content: `${emailCard(`${emailParagraph(de ? "Nimm dir bitte eine Minute und bewerte kurz deine abgeschlossene Fahrradmiete: Fahrrad, Übergabe, Kommunikation und Preis-Leistung. Die Sterne sind schnell vergeben, ein Text ist vollkommen optional." : "Please take a minute to rate your completed bike rental: the bike, handover, communication and value for money. The stars are quick to select, and a comment is completely optional.")}${`<div style="margin-top:16px">${criteria}</div>`}`, "#eef2ff")}${emailCard(`${emailLabel(de ? "Auftrag" : "Order")}<strong style="color:#171a1d;font-size:15px">${escapeHtml(input.orderNumber)}</strong>`)}`,
     cta: { label: de ? "Feedback abgeben" : "Leave feedback", href: feedbackPageUrl(input.token) },
   });
   return { subject, text, html };

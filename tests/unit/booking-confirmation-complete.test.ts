@@ -141,9 +141,6 @@ describe("booking confirmation completion API", () => {
       paymentIntentId: "pi_test_confirmation",
       offerToken: token,
     });
-    expect(confirmationMocks.dispatchNextOutboxMail).toHaveBeenCalledWith(
-      confirmationMocks.getDatabase(),
-      expect.any(Number),
-    );
+    expect(confirmationMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
   });
 });
