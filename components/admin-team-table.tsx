@@ -477,7 +477,14 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="team-edit-role">Rolle</FieldLabel>
-                  <Select value={role} onValueChange={(value) => value && setRole(value as typeof role)}>
+                  <Select
+                    items={[
+                      { value: "admin", label: "Admin" },
+                      { value: "standortuser", label: "Standortuser" },
+                    ]}
+                    value={role}
+                    onValueChange={(value) => value && setRole(value as typeof role)}
+                  >
                     <SelectTrigger id="team-edit-role" className="w-full">
                       <SelectValue>{role === "admin" ? "Admin" : "Standortuser"}</SelectValue>
                     </SelectTrigger>
@@ -492,7 +499,11 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
                 {role === "standortuser" ? (
                   <Field>
                     <FieldLabel htmlFor="team-edit-location">Standort</FieldLabel>
-                    <Select value={locationKey} onValueChange={(value) => value && setLocationKey(value)}>
+                    <Select
+                      items={Object.entries(locationLabels).map(([value, label]) => ({ value, label }))}
+                      value={locationKey}
+                      onValueChange={(value) => value && setLocationKey(value)}
+                    >
                       <SelectTrigger id="team-edit-location" className="w-full">
                         <SelectValue>{locationLabels[locationKey]}</SelectValue>
                       </SelectTrigger>
@@ -546,6 +557,10 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
                 <Field>
                   <FieldLabel htmlFor="team-invite-role">Rolle</FieldLabel>
                   <Select
+                    items={[
+                      { value: "admin", label: "Admin" },
+                      { value: "standortuser", label: "Standortuser" },
+                    ]}
                     value={inviteRole}
                     onValueChange={(value) => value && setInviteRole(value as typeof inviteRole)}
                   >
@@ -563,7 +578,11 @@ export function AdminTeamTable({ users: initialUsers, currentUserId, locationLab
                 {inviteRole === "standortuser" ? (
                   <Field>
                     <FieldLabel htmlFor="team-invite-location">Standort</FieldLabel>
-                    <Select value={inviteLocationKey} onValueChange={(value) => value && setInviteLocationKey(value)}>
+                    <Select
+                      items={Object.entries(locationLabels).map(([value, label]) => ({ value, label }))}
+                      value={inviteLocationKey}
+                      onValueChange={(value) => value && setInviteLocationKey(value)}
+                    >
                       <SelectTrigger id="team-invite-location" className="w-full">
                         <SelectValue>{locationLabels[inviteLocationKey]}</SelectValue>
                       </SelectTrigger>

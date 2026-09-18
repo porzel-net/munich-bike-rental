@@ -258,6 +258,7 @@ export function GlobalSettingsPanel({ initialAccounts }: { initialAccounts: Fina
               <Field>
                 <FieldLabel htmlFor="financial-account-type">Kontoart</FieldLabel>
                 <Select
+                  items={accountTypes}
                   value={form.type}
                   onValueChange={(value) =>
                     value && setForm((current) => ({ ...current, type: value as FinancialAccount["type"] }))

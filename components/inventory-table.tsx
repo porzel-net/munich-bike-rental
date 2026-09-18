@@ -1027,7 +1027,11 @@ function InventoryDialog({
           <FieldGroup className="py-6">
             <Field>
               <FieldLabel htmlFor="inventory-location">Standort</FieldLabel>
-              <Select value={location} onValueChange={(value) => value && setLocation(value as LocationOption["key"])}>
+              <Select
+                items={locations.map((entry) => ({ value: entry.key, label: entry.label }))}
+                value={location}
+                onValueChange={(value) => value && setLocation(value as LocationOption["key"])}
+              >
                 <SelectTrigger id="inventory-location" className="w-full">
                   <SelectValue>{locations.find((entry) => entry.key === location)?.label}</SelectValue>
                 </SelectTrigger>
@@ -1091,6 +1095,7 @@ function InventoryDialog({
                 <Field>
                   <FieldLabel htmlFor="inventory-category">Kategorie</FieldLabel>
                   <Select
+                    items={equipmentCategories.map((value) => ({ value, label: equipmentCategoryLabels[value] }))}
                     value={category}
                     onValueChange={(value) => {
                       if (!value) return;
