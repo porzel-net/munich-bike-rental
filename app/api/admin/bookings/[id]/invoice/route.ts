@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { renderInvoicePdf } from "@/lib/bookings/invoice-pdf";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
-import { parseOfferQuoteSnapshot, type OfferQuote } from "@/lib/bookings/quotes";
+import { applyCustomOfferPrice, parseOfferQuoteSnapshot, type OfferQuote } from "@/lib/bookings/quotes";
 import { getDatabase } from "@/lib/db/client";
 import { bookingOffers, bookingRequestedItems, bookings } from "@/lib/db/schema";
 import { rentalLocationLabels } from "@/lib/inquiries/catalog";
@@ -49,7 +49,16 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     );
 
   const requestedItems = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, id)).all();
-  const quote = parseOfferQuoteSnapshot(offer.priceSnapshotJson) as OfferQuote;
+  const storedQuote = parseOfferQuoteSnapshot(offer.priceSnapshotJson) as OfferQuote;
+  const quote = applyCustomOfferPrice(
+    {
+      ...storedQuote,
+      offeredItems: storedQuote.offeredItems.filter((item) =>
+        requestedItems.some((requested) => requested.id === item.requestedItemId),
+      ),
+    },
+    booking.quotedTotalCents,
+  );
   const location =
     rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
   const pdf = await renderInvoicePdf({
@@ -64,12 +73,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     pickupTime: booking.pickupTime,
     dropoffTime: booking.dropoffTime,
     location,
-    quote: {
-      ...quote,
-      offeredItems: quote.offeredItems.filter((item) =>
-        requestedItems.some((requested) => requested.id === item.requestedItemId),
-      ),
-    },
+    quote,
     paidAmountCents: quote.totalCents - payment.openCents,
   });
 

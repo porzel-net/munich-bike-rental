@@ -233,7 +233,7 @@ describe("booking mail threads", () => {
         status: "confirmed",
         invoiceNumber: "YBR-2026-0001",
         invoiceIssuedAt: timestamp,
-        quotedTotalCents: 12_000,
+        quotedTotalCents: 8_000,
         createdAt: timestamp,
         updatedAt: timestamp,
       })
@@ -265,8 +265,8 @@ describe("booking mail threads", () => {
       .get();
     db.insert(journalLines)
       .values([
-        { entryId: charge.id, account: "accounts_receivable", amountCents: 12_000 },
-        { entryId: charge.id, account: "rental_revenue", amountCents: -12_000 },
+        { entryId: charge.id, account: "accounts_receivable", amountCents: 8_000 },
+        { entryId: charge.id, account: "rental_revenue", amountCents: -8_000 },
       ])
       .run();
     const payment = db
@@ -282,8 +282,8 @@ describe("booking mail threads", () => {
       .get();
     db.insert(journalLines)
       .values([
-        { entryId: payment.id, account: "stripe_clearing", amountCents: 12_000 },
-        { entryId: payment.id, account: "accounts_receivable", amountCents: -12_000 },
+        { entryId: payment.id, account: "stripe_clearing", amountCents: 8_000 },
+        { entryId: payment.id, account: "accounts_receivable", amountCents: -8_000 },
       ])
       .run();
     const mail = db
@@ -310,7 +310,8 @@ describe("booking mail threads", () => {
       expect.objectContaining({
         invoiceNumber: "YBR-2026-0001",
         location: "München",
-        paidAmountCents: 12_000,
+        paidAmountCents: 8_000,
+        quote: expect.objectContaining({ totalCents: 8_000 }),
       }),
     );
     expect(sendMail).toHaveBeenLastCalledWith(

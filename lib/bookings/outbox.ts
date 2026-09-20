@@ -12,7 +12,7 @@ import {
 import { companyToVCard, contactCardFileName } from "../contacts/contact-card";
 import { renderInvoicePdf } from "./invoice-pdf";
 import { getBookingPaymentStatus } from "./service";
-import { parseOfferQuoteSnapshot, type OfferQuote } from "./quotes";
+import { applyCustomOfferPrice, parseOfferQuoteSnapshot, type OfferQuote } from "./quotes";
 import { findLatestBookingThreadMessage } from "../inquiries/mailbox";
 import { reviewBookingEmailThread } from "../inquiries/email-action";
 import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mail-thread";
@@ -44,7 +44,16 @@ async function buildPaidBookingInvoiceAttachment(db: AppDatabase, bookingId: num
     .from(bookingRequestedItems)
     .where(eq(bookingRequestedItems.bookingId, bookingId))
     .all();
-  const quote = parseOfferQuoteSnapshot(offer.priceSnapshotJson) as OfferQuote;
+  const storedQuote = parseOfferQuoteSnapshot(offer.priceSnapshotJson) as OfferQuote;
+  const quote = applyCustomOfferPrice(
+    {
+      ...storedQuote,
+      offeredItems: storedQuote.offeredItems.filter((item) =>
+        requestedItems.some((requested) => requested.id === item.requestedItemId),
+      ),
+    },
+    booking.quotedTotalCents,
+  );
   const location =
     rentalLocationLabels.de[booking.location as keyof typeof rentalLocationLabels.de] ?? booking.location;
   const content = await renderInvoicePdf({
@@ -59,12 +68,7 @@ async function buildPaidBookingInvoiceAttachment(db: AppDatabase, bookingId: num
     pickupTime: booking.pickupTime,
     dropoffTime: booking.dropoffTime,
     location,
-    quote: {
-      ...quote,
-      offeredItems: quote.offeredItems.filter((item) =>
-        requestedItems.some((requested) => requested.id === item.requestedItemId),
-      ),
-    },
+    quote,
     paidAmountCents: quote.totalCents - payment.openCents,
   });
   return {

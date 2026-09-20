@@ -339,7 +339,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       { label: "E-Mail", value: booking.customerEmail },
       { label: "Telefonnummer", value: booking.customerPhone },
       { label: "Anzahl Fahrräder", value: String(items.length) },
-      { label: "Buchungswert", value: formatEuro(latestOffer?.totalCents ?? booking.quotedTotalCents) },
+      { label: "Buchungswert", value: formatEuro(booking.quotedTotalCents) },
       ...(booking.invoiceNumber ? [{ label: "Rechnungsnummer", value: <Kbd>{booking.invoiceNumber}</Kbd> }] : []),
     ],
     [
@@ -721,7 +721,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                   </div>
                   <BookingCommandActions
                     bookingId={booking.id}
-                    bookingTotalCents={latestOffer?.totalCents ?? booking.quotedTotalCents}
+                    bookingTotalCents={booking.quotedTotalCents}
                     invoiceNumber={suggestedInvoiceNumber}
                     periodFrom={booking.periodFrom}
                     periodTo={booking.periodTo}
