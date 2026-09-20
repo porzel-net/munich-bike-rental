@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
+
 import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
-import { communicationMessages, mailOutbox } from "../../lib/db/schema";
-import { getPublicBookingByToken, getPublicBookingContactEmail } from "../../lib/bookings/public";
+import { bookingOffers, communicationMessages, mailOutbox } from "../../lib/db/schema";
+import { getPublicBookingByToken, getPublicBookingContactEmail, getPublicOfferByToken } from "../../lib/bookings/public";
 import { createBooking } from "../../lib/bookings/service";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 
@@ -84,5 +86,45 @@ describe("public booking link", () => {
       weekendPriceCents: 6_900,
     });
     expect(getPublicBookingContactEmail(connection.db, token!)).toBe("test@example.com");
+  });
+
+  it("uses the current booking amount after an accepted offer was corrected", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    seedRentalInventoryIfEmpty(connection.db);
+
+    const created = createBooking(connection.db, {
+      customerName: "Test Kunde",
+      customerEmail: "test@example.com",
+      customerPhone: "11111111111",
+      location: "munich",
+      periodFrom: "2027-02-03",
+      periodTo: "2027-02-04",
+      pickupTime: "10:00",
+      dropoffTime: "12:00",
+      customerMessage: "",
+      communicationLocale: "de",
+      source: "manual",
+      quotedTotalCents: 8_000,
+      requestedItems: [{ requestedLabel: "Endurace CF SL 8 - S", heightCm: 180 }],
+    });
+    const token = "accepted-offer-token";
+    const timestamp = new Date();
+    connection.db
+      .insert(bookingOffers)
+      .values({
+        bookingId: created.id,
+        offerNumber: 1,
+        status: "accepted",
+        tokenHash: createHash("sha256").update(token).digest("hex"),
+        totalCents: 12_000,
+        priceSnapshotJson: JSON.stringify({ totalCents: 12_000, offeredItems: [] }),
+        expiresAt: timestamp,
+        acceptedAt: timestamp,
+        createdAt: timestamp,
+      })
+      .run();
+
+    expect(getPublicOfferByToken(connection.db, token)?.totalCents).toBe(8_000);
   });
 });

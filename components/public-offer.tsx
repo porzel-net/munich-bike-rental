@@ -157,6 +157,11 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
     (currentOffer.quote.standardTotalCents !== undefined
       ? Math.max(0, currentOffer.quote.standardTotalCents - currentOffer.totalCents)
       : 0);
+  const individualSurchargeCents =
+    currentOffer.quote.customSurchargeCents ??
+    (currentOffer.quote.standardTotalCents !== undefined
+      ? Math.max(0, currentOffer.totalCents - currentOffer.quote.standardTotalCents)
+      : 0);
   const statusLabels: Record<string, string> = de
     ? {
         inquiry_received: "Anfrage eingegangen",
@@ -560,6 +565,12 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                     <div className="public-offer-totals__discount">
                       <span>{de ? "Individueller Rabatt" : "Individual discount"}</span>
                       <strong>−{formatEuro(individualDiscountCents, currentOffer.booking.locale)}</strong>
+                    </div>
+                  ) : null}
+                  {individualSurchargeCents > 0 ? (
+                    <div className="public-offer-totals__discount">
+                      <span>{de ? "Individueller Aufpreis" : "Individual surcharge"}</span>
+                      <strong>+{formatEuro(individualSurchargeCents, currentOffer.booking.locale)}</strong>
                     </div>
                   ) : null}
                   <div className="public-offer-total">

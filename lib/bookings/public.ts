@@ -112,7 +112,12 @@ function buildPublicBookingView(
       status: booking.status,
       updatedAt: booking.updatedAt.toISOString(),
     },
-    totalCents: snapshot === null ? 0 : (offer?.totalCents ?? booking.quotedTotalCents),
+    totalCents:
+      snapshot === null
+        ? 0
+        : offer?.status === "accepted"
+          ? booking.quotedTotalCents
+          : (offer?.totalCents ?? booking.quotedTotalCents),
     quote: {
       bikeSubtotalCents: snapshot?.bikeSubtotalCents ?? 0,
       equipmentSubtotalCents: snapshot?.equipmentSubtotalCents ?? 0,
