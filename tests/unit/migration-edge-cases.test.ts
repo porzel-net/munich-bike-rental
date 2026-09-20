@@ -89,7 +89,9 @@ describe("migration edge cases", () => {
 
     const reopened = createDatabaseConnection(databasePath);
     connections.push(reopened);
-    expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(100);
+    expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(
+      100,
+    );
     expect(reopened.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });
 
@@ -191,7 +193,10 @@ describe("migration edge cases", () => {
         FROM booking_asset_allocations
         ORDER BY booking_id
       `),
-    ).toEqual([{ booking_id: 1, asset_id: 1 }, { booking_id: 5, asset_id: 1 }]);
+    ).toEqual([
+      { booking_id: 1, asset_id: 1 },
+      { booking_id: 5, asset_id: 1 },
+    ]);
     expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });
 

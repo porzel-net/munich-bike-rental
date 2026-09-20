@@ -5,7 +5,11 @@ import { eq } from "drizzle-orm";
 
 import { createDatabaseConnection } from "../../lib/db/client";
 import { bookingOffers, communicationMessages, mailOutbox } from "../../lib/db/schema";
-import { getPublicBookingByToken, getPublicBookingContactEmail, getPublicOfferByToken } from "../../lib/bookings/public";
+import {
+  getPublicBookingByToken,
+  getPublicBookingContactEmail,
+  getPublicOfferByToken,
+} from "../../lib/bookings/public";
 import { createBooking } from "../../lib/bookings/service";
 import { seedRentalInventoryIfEmpty } from "../../lib/inventory/seed";
 
