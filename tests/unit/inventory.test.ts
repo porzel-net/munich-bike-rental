@@ -63,7 +63,7 @@ describe("location inventory", () => {
     expect(munich.equipmentPrices).toEqual(
       expect.arrayContaining([
         { key: "bikepacking-bag", priceCents: 2_500 },
-        { key: "glasses", priceCents: 500 },
+        { key: "glasses", priceCents: 0 },
         { key: "bottle-holder", priceCents: 0 },
         { key: "repair-kit", priceCents: 0 },
       ]),
@@ -189,7 +189,7 @@ describe("location inventory", () => {
           needsGlasses: true,
         },
       ]),
-    ).toBe(6_500);
+    ).toBe(6_000);
   });
 
   it("applies the configured location discounts to future rental calculations", () => {
@@ -374,9 +374,9 @@ describe("location inventory", () => {
     ).toMatchObject({
       rentalDays: 1,
       bikeSubtotalCents: 4_900,
-      equipmentSubtotalCents: 3_000,
+      equipmentSubtotalCents: 2_500,
       discountCents: 0,
-      totalCents: 7_900,
+      totalCents: 7_400,
     });
   });
 });

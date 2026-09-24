@@ -1078,6 +1078,8 @@ export function PortfolioSection({ lang, translations, portfolioItems }: Portfol
 
 export function ContactForm({ lang, translations, defaultLocation = "munich", inventory }: ContactFormProps) {
   const { trackLead, saveAll } = useConsent();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [location, setLocation] = useState<RentalLocation>(defaultLocation);
   const [name, setName] = useState("");
@@ -1107,6 +1109,63 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
   const confirmRentalDaysRef = useRef(false);
   const affiliateKey = getAffiliateKey(searchParams);
   const bikeOptions = inventory.requestBikeOptions;
+  const showEnglishLanguageHint = lang === "de" && phone.trim().length > 0 && !phone.trim().startsWith("+49");
+
+  useEffect(() => {
+    if (lang !== "en") {
+      return;
+    }
+
+    const storageKey = "ybr-contact-language-switch";
+    try {
+      const storedDraft = sessionStorage.getItem(storageKey);
+      if (!storedDraft) {
+        return;
+      }
+
+      sessionStorage.removeItem(storageKey);
+      const draft = JSON.parse(storedDraft) as {
+        name?: unknown;
+        contact?: unknown;
+        phone?: unknown;
+        scrollY?: unknown;
+      };
+      const frame = window.requestAnimationFrame(() => {
+        if (typeof draft.name === "string") setName(draft.name);
+        if (typeof draft.contact === "string") setContact(draft.contact);
+        if (typeof draft.phone === "string") setPhone(draft.phone);
+        if (typeof draft.scrollY === "number" && Number.isFinite(draft.scrollY)) {
+          window.scrollTo(0, draft.scrollY);
+        }
+      });
+      return () => window.cancelAnimationFrame(frame);
+    } catch {
+      // Ignore a stale or malformed draft and keep the current form state.
+    }
+  }, [lang]);
+
+  const switchToEnglish = () => {
+    try {
+      sessionStorage.setItem(
+        "ybr-contact-language-switch",
+        JSON.stringify({ name, contact, phone, scrollY: window.scrollY }),
+      );
+    } catch {
+      // Continue with the language switch if browser storage is unavailable.
+    }
+    const search = new URLSearchParams(searchParams.toString());
+    const localizedRentalMatch = pathname.match(/^\/(?:de|en)(\/rennradverleih\/.*)$/);
+    const nextPathname = localizedRentalMatch ? `/en${localizedRentalMatch[1]}` : pathname;
+
+    if (localizedRentalMatch) {
+      search.delete("lang");
+    } else {
+      search.set("lang", "en");
+    }
+
+    const query = search.toString();
+    router.push(`${nextPathname}${query ? `?${query}` : ""}${window.location.hash}`, { scroll: false });
+  };
 
   const clearFieldError = (field: ContactField) => {
     setFieldErrors((current) => {
@@ -1330,6 +1389,14 @@ export function ContactForm({ lang, translations, defaultLocation = "munich", in
             <p className="contact-form__hint" id="phone-hint">
               {translations.form.phoneHint}
             </p>
+            {showEnglishLanguageHint ? (
+              <p className="contact-form__hint contact-form__language-hint">
+                If you’d prefer to fill in this form and communicate in English, click{" "}
+                <button type="button" className="contact-form__language-link" onClick={switchToEnglish}>
+                  here to switch the whole page to English.
+                </button>
+              </p>
+            ) : null}
             {fieldErrors.phone ? (
               <p className="contact-form__error" id="phone-error">
                 {fieldErrors.phone}

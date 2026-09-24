@@ -253,24 +253,19 @@ export function ActionItem({
 }) {
   return (
     <Item
-      className="min-h-24 cursor-pointer text-left hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-50"
+      className="min-h-0 cursor-pointer gap-3 px-3 py-2.5 text-left hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-50"
       render={<button type="button" disabled={disabled} onClick={onClick} />}
       variant={destructive ? "outline" : "muted"}
     >
-      <ItemMedia variant="icon">
-        <div
-          className={
-            destructive
-              ? "flex size-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive"
-              : "flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary"
-          }
-        >
-          {icon}
-        </div>
+      <ItemMedia
+        variant="icon"
+        className={`mt-0.5 self-start [&_svg]:size-3.5 ${destructive ? "text-destructive" : "text-muted-foreground"}`}
+      >
+        {icon}
       </ItemMedia>
-      <ItemContent>
-        <ItemTitle>{title}</ItemTitle>
-        <ItemDescription>{description}</ItemDescription>
+      <ItemContent className="self-start">
+        <ItemTitle className="line-clamp-none">{title}</ItemTitle>
+        <ItemDescription className="line-clamp-none">{description}</ItemDescription>
       </ItemContent>
       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
     </Item>

@@ -5,6 +5,7 @@ import { Loader2Icon, MailIcon, RefreshCwIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChatSeparator } from "@/components/ui/chat-separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { splitMailThreadBody } from "@/lib/inquiries/mail-thread";
 import { repairMojibake } from "@/lib/inquiries/text";
@@ -62,15 +63,18 @@ function MailThreadSkeleton() {
         </div>
       </div>
       {[0, 1, 2].map((index) => (
-        <div className="rounded-2xl border bg-card p-4" key={index}>
-          <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-24" />
-          </div>
-          <div className="mt-4 space-y-2">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-11/12" />
-            <Skeleton className="h-3 w-3/4" />
+        <div key={index}>
+          {index > 0 ? <ChatSeparator /> : null}
+          <div className="py-4 first:pt-0">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="mt-4 space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-11/12" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
           </div>
         </div>
       ))}
@@ -169,44 +173,47 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
       ) : null}
 
       {messages.length ? (
-        <div className="space-y-4">
-          {messages.map((message) => {
+        <div>
+          {messages.map((message, index) => {
             const body = splitMailThreadBody(message.plainText);
             const visibleText = body.visibleText ? formatMailText(body.visibleText) : null;
             const quotedText = body.quotedText ? formatMailText(body.quotedText) : null;
 
             return (
-              <article className="rounded-2xl border bg-card p-4 shadow-sm" key={message.id}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={message.direction === "inbound" ? "secondary" : "outline"}>
-                      {message.direction === "inbound" ? "Eingang" : "Ausgang"}
-                    </Badge>
-                    <p className="font-medium">{formatMailSubject(message.subject)}</p>
+              <div key={message.id}>
+                {index > 0 ? <ChatSeparator /> : null}
+                <article className="py-4 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={message.direction === "inbound" ? "secondary" : "outline"}>
+                        {message.direction === "inbound" ? "Eingang" : "Ausgang"}
+                      </Badge>
+                      <p className="font-medium">{formatMailSubject(message.subject)}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{formatDateTime(message.sentAt)}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{formatDateTime(message.sentAt)}</span>
-                </div>
-                <div className="mt-3 space-y-3">
-                  {visibleText ? (
-                    <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-muted-foreground">
-                      {visibleText}
-                    </pre>
-                  ) : quotedText ? (
-                    <p className="text-sm text-muted-foreground">Diese Nachricht enthält nur zitierten Verlauf.</p>
-                  ) : null}
-
-                  {quotedText ? (
-                    <details className="rounded-xl border border-dashed bg-muted/20 px-3 py-2">
-                      <summary className="cursor-pointer text-sm font-medium text-muted-foreground outline-none">
-                        Vorherigen E-Mail-Verlauf anzeigen
-                      </summary>
-                      <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-muted-foreground">
-                        {quotedText}
+                  <div className="mt-3 space-y-3">
+                    {visibleText ? (
+                      <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-muted-foreground">
+                        {visibleText}
                       </pre>
-                    </details>
-                  ) : null}
-                </div>
-              </article>
+                    ) : quotedText ? (
+                      <p className="text-sm text-muted-foreground">Diese Nachricht enthält nur zitierten Verlauf.</p>
+                    ) : null}
+
+                    {quotedText ? (
+                      <details className="rounded-xl border border-dashed bg-muted/20 px-3 py-2">
+                        <summary className="cursor-pointer text-sm font-medium text-muted-foreground outline-none">
+                          Vorherigen E-Mail-Verlauf anzeigen
+                        </summary>
+                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-muted-foreground">
+                          {quotedText}
+                        </pre>
+                      </details>
+                    ) : null}
+                  </div>
+                </article>
+              </div>
             );
           })}
         </div>

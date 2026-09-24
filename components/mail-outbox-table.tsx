@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
+  CheckIcon,
   CircleAlertIcon,
   RefreshCwIcon,
   ArrowUpDownIcon,
@@ -32,6 +33,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -40,8 +51,9 @@ import {
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/datetime";
+import { MAX_MAIL_ATTEMPTS } from "@/lib/bookings/outbox-constants";
 
-export type MailOutboxStatus = "queued" | "leased" | "sent" | "failed";
+export type MailOutboxStatus = "queued" | "leased" | "sent" | "failed" | "cancelled";
 
 export type MailOutboxRow = {
   id: number;
@@ -59,6 +71,7 @@ export type MailOutboxRow = {
   plainText: string;
   lastError: string | null;
   sentMailboxError: string | null;
+  acknowledgedAt: string | null;
 };
 
 const pageSizeItems = [
@@ -95,6 +108,8 @@ function statusView(status: MailOutboxStatus) {
       return { label: "Versendet", variant: "success" as const };
     case "failed":
       return { label: "Fehlgeschlagen", variant: "destructive" as const };
+    case "cancelled":
+      return { label: "Abgebrochen", variant: "secondary" as const };
   }
 }
 
@@ -120,6 +135,7 @@ export function MailOutboxTable({ rows, search, status }: { rows: MailOutboxRow[
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [cancelCandidate, setCancelCandidate] = useState<MailOutboxRow | null>(null);
 
   const retry = useCallback(
     async (row: MailOutboxRow) => {
@@ -132,6 +148,45 @@ export function MailOutboxTable({ rows, search, status }: { rows: MailOutboxRow[
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Die Mail konnte nicht erneut eingereiht werden.");
+      } finally {
+        setRetryingId(null);
+      }
+    },
+    [router],
+  );
+
+  const cancelMail = useCallback(
+    async (row: MailOutboxRow) => {
+      setRetryingId(row.id);
+      try {
+        const response = await fetch(`/api/admin/mail-outbox/${row.id}/cancel`, { method: "POST" });
+        const result = (await response.json().catch(() => null)) as { message?: string } | null;
+        if (!response.ok) throw new Error(result?.message ?? "Die Mail konnte nicht abgebrochen werden.");
+        toast.success("E-Mail-Versand wurde abgebrochen.");
+        setCancelCandidate(null);
+        setSelected(null);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Die Mail konnte nicht abgebrochen werden.");
+      } finally {
+        setRetryingId(null);
+      }
+    },
+    [router],
+  );
+
+  const acknowledgeMail = useCallback(
+    async (row: MailOutboxRow) => {
+      setRetryingId(row.id);
+      try {
+        const response = await fetch(`/api/admin/mail-outbox/${row.id}/acknowledge`, { method: "POST" });
+        const result = (await response.json().catch(() => null)) as { message?: string } | null;
+        if (!response.ok) throw new Error(result?.message ?? "Der E-Mail-Versuch konnte nicht bestätigt werden.");
+        toast.success("E-Mail-Versuch als gesehen markiert.");
+        setSelected(null);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Der E-Mail-Versuch konnte nicht bestätigt werden.");
       } finally {
         setRetryingId(null);
       }
@@ -435,7 +490,7 @@ export function MailOutboxTable({ rows, search, status }: { rows: MailOutboxRow[
                   <div>{formatDateTime(selected.sentAt)}</div>
                 </div>
               ) : null}
-              {selected.status !== "sent" ? (
+              {selected.status !== "sent" && selected.status !== "cancelled" ? (
                 <div>
                   <div className="text-muted-foreground">Nächster Versandversuch</div>
                   <div>{formatDateTime(selected.nextAttemptAt)}</div>
@@ -458,10 +513,66 @@ export function MailOutboxTable({ rows, search, status }: { rows: MailOutboxRow[
               <div className="max-h-80 overflow-auto rounded-lg border bg-muted/20 p-4">
                 <pre className="whitespace-pre-wrap font-sans leading-relaxed">{selected.plainText}</pre>
               </div>
+              {selected.acknowledgedAt ? (
+                <div className="text-right text-xs text-muted-foreground">
+                  Als gesehen markiert am {formatDateTime(selected.acknowledgedAt)}
+                </div>
+              ) : null}
+              {selected.attempts >= MAX_MAIL_ATTEMPTS &&
+              (selected.status === "failed" || selected.status === "cancelled") ? (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    disabled={retryingId === selected.id || Boolean(selected.acknowledgedAt)}
+                    onClick={() => void acknowledgeMail(selected)}
+                  >
+                    <CheckIcon />
+                    {selected.acknowledgedAt ? "Gesehen" : "Als gesehen markieren"}
+                  </Button>
+                </div>
+              ) : null}
+              {selected.status === "queued" || selected.status === "failed" ? (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={retryingId === selected.id}
+                    onClick={() => setCancelCandidate(selected)}
+                  >
+                    Versand abbrechen
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(cancelCandidate)} onOpenChange={(open) => !open && setCancelCandidate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>E-Mail-Versand abbrechen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelCandidate
+                ? `Die Mail „${cancelCandidate.subject}“ wird nicht weiter versendet. Dieser Vorgang kann nicht rückgängig gemacht werden.`
+                : "Die Mail wird nicht weiter versendet."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zurück</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!cancelCandidate || retryingId === cancelCandidate.id}
+              onClick={(event) => {
+                event.preventDefault();
+                if (cancelCandidate) void cancelMail(cancelCandidate);
+              }}
+            >
+              Versand abbrechen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
 import { communicationMessages } from "@/lib/db/schema";
-import { reviewBookingEmailThread } from "@/lib/inquiries/email-action";
+import { EMAIL_ACTION_REVIEW_ENABLED, reviewBookingEmailThread } from "@/lib/inquiries/email-action";
 import { syncBookingMailThread } from "@/lib/inquiries/mailbox";
 
 export const runtime = "nodejs";
@@ -18,6 +18,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     );
   }
   const { db, booking } = command;
+
+  if (!EMAIL_ACTION_REVIEW_ENABLED) {
+    return NextResponse.json(
+      { message: "Die KI-Prüfung von E-Mail-Verläufen ist vorübergehend pausiert." },
+      { status: 409 },
+    );
+  }
 
   if (booking.source === "legacy") {
     return NextResponse.json({ message: "Importierte Buchungen werden nicht per KI geprüft." }, { status: 422 });

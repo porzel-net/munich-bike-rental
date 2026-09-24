@@ -47,6 +47,11 @@ function activityFinancialTransactionId(activityId: string) {
   return match ? Number(match[1]) : null;
 }
 
+function activityUnmatchedStripePaymentId(activityId: string) {
+  const match = activityId.match(/^stripe-unmatched-payment-([0-9]+)$/);
+  return match ? Number(match[1]) : null;
+}
+
 function activityFingerprint(activity: DashboardActivity) {
   return createHash("sha256")
     .update(
@@ -79,6 +84,8 @@ function recipientsForActivity(db: AppDatabase, activity: DashboardActivity, sub
     );
   }
   if (activityFinancialTransactionId(activity.id))
+    return subscriptions.filter((subscription) => subscription.role === "admin");
+  if (activityUnmatchedStripePaymentId(activity.id))
     return subscriptions.filter((subscription) => subscription.role === "admin");
   return [];
 }

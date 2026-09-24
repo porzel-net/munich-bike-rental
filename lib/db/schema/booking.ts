@@ -19,7 +19,7 @@ export const bookingSources = ["web", "manual", "legacy"] as const;
 export const communicationLocales = ["de", "en"] as const;
 export const offerStatuses = ["sent", "accepted", "expired", "revoked"] as const;
 export const assetStates = ["active", "maintenance", "retired"] as const;
-export const outboxStatuses = ["queued", "leased", "sent", "failed"] as const;
+export const outboxStatuses = ["queued", "leased", "sent", "failed", "cancelled"] as const;
 export const ledgerEntryKinds = [
   "rental_charge",
   "cancellation_fee",
@@ -439,6 +439,7 @@ export const mailOutbox = sqliteTable(
     sentMailboxAt: integer("sent_mailbox_at", { mode: "timestamp_ms" }),
     sentMailboxError: text("sent_mailbox_error"),
     lastError: text("last_error"),
+    acknowledgedAt: integer("acknowledged_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [

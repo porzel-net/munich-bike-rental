@@ -44,7 +44,7 @@ export default async function MailOutboxPage({
       result[row.mail.status as MailOutboxStatus] += 1;
       return result;
     },
-    { queued: 0, leased: 0, sent: 0, failed: 0 } as Record<MailOutboxStatus, number>,
+    { queued: 0, leased: 0, sent: 0, failed: 0, cancelled: 0 } as Record<MailOutboxStatus, number>,
   );
   const rows: MailOutboxRow[] = databaseRows
     .filter(({ mail }) => status === "all" || mail.status === status)
@@ -71,6 +71,7 @@ export default async function MailOutboxPage({
       plainText: mail.plainText,
       lastError: mail.lastError,
       sentMailboxError: mail.sentMailboxError,
+      acknowledgedAt: mail.acknowledgedAt?.toISOString() ?? null,
     }));
   const pendingCount = counts.queued + counts.leased;
 
@@ -90,11 +91,12 @@ export default async function MailOutboxPage({
           <main className="admin-main flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <AdminPageHeader
               title="E-Mail-Postausgang"
-              description="Alle ausgehenden Mails werden zuerst dauerhaft eingereiht und anschließend vom Hintergrundversand verarbeitet."
+              description="Alle ausgehenden Mails werden zuerst dauerhaft eingereiht, maximal zehnmal versucht und können vor dem Versand manuell abgebrochen werden."
               actions={
                 <>
                   <Badge variant={pendingCount ? "default" : "success"}>{pendingCount} offen</Badge>
                   <Badge variant={counts.failed ? "destructive" : "outline"}>{counts.failed} Fehler</Badge>
+                  <Badge variant={counts.cancelled ? "destructive" : "outline"}>{counts.cancelled} abgebrochen</Badge>
                   <Badge variant="outline">{counts.sent} versendet</Badge>
                 </>
               }

@@ -57,16 +57,10 @@ export function hasFinancialDocumentForTransaction(db: AppDatabase, transactionI
   );
 }
 
-export async function attachFinancialDocument(
+export async function storeFinancialDocument(
   db: AppDatabase,
-  input: { transactionId: number; file: File; userId: string; description?: string },
+  input: { file: File; userId: string; description?: string },
 ) {
-  const transaction = db
-    .select({ id: financialTransactions.id })
-    .from(financialTransactions)
-    .where(eq(financialTransactions.id, input.transactionId))
-    .get();
-  if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
   if (input.file.size <= 0 || input.file.size > MAX_DOCUMENT_BYTES)
     throw new BookingCommandError("Der Beleg muss zwischen 1 Byte und 15 MB groß sein.");
   if (input.description && input.description.length > 1_000)
@@ -109,12 +103,31 @@ export async function attachFinancialDocument(
     }
   }
 
+  return { documentId, sha256 };
+}
+
+export function linkFinancialDocument(
+  db: AppDatabase,
+  input: { transactionId: number; documentId: number; description?: string },
+) {
+  const transaction = db
+    .select({ id: financialTransactions.id })
+    .from(financialTransactions)
+    .where(eq(financialTransactions.id, input.transactionId))
+    .get();
+  if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
+  const document = db
+    .select({ id: financialDocuments.id })
+    .from(financialDocuments)
+    .where(eq(financialDocuments.id, input.documentId))
+    .get();
+  if (!document) throw new BookingCommandError("Beleg nicht gefunden.");
   const linked = db
     .select({ id: financialDocumentLinks.id })
     .from(financialDocumentLinks)
     .where(
       and(
-        eq(financialDocumentLinks.documentId, documentId),
+        eq(financialDocumentLinks.documentId, input.documentId),
         eq(financialDocumentLinks.transactionId, input.transactionId),
       ),
     )
@@ -122,7 +135,7 @@ export async function attachFinancialDocument(
   if (!linked) {
     db.insert(financialDocumentLinks)
       .values({
-        documentId,
+        documentId: input.documentId,
         transactionId: input.transactionId,
         linkType: "evidence",
         note: input.description?.trim().slice(0, 1_000) || "Beleg zur Banktransaktion",
@@ -131,7 +144,20 @@ export async function attachFinancialDocument(
       .onConflictDoNothing()
       .run();
   }
-  return { documentId, sha256 };
+  return { documentId: input.documentId };
+}
+
+export async function attachFinancialDocument(
+  db: AppDatabase,
+  input: { transactionId: number; file: File; userId: string; description?: string },
+) {
+  const stored = await storeFinancialDocument(db, input);
+  linkFinancialDocument(db, {
+    transactionId: input.transactionId,
+    documentId: stored.documentId,
+    description: input.description,
+  });
+  return stored;
 }
 
 export async function detachFinancialDocument(db: AppDatabase, input: { transactionId: number; documentId: number }) {

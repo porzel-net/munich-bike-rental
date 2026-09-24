@@ -5,7 +5,11 @@ import { hasTrustedOrigin } from "@/lib/auth/request";
 import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { bookings } from "@/lib/db/schema";
-import { EMAIL_ACTION_START_AT, reviewLatestUnprocessedEmailThread } from "@/lib/inquiries/email-action";
+import {
+  EMAIL_ACTION_REVIEW_ENABLED,
+  EMAIL_ACTION_START_AT,
+  reviewLatestUnprocessedEmailThread,
+} from "@/lib/inquiries/email-action";
 import { syncBookingMailThread } from "@/lib/inquiries/mailbox";
 
 export const runtime = "nodejs";
@@ -17,6 +21,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { message: "Deine Admin-Sitzung ist nicht mehr gültig oder du hast keine Berechtigung für die KI-Prüfung." },
       { status: 401 },
+    );
+  }
+
+  if (!EMAIL_ACTION_REVIEW_ENABLED) {
+    return NextResponse.json(
+      { ok: true, paused: true, message: "Die KI-Prüfung von E-Mail-Verläufen ist vorübergehend pausiert." },
+      { headers: { "Cache-Control": "no-store" } },
     );
   }
 

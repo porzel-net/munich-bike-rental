@@ -1,12 +1,17 @@
 import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
 
 import type { AppDatabase } from "@/lib/db/client";
-import { bookings, financialTransactions, journalEntries } from "@/lib/db/schema";
+import { bookings, financialTransactions, journalEntries, mailOutbox, stripeUnmatchedPayments } from "@/lib/db/schema";
 import { receivedAtFromOrderNumber } from "@/lib/bookings/order-number";
 import type { RentalLocation } from "@/lib/inquiries/catalog";
 
 export type DashboardActivityKind =
-  "expired_booking" | "paid_booking" | "bank_transaction" | "incoming_booking_request";
+  | "expired_booking"
+  | "paid_booking"
+  | "bank_transaction"
+  | "incoming_booking_request"
+  | "mail_delivery_failed"
+  | "stripe_unmatched_payment";
 
 export type DashboardActivity = {
   id: string;
@@ -96,6 +101,40 @@ export function getDashboardActivities(
         .all()
     : [];
 
+  const cancelledMailRows = db
+    .select({
+      id: mailOutbox.id,
+      subject: mailOutbox.subject,
+      nextAttemptAt: mailOutbox.nextAttemptAt,
+      orderNumber: bookings.orderNumber,
+      location: bookings.location,
+    })
+    .from(mailOutbox)
+    .innerJoin(bookings, eq(mailOutbox.bookingId, bookings.id))
+    .where(
+      and(
+        eq(mailOutbox.status, "cancelled"),
+        isNull(mailOutbox.acknowledgedAt),
+        location ? eq(bookings.location, location) : undefined,
+      ),
+    )
+    .all();
+
+  const unmatchedStripePayments = isAdmin
+    ? db
+        .select({
+          id: stripeUnmatchedPayments.id,
+          stripeSessionId: stripeUnmatchedPayments.stripeSessionId,
+          amountCents: stripeUnmatchedPayments.amountCents,
+          currency: stripeUnmatchedPayments.currency,
+          customerEmail: stripeUnmatchedPayments.customerEmail,
+          occurredAt: stripeUnmatchedPayments.occurredAt,
+        })
+        .from(stripeUnmatchedPayments)
+        .orderBy(desc(stripeUnmatchedPayments.occurredAt), desc(stripeUnmatchedPayments.id))
+        .all()
+    : [];
+
   return [
     ...allBookingMetrics
       .filter((booking) => booking.status === "expired")
@@ -140,5 +179,32 @@ export function getDashboardActivities(
         occurredAt: booking.createdAt.getTime(),
         isUrgent: Date.now() - booking.createdAt.getTime() >= 24 * 60 * 60 * 1000,
       })),
+    ...cancelledMailRows.map((mail) => ({
+      id: `mail-delivery-failed-${mail.id}`,
+      kind: "mail_delivery_failed" as const,
+      title: "E-Mail-Versand abgebrochen",
+      entityName: `${mail.orderNumber} · ${mail.subject}`,
+      href: `/admin/mail-outbox?status=cancelled&q=${encodeURIComponent(mail.orderNumber)}`,
+      occurredAt: mail.nextAttemptAt.getTime(),
+      isUrgent: true,
+    })),
+    ...unmatchedStripePayments.map((payment) => ({
+      id: `stripe-unmatched-payment-${payment.id}`,
+      kind: "stripe_unmatched_payment" as const,
+      title: "Stripe-Zahlung ohne Buchungszuordnung",
+      entityName: [
+        payment.amountCents === null
+          ? "Betrag unbekannt"
+          : new Intl.NumberFormat("de-DE", {
+              style: "currency",
+              currency: payment.currency,
+            }).format(payment.amountCents / 100),
+        payment.customerEmail?.trim() || "Stripe-Kunde unbekannt",
+        payment.stripeSessionId,
+      ].join(" · "),
+      href: "/admin/accounting",
+      occurredAt: payment.occurredAt.getTime(),
+      isUrgent: true,
+    })),
   ].sort((left, right) => right.occurredAt - left.occurredAt);
 }

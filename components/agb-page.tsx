@@ -489,7 +489,7 @@ export function AgbPageContent({ locale = "de" }: AgbPageContentProps) {
         </section>
 
         <section>
-          <h2>13. Stornierung durch den Mieter</h2>
+          <h2 id="stornierung">13. Stornierung durch den Mieter</h2>
           <p>13.1 Die folgenden Stornierungsbedingungen gelten erst, nachdem:</p>
           <ul className="legal-page__list">
             <li>der Mietvertrag nach Ziffer 2.4 wirksam zustande gekommen ist,</li>
@@ -1109,7 +1109,7 @@ function EnglishAgbPageContent() {
         </section>
 
         <section>
-          <h2>13. Cancellation by the Tenant</h2>
+          <h2 id="stornierung">13. Cancellation by the Tenant</h2>
           <p>13.1 The following cancellation terms only apply after:</p>
           <ul className="legal-page__list">
             <li>the rental agreement has been validly concluded under Section 2.4,</li>

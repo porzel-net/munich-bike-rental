@@ -10,6 +10,8 @@ import {
   bookings,
   dashboardActivityDismissals,
   financialTransactions,
+  mailOutbox,
+  stripeUnmatchedPayments,
   whatsappNotificationOutbox,
   whatsappNotificationState,
 } from "@/lib/db/schema";
@@ -90,12 +92,25 @@ function activityBookingId(activityId: string) {
   return match ? Number(match[1]) : null;
 }
 
+function activityMailOutboxId(activityId: string) {
+  const match = activityId.match(/^mail-delivery-failed-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
 function activityFinancialTransactionId(activityId: string) {
   const match = activityId.match(/^bank-transaction-(\d+)$/);
   return match ? Number(match[1]) : null;
 }
 
+function activityUnmatchedStripePaymentId(activityId: string) {
+  const match = activityId.match(/^stripe-unmatched-payment-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
 function getRecipientsForActivity(db: AppDatabase, activity: DashboardActivity, users: WhatsAppRecipient[]) {
+  // Mail failures can contain customer addresses, subjects and SMTP details.
+  // Keep this admin-only, just like the mail outbox itself.
+  if (activityMailOutboxId(activity.id)) return users.filter((user) => user.role === "admin");
   const bookingId = activityBookingId(activity.id);
   if (bookingId) {
     const booking = db
@@ -111,6 +126,7 @@ function getRecipientsForActivity(db: AppDatabase, activity: DashboardActivity, 
   }
 
   if (activityFinancialTransactionId(activity.id)) return users.filter((user) => user.role === "admin");
+  if (activityUnmatchedStripePaymentId(activity.id)) return users.filter((user) => user.role === "admin");
   return [];
 }
 
@@ -147,6 +163,32 @@ function bookingDetails(db: AppDatabase, bookingId: number) {
 function activityMessage(db: AppDatabase, activity: DashboardActivity) {
   const origin = process.env.APP_ORIGIN?.trim() || process.env.SITE_URL?.trim();
   const link = origin ? `${origin.replace(/\/$/, "")}${activity.href}` : "";
+  const mailId = activityMailOutboxId(activity.id);
+  if (mailId) {
+    const mail = db
+      .select({
+        subject: mailOutbox.subject,
+        recipient: mailOutbox.recipient,
+        attempts: mailOutbox.attempts,
+        lastError: mailOutbox.lastError,
+      })
+      .from(mailOutbox)
+      .where(eq(mailOutbox.id, mailId))
+      .get();
+    if (mail) {
+      return [
+        "🚨 *E-Mail-Versand abgebrochen*",
+        "",
+        `*Betreff:* ${mail.subject}`,
+        `*Empfänger:* ${mail.recipient}`,
+        `*Versuche:* ${mail.attempts}/10`,
+        `*Fehler:* ${mail.lastError?.trim() || "Unbekannter Versandfehler"}`,
+        link,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+  }
   const bookingId = activityBookingId(activity.id);
   const details = bookingId ? bookingDetails(db, bookingId) : null;
   if (details) {
@@ -168,6 +210,41 @@ function activityMessage(db: AppDatabase, activity: DashboardActivity) {
       .get();
     if (transaction) {
       return `🏦 *${activity.title}*\n\n*Gegenpartei:* ${transaction.counterparty?.trim() || "Unbekannt"}\n*Betrag:* ${formatAmount(transaction.amountCents)}\n*Buchungsdatum:* ${formatDateOnly(transaction.bookedAt)}\n*Verwendungszweck:* ${transaction.description?.trim() || transaction.reference?.trim() || "–"}${link ? `\n\n${link}` : ""}`;
+    }
+  }
+  const unmatchedPaymentId = activityUnmatchedStripePaymentId(activity.id);
+  if (unmatchedPaymentId) {
+    const payment = db
+      .select({
+        stripeSessionId: stripeUnmatchedPayments.stripeSessionId,
+        stripePaymentIntentId: stripeUnmatchedPayments.stripePaymentIntentId,
+        amountCents: stripeUnmatchedPayments.amountCents,
+        currency: stripeUnmatchedPayments.currency,
+        customerEmail: stripeUnmatchedPayments.customerEmail,
+        reason: stripeUnmatchedPayments.reason,
+      })
+      .from(stripeUnmatchedPayments)
+      .where(eq(stripeUnmatchedPayments.id, unmatchedPaymentId))
+      .get();
+    if (payment) {
+      const amount =
+        payment.amountCents === null
+          ? "Unbekannt"
+          : new Intl.NumberFormat("de-DE", { style: "currency", currency: payment.currency }).format(
+              payment.amountCents / 100,
+            );
+      return [
+        "🚨 *Stripe-Zahlung ohne Buchungszuordnung*",
+        "",
+        `*Betrag:* ${amount}`,
+        `*Kunde:* ${payment.customerEmail?.trim() || "Unbekannt"}`,
+        `*Stripe-Session:* ${payment.stripeSessionId}`,
+        payment.stripePaymentIntentId ? `*Payment Intent:* ${payment.stripePaymentIntentId}` : null,
+        `*Hinweis:* ${payment.reason}`,
+        link,
+      ]
+        .filter(Boolean)
+        .join("\n");
     }
   }
   return `🚨 *${activity.title}*\n\n*Eintrag:* ${activity.entityName}${link ? `\n\n${link}` : ""}`;
@@ -455,6 +532,8 @@ export async function dispatchNextWhatsAppNotification(db: AppDatabase = getData
   });
   if (!job) return null;
 
+  console.info("WhatsApp notification outbox job leased", { notificationId: job.id, attempt: job.attempts });
+
   const recipient = db
     .select({
       role: authUser.role,
@@ -469,6 +548,9 @@ export async function dispatchNextWhatsAppNotification(db: AppDatabase = getData
     .get();
   if (!recipient || !canReceiveOperationalNotifications(recipient)) {
     db.delete(whatsappNotificationOutbox).where(eq(whatsappNotificationOutbox.id, job.id)).run();
+    console.info("WhatsApp notification outbox job discarded because its recipient is ineligible", {
+      notificationId: job.id,
+    });
     return { id: job.id, status: "discarded" as const };
   }
 
@@ -478,6 +560,7 @@ export async function dispatchNextWhatsAppNotification(db: AppDatabase = getData
       .set({ status: "sent", sentAt: new Date(), leasedAt: null, lastError: null })
       .where(and(eq(whatsappNotificationOutbox.id, job.id), eq(whatsappNotificationOutbox.status, "leased")))
       .run();
+    console.info("WhatsApp notification outbox job sent", { notificationId: job.id, attempt: job.attempts });
     return { id: job.id, status: "sent" as const };
   } catch (error) {
     const retryInMs = Math.min(RETRY_CAP_MS, 1_000 * 2 ** Math.min(job.attempts, 12));
@@ -490,6 +573,12 @@ export async function dispatchNextWhatsAppNotification(db: AppDatabase = getData
       })
       .where(and(eq(whatsappNotificationOutbox.id, job.id), eq(whatsappNotificationOutbox.status, "leased")))
       .run();
+    console.warn("WhatsApp notification outbox job failed and will be retried", {
+      notificationId: job.id,
+      attempt: job.attempts,
+      retryInMs,
+      errorName: error instanceof Error ? error.name : "unknown error",
+    });
     return { id: job.id, status: "failed" as const };
   }
 }

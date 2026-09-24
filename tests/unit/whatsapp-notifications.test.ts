@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createDatabaseConnection } from "../../lib/db/client";
-import { authUser, bookings, whatsappNotificationOutbox } from "../../lib/db/schema";
+import { authUser, bookings, mailOutbox, whatsappNotificationOutbox } from "../../lib/db/schema";
 import { queueWhatsAppNotifications } from "../../lib/whatsapp/notifications";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -106,5 +106,86 @@ describe("WhatsApp activity notifications", () => {
     queueWhatsAppNotifications(db, createdAt);
 
     expect(db.select().from(whatsappNotificationOutbox).all()).toHaveLength(0);
+  });
+
+  it("notifies only admins when a mail is permanently aborted", () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const createdAt = new Date("2026-08-27T09:00:00.000Z");
+    for (const user of [
+      {
+        id: "admin-1",
+        name: "Ada Admin",
+        email: "ada@example.com",
+        role: "admin" as const,
+        locationKey: null,
+        whatsappPhone: "+49 170 1234567",
+      },
+      {
+        id: "regensburg-1",
+        name: "Regensburg Team",
+        email: "regensburg@example.com",
+        role: "standortuser" as const,
+        locationKey: "regensburg" as const,
+        whatsappPhone: "+49 170 7654321",
+      },
+    ]) {
+      db.insert(authUser)
+        .values({ ...user, twoFactorEnabled: true, mustChangePassword: false, createdAt, updatedAt: createdAt })
+        .run();
+    }
+    const booking = db
+      .insert(bookings)
+      .values({
+        orderNumber: "#20260827100000",
+        customerName: "Max Mustermann",
+        customerEmail: "max@example.com",
+        customerPhone: "+49 170 7654321",
+        location: "munich",
+        periodFrom: "2026-08-30",
+        periodTo: "2026-09-01",
+        pickupTime: "10:00",
+        dropoffTime: "10:00",
+        customerMessage: "",
+        communicationLocale: "de",
+        source: "web",
+        status: "offer_sent",
+        quotedTotalCents: 10_000,
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .returning({ id: bookings.id })
+      .get();
+    const mail = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "mail-failure:1",
+        kind: "offer",
+        locale: "de",
+        recipient: "max@example.com",
+        subject: "Angebot",
+        plainText: "Angebot",
+        status: "cancelled",
+        attempts: 10,
+        nextAttemptAt: createdAt,
+        createdAt,
+        lastError: "SMTP offline",
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+
+    queueWhatsAppNotifications(db, createdAt);
+
+    const jobs = db
+      .select()
+      .from(whatsappNotificationOutbox)
+      .all()
+      .filter((job) => job.kind === "activity" && job.activityId === `mail-delivery-failed-${mail.id}`);
+    expect(jobs).toHaveLength(1);
+    expect(jobs.map((job) => job.recipientUserId)).toEqual(["admin-1"]);
+    expect(jobs[0]?.messageText).toContain("E-Mail-Versand abgebrochen");
+    expect(jobs[0]?.messageText).toContain("10/10");
   });
 });

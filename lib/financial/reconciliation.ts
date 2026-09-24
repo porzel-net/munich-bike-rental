@@ -161,6 +161,8 @@ export type FinancialTransactionPostingInput = {
   destinationAccountId?: number;
   note: string;
   actorUserId: string;
+  /** Used by audited deterministic import/rule workflows; UI postings remain manual. */
+  matchMethod?: "automatic" | "rule" | "manual";
   asset?: {
     name: string;
     assetType: "bike" | "equipment" | "other";
@@ -731,7 +733,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
         fixedAssetId: fixedAsset && part.category.euerTreatment === "asset_acquisition" ? fixedAsset.id : null,
         destinationAccountId: destinationAccount?.id ?? null,
         allocationKind: part.allocationKind,
-        matchMethod: "manual" as const,
+        matchMethod: input.matchMethod ?? "manual",
         amountCents: part.amountCents,
         journalEntryId,
         note,

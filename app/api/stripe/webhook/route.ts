@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookings/service";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
+import { recordUnmatchedStripePayment } from "@/lib/financial/stripe-unmatched-payment";
 import { bookingOffers } from "@/lib/db/schema";
 import { readBoundedText } from "@/lib/security/request-body";
 import { consumeRequestRateLimit } from "@/lib/security/rate-limit";
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
+    const database = getDatabase();
     const offerId = Number(session.metadata?.booking_offer_id);
     if (
       !Number.isSafeInteger(offerId) ||
@@ -47,29 +49,35 @@ export async function POST(request: Request) {
       typeof session.amount_total !== "number" ||
       !Number.isSafeInteger(session.amount_total)
     ) {
+      recordUnmatchedStripePayment(database, session, "Keine gültige Angebotsreferenz in der Stripe-Session.");
       return NextResponse.json(
-        { message: "Stripe-Session enthält keine gültige Angebotsreferenz." },
-        { status: 400, headers: { "Cache-Control": "no-store" } },
+        { received: true, unmatchedPayment: true },
+        { headers: { "Cache-Control": "no-store" } },
       );
     }
     const amountCents = session.amount_total;
     if (session.metadata?.booking_offer_id !== String(offerId) || !session.metadata?.booking_id) {
+      recordUnmatchedStripePayment(database, session, "Angebots- oder Buchungsreferenz ist widersprüchlich.");
       return NextResponse.json(
-        { message: "Die Stripe-Zahlung gehört nicht zu diesem Angebot." },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
+        { received: true, unmatchedPayment: true },
+        { headers: { "Cache-Control": "no-store" } },
       );
     }
 
-    const database = getDatabase();
     const offer = database
       .select({ bookingId: bookingOffers.bookingId })
       .from(bookingOffers)
       .where(eq(bookingOffers.id, offerId))
       .get();
     if (!offer || session.metadata?.booking_id !== String(offer.bookingId)) {
+      recordUnmatchedStripePayment(
+        database,
+        session,
+        "Das referenzierte Angebot oder die Buchung wurde nicht gefunden.",
+      );
       return NextResponse.json(
-        { message: "Die Stripe-Zahlung gehört nicht zu diesem Angebot." },
-        { status: 409, headers: { "Cache-Control": "no-store" } },
+        { received: true, unmatchedPayment: true },
+        { headers: { "Cache-Control": "no-store" } },
       );
     }
     const result = confirmOfferWithStripePayment(database, {

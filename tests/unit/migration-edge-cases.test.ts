@@ -81,7 +81,7 @@ describe("migration edge cases", () => {
 
     const first = createDatabaseConnection(databasePath);
     connections.push(first);
-    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(100);
+    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(104);
     expect(first.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
     expect(first.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
     first.close();
@@ -90,7 +90,7 @@ describe("migration edge cases", () => {
     const reopened = createDatabaseConnection(databasePath);
     connections.push(reopened);
     expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(
-      100,
+      104,
     );
     expect(reopened.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });

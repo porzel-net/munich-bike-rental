@@ -412,6 +412,19 @@ export function PublicOffer({ offer, token }: { offer: PublicOffer; token: strin
                   ? "Hier findest du alle Daten deiner Anfrage und des konkreten Angebots."
                   : "Here are all details of your inquiry and concrete offer."}
               </p>
+              <p className="public-offer-panel__legal-notice">
+                {de ? (
+                  <>
+                    Hier findest du unsere <Link href="/de/agb">AGB</Link> und unsere{" "}
+                    <Link href="/de/agb#stornierung">Stornoregelungen</Link>.
+                  </>
+                ) : (
+                  <>
+                    Read our <Link href="/en/agb">terms and conditions</Link> and{" "}
+                    <Link href="/en/agb#stornierung">cancellation policy</Link>.
+                  </>
+                )}
+              </p>
               <dl className="public-offer-details-grid">
                 <DetailItem icon={Info} label={de ? "Auftragsnummer" : "Order number"}>
                   {currentOffer.booking.orderNumber}

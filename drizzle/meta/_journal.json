@@ -701,6 +701,34 @@
       "when": 1789750000000,
       "tag": "0100_restore_unambiguous_asset_allocations",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1790157238000,
+      "tag": "0101_include_road_cycling_glasses",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1790158000000,
+      "tag": "0102_stripe_unmatched_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1790158591169,
+      "tag": "0103_acknowledge_mail_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1790159000000,
+      "tag": "0104_whatsapp_receipt_intake",
+      "breakpoints": true
     }
   ]
 }

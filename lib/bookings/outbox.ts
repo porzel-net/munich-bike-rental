@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, lt, or } from "drizzle-orm";
 
 import { getDatabase, runInImmediateTransaction, type AppDatabase } from "../db/client";
 import {
@@ -18,10 +18,12 @@ import { reviewBookingEmailThread } from "../inquiries/email-action";
 import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mail-thread";
 import { rentalLocationLabels } from "../inquiries/catalog";
 import { sendConfiguredMail } from "../inquiries/server";
+import { MAX_MAIL_ATTEMPTS } from "./outbox-constants";
+
+export { MAX_MAIL_ATTEMPTS } from "./outbox-constants";
 
 const LEASE_MS = 60_000;
 const RETRY_CAP_MS = 60 * 60 * 1_000;
-
 function usesRequestAccount(kind: string) {
   return kind === "new_inquiry" || kind === "inquiry_received";
 }
@@ -143,9 +145,23 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
     const expiredLeaseCutoff = new Date(current.getTime() - LEASE_MS);
     // A crashed worker must not block the queue forever. The same transaction
     // both reclaims stale work and checks that no other worker is active.
+    const expiredLease = and(eq(mailOutbox.status, "leased"), lte(mailOutbox.leasedAt, expiredLeaseCutoff));
+    db.update(mailOutbox)
+      .set({
+        status: "cancelled",
+        leasedAt: null,
+        nextAttemptAt: current,
+        lastError: "Maximale Versandversuche erreicht",
+      })
+      .where(and(expiredLease, gte(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)))
+      .run();
+    db.update(mailOutbox)
+      .set({ status: "cancelled", nextAttemptAt: current, lastError: "Maximale Versandversuche erreicht" })
+      .where(and(eq(mailOutbox.status, "queued"), gte(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)))
+      .run();
     db.update(mailOutbox)
       .set({ status: "queued", leasedAt: null, nextAttemptAt: current })
-      .where(and(eq(mailOutbox.status, "leased"), lte(mailOutbox.leasedAt, expiredLeaseCutoff)))
+      .where(and(expiredLease, lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)))
       .run();
     const activeLease = db
       .select({ id: mailOutbox.id })
@@ -156,7 +172,14 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
     if (activeLease) return null;
 
     const due = and(
-      or(eq(mailOutbox.status, "queued"), and(eq(mailOutbox.status, "failed"), lte(mailOutbox.nextAttemptAt, current))),
+      or(
+        and(eq(mailOutbox.status, "queued"), lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)),
+        and(
+          eq(mailOutbox.status, "failed"),
+          lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS),
+          lte(mailOutbox.nextAttemptAt, current),
+        ),
+      ),
       lte(mailOutbox.nextAttemptAt, current),
     );
     const row = db
@@ -251,29 +274,40 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
     if (outboundMessageId) await reviewBookingEmailThread(db, job.bookingId, outboundMessageId);
     return { id: job.id, status: "sent" as const };
   } catch (error) {
+    const permanentlyAborted = job.attempts >= MAX_MAIL_ATTEMPTS;
     const retryInMs = Math.min(RETRY_CAP_MS, 1_000 * 2 ** Math.min(job.attempts, 12));
     runInImmediateTransaction(db, () =>
       db
         .update(mailOutbox)
         .set({
-          status: "failed",
+          status: permanentlyAborted ? "cancelled" : "failed",
           leasedAt: null,
-          nextAttemptAt: new Date(Date.now() + retryInMs),
+          nextAttemptAt: permanentlyAborted ? new Date() : new Date(Date.now() + retryInMs),
           lastError: error instanceof Error ? error.message.slice(0, 500) : "unknown send failure",
         })
         .where(eq(mailOutbox.id, job.id))
         .run(),
     );
-    return { id: job.id, status: "failed" as const };
+    return { id: job.id, status: permanentlyAborted ? ("cancelled" as const) : ("failed" as const) };
   }
 }
 
 export function releaseExpiredOutboxLeases(db: AppDatabase = getDatabase()) {
   const cutoff = new Date(Date.now() - LEASE_MS);
+  const expiredLease = and(eq(mailOutbox.status, "leased"), lte(mailOutbox.leasedAt, cutoff));
+  db.update(mailOutbox)
+    .set({
+      status: "cancelled",
+      leasedAt: null,
+      nextAttemptAt: new Date(),
+      lastError: "Maximale Versandversuche erreicht",
+    })
+    .where(and(expiredLease, gte(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)))
+    .run();
   return db
     .update(mailOutbox)
     .set({ status: "queued", leasedAt: null, nextAttemptAt: new Date() })
-    .where(and(eq(mailOutbox.status, "leased"), lte(mailOutbox.leasedAt, cutoff)))
+    .where(and(expiredLease, lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)))
     .run();
 }
 
@@ -283,7 +317,43 @@ export function retryFailedOutboxMail(db: AppDatabase = getDatabase(), mailId: n
     db
       .update(mailOutbox)
       .set({ status: "queued", leasedAt: null, nextAttemptAt: new Date(), lastError: null })
-      .where(and(eq(mailOutbox.id, mailId), eq(mailOutbox.status, "failed")))
+      .where(
+        and(eq(mailOutbox.id, mailId), eq(mailOutbox.status, "failed"), lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)),
+      )
+      .run().changes > 0
+  );
+}
+
+/** Stops a queued or retryable mail before the next SMTP attempt. */
+export function cancelOutboxMail(db: AppDatabase = getDatabase(), mailId: number) {
+  return (
+    db
+      .update(mailOutbox)
+      .set({
+        status: "cancelled",
+        leasedAt: null,
+        nextAttemptAt: new Date(),
+        lastError: "Versand manuell abgebrochen",
+      })
+      .where(and(eq(mailOutbox.id, mailId), or(eq(mailOutbox.status, "queued"), eq(mailOutbox.status, "failed"))))
+      .run().changes > 0
+  );
+}
+
+/** Marks a mail that exhausted all send attempts as reviewed by an admin. */
+export function acknowledgeOutboxMail(db: AppDatabase = getDatabase(), mailId: number) {
+  const acknowledgedAt = new Date();
+  return (
+    db
+      .update(mailOutbox)
+      .set({ status: "cancelled", leasedAt: null, acknowledgedAt })
+      .where(
+        and(
+          eq(mailOutbox.id, mailId),
+          gte(mailOutbox.attempts, MAX_MAIL_ATTEMPTS),
+          or(eq(mailOutbox.status, "failed"), eq(mailOutbox.status, "cancelled")),
+        ),
+      )
       .run().changes > 0
   );
 }

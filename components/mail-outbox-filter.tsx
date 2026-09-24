@@ -14,6 +14,7 @@ const statusItems = [
   { value: "leased", label: "Wird versendet" },
   { value: "sent", label: "Versendet" },
   { value: "failed", label: "Fehlgeschlagen" },
+  { value: "cancelled", label: "Abgebrochen" },
 ];
 
 export function MailOutboxFilter({ search, status }: { search: string; status: string }) {

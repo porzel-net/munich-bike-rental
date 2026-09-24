@@ -130,7 +130,7 @@ describe("email action evaluation fixtures", () => {
     expect(redactedPrompt).toContain("[ZAHLUNGSNUMMER]");
   });
 
-  it("persists the hard-coded incoming inquiry signal", async () => {
+  it("does not persist an incoming inquiry signal while review is paused", async () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);
     const { db } = connection;
@@ -176,12 +176,6 @@ describe("email action evaluation fixtures", () => {
       .get();
 
     const review = await reviewBookingEmailThread(db, booking.id, incoming.id);
-    expect(review).toMatchObject({
-      bookingId: booking.id,
-      triggerMessageId: incoming.id,
-      status: "needs_action",
-      source: "inquiry_rule",
-    });
-    expect(review?.openQuestionsJson).toContain("noch nicht bearbeitet");
+    expect(review).toBeNull();
   });
 });

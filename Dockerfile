@@ -44,7 +44,7 @@ RUN install -d -o nextjs -g nodejs /home/nextjs/.cache/fontconfig /home/nextjs/t
 
 # Invoice PDFs are rendered on demand from LaTeX.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-xetex \
+  && apt-get install -y --no-install-recommends texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-xetex poppler-utils tesseract-ocr tesseract-ocr-deu \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public

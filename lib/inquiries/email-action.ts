@@ -9,6 +9,8 @@ export const EMAIL_ACTION_PROMPT_VERSION = "email-action-v1";
 export const DEFAULT_OPENAI_MODEL = "gpt-5.6-luna";
 export const DEFAULT_REASONING_EFFORT = "middle";
 export const EMAIL_ACTION_START_AT = new Date("2026-08-01T00:00:00+02:00");
+/** Temporarily pauses all automatic and manual email-thread evaluations. */
+export const EMAIL_ACTION_REVIEW_ENABLED = false;
 
 const openAiReviewSchema = z.object({
   needs_action: z.boolean(),
@@ -238,6 +240,8 @@ export function isEmailQuestionsManuallyResolved(
 }
 
 export async function reviewLatestUnprocessedEmailThread(db: AppDatabase, bookingId: number) {
+  if (!EMAIL_ACTION_REVIEW_ENABLED) return { status: "paused" as const, review: null };
+
   const booking = db
     .select({ createdAt: bookings.createdAt, source: bookings.source })
     .from(bookings)
@@ -270,6 +274,8 @@ export async function reviewBookingEmailThread(
   triggerMessageId: number,
   options: { force?: boolean } = {},
 ) {
+  if (!EMAIL_ACTION_REVIEW_ENABLED) return null;
+
   const messages = db
     .select()
     .from(communicationMessages)

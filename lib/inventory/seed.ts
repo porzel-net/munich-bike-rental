@@ -24,7 +24,7 @@ const equipment = [
   ["helmet", "helmet", "Helm", "Helmet", 1_000],
   ["clothing", "clothing", "Kleidung", "Clothing", 1_500],
   ["bikepacking-bag", "bag", "Bikepackingtasche", "Bikepacking bag", 2_500],
-  ["glasses", "glasses", "Rennradbrille", "Road cycling glasses", 500],
+  ["glasses", "glasses", "Rennradbrille", "Road cycling glasses", 0],
   ["bottle-holder", "bottle-holder", "Flaschenhalter", "Bottle holder", 0],
   ["repair-kit", "repair-kit", "Reparaturset", "Repair kit", 0],
 ] as const;

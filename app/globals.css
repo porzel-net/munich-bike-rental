@@ -2508,6 +2508,25 @@ button {
   line-height: 1.5;
 }
 
+.contact-form__language-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.contact-form__language-hint {
+  font-weight: 600;
+}
+
+.contact-form__language-link:hover {
+  color: var(--text);
+}
+
 .contact-form__error {
   margin: 0;
   color: #b42318;
@@ -4048,6 +4067,25 @@ button {
   color: #697177;
   font-size: 15px;
   line-height: 1.65;
+}
+
+.public-offer-panel__legal-notice {
+  margin: 8px 0 0;
+  color: #697177;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.public-offer-panel__legal-notice a {
+  color: #4e5b63;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.public-offer-panel__legal-notice a:hover,
+.public-offer-panel__legal-notice a:focus-visible {
+  color: var(--brand-accent);
 }
 
 .public-offer-details-grid {

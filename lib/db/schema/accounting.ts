@@ -98,6 +98,7 @@ export const financialReconciliationKinds = ["stripe_payout", "bank_deposit", "m
 export const financialReconciliationStatuses = ["open", "matched", "difference", "closed"] as const;
 export const financialDocumentTypes = ["receipt", "invoice", "contract", "bank_statement", "other"] as const;
 export const financialDocumentLinkTypes = ["evidence", "source", "correction", "related"] as const;
+export const whatsappReceiptIntakeStatuses = ["received", "matched", "posted", "failed"] as const;
 export const fixedAssetTypes = ["bike", "equipment", "other"] as const;
 export const fixedAssetMethods = ["straight_line", "declining_balance"] as const;
 export const fixedAssetStatuses = ["active", "disposed"] as const;
@@ -516,5 +517,28 @@ export const financialDocumentLinks = sqliteTable(
       "financial_document_links_target_check",
       sql`${table.transactionId} is not null or ${table.allocationId} is not null or ${table.journalEntryId} is not null or ${table.bookingId} is not null`,
     ),
+  ],
+);
+
+/** Audit trail and idempotency key for receipts submitted through WhatsApp. */
+export const whatsappReceiptIntake = sqliteTable(
+  "whatsapp_receipt_intake",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    whatsappMessageId: text("whatsapp_message_id").notNull(),
+    senderUserId: text("sender_user_id").references(() => authUser.id, { onDelete: "set null" }),
+    documentId: integer("document_id").references(() => financialDocuments.id, { onDelete: "set null" }),
+    transactionId: integer("transaction_id").references(() => financialTransactions.id, { onDelete: "set null" }),
+    status: text("status", { enum: whatsappReceiptIntakeStatuses }).notNull(),
+    extractedAmountCents: integer("extracted_amount_cents"),
+    matchScore: integer("match_score"),
+    details: text("details").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("whatsapp_receipt_intake_message_unique").on(table.whatsappMessageId),
+    index("whatsapp_receipt_intake_status_created_idx").on(table.status, table.createdAt),
+    index("whatsapp_receipt_intake_transaction_idx").on(table.transactionId),
   ],
 );

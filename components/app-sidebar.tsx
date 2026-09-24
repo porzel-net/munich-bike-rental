@@ -1,5 +1,5 @@
 import * as React from "react";
-import { and, count, eq, or } from "drizzle-orm";
+import { and, count, eq, lt, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
@@ -32,6 +32,7 @@ import { getDatabase } from "@/lib/db/client";
 import { bookings, dashboardActivityDismissals, mailOutbox } from "@/lib/db/schema";
 import { getAssignedLocation } from "@/lib/auth/authorization";
 import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
+import { MAX_MAIL_ATTEMPTS } from "@/lib/bookings/outbox-constants";
 import { getDashboardActivities } from "@/lib/dashboard/activities";
 import { getOpenFinancialTransactionCount } from "@/lib/financial/review-count";
 
@@ -151,7 +152,13 @@ export async function AppSidebar({
     ? (db
         .select({ value: count() })
         .from(mailOutbox)
-        .where(or(eq(mailOutbox.status, "queued"), eq(mailOutbox.status, "leased"), eq(mailOutbox.status, "failed")))
+        .where(
+          or(
+            and(eq(mailOutbox.status, "queued"), lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)),
+            eq(mailOutbox.status, "leased"),
+            and(eq(mailOutbox.status, "failed"), lt(mailOutbox.attempts, MAX_MAIL_ATTEMPTS)),
+          ),
+        )
         .get()?.value ?? 0)
     : 0;
   const openBookings = db

@@ -18,7 +18,7 @@ import {
   journalLines,
   mailOutbox,
 } from "../../lib/db/schema";
-import { dispatchNextOutboxMail, retryFailedOutboxMail } from "../../lib/bookings/outbox";
+import { dispatchNextOutboxMail, MAX_MAIL_ATTEMPTS, retryFailedOutboxMail } from "../../lib/bookings/outbox";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -146,7 +146,7 @@ describe("booking mail threads", () => {
       db.select().from(communicationMessages).where(eq(communicationMessages.bookingId, created.id)).all(),
     ).toHaveLength(2);
     expect(db.select().from(emailActionReviews).where(eq(emailActionReviews.bookingId, created.id)).all()).toHaveLength(
-      1,
+      0,
     );
 
     const customerFollowUpAt = new Date(Date.now() + 1_000);
@@ -206,7 +206,7 @@ describe("booking mail threads", () => {
       referencesHeader: "<customer-inquiry@example.com> <admin-offer@example.com> <customer-follow-up@example.com>",
     });
     expect(db.select().from(emailActionReviews).where(eq(emailActionReviews.bookingId, created.id)).all()).toHaveLength(
-      2,
+      0,
     );
   });
 
@@ -532,5 +532,83 @@ describe("booking mail threads", () => {
     });
     sendMail.mockResolvedValueOnce({ messageId: "<retry@example.com>" });
     await expect(dispatchNextOutboxMail(db, mail.id)).resolves.toMatchObject({ id: mail.id, status: "sent" });
+  });
+
+  it("aborts a mail after exactly ten failed attempts", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const booking = createOutboxBooking(db, "#20260804192000");
+    const mail = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "queue:max-attempts",
+        kind: "offer",
+        locale: "de",
+        recipient: "ada@example.com",
+        subject: "Maximale Versuche",
+        plainText: "Maximale Versuche",
+        status: "queued",
+        attempts: 0,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+        createdAt: new Date(Date.now() - 1_000),
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+    sendMail.mockRejectedValue(new Error("SMTP offline"));
+
+    for (let attempt = 1; attempt <= MAX_MAIL_ATTEMPTS; attempt += 1) {
+      if (attempt > 1) {
+        db.update(mailOutbox)
+          .set({ status: "queued", nextAttemptAt: new Date(Date.now() - 1_000) })
+          .where(eq(mailOutbox.id, mail.id))
+          .run();
+      }
+      await expect(dispatchNextOutboxMail(db, mail.id)).resolves.toMatchObject({
+        id: mail.id,
+        status: attempt === MAX_MAIL_ATTEMPTS ? "cancelled" : "failed",
+      });
+    }
+
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.id, mail.id)).get()).toMatchObject({
+      status: "cancelled",
+      attempts: MAX_MAIL_ATTEMPTS,
+      lastError: "SMTP offline",
+    });
+    expect(sendMail).toHaveBeenCalledTimes(MAX_MAIL_ATTEMPTS);
+    await expect(dispatchNextOutboxMail(db, mail.id)).resolves.toBeNull();
+  });
+
+  it("does not turn a stale tenth lease into an eleventh attempt", async () => {
+    const connection = createDatabaseConnection(":memory:");
+    connections.push(connection);
+    const { db } = connection;
+    const booking = createOutboxBooking(db, "#20260804192100");
+    const mail = db
+      .insert(mailOutbox)
+      .values({
+        bookingId: booking.id,
+        idempotencyKey: "queue:stale-tenth-attempt",
+        kind: "offer",
+        locale: "de",
+        recipient: "ada@example.com",
+        subject: "Stale Lease",
+        plainText: "Stale Lease",
+        status: "leased",
+        attempts: MAX_MAIL_ATTEMPTS,
+        nextAttemptAt: new Date(Date.now() - 1_000),
+        leasedAt: new Date(Date.now() - 120_000),
+        createdAt: new Date(Date.now() - 120_000),
+      })
+      .returning({ id: mailOutbox.id })
+      .get();
+
+    await expect(dispatchNextOutboxMail(db, mail.id)).resolves.toBeNull();
+    expect(db.select().from(mailOutbox).where(eq(mailOutbox.id, mail.id)).get()).toMatchObject({
+      status: "cancelled",
+      attempts: MAX_MAIL_ATTEMPTS,
+    });
+    expect(sendMail).not.toHaveBeenCalled();
   });
 });

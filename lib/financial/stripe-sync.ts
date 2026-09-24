@@ -7,6 +7,7 @@ import { listStripeCheckoutSessions } from "../stripe";
 
 import { importStripeCheckoutPayment } from "./stripe-payment";
 import { syncStripeRefunds } from "./stripe-refunds";
+import { recordUnmatchedStripePayment } from "./stripe-unmatched-payment";
 
 export type StripeSyncInput = {
   createdGte?: number;
@@ -75,6 +76,7 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
       const offerId = Number(session.metadata?.booking_offer_id);
       if (!Number.isSafeInteger(offerId) || offerId <= 0 || !Number.isSafeInteger(session.amount_total)) {
         result.skippedWithoutOffer += 1;
+        recordUnmatchedStripePayment(db, session, "Keine gültige Angebotsreferenz in der Stripe-Session.");
         continue;
       }
 
@@ -85,6 +87,7 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
         .get();
       if (!offer) {
         result.skippedUnknownOffer += 1;
+        recordUnmatchedStripePayment(db, session, "Das referenzierte Angebot wurde nicht gefunden.");
         continue;
       }
       if (
@@ -93,6 +96,11 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
         session.amount_total !== offer.totalCents
       ) {
         addError(result, `${session.id}: Stripe-Session passt nicht zum gespeicherten Angebot.`);
+        recordUnmatchedStripePayment(
+          db,
+          session,
+          "Angebots- oder Buchungsreferenz passt nicht zum gespeicherten Angebot.",
+        );
         continue;
       }
 

@@ -40,6 +40,34 @@ export const dashboardActivityDismissals = sqliteTable(
   ],
 );
 
+/**
+ * Successful Stripe Checkout payments which cannot be connected to one of
+ * our booking offers. They are kept separately from the financial ledger:
+ * without a verified booking relation they must not be posted as revenue.
+ */
+export const stripeUnmatchedPayments = sqliteTable(
+  "stripe_unmatched_payments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    stripeSessionId: text("stripe_session_id").notNull(),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    amountCents: integer("amount_cents"),
+    currency: text("currency").notNull().default("EUR"),
+    customerEmail: text("customer_email"),
+    bookingOfferId: integer("booking_offer_id"),
+    bookingId: integer("booking_id"),
+    reason: text("reason").notNull(),
+    occurredAt: integer("occurred_at", { mode: "timestamp_ms" }).notNull(),
+    detectedAt: integer("detected_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("stripe_unmatched_payments_session_unique").on(table.stripeSessionId),
+    index("stripe_unmatched_payments_occurred_idx").on(table.occurredAt),
+    check("stripe_unmatched_payments_amount_positive", sql`${table.amountCents} is null or ${table.amountCents} > 0`),
+    check("stripe_unmatched_payments_currency_check", sql`length(${table.currency}) = 3`),
+  ],
+);
+
 export const whatsappNotificationStatuses = ["queued", "leased", "sent", "failed"] as const;
 export type WhatsAppNotificationStatus = (typeof whatsappNotificationStatuses)[number];
 

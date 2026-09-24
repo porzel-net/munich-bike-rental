@@ -17,7 +17,7 @@ import {
   RadarChart,
   XAxis,
 } from "recharts";
-import { CalendarX2, Check, CircleCheck, Inbox, Landmark } from "lucide-react";
+import { CalendarX2, Check, CircleCheck, CreditCard, Inbox, Landmark, MailWarning } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -135,7 +135,13 @@ const feedbackRadarChartConfig = {
   },
 } satisfies ChartConfig;
 
-type ActivityKind = "expired_booking" | "paid_booking" | "bank_transaction" | "incoming_booking_request";
+type ActivityKind =
+  | "expired_booking"
+  | "paid_booking"
+  | "bank_transaction"
+  | "incoming_booking_request"
+  | "mail_delivery_failed"
+  | "stripe_unmatched_payment";
 
 type ActivityItem = {
   id: string;
@@ -153,6 +159,8 @@ function ActivityInformer({ activities }: { activities: ActivityItem[] }) {
     paid_booking: CircleCheck,
     bank_transaction: Landmark,
     incoming_booking_request: Inbox,
+    mail_delivery_failed: MailWarning,
+    stripe_unmatched_payment: CreditCard,
   } satisfies Record<ActivityKind, typeof CalendarX2>;
   const visibleActivities = activities.filter((activity) => !dismissedIds.has(activity.id));
 
