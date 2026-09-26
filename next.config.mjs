@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const isProduction = process.env.NODE_ENV === "production";
-const allowedDevOrigins = ["localhost", "127.0.0.1", ...(process.env.DEV_ALLOWED_ORIGINS ?? "").split(",")]
+const allowedDevOrigins = [
+  "localhost",
+  "127.0.0.1",
+  ...(process.env.DEV_ALLOWED_ORIGINS ?? "").split(","),
+]
   .map((origin) => origin.trim())
   .filter(Boolean);
 
@@ -11,17 +15,25 @@ const securityHeaders = [
   // Apple Pay in Stripe Checkout uses the Payment Request API. Do not disable
   // the `payment` feature here; the other sensitive browser features remain
   // disabled explicitly.
-  { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=(), usb=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), geolocation=(), microphone=(), usb=()",
+  },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
 
 if (isProduction) {
-  securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" });
+  securityHeaders.push({
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains",
+  });
 }
 
-const noImageIndexHeaders = [{ key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" }];
+const noImageIndexHeaders = [
+  { key: "X-Robots-Tag", value: "noindex, noimageindex, nofollow" },
+];
 
 const nextConfig = {
   // A separate build directory makes local production-build verification safe
@@ -31,7 +43,11 @@ const nextConfig = {
   // pdf-parse loads its Canvas backend dynamically. Keep it external and
   // explicitly trace the package below so the standalone server has the
   // DOMMatrix implementation that PDF.js needs at runtime.
-  serverExternalPackages: ["@napi-rs/canvas", "@whiskeysockets/baileys", "pdf-parse"],
+  serverExternalPackages: [
+    "@napi-rs/canvas",
+    "@whiskeysockets/baileys",
+    "pdf-parse",
+  ],
   images: {
     // AVIF/HEIF processing stays disabled until the Sharp/libheif bundle
     // includes libheif 1.23.3 or newer.
@@ -47,7 +63,13 @@ const nextConfig = {
   // Never copy local data, secrets, tests, or VCS metadata into standalone
   // output, even when a dynamic filesystem call broadens NFT tracing.
   outputFileTracingExcludes: {
-    "/*": ["./data/**/*", "./tests/**/*", "./.env*", "./.git/**/*", "./coverage/**/*"],
+    "/*": [
+      "./data/**/*",
+      "./tests/**/*",
+      "./.env*",
+      "./.git/**/*",
+      "./coverage/**/*",
+    ],
   },
   outputFileTracingIncludes: {
     "/*": [
@@ -68,7 +90,10 @@ const nextConfig = {
     return [
       {
         source: "/api/:path*",
-        headers: [...securityHeaders, { key: "Cache-Control", value: "no-store" }],
+        headers: [
+          ...securityHeaders,
+          { key: "Cache-Control", value: "no-store" },
+        ],
       },
       {
         source: "/:path*",
@@ -104,7 +129,10 @@ const nextConfig = {
           ...securityHeaders,
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
           { key: "Referrer-Policy", value: "no-referrer" },
-          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet" },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, nosnippet",
+          },
         ],
       },
       {
