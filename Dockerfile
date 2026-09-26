@@ -4,7 +4,6 @@ FROM node:22.23.3-bookworm-slim AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches ./patches
 # Native dependencies such as better-sqlite3 need their install scripts to
 # provide bindings for the Node.js/Linux image used by the builder.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
