@@ -28,7 +28,10 @@ const nextConfig = {
   // while a developer's next dev process is using .next/dev.
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   allowedDevOrigins,
-  serverExternalPackages: ["@whiskeysockets/baileys", "pdf-parse"],
+  // pdf-parse loads its Canvas backend dynamically. Keep it external and
+  // explicitly trace the package below so the standalone server has the
+  // DOMMatrix implementation that PDF.js needs at runtime.
+  serverExternalPackages: ["@napi-rs/canvas", "@whiskeysockets/baileys", "pdf-parse"],
   images: {
     // AVIF/HEIF processing stays disabled until the Sharp/libheif bundle
     // includes libheif 1.23.3 or newer.
@@ -45,6 +48,12 @@ const nextConfig = {
   // output, even when a dynamic filesystem call broadens NFT tracing.
   outputFileTracingExcludes: {
     "/*": ["./data/**/*", "./tests/**/*", "./.env*", "./.git/**/*", "./coverage/**/*"],
+  },
+  outputFileTracingIncludes: {
+    "/*": [
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-*/*",
+    ],
   },
   compress: true,
   poweredByHeader: false,
