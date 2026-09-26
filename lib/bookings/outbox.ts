@@ -19,6 +19,12 @@ import { buildMailThreadReferences, parseMailMessageIds } from "../inquiries/mai
 import { rentalLocationLabels } from "../inquiries/catalog";
 import { sendConfiguredMail } from "../inquiries/server";
 import { MAX_MAIL_ATTEMPTS } from "./outbox-constants";
+import {
+  AUTOMATIC_LOCATION_REJECTION_KIND,
+  automaticLocationRejectionReason,
+  shouldAutomaticallyRejectLocation,
+} from "./automatic-location-rejection";
+import { event } from "./service-shared";
 
 export { MAX_MAIL_ATTEMPTS } from "./outbox-constants";
 
@@ -26,6 +32,32 @@ const LEASE_MS = 60_000;
 const RETRY_CAP_MS = 60 * 60 * 1_000;
 function usesRequestAccount(kind: string) {
   return kind === "new_inquiry" || kind === "inquiry_received";
+}
+
+function isAutomaticLocationRejectionDue(job: typeof mailOutbox.$inferSelect, db: AppDatabase) {
+  if (job.kind !== AUTOMATIC_LOCATION_REJECTION_KIND) return true;
+  const booking = db
+    .select({ source: bookings.source, location: bookings.location, status: bookings.status })
+    .from(bookings)
+    .where(eq(bookings.id, job.bookingId))
+    .get();
+  return Boolean(
+    booking &&
+    booking.status === "inquiry_received" &&
+    shouldAutomaticallyRejectLocation(booking.source, booking.location),
+  );
+}
+
+function cancelSkippedAutomaticLocationRejection(db: AppDatabase, mailId: number) {
+  db.update(mailOutbox)
+    .set({
+      status: "cancelled",
+      leasedAt: null,
+      nextAttemptAt: new Date(),
+      lastError: "Automatische Standort-Absage nicht mehr erforderlich",
+    })
+    .where(and(eq(mailOutbox.id, mailId), eq(mailOutbox.status, "leased")))
+    .run();
 }
 
 async function buildPaidBookingInvoiceAttachment(db: AppDatabase, bookingId: number) {
@@ -198,6 +230,10 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
   });
   if (!job) return null;
   try {
+    if (!isAutomaticLocationRejectionDue(job, db)) {
+      cancelSkippedAutomaticLocationRejection(db, job.id);
+      return { id: job.id, status: "cancelled" as const };
+    }
     const booking = db
       .select({ orderNumber: bookings.orderNumber })
       .from(bookings)
@@ -234,6 +270,30 @@ export async function dispatchNextOutboxMail(db: AppDatabase = getDatabase(), ma
     let outboundMessageId: number | null = null;
     runInImmediateTransaction(db, () => {
       const sentAt = new Date();
+      if (job.kind === AUTOMATIC_LOCATION_REJECTION_KIND) {
+        const currentBooking = db.select().from(bookings).where(eq(bookings.id, job.bookingId)).get();
+        if (
+          currentBooking &&
+          currentBooking.status === "inquiry_received" &&
+          shouldAutomaticallyRejectLocation(currentBooking.source, currentBooking.location)
+        ) {
+          db.update(bookings)
+            .set({ status: "rejected", version: currentBooking.version + 1, updatedAt: sentAt })
+            .where(and(eq(bookings.id, currentBooking.id), eq(bookings.status, "inquiry_received")))
+            .run();
+          event(
+            db,
+            currentBooking.id,
+            "booking_auto_rejected",
+            "inquiry_received",
+            "rejected",
+            null,
+            automaticLocationRejectionReason[currentBooking.communicationLocale],
+            { location: currentBooking.location },
+            sentAt,
+          );
+        }
+      }
       db.update(mailOutbox)
         .set({
           status: "sent",

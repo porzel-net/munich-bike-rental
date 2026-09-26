@@ -27,6 +27,12 @@ import {
 } from "../db/schema";
 import { createOrderNumber } from "../inquiries/server";
 import { normalizeComputerMountType, normalizePedalType } from "../inquiries/catalog";
+import {
+  AUTOMATIC_LOCATION_REJECTION_KIND,
+  automaticLocationRejectionReason,
+  getAutomaticLocationRejectionDelayMs,
+  shouldAutomaticallyRejectLocation,
+} from "./automatic-location-rejection";
 
 import { BookingCommandError } from "./errors";
 export { canTransition } from "./service-shared";
@@ -636,6 +642,7 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
   }
   const { legacyReceivedAt } = input;
   const createdAt = input.source === "legacy" ? (legacyReceivedAt ?? now()) : now();
+  const automaticallyRejectLocation = shouldAutomaticallyRejectLocation(input.source, input.location);
   let bookingId = 0;
   const { requestedItems, outbox, legacyReceivedAt: _legacyReceivedAt, ...bookingValues } = input;
   void _legacyReceivedAt;
@@ -760,6 +767,32 @@ function createBookingRecord(db: AppDatabase, input: CreateBookingCommand, actor
         createdAt,
       })
       .run();
+
+    if (automaticallyRejectLocation) {
+      const rejectionNotice = renderBookingNotice({
+        kind: "rejected",
+        locale: bookingValues.communicationLocale,
+        name: bookingValues.customerName,
+        orderNumber,
+        personalMessage: automaticLocationRejectionReason[bookingValues.communicationLocale],
+      });
+      db.insert(mailOutbox)
+        .values({
+          bookingId,
+          idempotencyKey: `booking:${bookingId}:${AUTOMATIC_LOCATION_REJECTION_KIND}`,
+          kind: AUTOMATIC_LOCATION_REJECTION_KIND,
+          locale: bookingValues.communicationLocale,
+          recipient: bookingValues.customerEmail,
+          subject: rejectionNotice.subject,
+          plainText: rejectionNotice.text,
+          html: rejectionNotice.html,
+          status: "queued",
+          attempts: 0,
+          nextAttemptAt: new Date(createdAt.getTime() + getAutomaticLocationRejectionDelayMs()),
+          createdAt,
+        })
+        .run();
+    }
   }
   event(db, bookingId, "booking_created", null, "inquiry_received", actorUserId, "", { source: bookingValues.source });
   return { id: bookingId, orderNumber };
