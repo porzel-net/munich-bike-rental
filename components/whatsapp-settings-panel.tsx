@@ -12,6 +12,13 @@ type Snapshot = {
   qrDataUrl: string | null;
   phone: string | null;
   error: string | null;
+  diagnostics?: {
+    inboundEventCount: number;
+    lastInboundAt: string | null;
+    lastInboundEvent: "message_batch" | "message_receipt" | null;
+    lastProbeSucceededAt: string | null;
+    lastProbeFailedAt: string | null;
+  };
 };
 
 const labels: Record<Snapshot["status"], string> = {
@@ -48,6 +55,31 @@ export function WhatsAppSettingsPanel() {
     }
   }, []);
 
+  const relink = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Die bestehende WhatsApp-Verknüpfung wird entfernt. Danach musst du den neuen QR-Code scannen. Fortfahren?",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/settings/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceRelink: true }),
+      });
+      const result = (await response.json().catch(() => null)) as (Snapshot & { message?: string }) | null;
+      if (!response.ok) throw new Error(result?.message ?? "WhatsApp konnte nicht neu verknüpft werden.");
+      if (result) setSnapshot(result);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "WhatsApp konnte nicht neu verknüpft werden.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -62,7 +94,7 @@ export function WhatsAppSettingsPanel() {
         if (cancelled) return;
         setSnapshot(initialSnapshot);
 
-        if (["idle", "logged_out", "error"].includes(initialSnapshot.status)) {
+        if (["idle", "error"].includes(initialSnapshot.status)) {
           await connect();
         }
       } catch (error) {
@@ -83,8 +115,9 @@ export function WhatsAppSettingsPanel() {
   }, [connect]);
 
   useEffect(() => {
-    if (!["connecting", "qr", "error"].includes(snapshot.status)) return;
-    const timer = window.setInterval(() => void refresh(), 1500);
+    if (snapshot.status === "logged_out") return;
+    const interval = snapshot.status === "connected" ? 10_000 : 1500;
+    const timer = window.setInterval(() => void refresh(), interval);
     return () => window.clearInterval(timer);
   }, [refresh, snapshot.status]);
 
@@ -120,19 +153,40 @@ export function WhatsAppSettingsPanel() {
         </div>
 
         {snapshot.error && <p className="text-sm text-destructive">{snapshot.error}</p>}
+        {snapshot.diagnostics && (
+          <p className="text-center text-xs text-muted-foreground">
+            Eingangssignale: {snapshot.diagnostics.inboundEventCount}
+            {snapshot.diagnostics.lastInboundAt
+              ? ` · zuletzt ${new Intl.DateTimeFormat("de-DE", { timeStyle: "medium" }).format(new Date(snapshot.diagnostics.lastInboundAt))}`
+              : " · noch keines seit dem Serverstart"}
+          </p>
+        )}
+        {snapshot.status === "logged_out" && (
+          <p className="text-center text-sm text-muted-foreground">
+            Klicke auf „Erneut verbinden“, um einen neuen QR-Code zu erzeugen. Die alte Anmeldesitzung wird dabei nur
+            archiviert.
+          </p>
+        )}
       </CardContent>
       <CardFooter className="justify-center px-5 pb-5 pt-0">
-        <Button
-          type="button"
-          onClick={connect}
-          disabled={busy || ["connecting", "qr", "connected"].includes(snapshot.status)}
-        >
-          {snapshot.status === "connected"
-            ? "Verbunden"
-            : busy || snapshot.status === "connecting"
-              ? "Verbinden …"
-              : "Erneut verbinden"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            onClick={connect}
+            disabled={busy || ["connecting", "qr", "connected"].includes(snapshot.status)}
+          >
+            {snapshot.status === "connected"
+              ? "Verbunden"
+              : busy || snapshot.status === "connecting"
+                ? "Verbinden …"
+                : "Erneut verbinden"}
+          </Button>
+          {snapshot.status === "connected" && (
+            <Button type="button" variant="outline" onClick={relink} disabled={busy}>
+              Neu verknüpfen
+            </Button>
+          )}
+        </div>
       </CardFooter>
     </Card>
   );
