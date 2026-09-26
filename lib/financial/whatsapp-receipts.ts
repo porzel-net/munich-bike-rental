@@ -16,7 +16,6 @@ import {
   type ReceiptCategoryPattern,
 } from "./receipt-matching";
 import { recognizeFinancialDocumentText } from "./receipt-text";
-import { postFinancialTransaction } from "./reconciliation";
 
 function normalizedPhone(value: string) {
   return value.replace(/\D/g, "").replace(/^00/, "");
@@ -54,7 +53,7 @@ export type WhatsAppReceiptResult =
   | { outcome: "duplicate"; message: string }
   | { outcome: "stored"; message: string; documentId: number; extractedAmountCents: number | null }
   | {
-      outcome: "matched" | "posted";
+      outcome: "matched";
       message: string;
       documentId: number;
       transactionId: number;
@@ -103,6 +102,19 @@ export async function processWhatsAppFinancialReceipt(
     userId: sender.id,
     description: receiptDescription(input.fileName, input.caption ?? ""),
   });
+  // WhatsApp can replay media history with a new message ID after a reconnect.
+  // The document hash is the durable idempotency key in that case.
+  const existingDocumentIntake = db
+    .select({ id: whatsappReceiptIntake.id })
+    .from(whatsappReceiptIntake)
+    .where(eq(whatsappReceiptIntake.documentId, document.documentId))
+    .get();
+  if (existingDocumentIntake) {
+    console.info("Incoming WhatsApp receipt ignored because the same document was already processed", {
+      documentId: document.documentId,
+    });
+    return { outcome: "duplicate", message: "Dieser Beleg wurde bereits verarbeitet." };
+  }
   const ocrText = await recognizeFinancialDocumentText(input.bytes, input.mimeType);
   const receiptText = [input.fileName, input.caption, ocrText].filter(Boolean).join("\n");
   const extracted = extractReceiptAmount(receiptText);
@@ -186,7 +198,6 @@ export async function processWhatsAppFinancialReceipt(
     description: "Automatisch aus WhatsApp zugeordneter Beleg",
   });
   const categoryId = suggestion.categoryId;
-  const canPost = categoryId !== null;
   const matchedTransaction = transactionRows.find((transaction) => transaction.id === suggestion.transactionId);
   const categoryName = categoryId ? categoryById.get(categoryId)?.name : null;
   const transactionDescription = matchedTransaction
@@ -199,45 +210,48 @@ export async function processWhatsAppFinancialReceipt(
       ? "Eindeutig über die Rechnungsnummer abgeglichen."
       : "Über Betrag und Gegenpartei abgeglichen.";
   const classification = `Betrag ${formatAmount(suggestion.amountCents)} → Banktransaktion #${suggestion.transactionId} (${transactionDescription}). ${matchExplanation}`;
-  if (canPost) {
-    postFinancialTransaction(db, {
-      transactionId: suggestion.transactionId,
-      categoryId,
-      note: "Automatisch aus WhatsApp-Beleg zugeordnet (wiederkehrendes Muster).",
-      actorUserId: sender.id,
-      matchMethod: "automatic",
-    });
-  }
+  // A WhatsApp match may be strong enough to propose a category, but never
+  // commits a journal entry. A human must explicitly approve it in the review
+  // inbox before the transaction becomes posted.
+  db.update(financialTransactions)
+    .set({
+      status: "pending_approval",
+      suggestedCategoryId: categoryId,
+      suggestedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(financialTransactions.id, suggestion.transactionId))
+    .run();
   db.insert(whatsappReceiptIntake)
     .values({
       whatsappMessageId: input.messageId,
       senderUserId: sender.id,
       documentId: document.documentId,
       transactionId: suggestion.transactionId,
-      status: canPost ? "posted" : "matched",
+      status: "matched",
       extractedAmountCents: suggestion.amountCents,
       matchScore: suggestion.score,
-      details: canPost
-        ? `${classification} Kategorie „${categoryName ?? suggestion.categoryCode}“ aus wiederkehrendem Muster automatisch gebucht.`
-        : "Beleg wurde eindeutig zugeordnet; die sachliche Kategorie benötigt noch eine Prüfung.",
+      details: categoryId
+        ? `${classification} Kategorie „${categoryName ?? suggestion.categoryCode}“ vorgeschlagen; menschliche Freigabe erforderlich.`
+        : `${classification} Beleg zugeordnet; menschliche sachliche Zuordnung und Freigabe erforderlich.`,
       createdAt: now,
       updatedAt: now,
     })
     .run();
   console.info("WhatsApp receipt reconciliation completed", {
-    outcome: canPost ? "posted" : "matched",
+    outcome: "matched",
     transactionId: suggestion.transactionId,
     documentId: document.documentId,
     matchReason: suggestion.matchReason,
-    categoryLearnedFromHistory: suggestion.categorySource === "recurring_pattern",
+    categorySuggestedFromHistory: suggestion.categorySource === "recurring_pattern",
   });
   return {
-    outcome: canPost ? "posted" : "matched",
+    outcome: "matched",
     documentId: document.documentId,
     transactionId: suggestion.transactionId,
     extractedAmountCents: suggestion.amountCents,
-    message: canPost
-      ? `${classification} Als „${categoryName ?? suggestion.categoryCode}“ aus wiederkehrendem Muster automatisch gebucht. Bitte kurz prüfen.`
-      : `${classification} Der Beleg ist zugeordnet; es gibt noch kein ausreichend bestätigtes Kategoriemuster.`,
+    message: categoryId
+      ? `${classification} Kategorie „${categoryName ?? suggestion.categoryCode}“ wurde vorgeschlagen. Bitte in der Finanzprüfung freigeben.`
+      : `${classification} Der Beleg ist zugeordnet. Bitte die sachliche Kategorie ergänzen und anschließend freigeben.`,
   };
 }

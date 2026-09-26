@@ -18,6 +18,7 @@ import {
   merchantTokens,
   suggestReceiptMatch,
 } from "@/lib/financial/receipt-matching";
+import { postFinancialTransaction } from "@/lib/financial/reconciliation";
 import { processWhatsAppFinancialReceipt } from "@/lib/financial/whatsapp-receipts";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -61,6 +62,39 @@ describe("deterministic receipt matching", () => {
       categoryCode: "advertising",
       categorySource: "recurring_pattern",
       matchReason: "amount_and_merchant",
+    });
+  });
+
+  it("recognizes a Rinkel invoice table total and links it by its invoice number", () => {
+    const rinkelInvoice = `
+      Betrag Beschreibung Pro Monat Rabatt Gesamt
+      1 Essential Benutzer
+      9,99 € 50% 4,99 €
+      Gesamtbetrag
+      Betrag (ohne MwSt.) 7,06 €
+      MwSt. 19% 1,34 €
+      Gesamt 8,40 €
+      Rechnungsnummer : 26DE000747
+      Rinkel BV
+    `;
+    expect(extractReceiptAmount(rinkelInvoice)).toEqual({ amountCents: 840, label: "Gesamt" });
+    expect(
+      suggestReceiptMatch({
+        receiptText: rinkelInvoice,
+        candidates: [
+          {
+            transactionId: 64,
+            amountCents: -840,
+            bookedAt: "2026-09-01",
+            merchantText: "RINKEL BV 129668DE07202208000043448672 26DE000747",
+          },
+        ],
+        categoryPatterns: [],
+      }),
+    ).toMatchObject({
+      transactionId: 64,
+      amountCents: 840,
+      matchReason: "invoice_reference",
     });
   });
 
@@ -110,7 +144,7 @@ describe("deterministic receipt matching", () => {
     ).toMatchObject({ transactionId: 3, categoryId: 4, categorySource: "recurring_pattern" });
   });
 
-  it("posts an authorized receipt only after matching a repeated historical category", async () => {
+  it("requires a human approval after matching an authorized receipt and category suggestion", async () => {
     const connection = createDatabaseConnection(":memory:");
     connections.push(connection);
     const documentDirectory = `/tmp/mbr-receipt-test-${crypto.randomUUID()}`;
@@ -203,19 +237,57 @@ describe("deterministic receipt matching", () => {
       caption: "Google Ads Rechnung – Gesamtbetrag: 107,91 EUR",
     });
 
-    expect(result).toMatchObject({ outcome: "posted", transactionId: transaction.id, extractedAmountCents: 10_791 });
+    expect(result).toMatchObject({ outcome: "matched", transactionId: transaction.id, extractedAmountCents: 10_791 });
     expect(result.message).toContain("Banktransaktion #");
     expect(result.message).toContain("Werbung und Marketing");
     expect(db.select().from(financialDocumentLinks).all()).toHaveLength(1);
     expect(db.select().from(whatsappReceiptIntake).all()).toMatchObject([
-      { status: "posted", transactionId: transaction.id },
+      { status: "matched", transactionId: transaction.id },
     ]);
     expect(
       db
         .select()
         .from(financialTransactionAllocations)
         .all()
+        .filter((row) => row.transactionId === transaction.id),
+    ).toEqual([]);
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, transaction.id)).get(),
+    ).toMatchObject({
+      status: "pending_approval",
+      suggestedCategoryId: advertising.id,
+    });
+
+    postFinancialTransaction(db, {
+      transactionId: transaction.id,
+      categoryId: advertising.id,
+      note: "Kategorie und WhatsApp-Beleg durch Admin geprüft.",
+      actorUserId: "admin",
+    });
+    expect(
+      db.select().from(financialTransactions).where(eq(financialTransactions.id, transaction.id)).get(),
+    ).toMatchObject({
+      status: "posted",
+      suggestedCategoryId: null,
+      suggestedAt: null,
+    });
+    expect(
+      db
+        .select()
+        .from(financialTransactionAllocations)
+        .all()
         .find((allocation) => allocation.transactionId === transaction.id),
-    ).toMatchObject({ categoryId: advertising.id, matchMethod: "automatic", amountCents: -10_791 });
+    ).toMatchObject({ categoryId: advertising.id, matchMethod: "manual", amountCents: -10_791 });
+
+    const duplicate = await processWhatsAppFinancialReceipt(db, {
+      messageId: "whatsapp-message-replayed-after-reconnect",
+      senderPhone: "491701234567",
+      fileName: "google-ads.jpg",
+      mimeType: "image/jpeg",
+      bytes: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      caption: "Google Ads Rechnung – Gesamtbetrag: 107,91 EUR",
+    });
+    expect(duplicate).toEqual({ outcome: "duplicate", message: "Dieser Beleg wurde bereits verarbeitet." });
+    expect(db.select().from(whatsappReceiptIntake).all()).toHaveLength(1);
   });
 });

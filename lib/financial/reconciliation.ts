@@ -750,6 +750,8 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
     .set({
       status: "posted",
       notes: note,
+      suggestedCategoryId: null,
+      suggestedAt: null,
       reconciledAt,
       reconciledByUserId: input.actorUserId,
       updatedAt: reconciledAt,
@@ -780,6 +782,8 @@ export function ignoreFinancialTransaction(
       .set({
         status: "ignored",
         notes,
+        suggestedCategoryId: null,
+        suggestedAt: null,
         reconciledAt: now,
         reconciledByUserId: input.actorUserId,
         updatedAt: now,

@@ -95,7 +95,7 @@ export function extractReceiptAmount(text: string): ReceiptAmount | null {
   const normalized = text.replace(/\u00a0/g, " ");
   const amount = "(?:€\\s*)?(\\d{1,3}(?:[.\\s]\\d{3})*[,.]\\d{2}|\\d+[,.]\\d{2})(?:\\s*(?:€|EUR))?";
   const labelled = new RegExp(
-    `(?:gesamtbetrag|rechnungsbetrag|zahlbetrag|betrag\\s+fällig|amount\\s+due|grand\\s+total|total|summe)\\s*[:=]?\\s*${amount}`,
+    `(?:gesamtbetrag|gesamt|rechnungsbetrag|zahlbetrag|betrag\\s+fällig|amount\\s+due|grand\\s+total|total|summe)\\s*[:=]?\\s*${amount}`,
     "giu",
   );
   const labelledMatches = [...normalized.matchAll(labelled)]

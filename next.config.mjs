@@ -28,7 +28,7 @@ const nextConfig = {
   // while a developer's next dev process is using .next/dev.
   distDir: process.env.NEXT_DIST_DIR?.trim() || ".next",
   allowedDevOrigins,
-  serverExternalPackages: ["@whiskeysockets/baileys"],
+  serverExternalPackages: ["@whiskeysockets/baileys", "pdf-parse"],
   images: {
     // AVIF/HEIF processing stays disabled until the Sharp/libheif bundle
     // includes libheif 1.23.3 or newer.

@@ -218,6 +218,7 @@ export function FinancialTransactionDialog({
 }) {
   const isBank = mode === "bank";
   const isPosted = isBank && bankTransaction?.status === "posted";
+  const requiresHumanApproval = isBank && bankTransaction?.status === "pending_approval";
   const [source, setSource] = useState<"cash" | "manual">("cash");
   const [date, setDate] = useState(today());
   const [amount, setAmount] = useState("");
@@ -292,11 +293,14 @@ export function FinancialTransactionDialog({
     const timer = window.setTimeout(() => {
       initializedDialogRef.current = dialogInitializationKey;
       if (isBank && bankTransaction) {
-        const suggestedCategory = isLikelyStripePayout(bankTransaction)
+        const stripeSuggestedCategory = isLikelyStripePayout(bankTransaction)
           ? categories.find((category) => category.code === "internal_transfer")
           : undefined;
         const existingCategory = bankTransaction.categoryId
           ? categories.find((category) => category.id === bankTransaction.categoryId)
+          : undefined;
+        const receiptSuggestedCategory = bankTransaction.suggestedCategoryId
+          ? categories.find((category) => category.id === bankTransaction.suggestedCategoryId)
           : undefined;
         const stripeAccount = accounts.find((account) => account.code === "stripe_main");
         setDate(bankTransaction.bookedAt.slice(0, 10));
@@ -304,12 +308,18 @@ export function FinancialTransactionDialog({
         setAccountId(String(bankTransaction.financialAccountId));
         setBookingId(bankTransaction.matchedBooking ? String(bankTransaction.matchedBooking.id) : "");
         setCategoryId(
-          existingCategory ? String(existingCategory.id) : suggestedCategory ? String(suggestedCategory.id) : "",
+          existingCategory
+            ? String(existingCategory.id)
+            : receiptSuggestedCategory
+              ? String(receiptSuggestedCategory.id)
+              : stripeSuggestedCategory
+                ? String(stripeSuggestedCategory.id)
+                : "",
         );
         setDestinationAccountId(
           bankTransaction.destinationAccountId
             ? String(bankTransaction.destinationAccountId)
-            : suggestedCategory && stripeAccount
+            : stripeSuggestedCategory && stripeAccount
               ? String(stripeAccount.id)
               : "",
         );
@@ -734,7 +744,9 @@ export function FinancialTransactionDialog({
             {isBank
               ? isPosted
                 ? "Gebuchte Transaktion bearbeiten"
-                : "Kontobewegung prüfen"
+                : requiresHumanApproval
+                  ? "Automatische Zuordnung freigeben"
+                  : "Kontobewegung prüfen"
               : "Manuelle Transaktion erfassen"}
           </DialogTitle>
           <DialogDescription>
@@ -746,6 +758,12 @@ export function FinancialTransactionDialog({
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
+          </div>
+        ) : null}
+        {requiresHumanApproval ? (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+            Beleg und mögliche Kategorie wurden automatisch vorgeschlagen. Bitte Angaben und Beleg prüfen und erst dann
+            freigeben.
           </div>
         ) : null}
         <ScrollArea className="min-h-0 pr-2">
@@ -984,7 +1002,9 @@ export function FinancialTransactionDialog({
                   </SelectContent>
                 </Select>
                 <FieldDescription>
-                  {selectedCategory ? categoryDescription(selectedCategory) : "Wähle den konkreten Anlass der Zahlung."}
+                  {selectedCategory
+                    ? `${requiresHumanApproval ? "Automatischer Vorschlag · " : ""}${categoryDescription(selectedCategory)}`
+                    : "Wähle den konkreten Anlass der Zahlung."}
                 </FieldDescription>
               </Field>
               {selectedCategory?.categoryType === "transfer" ? (
@@ -1367,7 +1387,9 @@ export function FinancialTransactionDialog({
                   : isPosted
                     ? "Änderung speichern"
                     : isBank
-                      ? "Buchen & abstimmen"
+                      ? requiresHumanApproval
+                        ? "Prüfen & freigeben"
+                        : "Buchen & abstimmen"
                       : "Transaktion speichern"}
             </Button>
           </div>

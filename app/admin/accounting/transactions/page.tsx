@@ -89,6 +89,7 @@ export default async function BankTransactionsPage({
       provider: financialTransactions.provider,
       kind: financialTransactions.kind,
       status: financialTransactions.status,
+      suggestedCategoryId: financialTransactions.suggestedCategoryId,
       euerTreatment: financialCategories.euerTreatment,
       categoryId: financialTransactionAllocations.categoryId,
       categoryCode: financialCategories.code,

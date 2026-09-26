@@ -74,6 +74,32 @@ function insertNormalizedBookingFixture(db: ReturnType<typeof createDatabaseConn
 }
 
 describe("migration edge cases", () => {
+  it("preserves historical WhatsApp intake rows while deduplicating document ownership", () => {
+    const migrated = migrateFrom(105, (db) => {
+      run(
+        db,
+        `
+          INSERT INTO financial_documents (id, document_type, original_file_name, storage_key, mime_type, size_bytes, sha256, description, created_at)
+          VALUES (1, 'receipt', 'receipt.pdf', 'financial/1.pdf', 'application/pdf', 100, 'sha256-1', '', 1000);
+          INSERT INTO whatsapp_receipt_intake (id, whatsapp_message_id, document_id, status, details, created_at, updated_at)
+          VALUES
+            (1, 'message-1', 1, 'received', 'first delivery', 1000, 1000),
+            (2, 'message-2', 1, 'matched', 'replayed delivery', 2000, 2000);
+        `,
+      );
+    });
+
+    expect(
+      migrated.db.all<{ id: number; document_id: number | null }>(sql`
+        SELECT id, document_id FROM whatsapp_receipt_intake ORDER BY id
+      `),
+    ).toEqual([
+      { id: 1, document_id: 1 },
+      { id: 2, document_id: null },
+    ]);
+    expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
+  });
+
   it("runs every migration on an empty database, reopens cleanly, and keeps SQLite integrity", () => {
     const databaseDirectory = mkdtempSync(join(process.env.TMPDIR ?? "/tmp", "munich-bike-rental-fresh-db-"));
     temporaryDirectories.push(databaseDirectory);
@@ -81,7 +107,7 @@ describe("migration edge cases", () => {
 
     const first = createDatabaseConnection(databasePath);
     connections.push(first);
-    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(104);
+    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(106);
     expect(first.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
     expect(first.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
     first.close();
@@ -90,7 +116,7 @@ describe("migration edge cases", () => {
     const reopened = createDatabaseConnection(databasePath);
     connections.push(reopened);
     expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(
-      104,
+      106,
     );
     expect(reopened.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });

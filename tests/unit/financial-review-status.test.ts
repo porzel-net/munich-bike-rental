@@ -22,9 +22,17 @@ describe("getFinancialReviewState", () => {
       countOpenFinancialReviews([
         { ...completeIncome, documentCount: 1 },
         { ...completeIncome, status: "imported", documentCount: 1 },
+        { ...completeIncome, status: "pending_approval", documentCount: 1 },
         { ...completeIncome, status: "ignored", documentCount: 1 },
       ]),
-    ).toBe(1);
+    ).toBe(2);
+  });
+
+  it("never considers an automatic suggestion to be a human-approved posting", () => {
+    expect(getFinancialReviewState({ ...completeIncome, status: "pending_approval", documentCount: 1 })).toEqual({
+      status: "pending_approval",
+      missing: ["posting"],
+    });
   });
 
   it("requires an actual booking assignment for rental revenue", () => {

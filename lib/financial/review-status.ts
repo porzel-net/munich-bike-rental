@@ -1,6 +1,6 @@
 import { requiresFinancialDocument } from "./receipt-requirements";
 
-export type FinancialReviewStatus = "posted" | "needs_review" | "ignored";
+export type FinancialReviewStatus = "posted" | "needs_review" | "pending_approval" | "ignored";
 
 export type FinancialReviewCompletenessInput = {
   status: string;
@@ -20,7 +20,10 @@ export type FinancialReviewMissingInformation =
   "posting" | "euer_category" | "booking" | "destination_account" | "fixed_asset" | "document";
 
 export function countOpenFinancialReviews(inputs: FinancialReviewCompletenessInput[]) {
-  return inputs.filter((input) => getFinancialReviewState(input).status === "needs_review").length;
+  return inputs.filter((input) => {
+    const status = getFinancialReviewState(input).status;
+    return status === "needs_review" || status === "pending_approval";
+  }).length;
 }
 
 export function getFinancialReviewState(input: FinancialReviewCompletenessInput): {
@@ -28,6 +31,11 @@ export function getFinancialReviewState(input: FinancialReviewCompletenessInput)
   missing: FinancialReviewMissingInformation[];
 } {
   if (input.status === "ignored") return { status: "ignored", missing: [] };
+
+  // An automatic receipt match is deliberately never a completed posting.
+  // Keep the state distinct so the inbox makes the required human approval
+  // visible even when a document and a category suggestion already exist.
+  if (input.status === "pending_approval") return { status: "pending_approval", missing: ["posting"] };
 
   const missing: FinancialReviewMissingInformation[] = [];
   if (input.status !== "posted") missing.push("posting");

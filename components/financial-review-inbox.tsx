@@ -91,6 +91,7 @@ export type FinancialReviewTransaction = {
   provider: string | null;
   kind: string;
   status: string;
+  suggestedCategoryId: number | null;
   euerTreatment: string | null;
   categoryId: number | null;
   categoryCode: string | null;
@@ -148,6 +149,7 @@ function formatAmount(amountCents: number, currency = "EUR") {
 function statusLabel(row: FinancialReviewTransaction) {
   const reviewState = getFinancialReviewState(row);
   if (reviewState.status === "ignored") return "Ignoriert";
+  if (reviewState.status === "pending_approval") return "Freigabe erforderlich";
   if (reviewState.missing.includes("document")) return "Beleg fehlt";
   if (reviewState.status === "posted") return "Gebucht & abgestimmt";
   return "Prüfung offen";
@@ -157,9 +159,10 @@ function bookingStatusLabel(status: string) {
   return bookingPresentation[status as keyof typeof bookingPresentation]?.label ?? status;
 }
 
-type TransactionStatusFilter = "all" | "needs_review" | "posted" | "ignored";
+type TransactionStatusFilter = "all" | "needs_review" | "pending_approval" | "posted" | "ignored";
 const transactionStatusItems = [
   { value: "all", label: "Alle Status" },
+  { value: "pending_approval", label: "Freigabe erforderlich" },
   { value: "needs_review", label: "Prüfung offen" },
   { value: "posted", label: "Gebucht" },
   { value: "ignored", label: "Ignoriert" },
@@ -319,7 +322,13 @@ function getFinancialTransactionColumns({
         return (
           <Badge
             variant={
-              reviewState.status === "posted" ? "default" : reviewState.status === "ignored" ? "outline" : "destructive"
+              reviewState.status === "posted"
+                ? "default"
+                : reviewState.status === "ignored"
+                  ? "outline"
+                  : reviewState.status === "pending_approval"
+                    ? "secondary"
+                    : "destructive"
             }
           >
             {statusLabel(transaction)}

@@ -47,6 +47,7 @@ export type FinancialTransactionKind = (typeof financialTransactionKinds)[number
 export const financialTransactionStatuses = [
   "imported",
   "needs_review",
+  "pending_approval",
   "matched",
   "posted",
   "ignored",
@@ -214,6 +215,12 @@ export const financialTransactions = sqliteTable(
     externalParentId: text("external_parent_id"),
     kind: text("kind", { enum: financialTransactionKinds }).notNull().default("other"),
     status: text("status", { enum: financialTransactionStatuses }).notNull().default("imported"),
+    // An automatic workflow may propose a category, but it is never an
+    // accounting allocation until a person explicitly posts the transaction.
+    suggestedCategoryId: integer("suggested_category_id").references(() => financialCategories.id, {
+      onDelete: "set null",
+    }),
+    suggestedAt: integer("suggested_at", { mode: "timestamp_ms" }),
     amountCents: integer("amount_cents").notNull(),
     grossAmountCents: integer("gross_amount_cents"),
     feeAmountCents: integer("fee_amount_cents"),
@@ -538,6 +545,7 @@ export const whatsappReceiptIntake = sqliteTable(
   },
   (table) => [
     uniqueIndex("whatsapp_receipt_intake_message_unique").on(table.whatsappMessageId),
+    uniqueIndex("whatsapp_receipt_intake_document_unique").on(table.documentId),
     index("whatsapp_receipt_intake_status_created_idx").on(table.status, table.createdAt),
     index("whatsapp_receipt_intake_transaction_idx").on(table.transactionId),
   ],
