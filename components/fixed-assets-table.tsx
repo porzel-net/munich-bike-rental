@@ -137,11 +137,12 @@ function SortableColumnHeader({
 function FixedAssetActions({
   asset,
   financialAccounts,
+  onEdit,
 }: {
   asset: FixedAssetRow;
   financialAccounts: FinancialAccountOption[];
+  onEdit: (asset: FixedAssetRow) => void;
 }) {
-  const [editOpen, setEditOpen] = React.useState(false);
   const [disposalOpen, setDisposalOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteBusy, setDeleteBusy] = React.useState(false);
@@ -167,7 +168,7 @@ function FixedAssetActions({
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={<Button type="button" variant="ghost" size="icon-sm" className="data-open:bg-muted" />}
@@ -178,7 +179,7 @@ function FixedAssetActions({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             {asset.status === "active" ? (
-              <DropdownMenuItem onClick={() => setEditOpen(true)}>Bearbeiten</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(asset)}>Bearbeiten</DropdownMenuItem>
             ) : null}
             {asset.status === "active" ? (
               <DropdownMenuItem onClick={() => setDisposalOpen(true)}>Verkauf erfassen</DropdownMenuItem>
@@ -196,7 +197,6 @@ function FixedAssetActions({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <FixedAssetEditDialog asset={asset} open={editOpen} onOpenChange={setEditOpen} />
       <FixedAssetDisposalDialog
         asset={asset}
         financialAccounts={financialAccounts}
@@ -229,7 +229,10 @@ function FixedAssetActions({
   );
 }
 
-function getFixedAssetColumns(financialAccounts: FinancialAccountOption[]): ColumnDef<FixedAssetRow>[] {
+function getFixedAssetColumns(
+  financialAccounts: FinancialAccountOption[],
+  onEdit: (asset: FixedAssetRow) => void,
+): ColumnDef<FixedAssetRow>[] {
   return [
     {
       accessorKey: "name",
@@ -298,7 +301,7 @@ function getFixedAssetColumns(financialAccounts: FinancialAccountOption[]): Colu
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => {
-        return <FixedAssetActions asset={row.original} financialAccounts={financialAccounts} />;
+        return <FixedAssetActions asset={row.original} financialAccounts={financialAccounts} onEdit={onEdit} />;
       },
     },
   ];
@@ -316,12 +319,13 @@ export function FixedAssetsTable({
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 10 });
+  const [editingAsset, setEditingAsset] = React.useState<FixedAssetRow | null>(null);
 
   const filteredAssets = React.useMemo(
     () => (statusFilter === "all" ? assets : assets.filter((asset) => asset.status === statusFilter)),
     [assets, statusFilter],
   );
-  const columns = React.useMemo(() => getFixedAssetColumns(financialAccounts), [financialAccounts]);
+  const columns = React.useMemo(() => getFixedAssetColumns(financialAccounts, setEditingAsset), [financialAccounts]);
   // TanStack Table exposes an intentionally mutable table instance; React Compiler cannot memoize it safely.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -433,7 +437,12 @@ export function FixedAssetsTable({
             <TableBody>
               {visibleRows.length ? (
                 visibleRows.map((row) => (
-                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={row.original.status === "active" ? "cursor-pointer" : undefined}
+                    onClick={() => row.original.status === "active" && setEditingAsset(row.original)}
+                  >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                     ))}
@@ -527,6 +536,10 @@ export function FixedAssetsTable({
             </div>
           </div>
         </div>
+
+        {editingAsset ? (
+          <FixedAssetEditDialog asset={editingAsset} open onOpenChange={(open) => !open && setEditingAsset(null)} />
+        ) : null}
       </CardContent>
     </Card>
   );

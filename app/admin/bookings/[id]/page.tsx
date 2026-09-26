@@ -56,6 +56,7 @@ import {
   bookingOffers,
   bookingRequestedItems,
   bookings,
+  mailOutbox,
   financialAccounts,
   financialTransactionAllocations,
   financialTransactions,
@@ -261,6 +262,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     ],
   ];
   const displayOffer = acceptedOffer ?? latestOffer;
+  const displayOfferMail = displayOffer
+    ? db.select({ kind: mailOutbox.kind }).from(mailOutbox).where(eq(mailOutbox.offerId, displayOffer.id)).get()
+    : null;
+  const isAlternativeOffer = displayOfferMail?.kind === "alternative_offer";
   const offered = displayOffer
     ? db
         .select({ item: bookingOfferItems, asset: rentalAssets, modelTitle: bikeModels.title, size: bikeVariants.size })
@@ -483,17 +488,9 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                         item.needsBikepackingBag ? "Bikepackingtasche" : null,
                         item.needsGlasses ? "Rennradbrille" : null,
                       ].filter((value): value is string => Boolean(value));
-                      const concreteBikeDiffers = Boolean(match);
-                      const acceptedAlternativeBike = Boolean(
-                        acceptedOffer &&
-                        match &&
-                        !bikeMatchesRequestedLabel(
-                          { modelTitle: match.modelTitle, size: match.size },
-                          item.requestedLabel,
-                        ),
-                      );
+                      const replaceRequestedBike = Boolean((acceptedOffer || isAlternativeOffer) && match);
                       const displayedBikeName =
-                        acceptedAlternativeBike && match
+                        replaceRequestedBike && match
                           ? `${match.asset.nickname?.trim() || match.modelTitle} · ${match.size}`
                           : item.requestedLabel;
 
@@ -509,13 +506,6 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                               {accessories.length ? ` · ${accessories.join(" · ")}` : " · Kein Zubehör"}
                             </p>
                           </div>
-                          {concreteBikeDiffers && match && !acceptedAlternativeBike ? (
-                            <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-                              <span className="text-muted-foreground">Konkretes Fahrrad:</span>{" "}
-                              {match.asset.nickname ? `${match.asset.nickname} · ` : ""}
-                              {match.modelTitle} · {match.size}
-                            </p>
-                          ) : null}
                           {!match && latestOffer ? (
                             <p className="mt-3 text-sm text-muted-foreground">Noch nicht zugeordnet.</p>
                           ) : null}
