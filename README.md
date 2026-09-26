@@ -38,14 +38,14 @@ Wichtig:
 ## Voraussetzungen auf dem Server
 
 - Ubuntu Server
-- Docker Engine
+- Docker Engine 29.7.0 oder neuer (29.8.1 empfohlen)
 - Docker Compose Plugin
 - Nginx auf dem Host
 - optional: Firewall, z. B. `ufw`
 
 Für lokale Builds und Deployments ist eine gepatchte Node-Linie sinnvoll:
 
-- `22.23.2` oder neuer in der 22er-Linie
+- `22.23.3` oder neuer in der 22er-Linie
 - `24.17.0` oder neuer in der 24er-Linie
 - `26.3.1` oder neuer in der 26er-Linie
 
@@ -111,6 +111,7 @@ Für produktive Zugänge sind `SMTP_REQUEST_PASSWORD_FILE`, `SMTP_MAIN_PASSWORD_
 Wichtig:
 
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
+- Die standardmäßig verwendeten BusyBox- und Radicale-Images sind per Digest gepinnt; bei `RADICALE_IMAGE`-Überschreibungen ebenfalls immer einen unveränderlichen Digest verwenden
 - `SITE_URL`, `APP_ORIGIN` und `BETTER_AUTH_URL` müssen zur echten HTTPS-Domain passen; Compose verweigert den Start, wenn sie fehlen
 - `BETTER_AUTH_SECRET`, `MAIL_SYNC_TOKEN`, `OUTBOX_DISPATCH_TOKEN` und `WHATSAPP_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
 - Wenn die Datenbank noch keinen Benutzer enthält, wird eine einmalige Ersteinladung erzeugt. Der Link wird niemals in App-Logs ausgegeben. Standardmäßig liegt er im geschützten Container-TMPFS unter `/tmp/bootstrap-admin-invitation`; lies ihn mit `docker compose exec app cat /tmp/bootstrap-admin-invitation` aus oder setze `BOOTSTRAP_ADMIN_INVITATION_FILE` auf einen anderen geschützten Pfad. Die Anwendung schreibt die Datei mit Modus `0600`. Der Link ist ein Secret und wird nach 24 Stunden bzw. einmaliger Verwendung ungültig.
@@ -133,6 +134,7 @@ Wichtig:
 - Der öffentliche Angebotslink startet unter `/api/booking-confirmation-v2/checkout` eine Checkout-Session mit dem unveränderlichen Gesamtbetrag des versendeten Angebots. Die verbindliche Buchung und die vollständige Zahlung werden erst durch den signaturgeprüften Webhook `/api/stripe/webhook` verarbeitet. Dafür `STRIPE_WEBHOOK_SECRET` setzen.
 - Der Nevlo-Sync läuft bei konfigurierten `NEVLO_*`-Zugangsdaten automatisch beim Serverstart und anschließend alle fünf Minuten. Wiederholte Läufe sind sicher; der Admin-Button bleibt für einen manuellen Sofortlauf verfügbar.
 - WhatsApp wird serverseitig beim Start verbunden und prüft die Dashboard-Aktivitäten unabhängig von geöffneten Admin-Seiten minütlich. Neue oder geänderte Aktivitäten werden an den zuständigen Sachbearbeiter gesendet; nicht zugewiesene Buchungen gehen an Admins und den jeweiligen Standort. Banktransaktionen zur Prüfung gehen an Admins. Ab 12:00 Uhr Europe/Berlin wird pro Nutzer und Tag eine Übersicht aller nicht erledigten Aktivitäten inklusive „offen seit“ versendet. Dazu muss jeder Empfänger seine WhatsApp-Nummer unter `Einstellungen` hinterlegen und das WhatsApp-Konto einmalig unter `Einstellungen → WhatsApp` per QR-Code verbinden.
+- Wenn WhatsApp das Konto abmeldet, öffne als Admin `Einstellungen → WhatsApp` und wähle **Erneut verbinden**. Die Anwendung archiviert ausschließlich den ungültigen `/data/whatsapp-auth`-Ordner und zeigt anschließend einen neuen QR-Code. Scanne ihn in WhatsApp unter `Einstellungen → Verknüpfte Geräte → Gerät hinzufügen`. Das `app-data`-Volume darf dafür nicht gelöscht werden.
 - Nevlo verwendet rotierende Refresh-Tokens. Nach dem einmaligen Bootstrap-Paar erneuert die Anwendung Access-Tokens automatisch vor Ablauf, speichert Access- und Refresh-Token nach jedem erfolgreichen Refresh verschlüsselt in `nevlo_oauth_tokens` und verwendet sie nach Neustarts weiter. Dafür wird `NEVLO_TOKEN_ENCRYPTION_KEY` oder `BETTER_AUTH_SECRET` verwendet; das SQLite-Volume muss persistent bleiben. Nur bei einer abgelaufenen oder widerrufenen Verbindung ist einmalig eine neue OAuth-Autorisierung nötig.
 - der GitHub-Workflow pusht bei `push` auf `main` nach GHCR; Pull Requests bauen nur, ohne zu pushen
 - wenn das GHCR-Package privat ist, brauchst du auf dem Server zum `docker login ghcr.io` einen GitHub PAT mit `read:packages`
