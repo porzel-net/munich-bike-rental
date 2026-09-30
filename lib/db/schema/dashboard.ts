@@ -59,10 +59,17 @@ export const stripeUnmatchedPayments = sqliteTable(
     reason: text("reason").notNull(),
     occurredAt: integer("occurred_at", { mode: "timestamp_ms" }).notNull(),
     detectedAt: integer("detected_at", { mode: "timestamp_ms" }).notNull(),
+    /** Set when a later reconciliation can prove the payment belongs to a completed booking. */
+    resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+    /** Keeps the operational audit trail without changing the initial-alert timestamp. */
+    lastCheckedAt: integer("last_checked_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`0`),
   },
   (table) => [
     uniqueIndex("stripe_unmatched_payments_session_unique").on(table.stripeSessionId),
     index("stripe_unmatched_payments_occurred_idx").on(table.occurredAt),
+    index("stripe_unmatched_payments_resolution_idx").on(table.resolvedAt, table.occurredAt),
     check("stripe_unmatched_payments_amount_positive", sql`${table.amountCents} is null or ${table.amountCents} > 0`),
     check("stripe_unmatched_payments_currency_check", sql`length(${table.currency}) = 3`),
   ],

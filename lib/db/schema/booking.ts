@@ -249,6 +249,13 @@ export const bookingOffers = sqliteTable(
     /** The current Checkout Session for this offer; it is persisted before payment to prevent duplicates. */
     stripeSessionId: text("stripe_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
+    /**
+     * An offer can become invalid after Checkout was opened. This timestamp
+     * records that the open Stripe Session has been closed (or was already no
+     * longer open) so the expiry worker can retry failures without polling a
+     * terminal session forever.
+     */
+    stripeSessionInvalidatedAt: integer("stripe_session_invalidated_at", { mode: "timestamp_ms" }),
     /** Immutable commercial snapshot for this particular offer version. */
     totalCents: integer("total_cents").notNull().default(0),
     priceSnapshotJson: text("price_snapshot_json").notNull().default("{}"),

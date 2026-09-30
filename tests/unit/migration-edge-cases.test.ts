@@ -100,6 +100,33 @@ describe("migration edge cases", () => {
     expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });
 
+  it("keeps existing unmatched Stripe-payment alerts actionable after adding reconciliation state", () => {
+    const migrated = migrateFrom(107, (db) => {
+      run(
+        db,
+        `
+          INSERT INTO stripe_unmatched_payments (
+            stripe_session_id, stripe_payment_intent_id, amount_cents, currency,
+            customer_email, booking_offer_id, booking_id, reason, occurred_at, detected_at
+          ) VALUES (
+            'cs_test_legacy_unmatched', 'pi_test_legacy_unmatched', 12500, 'EUR',
+            'customer@example.com', NULL, NULL, 'Keine Angebotsreferenz', 900, 1000
+          );
+        `,
+      );
+    });
+
+    expect(
+      migrated.db.get<{ last_checked_at: number; resolved_at: number | null }>(sql`
+        SELECT last_checked_at, resolved_at
+        FROM stripe_unmatched_payments
+        WHERE stripe_session_id = 'cs_test_legacy_unmatched'
+      `),
+    ).toEqual({ last_checked_at: 1000, resolved_at: null });
+    expect(migrated.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
+    expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
+  });
+
   it("runs every migration on an empty database, reopens cleanly, and keeps SQLite integrity", () => {
     const databaseDirectory = mkdtempSync(join(process.env.TMPDIR ?? "/tmp", "munich-bike-rental-fresh-db-"));
     temporaryDirectories.push(databaseDirectory);
@@ -107,7 +134,7 @@ describe("migration edge cases", () => {
 
     const first = createDatabaseConnection(databasePath);
     connections.push(first);
-    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(106);
+    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(110);
     expect(first.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
     expect(first.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
     first.close();
@@ -116,7 +143,7 @@ describe("migration edge cases", () => {
     const reopened = createDatabaseConnection(databasePath);
     connections.push(reopened);
     expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(
-      106,
+      110,
     );
     expect(reopened.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });

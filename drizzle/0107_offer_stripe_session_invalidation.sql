@@ -1,0 +1,1 @@
+ALTER TABLE `booking_offers` ADD `stripe_session_invalidated_at` integer;

@@ -307,6 +307,8 @@ export const fixedAssets = sqliteTable(
     assetNumber: text("asset_number").notNull(),
     name: text("name").notNull(),
     assetType: text("asset_type", { enum: fixedAssetTypes }).notNull().default("other"),
+    /** Null means the asset and its depreciation remain in the shared business pool. */
+    internalPersonId: text("internal_person_id").references(() => authUser.id, { onDelete: "set null" }),
     acquisitionSource: text("acquisition_source", { enum: fixedAssetAcquisitionSources })
       .notNull()
       .default("transaction"),
@@ -375,6 +377,8 @@ export const financialTransactionAllocations = sqliteTable(
     fixedAssetId: integer("fixed_asset_id").references(() => fixedAssets.id, { onDelete: "restrict" }),
     categoryId: integer("category_id").references(() => financialCategories.id, { onDelete: "restrict" }),
     counterpartyId: integer("counterparty_id").references(() => financialCounterparties.id, { onDelete: "set null" }),
+    /** Optional internal cost/revenue attribution; null means shared by the business. */
+    internalPersonId: text("internal_person_id").references(() => authUser.id, { onDelete: "set null" }),
     destinationAccountId: integer("destination_account_id").references(() => financialAccounts.id, {
       onDelete: "restrict",
     }),
@@ -394,6 +398,7 @@ export const financialTransactionAllocations = sqliteTable(
     index("financial_transaction_allocations_booking_idx").on(table.bookingId),
     index("financial_transaction_allocations_category_idx").on(table.categoryId),
     index("financial_transaction_allocations_fixed_asset_idx").on(table.fixedAssetId),
+    index("financial_transaction_allocations_internal_person_idx").on(table.internalPersonId),
     index("financial_transaction_allocations_journal_idx").on(table.journalEntryId),
     check("financial_transaction_allocations_amount_nonzero", sql`${table.amountCents} <> 0`),
     check(
@@ -548,5 +553,24 @@ export const whatsappReceiptIntake = sqliteTable(
     uniqueIndex("whatsapp_receipt_intake_document_unique").on(table.documentId),
     index("whatsapp_receipt_intake_status_created_idx").on(table.status, table.createdAt),
     index("whatsapp_receipt_intake_transaction_idx").on(table.transactionId),
+  ],
+);
+
+/** Annual tax rates configured by administrators for the salary overview. Rates are stored in basis points. */
+export const salaryTaxRates = sqliteTable(
+  "salary_tax_rates",
+  {
+    year: integer("year").primaryKey(),
+    tradeTaxBasisPoints: integer("trade_tax_basis_points").notNull(),
+    vatBasisPoints: integer("vat_basis_points").notNull(),
+    incomeTaxBasisPoints: integer("income_tax_basis_points").notNull(),
+    updatedBy: text("updated_by").references(() => authUser.id, { onDelete: "set null" }),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    check("salary_tax_rates_year_check", sql`${table.year} between 2000 and 2200`),
+    check("salary_tax_rates_trade_tax_check", sql`${table.tradeTaxBasisPoints} between 0 and 10000`),
+    check("salary_tax_rates_vat_check", sql`${table.vatBasisPoints} between 0 and 10000`),
+    check("salary_tax_rates_income_tax_check", sql`${table.incomeTaxBasisPoints} between 0 and 10000`),
   ],
 );
