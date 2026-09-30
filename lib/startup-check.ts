@@ -429,13 +429,15 @@ export async function runStartupChecks(
   await runCheck(checks, "booking-data-preflight", false, () => {
     if (!db) return { status: "skipped", message: "Übersprungen, weil die Datenbank nicht verfügbar ist" };
     const preflight = getBookingMigrationPreflight(db);
-    if (preflight.ok) return { status: "ok", message: "Keine offenen Buchungs-/Asset-Konflikte gefunden" };
+    if (preflight.ok)
+      return { status: "ok", message: "Keine offenen Buchungs-, Asset- oder Stripe-Konflikte gefunden" };
     return {
       status: "warn",
       message: "Buchungsdaten benötigen fachliche Nachbearbeitung",
       details: {
         unmappedBookings: preflight.unmapped.length,
         allocationConflicts: preflight.allocationConflicts.length,
+        unassignedStripePayments: preflight.unassignedStripePayments.length,
       },
     };
   });

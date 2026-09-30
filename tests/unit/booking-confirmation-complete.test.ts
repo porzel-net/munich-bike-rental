@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const confirmationMocks = vi.hoisted(() => ({
+  BookingCommandError: class BookingCommandError extends Error {},
   getDatabase: vi.fn(),
   getPublicBookingByToken: vi.fn(),
   getPublicOfferByToken: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock("@/lib/bookings/public", () => ({
 }));
 vi.mock("@/lib/bookings/service", () => ({
   confirmOfferWithStripePayment: confirmationMocks.confirmOfferWithStripePayment,
-  BookingCommandError: class BookingCommandError extends Error {},
+  BookingCommandError: confirmationMocks.BookingCommandError,
 }));
 vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: confirmationMocks.dispatchNextOutboxMail }));
 vi.mock("@/lib/financial/stripe-payment", () => ({
@@ -37,7 +38,7 @@ vi.mock("@/lib/stripe", () => ({
 
 import { POST } from "../../app/api/booking-confirmation-v2/complete/route";
 import { createDatabaseConnection } from "../../lib/db/client";
-import { bookings, mailOutbox } from "../../lib/db/schema";
+import { bookings, mailOutbox, stripeUnmatchedPayments } from "../../lib/db/schema";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 
@@ -142,5 +143,22 @@ describe("booking confirmation completion API", () => {
       offerToken: token,
     });
     expect(confirmationMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
+  });
+
+  it("records a paid session for manual review when its booking can no longer be confirmed", async () => {
+    confirmationMocks.confirmOfferWithStripePayment.mockImplementation(() => {
+      throw new confirmationMocks.BookingCommandError("Das angebotene Fahrrad wurde inzwischen vergeben.");
+    });
+
+    const response = await POST(request("confirmation-token-1234567890"));
+
+    expect(response.status).toBe(409);
+    expect(confirmationMocks.getDatabase().select().from(stripeUnmatchedPayments).all()).toMatchObject([
+      {
+        stripeSessionId: "cs_test_confirmation",
+        reason: "Das angebotene Fahrrad wurde inzwischen vergeben.",
+      },
+    ]);
+    expect(confirmationMocks.importStripeCheckoutPayment).not.toHaveBeenCalled();
   });
 });

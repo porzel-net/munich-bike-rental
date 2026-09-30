@@ -21,7 +21,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getAssignedLocation, getServerSession, isAdmin } from "@/lib/auth/session";
-import { hasAssetConflict } from "@/lib/bookings/availability";
+import { getAssetAvailabilityBlockers, hasAssetAvailabilityConflict } from "@/lib/bookings/availability";
 import { getAssignableBookingUsers } from "@/lib/bookings/assignees";
 import { getBookingPaymentStatus } from "@/lib/bookings/service";
 import { getPendingBookingAttentionBookingIds } from "@/lib/bookings/pending-email-action";
@@ -202,9 +202,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       );
     })
     .map((asset) => ({ ...asset, modelLabel: `${asset.modelTitle} - ${asset.size}` }));
-  const unavailableAssetIds = availableAssets
-    .filter((asset) => hasAssetConflict(db, booking, asset.id))
-    .map((asset) => asset.id);
+  const unavailableAssetBlockers = availableAssets.flatMap((asset) =>
+    getAssetAvailabilityBlockers(db, booking, asset.id).map((blocker) => ({
+      ...blocker,
+      expiresAt: blocker.expiresAt?.toISOString() ?? null,
+    })),
+  );
+  const unavailableAssetIds = [...new Set(unavailableAssetBlockers.map((blocker) => blocker.assetId))];
   const unavailableAssetIdSet = new Set(unavailableAssetIds);
   const requestedQuantities = new Map<string, number>();
   for (const item of items)
@@ -228,7 +232,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   );
   const selectedConcreteAssetIds = new Set(Object.values(selectedAssetsByRequestedItem));
   const concreteAvailableAssets = availableAssets.filter(
-    (asset) => selectedConcreteAssetIds.has(asset.id) || !hasAssetConflict(db, booking, asset.id),
+    (asset) => selectedConcreteAssetIds.has(asset.id) || !hasAssetAvailabilityConflict(db, booking, asset.id),
   );
   const requestedBikeOptions = [...new Set(availableAssets.map((asset) => asset.modelLabel))];
   const canGenerateInvoice = payment.status === "settled" && Boolean(acceptedOffer && booking.invoiceNumber);
@@ -624,6 +628,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                     }))}
                     availableAssets={availableAssets}
                     unavailableAssetIds={unavailableAssetIds}
+                    unavailableAssetBlockers={unavailableAssetBlockers}
                     journalEntries={entries.map((entry) => ({
                       id: entry.id,
                       label: `${formatJournalEntryKind(entry.kind)}: ${entry.reason}`,

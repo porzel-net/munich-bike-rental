@@ -131,6 +131,7 @@ export function getDashboardActivities(
           occurredAt: stripeUnmatchedPayments.occurredAt,
         })
         .from(stripeUnmatchedPayments)
+        .where(isNull(stripeUnmatchedPayments.resolvedAt))
         .orderBy(desc(stripeUnmatchedPayments.occurredAt), desc(stripeUnmatchedPayments.id))
         .all()
     : [];

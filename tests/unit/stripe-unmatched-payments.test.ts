@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { getDashboardActivities } from "../../lib/dashboard/activities";
 import { createDatabaseConnection } from "../../lib/db/client";
 import { stripeUnmatchedPayments, authUser, whatsappNotificationOutbox } from "../../lib/db/schema";
-import { recordUnmatchedStripePayment } from "../../lib/financial/stripe-unmatched-payment";
+import {
+  recordUnmatchedStripePayment,
+  resolveMatchedStripePayment,
+} from "../../lib/financial/stripe-unmatched-payment";
 import { queueWhatsAppNotifications } from "../../lib/whatsapp/notifications";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
@@ -74,5 +77,12 @@ describe("unmatched Stripe payments", () => {
     });
     expect(jobs[0]?.messageText).toContain("cs_unmatched_123");
     expect(jobs[0]?.messageText).toContain("125,00 €");
+
+    expect(resolveMatchedStripePayment(db, session.id, new Date("2026-09-23T09:02:00.000Z"))).toBe(true);
+    expect(getDashboardActivities(db, { isAdmin: true, location: null })).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "stripe_unmatched_payment" })]),
+    );
+    expect(db.select().from(whatsappNotificationOutbox).all()).toHaveLength(0);
+    expect(db.select().from(stripeUnmatchedPayments).get()?.resolvedAt).toEqual(new Date("2026-09-23T09:02:00.000Z"));
   });
 });

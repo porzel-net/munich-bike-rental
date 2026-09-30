@@ -26,6 +26,23 @@ export async function register() {
     const timer = setInterval(sweep, 60_000);
     timer.unref?.();
 
+    const { expireInvalidatedStripeCheckoutSessions } = await import("./lib/bookings/stripe-session-lifecycle");
+    let stripeSessionInvalidationInFlight = false;
+    const invalidateObsoleteStripeSessions = async () => {
+      if (stripeSessionInvalidationInFlight) return;
+      stripeSessionInvalidationInFlight = true;
+      try {
+        await expireInvalidatedStripeCheckoutSessions(getDatabase());
+      } catch (error) {
+        console.error("Failed to invalidate obsolete Stripe Checkout Sessions", error);
+      } finally {
+        stripeSessionInvalidationInFlight = false;
+      }
+    };
+    void invalidateObsoleteStripeSessions();
+    const stripeSessionInvalidationTimer = setInterval(() => void invalidateObsoleteStripeSessions(), 60_000);
+    stripeSessionInvalidationTimer.unref?.();
+
     const { drainCarddavSyncQueue } = await import("./lib/carddav/queue");
     const syncCarddav = () => {
       void drainCarddavSyncQueue().catch((error) => {

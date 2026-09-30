@@ -7,7 +7,7 @@ import { listStripeCheckoutSessions } from "../stripe";
 
 import { importStripeCheckoutPayment } from "./stripe-payment";
 import { syncStripeRefunds } from "./stripe-refunds";
-import { recordUnmatchedStripePayment } from "./stripe-unmatched-payment";
+import { recordUnmatchedStripePayment, resolveMatchedStripePayment } from "./stripe-unmatched-payment";
 
 export type StripeSyncInput = {
   createdGte?: number;
@@ -104,6 +104,7 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
         continue;
       }
 
+      let bookingConfirmed = false;
       try {
         await confirmOfferWithStripePayment(db, {
           offerId,
@@ -116,6 +117,11 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
                 ? session.payment_intent.id
                 : null,
         });
+        bookingConfirmed = true;
+        // A confirmation is the required commercial booking relation. Mark a
+        // prior alert as fixed before importing accounting details, which may
+        // be retried independently without making the booking ambiguous.
+        resolveMatchedStripePayment(db, session.id);
         const imported = await importStripeCheckoutPayment(db, {
           sessionId: session.id,
           bookingId: offer.bookingId,
@@ -123,6 +129,12 @@ export async function syncStripeCheckoutPayments(db: AppDatabase, input: StripeS
         if (imported.alreadyImported) result.alreadyImported += 1;
         else result.imported += 1;
       } catch (error) {
+        if (!bookingConfirmed)
+          recordUnmatchedStripePayment(
+            db,
+            session,
+            error instanceof Error ? error.message : "Stripe-Zahlung konnte nicht bestätigt werden.",
+          );
         addError(
           result,
           `${session.id}: ${error instanceof Error ? error.message : "Unbekannter Stripe-Synchronisationsfehler."}`,

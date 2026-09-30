@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getBookingAdminContext } from "@/lib/bookings/admin-guard";
-import { hasAssetConflict } from "@/lib/bookings/availability";
+import { getAssetAvailabilityBlockers } from "@/lib/bookings/availability";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 import { readBoundedJson } from "@/lib/security/request-body";
 
@@ -36,9 +36,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     pickupTime: input.data.pickupTime,
     dropoffTime: input.data.dropoffTime,
   };
-  const unavailableAssetIds = input.data.assetIds.filter((assetId) =>
-    hasAssetConflict(command.db, bookingForPeriod, assetId),
+  const unavailableAssetBlockers = input.data.assetIds.flatMap((assetId) =>
+    getAssetAvailabilityBlockers(command.db, bookingForPeriod, assetId).map((blocker) => ({
+      ...blocker,
+      expiresAt: blocker.expiresAt?.toISOString() ?? null,
+    })),
   );
+  const unavailableAssetIds = [...new Set(unavailableAssetBlockers.map((blocker) => blocker.assetId))];
 
-  return NextResponse.json({ unavailableAssetIds });
+  return NextResponse.json({ unavailableAssetIds, unavailableAssetBlockers });
 }

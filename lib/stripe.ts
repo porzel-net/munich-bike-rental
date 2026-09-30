@@ -203,6 +203,16 @@ export async function getStripeCheckoutSession(sessionId: string) {
   );
 }
 
+/** Closes an open hosted Checkout page after its offer is no longer valid. */
+export async function expireStripeCheckoutSession(sessionId: string) {
+  if (!/^cs_(test|live)_[A-Za-z0-9_]+$/.test(sessionId)) throw new Error("Die Stripe-Checkout-Referenz ist ungültig.");
+  return stripeRequest<StripeCheckoutSession>(
+    `checkout/sessions/${encodeURIComponent(sessionId)}/expire`,
+    new URLSearchParams(),
+    "POST",
+  );
+}
+
 /**
  * Lists completed Checkout Sessions for the Stripe reconciliation/backfill.
  * The API is paginated, so callers must continue with the last session ID

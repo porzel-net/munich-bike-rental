@@ -56,6 +56,7 @@ import { appendJournalEntry } from "../../lib/bookings/ledger";
 import { assignNevloTransactionToBooking } from "../../lib/financial/reconciliation";
 import { createAndPostManualTransaction } from "../../lib/financial/manual-transactions";
 import { getPublicFeedbackByToken, submitPublicFeedback } from "../../lib/bookings/feedback";
+import { getAssetAvailabilityBlockers } from "../../lib/bookings/availability";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 afterEach(() => {
@@ -1272,6 +1273,43 @@ describe("booking commands", () => {
     expect(() =>
       createOffer(db, { bookingId: overlap.id, assetsByRequestedItem: { [overlap.itemId]: assetId } }),
     ).toThrow(BookingCommandError);
+  });
+
+  it("reserves a concrete bike for a sent offer until that offer expires", () => {
+    const { db, assetId } = setup();
+    const first = inquiry(db, "2026-07-20", "2026-07-21");
+    const second = inquiry(db, "2026-07-20", "2026-07-21");
+    assignAdminBooking(db, first.id);
+    assignAdminBooking(db, second.id);
+    const firstOffer = createOffer(db, {
+      bookingId: first.id,
+      assetsByRequestedItem: { [first.itemId]: assetId },
+    });
+
+    const secondBooking = db.select().from(bookings).where(eq(bookings.id, second.id)).get()!;
+    expect(getAssetAvailabilityBlockers(db, secondBooking, assetId)).toMatchObject([
+      {
+        assetId,
+        bookingId: first.id,
+        customerName: "Ada Lovelace",
+        orderNumber: first.orderNumber,
+        kind: "offer",
+        expiresAt: expect.any(Date),
+      },
+    ]);
+
+    expect(() =>
+      createOffer(db, { bookingId: second.id, assetsByRequestedItem: { [second.itemId]: assetId } }),
+    ).toThrow("bereits reserviert oder vergeben");
+
+    db.update(bookingOffers)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(bookingOffers.id, firstOffer.offerId))
+      .run();
+
+    expect(() =>
+      createOffer(db, { bookingId: second.id, assetsByRequestedItem: { [second.itemId]: assetId } }),
+    ).not.toThrow();
   });
 
   it("blocks commercial actions until a booking has a Sachbearbeiter", () => {

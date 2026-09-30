@@ -13,10 +13,25 @@ export type UnmappedActiveBooking = {
 
 export type ConflictingHistoricAllocation = { assetId: number; firstBookingId: number; secondBookingId: number };
 
+export type UnassignedStripePayment = {
+  id: number;
+  stripeSessionId: string;
+  stripePaymentIntentId: string | null;
+  amountCents: number | null;
+  currency: string;
+  customerEmail: string | null;
+  bookingOfferId: number | null;
+  bookingId: number | null;
+  reason: string;
+  occurredAt: number;
+  detectedAt: number;
+};
+
 export type BookingMigrationPreflight = {
   ok: boolean;
   unmapped: UnmappedActiveBooking[];
   allocationConflicts: ConflictingHistoricAllocation[];
+  unassignedStripePayments: UnassignedStripePayment[];
 };
 
 /**
@@ -42,5 +57,27 @@ export function getBookingMigrationPreflight(db: AppDatabase): BookingMigrationP
       AND NOT ((a.period_to || 'T' || a.dropoff_time) <= (b.period_from || 'T' || b.pickup_time)
         OR (a.period_from || 'T' || a.pickup_time) >= (b.period_to || 'T' || b.dropoff_time))
   `);
-  return { ok: unmapped.length === 0 && allocationConflicts.length === 0, unmapped, allocationConflicts };
+  const unassignedStripePayments = db.all<UnassignedStripePayment>(sql`
+    SELECT
+      id,
+      stripe_session_id AS stripeSessionId,
+      stripe_payment_intent_id AS stripePaymentIntentId,
+      amount_cents AS amountCents,
+      currency,
+      customer_email AS customerEmail,
+      booking_offer_id AS bookingOfferId,
+      booking_id AS bookingId,
+      reason,
+      occurred_at AS occurredAt,
+      detected_at AS detectedAt
+    FROM stripe_unmatched_payments
+    WHERE resolved_at IS NULL
+    ORDER BY occurred_at DESC, id DESC
+  `);
+  return {
+    ok: unmapped.length === 0 && allocationConflicts.length === 0 && unassignedStripePayments.length === 0,
+    unmapped,
+    allocationConflicts,
+    unassignedStripePayments,
+  };
 }

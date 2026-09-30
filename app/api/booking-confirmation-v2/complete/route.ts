@@ -5,6 +5,7 @@ import { getPublicBookingByToken, getPublicOfferByToken } from "@/lib/bookings/p
 import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookings/service";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
+import { recordUnmatchedStripePayment, resolveMatchedStripePayment } from "@/lib/financial/stripe-unmatched-payment";
 import { readBoundedJson } from "@/lib/security/request-body";
 import { consumePublicOfferRequestRateLimit } from "@/lib/security/rate-limit";
 import { getStripeCheckoutSession, StripeConfigurationError } from "@/lib/stripe";
@@ -61,18 +62,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Der Stripe-Betrag stimmt nicht mit dem Angebot überein." }, { status: 409 });
     }
 
-    const result = confirmOfferWithStripePayment(database, {
-      offerId: offer.offerId,
-      amountCents: session.amount_total,
-      sessionId: session.id,
-      paymentIntentId:
-        typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : session.payment_intent && typeof session.payment_intent === "object"
-            ? session.payment_intent.id
-            : null,
-      offerToken: input.data.token,
-    });
+    let result: ReturnType<typeof confirmOfferWithStripePayment>;
+    try {
+      result = confirmOfferWithStripePayment(database, {
+        offerId: offer.offerId,
+        amountCents: session.amount_total,
+        sessionId: session.id,
+        paymentIntentId:
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent && typeof session.payment_intent === "object"
+              ? session.payment_intent.id
+              : null,
+        offerToken: input.data.token,
+      });
+    } catch (error) {
+      if (!(error instanceof BookingCommandError)) throw error;
+      recordUnmatchedStripePayment(database, session, error.message);
+      return NextResponse.json(
+        { message: "Die Zahlung wird geprüft. Unser Team meldet sich zeitnah." },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    resolveMatchedStripePayment(database, session.id);
     await importStripeCheckoutPayment(database, { sessionId: session.id, bookingId: result.bookingId });
 
     const updatedOffer = getOffer(database, input.data.token);

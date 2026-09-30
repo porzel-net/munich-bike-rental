@@ -9,6 +9,7 @@ import { readBoundedJson } from "@/lib/security/request-body";
 import { consumePublicOfferRequestRateLimit } from "@/lib/security/rate-limit";
 import {
   createStripeCheckoutSession,
+  expireStripeCheckoutSession,
   getStripeCheckoutSession,
   StripeConfigurationError,
   type StripeCheckoutSession,
@@ -110,11 +111,26 @@ export async function POST(request: Request) {
       },
       idempotencyKey,
     });
-    database
+    const persisted = database
       .update(bookingOffers)
       .set({ stripeSessionId: session.id })
       .where(and(eq(bookingOffers.id, offer.offerId), eq(bookingOffers.status, "sent")))
       .run();
+    if (persisted.changes !== 1) {
+      // The offer was revoked or expired while Stripe was creating the page.
+      // Close the newly created page immediately; it was never persisted and
+      // therefore cannot be picked up by the background invalidation worker.
+      try {
+        await expireStripeCheckoutSession(session.id);
+      } catch (error) {
+        console.error("Failed to close Checkout Session created for an invalid offer", {
+          offerId: offer.offerId,
+          sessionId: session.id,
+          error: error instanceof Error ? { name: error.name, message: error.message } : error,
+        });
+      }
+      return NextResponse.json({ message: "Dieses Angebot ist nicht mehr zahlbar." }, { status: 409 });
+    }
 
     return NextResponse.json(
       { url: session.url, sessionId: session.id, amountCents: offer.totalCents },

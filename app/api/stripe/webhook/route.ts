@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { confirmOfferWithStripePayment, BookingCommandError } from "@/lib/bookings/service";
 import { getDatabase } from "@/lib/db/client";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
-import { recordUnmatchedStripePayment } from "@/lib/financial/stripe-unmatched-payment";
+import { recordUnmatchedStripePayment, resolveMatchedStripePayment } from "@/lib/financial/stripe-unmatched-payment";
 import { bookingOffers } from "@/lib/db/schema";
 import { readBoundedText } from "@/lib/security/request-body";
 import { consumeRequestRateLimit } from "@/lib/security/rate-limit";
@@ -80,19 +80,33 @@ export async function POST(request: Request) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    const result = confirmOfferWithStripePayment(database, {
-      offerId,
-      amountCents,
-      sessionId: session.id,
-      paymentIntentId:
-        typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : session.payment_intent && typeof session.payment_intent === "object"
-            ? session.payment_intent.id
-            : null,
-      offerToken: session.metadata?.offer_token,
-    });
+    let result: ReturnType<typeof confirmOfferWithStripePayment>;
+    try {
+      result = confirmOfferWithStripePayment(database, {
+        offerId,
+        amountCents,
+        sessionId: session.id,
+        paymentIntentId:
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent && typeof session.payment_intent === "object"
+              ? session.payment_intent.id
+              : null,
+        offerToken: session.metadata?.offer_token,
+      });
+    } catch (error) {
+      if (!(error instanceof BookingCommandError)) throw error;
+      // The money was already captured by Stripe. A valid reference is not
+      // enough: revoked, expired and colliding offers need an urgent,
+      // idempotent manual reconciliation record as well.
+      recordUnmatchedStripePayment(database, session, error.message);
+      return NextResponse.json(
+        { received: true, unmatchedPayment: true },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
+    resolveMatchedStripePayment(database, session.id);
     // The booking journal records the commercial charge, while this import
     // records the actual Stripe cash movement and its fee for EÜR purposes.
     // Repeated webhook deliveries are safe because the Stripe balance

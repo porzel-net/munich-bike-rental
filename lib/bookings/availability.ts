@@ -1,10 +1,12 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 
 import type { AppDatabase } from "../db/client";
 import {
   accessoryInventory,
   bookingAccessoryAllocations,
   bookingAssetAllocations,
+  bookingOfferItems,
+  bookingOffers,
   bookingRequestedItems,
   bookings,
 } from "../db/schema";
@@ -22,12 +24,26 @@ type AccessoryAllocationOptions = {
   allowUnavailable?: boolean;
 };
 
+export type AssetAvailabilityBlocker = {
+  assetId: number;
+  bookingId: number;
+  customerName: string;
+  orderNumber: string;
+  kind: "booking" | "offer";
+  /** A sent offer expires automatically; confirmed allocations do not. */
+  expiresAt: Date | null;
+};
+
 function assetIntervalConflict(fromDate: string, fromTime: string, toDate: string, toTime: string) {
   return sql`NOT ((${bookingAssetAllocations.periodTo} || 'T' || ${bookingAssetAllocations.dropoffTime}) <= ${`${fromDate}T${fromTime}`} OR (${bookingAssetAllocations.periodFrom} || 'T' || ${bookingAssetAllocations.pickupTime}) >= ${`${toDate}T${toTime}`})`;
 }
 
 function accessoryIntervalConflict(fromDate: string, fromTime: string, toDate: string, toTime: string) {
   return sql`NOT ((${bookingAccessoryAllocations.periodTo} || 'T' || ${bookingAccessoryAllocations.dropoffTime}) <= ${`${fromDate}T${fromTime}`} OR (${bookingAccessoryAllocations.periodFrom} || 'T' || ${bookingAccessoryAllocations.pickupTime}) >= ${`${toDate}T${toTime}`})`;
+}
+
+function offerIntervalConflict(fromDate: string, fromTime: string, toDate: string, toTime: string) {
+  return sql`NOT ((${bookings.periodTo} || 'T' || ${bookings.dropoffTime}) <= ${`${fromDate}T${fromTime}`} OR (${bookings.periodFrom} || 'T' || ${bookings.pickupTime}) >= ${`${toDate}T${toTime}`})`;
 }
 
 /** `[pickup, return)` permits a return and the following pickup at the same time. */
@@ -45,6 +61,89 @@ export function hasAssetConflict(db: AppDatabase, booking: typeof bookings.$infe
       )
       .get(),
   );
+}
+
+function getConfirmedAllocationBlockers(
+  db: AppDatabase,
+  booking: typeof bookings.$inferSelect,
+  assetId: number,
+): AssetAvailabilityBlocker[] {
+  return db
+    .select({
+      assetId: bookingAssetAllocations.assetId,
+      bookingId: bookings.id,
+      customerName: bookings.customerName,
+      orderNumber: bookings.orderNumber,
+    })
+    .from(bookingAssetAllocations)
+    .innerJoin(bookings, eq(bookingAssetAllocations.bookingId, bookings.id))
+    .where(
+      and(
+        eq(bookingAssetAllocations.assetId, assetId),
+        sql`${bookingAssetAllocations.releasedAt} is null`,
+        assetIntervalConflict(booking.periodFrom, booking.pickupTime, booking.periodTo, booking.dropoffTime),
+      ),
+    )
+    .all()
+    .map((blocker) => ({ ...blocker, kind: "booking" as const, expiresAt: null }));
+}
+
+function getOfferReservationBlockers(
+  db: AppDatabase,
+  booking: typeof bookings.$inferSelect,
+  assetId: number,
+): AssetAvailabilityBlocker[] {
+  return db
+    .select({
+      assetId: bookingOfferItems.assetId,
+      bookingId: bookings.id,
+      customerName: bookings.customerName,
+      orderNumber: bookings.orderNumber,
+      expiresAt: bookingOffers.expiresAt,
+    })
+    .from(bookingOfferItems)
+    .innerJoin(bookingOffers, eq(bookingOfferItems.offerId, bookingOffers.id))
+    .innerJoin(bookings, eq(bookingOffers.bookingId, bookings.id))
+    .where(
+      and(
+        eq(bookingOfferItems.assetId, assetId),
+        eq(bookingOffers.status, "sent"),
+        gt(bookingOffers.expiresAt, new Date()),
+        sql`${bookingOffers.bookingId} <> ${booking.id}`,
+        offerIntervalConflict(booking.periodFrom, booking.pickupTime, booking.periodTo, booking.dropoffTime),
+      ),
+    )
+    .all()
+    .map((blocker) => ({ ...blocker, kind: "offer" as const }));
+}
+
+/**
+ * Explains why an asset is unavailable. The admin UI uses this to surface the
+ * booking that owns a concrete offer hold instead of showing a generic block.
+ */
+export function getAssetAvailabilityBlockers(db: AppDatabase, booking: typeof bookings.$inferSelect, assetId: number) {
+  return [
+    ...getConfirmedAllocationBlockers(db, booking, assetId),
+    ...getOfferReservationBlockers(db, booking, assetId),
+  ];
+}
+
+/**
+ * A sent offer is an exclusive, time-bounded hold on its concrete bike. The
+ * current booking is excluded so replacing an offer can retain a bike while
+ * its prior offer is revoked in the same transaction.
+ */
+export function hasActiveOfferReservationConflict(
+  db: AppDatabase,
+  booking: typeof bookings.$inferSelect,
+  assetId: number,
+) {
+  return getOfferReservationBlockers(db, booking, assetId).length > 0;
+}
+
+/** Includes confirmed allocations and time-bounded holds from sent offers. */
+export function hasAssetAvailabilityConflict(db: AppDatabase, booking: typeof bookings.$inferSelect, assetId: number) {
+  return getAssetAvailabilityBlockers(db, booking, assetId).length > 0;
 }
 
 export function allocateRequestedAccessories(

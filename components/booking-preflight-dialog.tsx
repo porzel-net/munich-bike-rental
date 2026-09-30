@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import type { BookingMigrationPreflight } from "@/lib/bookings/preflight";
 
 export function BookingPreflightDialog({ result }: { result: BookingMigrationPreflight }) {
-  const issueCount = result.unmapped.length + result.allocationConflicts.length;
+  const issueCount =
+    result.unmapped.length + result.allocationConflicts.length + result.unassignedStripePayments.length;
 
   return (
     <Dialog>
@@ -35,7 +36,8 @@ export function BookingPreflightDialog({ result }: { result: BookingMigrationPre
             <BookingPreflightStatusBadge result={result} />
           </DialogTitle>
           <DialogDescription>
-            Hier siehst du, ob deine Buchungen vollständig vorbereitet sind und sich keine Fahrräder überschneiden.
+            Hier siehst du, ob Buchungen vollständig vorbereitet sind, sich keine Fahrräder überschneiden und jede
+            Stripe-Zahlung zugeordnet ist.
           </DialogDescription>
         </DialogHeader>
         <BookingPreflightDetails result={result} />

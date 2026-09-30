@@ -80,6 +80,14 @@ type Asset = {
   weekdayPriceCents: number;
   weekendPriceCents: number;
 };
+type AssetAvailabilityBlocker = {
+  assetId: number;
+  bookingId: number;
+  customerName: string;
+  orderNumber: string;
+  kind: "booking" | "offer";
+  expiresAt: string | null;
+};
 type Entry = { id: number; label: string };
 type PaymentAccount = { id: number; name: string; iban: string | null; type: string };
 type Action =
@@ -212,13 +220,11 @@ function getAutomaticRejectionMessage(locale: "de" | "en") {
 
 function BikeOptionLabel({
   asset,
-  includePrice = true,
-  showPriceSchedule = false,
+  includePrice = false,
   suffix = "",
 }: {
   asset: Asset;
   includePrice?: boolean;
-  showPriceSchedule?: boolean;
   suffix?: string;
 }) {
   return (
@@ -226,14 +232,21 @@ function BikeOptionLabel({
       {asset.nickname ? <strong>{asset.nickname}</strong> : null}
       {asset.nickname ? " · " : null}
       <span>{asset.modelLabel}</span>
-      {includePrice
-        ? showPriceSchedule
-          ? ` · Mo-Fr ${formatEuro(asset.weekdayPriceCents)} / Tag · Sa-So ${formatEuro(asset.weekendPriceCents)} / Tag`
-          : ` · ${formatEuro(asset.priceCents)} / Tag`
-        : null}
+      {includePrice ? ` · ${formatEuro(asset.priceCents)} / Tag` : null}
       {suffix}
     </span>
   );
+}
+
+function availabilityBlockerSuffix(blockers: AssetAvailabilityBlocker[]) {
+  return blockers
+    .map((blocker) => {
+      const booking = `${blocker.customerName} (${blocker.orderNumber})`;
+      return blocker.kind === "offer"
+        ? `reserviert für ${booking}${blocker.expiresAt ? ` bis ${formatDateTime(blocker.expiresAt)}` : ""}`
+        : `verbindlich gebucht: ${booking}`;
+    })
+    .join(" · ");
 }
 
 export function ActionItem({
@@ -291,6 +304,7 @@ export function BookingCommandActions({
   requestedItems,
   availableAssets,
   unavailableAssetIds,
+  unavailableAssetBlockers,
   journalEntries,
   paymentAccounts,
   isHistorical,
@@ -314,6 +328,7 @@ export function BookingCommandActions({
   requestedItems: RequestedItem[];
   availableAssets: Asset[];
   unavailableAssetIds: number[];
+  unavailableAssetBlockers: AssetAvailabilityBlocker[];
   journalEntries: Entry[];
   paymentAccounts: PaymentAccount[];
   isHistorical: boolean;
@@ -378,6 +393,7 @@ export function BookingCommandActions({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [dynamicUnavailableAssetIds, setDynamicUnavailableAssetIds] = useState(unavailableAssetIds);
+  const [dynamicUnavailableAssetBlockers, setDynamicUnavailableAssetBlockers] = useState(unavailableAssetBlockers);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const previewRequestId = useRef(0);
@@ -403,6 +419,15 @@ export function BookingCommandActions({
     [assetsByRequestedItem],
   );
   const unavailableAssetIdSet = useMemo(() => new Set(dynamicUnavailableAssetIds), [dynamicUnavailableAssetIds]);
+  const unavailableAssetBlockersById = useMemo(() => {
+    const blockersById = new Map<number, AssetAvailabilityBlocker[]>();
+    for (const blocker of dynamicUnavailableAssetBlockers) {
+      const existing = blockersById.get(blocker.assetId) ?? [];
+      existing.push(blocker);
+      blockersById.set(blocker.assetId, existing);
+    }
+    return blockersById;
+  }, [dynamicUnavailableAssetBlockers]);
   const isAlternativeOffer = requestedItems.some((item) => {
     const selectedAsset = availableAssets.find((asset) => String(asset.id) === assetsByRequestedItem[String(item.id)]);
     return Boolean(selectedAsset && !bikeMatchesRequestedLabel(selectedAsset, item.requestedLabel));
@@ -468,6 +493,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreviewError(null);
     setPreviewLoading(false);
     setDynamicUnavailableAssetIds(unavailableAssetIds);
+    setDynamicUnavailableAssetBlockers(unavailableAssetBlockers);
     setAvailabilityError(null);
     setAvailabilityLoading(false);
     commandIdRef.current = null;
@@ -491,6 +517,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
     setPreviewError(null);
     setPreviewLoading(false);
     setDynamicUnavailableAssetIds(unavailableAssetIds);
+    setDynamicUnavailableAssetBlockers(unavailableAssetBlockers);
     setAvailabilityError(null);
     setAvailabilityLoading(false);
   };
@@ -598,11 +625,14 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         .then(async (response) => {
           const result = (await response.json().catch(() => null)) as {
             unavailableAssetIds?: number[];
+            unavailableAssetBlockers?: AssetAvailabilityBlocker[];
             message?: string;
           } | null;
           if (!response.ok) throw new Error(result?.message ?? "Die Fahrradverfügbarkeit konnte nicht geprüft werden.");
-          if (!cancelled && requestId === availabilityRequestId.current)
+          if (!cancelled && requestId === availabilityRequestId.current) {
             setDynamicUnavailableAssetIds(result?.unavailableAssetIds ?? []);
+            setDynamicUnavailableAssetBlockers(result?.unavailableAssetBlockers ?? []);
+          }
         })
         .catch((error) => {
           if (!cancelled && requestId === availabilityRequestId.current) setAvailabilityError(errorMessage(error));
@@ -1521,7 +1551,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                           <Select
                             items={availableAssets.map((asset) => ({
                               value: String(asset.id),
-                              label: asset.nickname ? `${asset.nickname} · ${asset.modelLabel}` : asset.modelLabel,
+                              label: `${asset.nickname ? `${asset.nickname} · ` : ""}${asset.modelLabel}${availabilityBlockerSuffix(unavailableAssetBlockersById.get(asset.id) ?? []) ? ` · ${availabilityBlockerSuffix(unavailableAssetBlockersById.get(asset.id) ?? [])}` : ""}`,
                             }))}
                             value={assetsByRequestedItem[String(item.id)] ?? ""}
                             disabled={
@@ -1566,7 +1596,7 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                                     (candidate) => String(candidate.id) === assetsByRequestedItem[String(item.id)],
                                   );
                                   return asset ? (
-                                    <BikeOptionLabel asset={asset} showPriceSchedule />
+                                    <BikeOptionLabel asset={asset} includePrice={false} />
                                   ) : (
                                     "Konkretes Fahrrad auswählen"
                                   );
@@ -1587,8 +1617,12 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
                                   >
                                     <BikeOptionLabel
                                       asset={asset}
-                                      showPriceSchedule
-                                      suffix={unavailableAssetIdSet.has(asset.id) ? " · im Zeitraum belegt" : ""}
+                                      includePrice={false}
+                                      suffix={
+                                        unavailableAssetIdSet.has(asset.id)
+                                          ? ` · ${availabilityBlockerSuffix(unavailableAssetBlockersById.get(asset.id) ?? []) || "im Zeitraum belegt"}`
+                                          : ""
+                                      }
                                     />
                                   </SelectItem>
                                 ))}

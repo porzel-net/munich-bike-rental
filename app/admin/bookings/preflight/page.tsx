@@ -38,7 +38,7 @@ export default async function BookingPreflightPage() {
           <main className="admin-main flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <AdminPageHeader
               title="Mögliche Probleme"
-              description="Hier siehst du, ob deine Buchungen vollständig vorbereitet sind und sich keine Fahrräder überschneiden."
+              description="Hier siehst du, ob Buchungen vollständig vorbereitet sind, sich keine Fahrräder überschneiden und jede Stripe-Zahlung zugeordnet ist."
               actions={
                 <Button nativeButton={false} variant="outline" render={<Link href="/admin/bookings" />}>
                   Zur Übersicht

@@ -16,7 +16,7 @@ import {
 import { bikeMatchesRequestedLabel } from "../inventory/display-name";
 
 import { BookingCommandError } from "./errors";
-import { hasAssetConflict } from "./availability";
+import { hasAssetAvailabilityConflict } from "./availability";
 import { renderOfferMail, type RenderedMail } from "./messages";
 import { applyCustomOfferPrice, buildOfferQuote, type OfferAccessorySelection } from "./quotes";
 import {
@@ -141,9 +141,9 @@ export function createOffer(db: AppDatabase, input: OfferCommandInput) {
     if (alternative && !input.alternativeReason?.trim())
       throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
     for (const item of quote.offeredItems) {
-      if (hasAssetConflict(db, offerBooking, item.assetId))
+      if (hasAssetAvailabilityConflict(db, offerBooking, item.assetId))
         throw new BookingCommandError(
-          "Das ausgewählte Fahrrad ist im gewählten Zeitraum bereits vergeben. Wähle ein anderes Fahrrad oder ändere den Zeitraum.",
+          "Das ausgewählte Fahrrad ist im gewählten Zeitraum bereits reserviert oder vergeben. Wähle ein anderes Fahrrad oder ändere den Zeitraum.",
         );
     }
 
@@ -322,7 +322,7 @@ export function previewOffer(db: AppDatabase, input: Omit<OfferCommandInput, "se
     throw new BookingCommandError("Für ein alternatives Fahrrad muss ein Änderungsgrund angegeben werden");
   const offerBooking = { ...booking, periodFrom, periodTo, pickupTime, dropoffTime };
   for (const item of quote.offeredItems) {
-    if (hasAssetConflict(db, offerBooking, item.assetId))
+    if (hasAssetAvailabilityConflict(db, offerBooking, item.assetId))
       throw new BookingCommandError(
         "Das ausgewählte Fahrrad ist im gewählten Zeitraum bereits vergeben. Wähle ein anderes Fahrrad oder ändere den Zeitraum.",
       );

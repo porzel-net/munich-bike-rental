@@ -101,6 +101,8 @@ export type FinancialReviewTransaction = {
   bookingId: number | null;
   destinationAccountId: number | null;
   fixedAssetId: number | null;
+  internalPersonId: string | null;
+  internalPersonName: string | null;
   amountCents: number;
   allocatedCents: number;
   privateShareCents: number;
@@ -124,6 +126,7 @@ export type FinancialReviewTransaction = {
     inServiceDate: string;
     acquisitionCostCents: number;
     usefulLifeMonths: number;
+    internalPersonId: string | null;
   } | null;
   matchedBooking: { id: number; orderNumber: string } | null;
 };
@@ -279,6 +282,11 @@ function getFinancialTransactionColumns({
             >
               {transaction.description || transaction.reference || "Kein Verwendungszweck"}
             </span>
+            {transaction.categoryId !== null ? (
+              <span className="block text-xs text-muted-foreground">
+                Interne Zuordnung: {transaction.internalPersonName ?? "Unternehmen / gemeinsam"}
+              </span>
+            ) : null}
             {transaction.documentCount > 0 ? (
               <span className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
                 <FileTextIcon className="size-3" /> Beleg hinterlegt
@@ -364,12 +372,14 @@ export function FinancialReviewInbox({
   categories,
   accounts,
   bookings,
+  internalPeople,
   initialTransactionId,
 }: {
   transactions: FinancialReviewTransaction[];
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
   bookings: FinancialReviewBooking[];
+  internalPeople: Array<{ id: string; name: string }>;
   initialTransactionId?: number;
 }) {
   const router = useRouter();
@@ -564,6 +574,7 @@ export function FinancialReviewInbox({
                 categories={categories}
                 accounts={accounts}
                 bookings={bookings}
+                internalPeople={internalPeople}
                 onCompleted={() => router.refresh()}
               />
             </div>
@@ -795,6 +806,7 @@ export function FinancialReviewInbox({
         categories={categories}
         accounts={accounts}
         bookings={bookings}
+        internalPeople={internalPeople}
         bankTransaction={selected}
         onDocumentChanged={() => router.refresh()}
         onBankCompleted={() => {
