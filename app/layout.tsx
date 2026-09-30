@@ -157,6 +157,9 @@ export default async function RootLayout({
 
   return (
     <html lang={locale}>
+      <head>
+        <meta name="color-scheme" content="only light" />
+      </head>
       <body>
         {structuredDataJson ? (
           <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson }} />

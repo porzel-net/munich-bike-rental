@@ -38,10 +38,23 @@ Wichtig:
 ## Voraussetzungen auf dem Server
 
 - Ubuntu Server
-- Docker Engine 29.7.0 oder neuer (29.8.1 empfohlen)
+- Docker Engine 29.8.1 oder neuer (enthält BuildKit 0.33.0 und runc 1.5.1)
 - Docker Compose Plugin
 - Nginx auf dem Host
 - optional: Firewall, z. B. `ufw`
+
+Vor jedem produktiven Deployment den **Server** selbst prüfen:
+
+```bash
+docker version
+docker buildx version
+docker info --format '{{json .Runtimes}}'
+```
+
+Die Serverausgabe muss Docker Engine 29.8.1 oder neuer zeigen. Bei der
+mitgelieferten Engine entsprechen das mindestens BuildKit 0.33.0 und runc
+1.5.1; getrennt installierte Builder oder Runtimes müssen separat aktuell
+gehalten werden.
 
 Für lokale Builds und Deployments ist eine gepatchte Node-Linie sinnvoll:
 
@@ -68,6 +81,7 @@ BETTER_AUTH_SECRET=sehr-langes-zufälliges-geheimnis
 MAIL_SYNC_TOKEN=separates-langes-zufälliges-mail-token
 OUTBOX_DISPATCH_TOKEN=separates-langes-zufälliges-outbox-token
 WHATSAPP_DISPATCH_TOKEN=separates-langes-zufälliges-whatsapp-token
+STRIPE_RECONCILIATION_TOKEN=separates-langes-zufälliges-stripe-abgleich-token
 # Der einmalige Bootstrap-Link für den ersten Admin wird beim Serverstart geloggt.
 # Lokal: ./data/bikerental.db. Im Docker-Stack ist der feste, persistente Pfad /data/bikerental.db gesetzt.
 DATABASE_URL=./data/bikerental.db
@@ -113,7 +127,7 @@ Wichtig:
 - `APP_IMAGE` muss auf das fertige Image aus deiner Registry zeigen
 - Die standardmäßig verwendeten BusyBox- und Radicale-Images sind per Digest gepinnt; bei `RADICALE_IMAGE`-Überschreibungen ebenfalls immer einen unveränderlichen Digest verwenden
 - `SITE_URL`, `APP_ORIGIN` und `BETTER_AUTH_URL` müssen zur echten HTTPS-Domain passen; Compose verweigert den Start, wenn sie fehlen
-- `BETTER_AUTH_SECRET`, `MAIL_SYNC_TOKEN`, `OUTBOX_DISPATCH_TOKEN` und `WHATSAPP_DISPATCH_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
+- `BETTER_AUTH_SECRET`, `MAIL_SYNC_TOKEN`, `OUTBOX_DISPATCH_TOKEN`, `WHATSAPP_DISPATCH_TOKEN` und `STRIPE_RECONCILIATION_TOKEN` müssen jeweils eigene, mindestens 32 Zeichen lange Zufallswerte sein; die Anwendung verweigert schwache Feed-/Job-Tokens.
 - Wenn die Datenbank noch keinen Benutzer enthält, wird eine einmalige Ersteinladung erzeugt. Der Link wird niemals in App-Logs ausgegeben. Standardmäßig liegt er im geschützten Container-TMPFS unter `/tmp/bootstrap-admin-invitation`; lies ihn mit `docker compose exec app cat /tmp/bootstrap-admin-invitation` aus oder setze `BOOTSTRAP_ADMIN_INVITATION_FILE` auf einen anderen geschützten Pfad. Die Anwendung schreibt die Datei mit Modus `0600`. Der Link ist ein Secret und wird nach 24 Stunden bzw. einmaliger Verwendung ungültig.
 - Apple-Kalender-Feeds verwenden keine globalen Zugangsdaten aus `.env`. Jeder berechtigte Admin- oder Standortbenutzer kann im Adminbereich unter `Kalender` einen persönlichen read-only-Zugang erzeugen. Der zufällige Benutzername und das Passwort werden nur einmalig angezeigt; in der Datenbank bleibt ausschließlich ein scrypt-Hash. Rotation und Widerruf werden im Audit-Log protokolliert. Administratoren kopieren einen Gesamtlink für alle Standorte; Standortbenutzer erhalten serverseitig nur ihren zugewiesenen Standort. Jeder Feed enthält nur die Status `Anfrage eingegangen`, `Angebot versendet`, `Verbindlich gebucht` und `Abgeschlossen`; bei Änderungen aktualisieren `LAST-MODIFIED`, `SEQUENCE` und ETag den bestehenden Kalendereintrag.
 - Der Kalender-Feed enthält nur die für die Einsatzplanung nötigen Daten (Name, Auftrag, Zeitraum, Standort, Fahrrad-/Ausstattungsdaten und Status). E-Mail, Telefonnummer, Kundennachricht, Rechnungs- und Preisdaten bleiben außerhalb des geschützten Feeds.
@@ -435,6 +449,14 @@ Der WhatsApp-Dispatcher läuft zusätzlich als Teil des App-Servers. Für eine u
 ```
 
 Nachrichten werden persistent geleast und mit Backoff wiederholt. Der tägliche Versand holt einen verpassten 12-Uhr-Lauf beim nächsten Scheduler-Aufruf am selben Tag nach.
+
+Der Stripe-Abgleich wird zusätzlich alle fünf Minuten vom Host ausgeführt. Er prüft alle bezahlten, abgeschlossenen Checkout-Sessions gegen eine bestätigte Buchung, versucht eine fehlende Standardzuordnung wiederherzustellen und erzeugt bei einer weiterhin nicht zuordenbaren Zahlung eine dringliche Admin-Aktivität samt WhatsApp-Hinweis:
+
+```bash
+*/5 * * * * curl --fail --silent --show-error -X POST \
+  -H "Authorization: Bearer $STRIPE_RECONCILIATION_TOKEN" \
+  https://deine-domain.tld/api/internal/reconcile-stripe-payments >/dev/null
+```
 
 Die AfA wird beim Aufruf des Anlageverzeichnisses automatisch bis zum aktuellen Monat nachgebucht. Für einen vollständig unabhängigen Hintergrundlauf setze `FIXED_ASSET_DEPRECIATION_TOKEN` und rufe den Endpoint täglich auf:
 
