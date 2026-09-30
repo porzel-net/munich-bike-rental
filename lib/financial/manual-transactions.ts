@@ -143,6 +143,7 @@ export function createAndPostManualTransaction(
     counterpartyName?: string;
     description?: string;
     note?: string;
+    internalPersonId?: string | null;
     idempotencyKey?: string;
     deferPosting?: boolean;
     businessMeal?: {
@@ -305,6 +306,7 @@ export function createAndPostManualTransaction(
           allocationKind: "booking_payment",
           matchMethod: "manual",
           amountCents: input.amountCents,
+          internalPersonId: input.internalPersonId ?? null,
           journalEntryId,
           note: input.note?.trim() || description,
           matchedByUserId: input.actorUserId,
@@ -350,6 +352,7 @@ export function createAndPostManualTransaction(
       destinationAccountId: input.destinationAccountId,
       note: input.note?.trim() || input.description!.trim(),
       actorUserId: input.actorUserId,
+      internalPersonId: input.internalPersonId,
       asset: input.asset,
       businessMeal: input.businessMeal,
     });

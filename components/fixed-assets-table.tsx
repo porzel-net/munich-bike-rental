@@ -58,6 +58,8 @@ export type FixedAssetRow = {
   assetNumber: string;
   name: string;
   assetType: "bike" | "equipment" | "other";
+  internalPersonId: string | null;
+  internalPersonName: string | null;
   method: "straight_line" | "declining_balance";
   acquisitionSource: "transaction" | "private_contribution";
   acquisitionDate: string;
@@ -245,6 +247,8 @@ function getFixedAssetColumns(
             <div className="text-xs text-muted-foreground">
               {assetTypeLabel(asset.assetType)} · {methodLabel(asset.method)} · {asset.assetNumber} ·{" "}
               {asset.status === "active" ? "aktiv" : "ausgeschieden"}
+              {" · "}
+              {asset.internalPersonName ?? "Unternehmen / gemeinsam"}
             </div>
           </div>
         );
@@ -310,9 +314,11 @@ function getFixedAssetColumns(
 export function FixedAssetsTable({
   assets,
   financialAccounts,
+  internalPeople,
 }: {
   assets: FixedAssetRow[];
   financialAccounts: FinancialAccountOption[];
+  internalPeople: Array<{ id: string; name: string }>;
 }) {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -538,7 +544,12 @@ export function FixedAssetsTable({
         </div>
 
         {editingAsset ? (
-          <FixedAssetEditDialog asset={editingAsset} open onOpenChange={(open) => !open && setEditingAsset(null)} />
+          <FixedAssetEditDialog
+            asset={editingAsset}
+            internalPeople={internalPeople}
+            open
+            onOpenChange={(open) => !open && setEditingAsset(null)}
+          />
         ) : null}
       </CardContent>
     </Card>

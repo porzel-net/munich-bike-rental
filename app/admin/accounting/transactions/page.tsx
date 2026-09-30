@@ -16,6 +16,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { authUser } from "@/lib/db/schema/auth";
 import {
   financialAccounts,
   financialCategories,
@@ -99,6 +100,7 @@ export default async function BankTransactionsPage({
       destinationAccountId: financialTransactionAllocations.destinationAccountId,
       bookingId: financialTransactionAllocations.bookingId,
       fixedAssetId: financialTransactionAllocations.fixedAssetId,
+      internalPersonId: financialTransactionAllocations.internalPersonId,
       allocationAmountCents: financialTransactionAllocations.amountCents,
       amountCents: financialTransactions.amountCents,
       currency: financialTransactions.currency,
@@ -123,6 +125,7 @@ export default async function BankTransactionsPage({
           and(eq(financialTransactions.source, "bank"), eq(financialTransactions.provider, "nevlo")),
           eq(financialTransactions.source, "cash"),
           eq(financialTransactions.source, "manual"),
+          ...(initialTransactionId ? [eq(financialTransactions.id, initialTransactionId)] : []),
         ),
       ),
     )
@@ -152,6 +155,11 @@ export default async function BankTransactionsPage({
       }
       return documents;
     }, new Map<number, Array<{ id: number; originalFileName: string; mimeType: string; sizeBytes: number }>>());
+  const internalPeople = db
+    .select({ id: authUser.id, name: authUser.name })
+    .from(authUser)
+    .orderBy(authUser.name)
+    .all();
   const groupedTransactions = new Map<
     number,
     (typeof reviewTransactions)[number] & { allocatedCents: number; privateShareCents: number }
@@ -192,8 +200,11 @@ export default async function BankTransactionsPage({
       : row.source === "bank" && row.provider === "nevlo"
         ? findBookingOrderNumber([row.reference, row.description], bookingReferences)
         : null;
+    const internalPersonId = fixedAsset ? fixedAsset.internalPersonId : row.internalPersonId;
     return {
       ...row,
+      internalPersonId,
+      internalPersonName: internalPeople.find((person) => person.id === internalPersonId)?.name ?? null,
       allocatedCents: row.allocatedCents,
       privateShareCents: row.privateShareCents,
       remainingCents: Math.max(0, row.amountCents - row.allocatedCents),
@@ -214,6 +225,7 @@ export default async function BankTransactionsPage({
             inServiceDate: fixedAsset.inServiceDate,
             acquisitionCostCents: fixedAsset.acquisitionCostCents,
             usefulLifeMonths: fixedAsset.usefulLifeMonths,
+            internalPersonId: fixedAsset.internalPersonId,
           }
         : null,
     };
@@ -243,6 +255,7 @@ export default async function BankTransactionsPage({
               categories={categories as FinancialReviewCategory[]}
               accounts={availableAccounts as FinancialReviewAccount[]}
               bookings={bookingReferences}
+              internalPeople={internalPeople}
               initialTransactionId={initialTransactionId}
             />
           </main>

@@ -85,6 +85,7 @@ function displayRowAmount(row: EuerRow) {
 
 function rowTarget(row: EuerRow) {
   if (row.transactionId) return `/admin/accounting/transactions?transaction=${row.transactionId}`;
+  if (row.sourceTransactionId) return `/admin/accounting/transactions?transaction=${row.sourceTransactionId}`;
   if (row.source === "stripe" && row.bookingId) return `/admin/bookings/${row.bookingId}`;
   return null;
 }
@@ -214,11 +215,13 @@ export function EuerSummary({
   categories,
   accounts,
   bookings,
+  internalPeople,
 }: {
   data: EuerSummary;
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
   bookings: FinancialReviewBooking[];
+  internalPeople: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
   const euerRows = React.useMemo(
@@ -229,6 +232,11 @@ export function EuerSummary({
     [data.rows],
   );
   const profitMargin = data.incomeCents > 0 ? (data.profitCents / data.incomeCents) * 100 : 0;
+  const individuallyAttributedExpensesCents = data.rows.reduce(
+    (total, row) =>
+      row.euerTreatment === "expense" && row.internalPersonId ? total + Math.abs(row.amountCents) : total,
+    0,
+  );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [treatmentFilter, setTreatmentFilter] = React.useState("all");
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -277,6 +285,11 @@ export function EuerSummary({
         <SummaryMetric label="Gewinn vor Steuer" value={formatAmount(data.profitCents)} detail="Einn. − Ausg." />
         <SummaryMetric label="EBITDA" value={formatAmount(data.ebitdaCents)} detail="Gewinn + USt + AfA" />
         <SummaryMetric label="Gewinnmarge" value={formatPercentage(profitMargin)} detail="Gewinn / Einnahmen" />
+        <SummaryMetric
+          label="Persönliche Ausgaben"
+          value={formatAmount(individuallyAttributedExpensesCents)}
+          detail="Inkl. AfA"
+        />
       </div>
       <Card className="overflow-hidden rounded-3xl border-border/60 bg-card p-0 shadow-sm">
         <CardContent className="flex flex-col gap-4 p-6">
@@ -351,6 +364,7 @@ export function EuerSummary({
                 categories={categories}
                 accounts={accounts}
                 bookings={bookings}
+                internalPeople={internalPeople}
                 onCompleted={() => router.refresh()}
               />
             </div>

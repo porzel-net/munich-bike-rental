@@ -114,8 +114,8 @@ export function NavMain({
                               {subItem.badge ? (
                                 <span
                                   className="ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#ff3b30] px-1.5 text-[11px] leading-none font-semibold tracking-[-0.01em] text-white shadow-sm tabular-nums"
-                                  aria-label={`${subItem.badge} offene Banktransaktionen`}
-                                  title={`${subItem.badge} offene Banktransaktionen`}
+                                  aria-label={`${subItem.badge} offene Finanztransaktionen`}
+                                  title={`${subItem.badge} offene Finanztransaktionen`}
                                 >
                                   {subItem.badge}
                                 </span>

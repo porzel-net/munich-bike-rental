@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { authUser } from "@/lib/db/schema/auth";
 import { berlinDateKey } from "@/lib/datetime";
 import { financialAccounts, fixedAssetDepreciationEntries, fixedAssets } from "@/lib/db/schema";
 import { postDueFixedAssetDepreciation } from "@/lib/financial/fixed-assets";
@@ -35,6 +36,11 @@ export default async function FixedAssetsPage() {
     .where(eq(financialAccounts.status, "active"))
     .orderBy(financialAccounts.name)
     .all();
+  const internalPeople = db
+    .select({ id: authUser.id, name: authUser.name })
+    .from(authUser)
+    .orderBy(authUser.name)
+    .all();
   const assets: FixedAssetRow[] = db
     .select()
     .from(fixedAssets)
@@ -45,6 +51,8 @@ export default async function FixedAssetsPage() {
       assetNumber: asset.assetNumber,
       name: asset.name,
       assetType: asset.assetType,
+      internalPersonId: asset.internalPersonId,
+      internalPersonName: internalPeople.find((person) => person.id === asset.internalPersonId)?.name ?? null,
       method: asset.method,
       acquisitionSource: asset.acquisitionSource,
       acquisitionDate: asset.acquisitionDate,
@@ -88,7 +96,11 @@ export default async function FixedAssetsPage() {
               title="Anlageverzeichnis"
               description="Verwalte Anlagegüter, Abschreibungen und aktuelle Buchwerte."
             />
-            <FixedAssetsTable assets={assets} financialAccounts={financialAccountOptions} />
+            <FixedAssetsTable
+              assets={assets}
+              financialAccounts={financialAccountOptions}
+              internalPeople={internalPeople}
+            />
           </main>
         </div>
       </SidebarInset>

@@ -196,6 +196,7 @@ export function FinancialTransactionDialog({
   categories,
   accounts,
   bookings,
+  internalPeople,
   bankTransaction,
   onBankCompleted,
   onDocumentChanged,
@@ -207,6 +208,7 @@ export function FinancialTransactionDialog({
   categories: FinancialReviewCategory[];
   accounts: FinancialReviewAccount[];
   bookings?: FinancialReviewBooking[];
+  internalPeople: Array<{ id: string; name: string }>;
   bankTransaction?: FinancialReviewTransaction | null;
   onBankCompleted?: (result: {
     transactionId: number;
@@ -225,6 +227,7 @@ export function FinancialTransactionDialog({
   const [accountId, setAccountId] = useState("");
   const [bookingId, setBookingId] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [internalPersonId, setInternalPersonId] = useState("shared");
   const [destinationAccountId, setDestinationAccountId] = useState("");
   const [counterpartyName, setCounterpartyName] = useState("");
   const [description, setDescription] = useState("");
@@ -316,6 +319,9 @@ export function FinancialTransactionDialog({
                 ? String(stripeSuggestedCategory.id)
                 : "",
         );
+        setInternalPersonId(
+          bankTransaction.internalPersonId || bankTransaction.fixedAsset?.internalPersonId || "shared",
+        );
         setDestinationAccountId(
           bankTransaction.destinationAccountId
             ? String(bankTransaction.destinationAccountId)
@@ -348,6 +354,7 @@ export function FinancialTransactionDialog({
         setAccountId(accounts.find((account) => account.code === "cash_main")?.id.toString() ?? "");
         setBookingId("");
         setCategoryId("");
+        setInternalPersonId("shared");
         setDestinationAccountId("");
         setCounterpartyName("");
         setDescription("");
@@ -452,6 +459,7 @@ export function FinancialTransactionDialog({
         inServiceDate: assetInServiceDate,
         usefulLifeMonths: Number(assetUsefulLifeMonths),
         method: assetMethod,
+        internalPersonId: internalPersonId === "shared" ? null : internalPersonId,
       }),
     });
     const result = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -537,6 +545,21 @@ export function FinancialTransactionDialog({
         const uploadedDocument = await uploadDocument(bankTransaction.id);
         if (uploadedDocument) onDocumentChanged?.();
         if (isDocumentOnlyUpdate) {
+          if (isPosted) {
+            const assignmentResponse = await fetch(`/api/admin/financial/transactions/${bankTransaction.id}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "assign_internal_person",
+                internalPersonId: internalPersonId === "shared" ? null : internalPersonId,
+              }),
+            });
+            const assignmentResult = (await assignmentResponse.json().catch(() => null)) as {
+              message?: string;
+            } | null;
+            if (!assignmentResponse.ok)
+              throw new Error(assignmentResult?.message ?? "Die interne Zuordnung konnte nicht gespeichert werden.");
+          }
           toast.success(file ? "Beleg wurde gespeichert." : "Änderung wurde gespeichert.");
           onOpenChange(false);
           return;
@@ -551,6 +574,7 @@ export function FinancialTransactionDialog({
             destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
             accountId: canEditManualTransactionAccount && accountId ? Number(accountId) : undefined,
             note: note.trim(),
+            internalPersonId: internalPersonId === "shared" ? null : internalPersonId,
             businessMeal:
               selectedCategory?.code === "business_meal"
                 ? { privateShareCents, inputVatCents: mealInputVatCents }
@@ -597,6 +621,7 @@ export function FinancialTransactionDialog({
             counterpartyName,
             description,
             note,
+            internalPersonId: internalPersonId === "shared" ? null : internalPersonId,
             deferPosting: receiptExpected,
             businessMeal:
               selectedCategory?.code === "business_meal"
@@ -634,6 +659,7 @@ export function FinancialTransactionDialog({
               bookingId: selectedBooking ? Number(bookingId) : undefined,
               destinationAccountId: destinationAccountId ? Number(destinationAccountId) : undefined,
               note: note.trim(),
+              internalPersonId: internalPersonId === "shared" ? null : internalPersonId,
               businessMeal:
                 selectedCategory?.code === "business_meal"
                   ? { privateShareCents, inputVatCents: mealInputVatCents }
@@ -963,6 +989,32 @@ export function FinancialTransactionDialog({
                   ) : null}
                 </Field>
               ) : null}
+              <Field>
+                <FieldLabel htmlFor="financial-internal-person">Interne Personenzuordnung</FieldLabel>
+                <Select value={internalPersonId} onValueChange={(value) => setInternalPersonId(value || "shared")}>
+                  <SelectTrigger id="financial-internal-person" className="w-full">
+                    <SelectValue>
+                      {internalPersonId === "shared"
+                        ? "Unternehmen / gemeinsam getragen"
+                        : (internalPeople.find((person) => person.id === internalPersonId)?.name ?? "Person auswählen")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="shared">Unternehmen / gemeinsam getragen</SelectItem>
+                      {internalPeople.map((person) => (
+                        <SelectItem key={person.id} value={person.id}>
+                          {person.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  Damit legst du fest, ob die Kosten gemeinsam vom Unternehmen oder von einem bestimmten Mitarbeiter
+                  getragen werden.
+                </FieldDescription>
+              </Field>
               <Field>
                 <FieldLabel htmlFor="financial-category">Sachliche Zuordnung</FieldLabel>
                 <Select

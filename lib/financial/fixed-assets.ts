@@ -7,6 +7,7 @@ import type { AppDatabase } from "../db/client";
 import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry } from "../bookings/ledger";
 import { BookingCommandError } from "../bookings/errors";
+import { resolveInternalPersonId } from "./internal-people";
 import { isValidIsoDate, isValidIsoMonth } from "../bookings/validation";
 import {
   accountingAccounts,
@@ -332,6 +333,7 @@ export function createFixedAsset(
   input: {
     name: string;
     assetType: "bike" | "equipment" | "other";
+    internalPersonId?: string | null;
     acquisitionSource?: "transaction" | "private_contribution";
     serialNumber?: string | null;
     acquisitionDate: string;
@@ -419,6 +421,7 @@ export function createFixedAsset(
       assetNumber: `ANL-${new Date(`${input.acquisitionDate}T00:00:00Z`).getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`,
       name,
       assetType: input.assetType,
+      internalPersonId: resolveInternalPersonId(db, input.internalPersonId),
       acquisitionSource,
       serialNumber: input.serialNumber?.trim() || null,
       acquisitionDate: input.acquisitionDate,
@@ -452,6 +455,7 @@ export function updateFixedAsset(
     assetId: number;
     name: string;
     assetType: "bike" | "equipment" | "other";
+    internalPersonId?: string | null;
     serialNumber?: string | null;
     inServiceDate: string;
     usefulLifeMonths: number;
@@ -573,6 +577,9 @@ export function updateFixedAsset(
       .set({
         name,
         assetType: input.assetType,
+        ...(input.internalPersonId !== undefined
+          ? { internalPersonId: resolveInternalPersonId(db, input.internalPersonId) }
+          : {}),
         serialNumber: input.serialNumber?.trim() || null,
         inServiceDate: input.inServiceDate,
         usefulLifeMonths: input.usefulLifeMonths,

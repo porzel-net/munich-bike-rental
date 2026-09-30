@@ -14,10 +14,12 @@ import {
 } from "../db/schema";
 import { runInImmediateTransaction } from "../db/client";
 import { appendJournalEntry, getReceivedPaymentCents, getReceivableStatus, hasBookingCharge } from "../bookings/ledger";
+import { recordAdminAuditEvent } from "../auth/audit";
 import { validateManualBookingPayment } from "../bookings/payment-rules";
 import { BookingCommandError } from "../bookings/errors";
 import { createFixedAsset } from "./fixed-assets";
 import { getActiveFinancialCategoryByCode, getBookingRevenueCategory } from "./categories";
+import { resolveInternalPersonId } from "./internal-people";
 
 type JournalKind = Parameters<typeof appendJournalEntry>[1]["kind"];
 type AllocationKind = (typeof financialAllocationKinds)[number];
@@ -161,6 +163,8 @@ export type FinancialTransactionPostingInput = {
   destinationAccountId?: number;
   note: string;
   actorUserId: string;
+  /** Internal-only attribution; null keeps the transaction in the shared business pool. */
+  internalPersonId?: string | null;
   /** Used by audited deterministic import/rule workflows; UI postings remain manual. */
   matchMethod?: "automatic" | "rule" | "manual";
   asset?: {
@@ -175,6 +179,7 @@ export type FinancialTransactionPostingInput = {
     usefulLifeMonths: number;
     residualValueCents?: number;
     notes?: string;
+    internalPersonId?: string | null;
   };
   businessMeal?: {
     privateShareCents: number;
@@ -196,12 +201,60 @@ export function postFinancialTransaction(
   return runInImmediateTransaction(db, () => postFinancialTransactionInTransaction(db, input));
 }
 
-export function assignNevloTransactionToBooking(
+/** Updates only internal attribution; it does not alter the tax mapping or journal. */
+export function assignFinancialTransactionInternalPerson(
   db: AppDatabase,
-  input: { transactionId: number; bookingId: number; amountCents?: number; actorUserId: string },
+  input: { transactionId: number; internalPersonId: string | null; actorUserId: string },
 ) {
   return runInImmediateTransaction(db, () => {
-    const result = assignNevloTransactionToBookingInTransaction(db, input);
+    const transaction = db
+      .select()
+      .from(financialTransactions)
+      .where(eq(financialTransactions.id, input.transactionId))
+      .get();
+    if (!transaction || !["posted", "matched"].includes(transaction.status))
+      throw new BookingCommandError("Nur bereits zugeordnete Finanztransaktionen können intern verteilt werden.");
+    const internalPersonId = resolveInternalPersonId(db, input.internalPersonId);
+    const allocations = db
+      .select()
+      .from(financialTransactionAllocations)
+      .where(eq(financialTransactionAllocations.transactionId, transaction.id))
+      .all();
+    if (!allocations.length) throw new BookingCommandError("Für diese Transaktion gibt es noch keine Buchungszeilen.");
+    const now = new Date();
+    db.update(financialTransactionAllocations)
+      .set({ internalPersonId, updatedAt: now })
+      .where(eq(financialTransactionAllocations.transactionId, transaction.id))
+      .run();
+    for (const assetId of new Set(allocations.map((allocation) => allocation.fixedAssetId).filter(Boolean))) {
+      db.update(fixedAssets).set({ internalPersonId, updatedAt: now }).where(eq(fixedAssets.id, assetId!)).run();
+    }
+    recordAdminAuditEvent(db, {
+      actorUserId: input.actorUserId,
+      action: "financial_transaction_internal_person_assigned",
+      targetType: "financial_transaction",
+      targetId: transaction.id,
+      metadata: { internalPersonId },
+    });
+    return { transactionId: transaction.id, internalPersonId };
+  });
+}
+
+export function assignNevloTransactionToBooking(
+  db: AppDatabase,
+  input: {
+    transactionId: number;
+    bookingId: number;
+    amountCents?: number;
+    actorUserId: string;
+    internalPersonId?: string | null;
+  },
+) {
+  return runInImmediateTransaction(db, () => {
+    const result = assignNevloTransactionToBookingInTransaction(db, {
+      ...input,
+      internalPersonId: resolveInternalPersonId(db, input.internalPersonId),
+    });
     return { transactionId: result.transactionId, bookingId: result.bookingId, orderNumber: result.orderNumber };
   });
 }
@@ -213,6 +266,7 @@ function assignNevloTransactionToBookingInTransaction(
     bookingId: number;
     amountCents?: number;
     actorUserId: string;
+    internalPersonId?: string | null;
     matchMethod?: "automatic" | "manual";
     allowExistingCategoryAllocation?: boolean;
   },
@@ -234,6 +288,7 @@ function assignNevloTransactionToBookingInTransaction(
     .from(financialTransactionAllocations)
     .where(eq(financialTransactionAllocations.transactionId, transaction.id))
     .all();
+  const internalPersonId = resolveInternalPersonId(db, input.internalPersonId);
   const existingAllocation = existingAllocations[0];
   const allocatedCents = existingAllocations.reduce((sum, allocation) => sum + allocation.amountCents, 0);
   const allocationAmountCents = input.amountCents ?? transaction.amountCents;
@@ -291,7 +346,12 @@ function assignNevloTransactionToBookingInTransaction(
       throw new BookingCommandError("Die bestehende Zahlungszuordnung hat keinen zugehörigen Journalposten.");
     if (existingAllocation.categoryId !== bookingPaymentCategory.id) {
       db.update(financialTransactionAllocations)
-        .set({ categoryId: bookingPaymentCategory.id, updatedAt: new Date() })
+        .set({ categoryId: bookingPaymentCategory.id, internalPersonId, updatedAt: new Date() })
+        .where(eq(financialTransactionAllocations.id, existingAllocation.id))
+        .run();
+    } else if (existingAllocation.internalPersonId !== internalPersonId) {
+      db.update(financialTransactionAllocations)
+        .set({ internalPersonId, updatedAt: new Date() })
         .where(eq(financialTransactionAllocations.id, existingAllocation.id))
         .run();
     }
@@ -381,6 +441,7 @@ function assignNevloTransactionToBookingInTransaction(
       matchMethod: input.matchMethod ?? "automatic",
       matchScore: 100,
       amountCents: allocationAmountCents,
+      internalPersonId,
       journalEntryId,
       note: `Auftrag ${booking.orderNumber}`,
       matchedByUserId: input.actorUserId,
@@ -412,6 +473,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   if (!transaction) throw new BookingCommandError("Banktransaktion nicht gefunden.");
   if (transaction.status === "ignored")
     throw new BookingCommandError("Eine ignorierte Transaktion kann nicht gebucht werden.");
+  const internalPersonId = resolveInternalPersonId(db, input.internalPersonId);
   if (input.bookingId) {
     const category = input.categoryId
       ? db.select().from(financialCategories).where(eq(financialCategories.id, input.categoryId)).get()
@@ -422,6 +484,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       transactionId: input.transactionId,
       bookingId: input.bookingId,
       actorUserId: input.actorUserId,
+      internalPersonId,
       matchMethod: "manual",
       allowExistingCategoryAllocation: true,
     });
@@ -564,6 +627,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
   if (category.euerTreatment === "asset_acquisition" && !isEuerReclassification) {
     fixedAsset = createFixedAsset(db, {
       ...input.asset!,
+      internalPersonId,
       sourceTransactionId: transaction.id,
       createdByUserId: input.actorUserId,
     });
@@ -626,6 +690,7 @@ export function postFinancialTransactionInTransaction(db: AppDatabase, input: Fi
       .set({
         categoryId: category.id,
         destinationAccountId: destinationAccount?.id ?? null,
+        internalPersonId,
         allocationKind,
         matchMethod: "manual",
         note,

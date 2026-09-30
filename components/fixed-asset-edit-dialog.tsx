@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,6 +26,7 @@ type PrivateUseType = "personal" | "income_generation" | "mixed";
 export type EditableFixedAsset = {
   id: number;
   name: string;
+  internalPersonId: string | null;
   assetType: AssetType;
   method: AssetMethod;
   acquisitionSource: "transaction" | "private_contribution";
@@ -44,9 +45,11 @@ export type EditableFixedAsset = {
 
 export function FixedAssetEditLauncher({
   asset,
+  internalPeople,
   trigger,
 }: {
   asset: EditableFixedAsset;
+  internalPeople: Array<{ id: string; name: string }>;
   trigger?: (open: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -59,21 +62,24 @@ export function FixedAssetEditLauncher({
           Bearbeiten
         </Button>
       )}
-      <FixedAssetEditDialog asset={asset} open={open} onOpenChange={setOpen} />
+      <FixedAssetEditDialog asset={asset} internalPeople={internalPeople} open={open} onOpenChange={setOpen} />
     </>
   );
 }
 
 export function FixedAssetEditDialog({
   asset,
+  internalPeople,
   open,
   onOpenChange,
 }: {
   asset: EditableFixedAsset;
+  internalPeople: Array<{ id: string; name: string }>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [name, setName] = useState(asset.name);
+  const [internalPersonId, setInternalPersonId] = useState(asset.internalPersonId ?? "shared");
   const [assetType, setAssetType] = useState<AssetType>(asset.assetType);
   const [method, setMethod] = useState<AssetMethod>(asset.method);
   const [originalAcquisitionDate, setOriginalAcquisitionDate] = useState(asset.originalAcquisitionDate ?? "");
@@ -137,6 +143,7 @@ export function FixedAssetEditDialog({
         body: JSON.stringify({
           name,
           assetType,
+          internalPersonId: internalPersonId === "shared" ? null : internalPersonId,
           method,
           serialNumber,
           inServiceDate,
@@ -207,6 +214,33 @@ export function FixedAssetEditDialog({
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                   />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`fixed-asset-person-${asset.id}`}>Interne Personenzuordnung</FieldLabel>
+                  <Select value={internalPersonId} onValueChange={(value) => setInternalPersonId(value || "shared")}>
+                    <SelectTrigger id={`fixed-asset-person-${asset.id}`} className="w-full">
+                      <SelectValue>
+                        {internalPersonId === "shared"
+                          ? "Unternehmen / gemeinsam getragen"
+                          : (internalPeople.find((person) => person.id === internalPersonId)?.name ??
+                            "Person auswählen")}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="shared">Unternehmen / gemeinsam getragen</SelectItem>
+                        {internalPeople.map((person) => (
+                          <SelectItem key={person.id} value={person.id}>
+                            {person.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    Damit legst du fest, ob die Abschreibungen gemeinsam vom Unternehmen oder von einem bestimmten
+                    Mitarbeiter getragen werden.
+                  </FieldDescription>
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>

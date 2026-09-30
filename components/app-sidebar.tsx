@@ -65,7 +65,8 @@ const data = {
       adminOnly: true,
       items: [
         { title: "EÜR 2026", url: "/admin/accounting" },
-        { title: "Banktransaktionen", url: "/admin/accounting/transactions" },
+        { title: "Finanztransaktionen", url: "/admin/accounting/transactions" },
+        { title: "Gehälter", url: "/admin/accounting/salaries" },
         { title: "Anlageverzeichnis", url: "/admin/accounting/assets" },
       ],
     },
@@ -178,7 +179,7 @@ export async function AppSidebar({
             ? {
                 ...item,
                 items: item.items?.map((subItem) =>
-                  subItem.title === "Banktransaktionen" ? { ...subItem, badge: openBankTransactionCount } : subItem,
+                  subItem.title === "Finanztransaktionen" ? { ...subItem, badge: openBankTransactionCount } : subItem,
                 ),
               }
             : item,

@@ -7,6 +7,7 @@ import { canUseAdminApiAsAdmin, getServerSession } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { deleteManualFinancialTransaction } from "@/lib/financial/manual-transactions";
 import {
+  assignFinancialTransactionInternalPerson,
   assignNevloTransactionToBooking,
   ignoreFinancialTransaction,
   postFinancialTransaction,
@@ -23,6 +24,7 @@ const schema = z.discriminatedUnion("action", [
     accountId: z.number().int().positive().optional(),
     destinationAccountId: z.number().int().positive().optional(),
     note: z.string().trim().min(1).max(1000),
+    internalPersonId: z.string().trim().min(1).max(128).nullable().optional(),
     businessMeal: z
       .object({
         privateShareCents: z.number().int().nonnegative(),
@@ -42,6 +44,7 @@ const schema = z.discriminatedUnion("action", [
         usefulLifeMonths: z.number().int().positive(),
         residualValueCents: z.number().int().nonnegative().optional(),
         notes: z.string().trim().max(1000).optional(),
+        internalPersonId: z.string().trim().min(1).max(128).nullable().optional(),
       })
       .optional(),
   }),
@@ -50,6 +53,11 @@ const schema = z.discriminatedUnion("action", [
     action: z.literal("assign_booking"),
     bookingId: z.number().int().positive(),
     amountCents: z.number().int().positive().optional(),
+    internalPersonId: z.string().trim().min(1).max(128).nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("assign_internal_person"),
+    internalPersonId: z.string().trim().min(1).max(128).nullable(),
   }),
 ]);
 
@@ -124,12 +132,19 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         ? postFinancialTransaction(db, { transactionId, actorUserId: session.user.id, ...input.data })
         : input.data.action === "ignore"
           ? ignoreFinancialTransaction(db, { transactionId, actorUserId: session.user.id, reason: input.data.reason })
-          : assignNevloTransactionToBooking(db, {
-              transactionId,
-              bookingId: input.data.bookingId,
-              amountCents: input.data.amountCents,
-              actorUserId: session.user.id,
-            });
+          : input.data.action === "assign_booking"
+            ? assignNevloTransactionToBooking(db, {
+                transactionId,
+                bookingId: input.data.bookingId,
+                amountCents: input.data.amountCents,
+                internalPersonId: input.data.internalPersonId,
+                actorUserId: session.user.id,
+              })
+            : assignFinancialTransactionInternalPerson(db, {
+                transactionId,
+                internalPersonId: input.data.internalPersonId,
+                actorUserId: session.user.id,
+              });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return NextResponse.json(

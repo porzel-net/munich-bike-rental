@@ -22,12 +22,15 @@ export type EuerRow = {
   source: string;
   description: string;
   amountCents: number;
+  /** Internal beneficiary; null keeps this row in the shared business pool. */
+  internalPersonId?: string | null;
   transactionId: number | null;
   bookingId: number | null;
   invoiceNumber: string | null;
   accountName?: string | null;
   iban?: string | null;
   fixedAssetId?: number;
+  sourceTransactionId?: number | null;
 };
 
 export type EuerSummary = {
@@ -66,6 +69,7 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       iban: financialAccounts.iban,
       description: financialTransactions.description,
       amountCents: financialTransactionAllocations.amountCents,
+      internalPersonId: financialTransactionAllocations.internalPersonId,
       transactionId: financialTransactions.id,
       bookingId: financialTransactionAllocations.bookingId,
       fixedAssetId: financialTransactionAllocations.fixedAssetId,
@@ -100,12 +104,14 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
       source: sql<string>`'depreciation'`,
       description: fixedAssets.name,
       amountCents: fixedAssetDepreciationEntries.amountCents,
+      internalPersonId: fixedAssets.internalPersonId,
       transactionId: sql<number | null>`null`,
       bookingId: sql<number | null>`null`,
       invoiceNumber: sql<string | null>`null`,
       accountName: sql<string | null>`null`,
       iban: sql<string | null>`null`,
       fixedAssetId: fixedAssets.id,
+      sourceTransactionId: fixedAssets.sourceTransactionId,
     })
     .from(fixedAssetDepreciationEntries)
     .innerJoin(fixedAssets, eq(fixedAssetDepreciationEntries.fixedAssetId, fixedAssets.id))
@@ -154,6 +160,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           accountName: null,
           iban: null,
           fixedAssetId: asset.id,
+          sourceTransactionId: asset.disposalTransactionId ?? asset.sourceTransactionId,
+          internalPersonId: asset.internalPersonId,
         });
       }
       if (bookValueCents > 0) {
@@ -172,6 +180,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           accountName: null,
           iban: null,
           fixedAssetId: asset.id,
+          sourceTransactionId: asset.disposalTransactionId ?? asset.sourceTransactionId,
+          internalPersonId: asset.internalPersonId,
         });
       }
       if (!asset.disposalTransactionId && asset.disposalProceedsVatCents > 0) {
@@ -190,6 +200,8 @@ export function getEuerSummary(db: AppDatabase, year: number): EuerSummary {
           accountName: null,
           iban: null,
           fixedAssetId: asset.id,
+          sourceTransactionId: asset.disposalTransactionId ?? asset.sourceTransactionId,
+          internalPersonId: asset.internalPersonId,
         });
       }
       return rows;

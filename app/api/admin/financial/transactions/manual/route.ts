@@ -22,6 +22,7 @@ const schema = z.object({
   counterpartyName: z.string().trim().max(200).optional(),
   description: z.string().trim().max(2000).optional(),
   note: z.string().trim().max(1000).optional(),
+  internalPersonId: z.string().trim().min(1).max(128).nullable().optional(),
   idempotencyKey: z.string().trim().min(1).max(200).optional(),
   deferPosting: z.boolean().optional(),
   businessMeal: z

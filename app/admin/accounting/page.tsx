@@ -11,12 +11,13 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
+import { authUser } from "@/lib/db/schema/auth";
 import { berlinYear } from "@/lib/datetime";
 import { getEuerSummary } from "@/lib/financial/euer";
 import { bookings, financialAccounts, financialCategories } from "@/lib/db/schema";
 
 export const metadata: Metadata = {
-  title: "Buchhaltung",
+  title: "EÜR",
 };
 
 export default async function AccountingPage() {
@@ -61,6 +62,11 @@ export default async function AccountingPage() {
     .from(bookings)
     .orderBy(bookings.orderNumber)
     .all();
+  const internalPeople = db
+    .select({ id: authUser.id, name: authUser.name })
+    .from(authUser)
+    .orderBy(authUser.name)
+    .all();
   return (
     <SidebarProvider
       style={
@@ -72,7 +78,7 @@ export default async function AccountingPage() {
     >
       <AppSidebar user={session.user} isAdmin variant="inset" />
       <SidebarInset className="min-w-0 overflow-hidden">
-        <SiteHeader title="Buchhaltung" />
+        <SiteHeader title={`EÜR ${euer.year}`} />
         <div className="admin-page-surface">
           <main className="admin-main flex flex-1 flex-col gap-6 p-4 sm:p-8 lg:p-12">
             <AdminPageHeader
@@ -81,7 +87,13 @@ export default async function AccountingPage() {
               actions={<StripeAutoSyncStatus />}
             />
             <div className="flex flex-col gap-6">
-              <EuerSummary data={euer} categories={categories} accounts={accounts} bookings={bookingReferences} />
+              <EuerSummary
+                data={euer}
+                categories={categories}
+                accounts={accounts}
+                bookings={bookingReferences}
+                internalPeople={internalPeople}
+              />
             </div>
           </main>
         </div>
