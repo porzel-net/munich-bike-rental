@@ -21,6 +21,14 @@ function formatRate(basisPoints: number) {
   }).format(basisPoints / 10_000);
 }
 
+function formatSalaryMonth(month: string) {
+  if (month === "ohne-monat") return "Gehalt ohne Monatszuordnung";
+
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(year, monthNumber - 1, 1);
+  return `Gehalt ${new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(date)}`;
+}
+
 export function SalaryWidget({ breakdown, year }: { breakdown: SalaryBreakdown; year: number }) {
   const taxLabel =
     breakdown.incomeTaxBasisPoints === null
@@ -45,10 +53,12 @@ export function SalaryWidget({ breakdown, year }: { breakdown: SalaryBreakdown; 
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell>Gehalt</TableCell>
-              <TableCell className="text-right tabular-nums">{formatCurrency(breakdown.salaryCents)}</TableCell>
-            </TableRow>
+            {breakdown.salaryLines.map((line) => (
+              <TableRow key={line.month}>
+                <TableCell>{formatSalaryMonth(line.month)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatCurrency(line.amountCents)}</TableCell>
+              </TableRow>
+            ))}
             {breakdown.expenses.map((expense) => (
               <TableRow key={expense.id}>
                 <TableCell>
