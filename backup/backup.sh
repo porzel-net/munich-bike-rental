@@ -86,9 +86,9 @@ EOF
 remove_tree() {
   target=$1
   if [ -d "$target" ]; then
-    # cp -a preserves application ownership in the staging tree. Make only
-    # the directories owned by the backup process before removing the tree.
-    find "$target" -type d -exec chown 0:0 {} \; 2>/dev/null || true
+    # cp -a preserves application ownership and directory modes in the
+    # staging tree. Make directories removable before deleting copied files.
+    find "$target" -type d -exec chown 0:0 {} \; -exec chmod u+rwx {} \; 2>/dev/null || true
   fi
   rm -rf "$target"
 }

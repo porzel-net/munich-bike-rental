@@ -161,7 +161,11 @@ assert_contains "$(cat "$RESTORED_MANIFEST")" 'whatsappAuthFiles": 1' 'Manifest 
 assert_contains "$(cat "$RESTORED_MANIFEST")" 'radicaleDataFiles": 1' 'Manifest enthält Radicale-Dateianzahl'
 assert_equal 'sensitive receipt contents' "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name receipt.txt -print -quit)")" 'Beleg nach Restore'
 assert_equal 'whatsapp credential contents' "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name credentials -print -quit)")" 'WhatsApp-Datei nach Restore'
-assert_equal 'BEGIN:VCARD\nVERSION:3.0\nFN:Backup Contact\nEND:VCARD\n' "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name backup.vcf -print -quit)")" 'Radicale-Kontakt nach Restore'
+expected_vcard='BEGIN:VCARD
+VERSION:3.0
+FN:Backup Contact
+END:VCARD'
+assert_equal "$expected_vcard" "$(cat "$(find "$TEST_ROOT/backup/restore-test" -type f -name backup.vcf -print -quit)")" 'Radicale-Kontakt nach Restore'
 pass 'Datenbank, Manifest, Belege und WhatsApp-Daten werden restauriert'
 
 sqlite3 "$TEST_ROOT/source/bikerental.db" 'UPDATE smoke SET value = "same-day-update";'
