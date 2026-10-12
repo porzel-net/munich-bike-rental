@@ -4844,3 +4844,204 @@ button {
     align-items: center;
   }
 }
+
+.not-found-page {
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+.not-found-header {
+  position: relative;
+  z-index: 1;
+  padding: 22px 0;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.not-found-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.not-found-header__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #333;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.not-found-header__link:hover,
+.not-found-header__link:focus-visible {
+  color: var(--brand-accent);
+}
+
+.not-found-hero {
+  display: flex;
+  align-items: center;
+  min-height: calc(100svh - 82px);
+  padding: 64px 0 80px;
+}
+
+.not-found-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 760px);
+  align-items: center;
+  justify-content: center;
+}
+
+.not-found-copy {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.not-found-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  color: var(--brand-accent);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  justify-content: center;
+}
+
+.not-found-eyebrow__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  box-shadow: 0 0 0 5px rgba(65, 105, 225, 0.1);
+}
+
+.not-found-code {
+  margin: 0 auto -4px;
+  color: rgba(65, 105, 225, 0.12);
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(6.5rem, 13vw, 11rem);
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  line-height: 0.95;
+}
+
+.not-found-copy h1 {
+  max-width: 680px;
+  margin: 0 auto 18px;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: clamp(2.5rem, 4.3vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.015em;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.not-found-description {
+  max-width: 540px;
+  margin: 0 auto;
+  color: #555;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.not-found-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 30px;
+}
+
+.not-found-button {
+  display: inline-flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--brand-accent);
+  box-shadow: 0 12px 28px rgba(65, 105, 225, 0.24);
+  color: #fff;
+  font-family: "Poppins", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.not-found-button:hover,
+.not-found-button:focus-visible {
+  transform: translateY(-2px);
+  background: #2f52c9;
+  box-shadow: 0 16px 34px rgba(65, 105, 225, 0.3);
+}
+
+@media (max-width: 900px) {
+  .not-found-hero {
+    min-height: auto;
+    padding: 56px 0 72px;
+  }
+}
+
+@media (max-width: 680px) {
+  .not-found-header {
+    padding: 17px 0;
+  }
+
+  .not-found-header__inner {
+    gap: 12px;
+  }
+
+  .not-found-header .brand__text {
+    font-size: 17px;
+  }
+
+  .not-found-header__link {
+    min-height: 40px;
+    gap: 6px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(65, 105, 225, 0.09);
+    color: var(--brand-accent);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .not-found-hero {
+    padding: 48px 0 64px;
+  }
+
+  .not-found-code {
+    margin-left: -4px;
+    font-size: clamp(6.4rem, 27vw, 9rem);
+  }
+
+  .not-found-copy h1 {
+    max-width: 520px;
+    font-size: clamp(2.4rem, 11vw, 3.5rem);
+  }
+
+  .not-found-description {
+    font-size: 16px;
+    line-height: 1.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .not-found-header__link,
+  .not-found-button {
+    transition: none;
+  }
+}
