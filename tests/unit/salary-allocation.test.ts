@@ -159,4 +159,48 @@ describe("buildSalaryBreakdowns", () => {
       [50, 51],
     ]);
   });
+
+  it("assigns a booking's income only to its selected salary recipients", () => {
+    const breakdowns = buildSalaryBreakdowns(
+      summary([
+        {
+          id: 1,
+          date: "2026-04-15",
+          category: "Umsatz",
+          categoryCode: "income",
+          euerTreatment: "income",
+          source: "bank",
+          description: "Zugewiesene Buchung",
+          amountCents: 10_000,
+          transactionId: 1,
+          bookingId: 42,
+          invoiceNumber: null,
+        },
+        {
+          id: 2,
+          date: "2026-04-16",
+          category: "Umsatz",
+          categoryCode: "income",
+          euerTreatment: "income",
+          source: "bank",
+          description: "Gemeinsame Einnahme",
+          amountCents: 4_000,
+          transactionId: 2,
+          bookingId: null,
+          invoiceNumber: null,
+        },
+      ]),
+      [
+        { id: "julius", name: "Julius" },
+        { id: "lea", name: "Lea" },
+      ],
+      null,
+      new Map([[42, ["julius"]]]),
+    );
+
+    expect(breakdowns.map((breakdown) => breakdown.salaryLines)).toEqual([
+      [{ month: "2026-04", amountCents: 12_000 }],
+      [{ month: "2026-04", amountCents: 2_000 }],
+    ]);
+  });
 });

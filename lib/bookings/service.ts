@@ -13,6 +13,7 @@ import {
   bookingOffers,
   bookingPublicLinks,
   bookingRequestedItems,
+  bookingSalaryRecipients,
   bookings,
   bikeModels,
   bikeVariants,
@@ -578,6 +579,68 @@ export function assignBooking(
       },
     );
     return { bookingId: booking.id, assigneeUserId: input.assigneeUserId };
+  });
+}
+
+/**
+ * Limits the salary share of this booking's income to selected administrators.
+ * Keeping no rows is intentional: it is the durable representation of the
+ * default, equal distribution among every current salary recipient.
+ */
+export function setBookingSalaryRecipients(
+  db: AppDatabase,
+  input: { bookingId: number; recipientUserIds: string[]; actorUserId?: string | null },
+) {
+  return runInImmediateTransaction(db, () => {
+    const booking = db.select().from(bookings).where(eq(bookings.id, input.bookingId)).get();
+    if (!booking)
+      throw new BookingCommandError("Die Buchung wurde nicht gefunden. Aktualisiere die Seite und versuche es erneut.");
+
+    const actor = input.actorUserId
+      ? db.select({ role: authUser.role }).from(authUser).where(eq(authUser.id, input.actorUserId)).get()
+      : null;
+    if (actor?.role !== "admin") throw new BookingCommandError("Nur Administratoren dürfen Gehaltszuweisungen ändern.");
+
+    const recipientUserIds = [...new Set(input.recipientUserIds)];
+    if (!recipientUserIds.length)
+      throw new BookingCommandError("Wähle mindestens eine Person für die Gehaltszuweisung aus.");
+
+    const salaryRecipients = db
+      .select({ id: authUser.id })
+      .from(authUser)
+      .where(and(eq(authUser.role, "admin"), inArray(authUser.id, recipientUserIds)))
+      .all();
+    if (salaryRecipients.length !== recipientUserIds.length)
+      throw new BookingCommandError("Die Gehaltszuweisung darf nur aktive Personen der Gehaltsübersicht enthalten.");
+
+    const allSalaryRecipientIds = db
+      .select({ id: authUser.id })
+      .from(authUser)
+      .where(eq(authUser.role, "admin"))
+      .all()
+      .map((user) => user.id);
+    const isDefaultAllocation =
+      recipientUserIds.length === allSalaryRecipientIds.length &&
+      recipientUserIds.every((userId) => allSalaryRecipientIds.includes(userId));
+
+    db.delete(bookingSalaryRecipients).where(eq(bookingSalaryRecipients.bookingId, booking.id)).run();
+    if (!isDefaultAllocation) {
+      const stamp = now();
+      db.insert(bookingSalaryRecipients)
+        .values(recipientUserIds.map((userId) => ({ bookingId: booking.id, userId, createdAt: stamp })))
+        .run();
+    }
+    event(
+      db,
+      booking.id,
+      "booking_salary_recipients_changed",
+      booking.status,
+      booking.status,
+      input.actorUserId,
+      isDefaultAllocation ? "Gehalt gleichmäßig zugewiesen" : "Gehaltszuweisung geändert",
+      { recipientUserIds: isDefaultAllocation ? allSalaryRecipientIds : recipientUserIds },
+    );
+    return { bookingId: booking.id, recipientUserIds: isDefaultAllocation ? allSalaryRecipientIds : recipientUserIds };
   });
 }
 

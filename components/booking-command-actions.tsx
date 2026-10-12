@@ -41,6 +41,11 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Textarea } from "@/components/ui/textarea";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { BookingEditDialog, type EditableItem } from "@/components/booking-edit-dialog";
+import { BookingAssigneeCard } from "@/components/booking-assignee-card";
+import {
+  BookingSalaryAllocationAction,
+  type BookingSalaryRecipientUser,
+} from "@/components/booking-salary-allocation-action";
 import { euroToCents, formatEuro } from "@/lib/bookings/money";
 import {
   calculateCancellationFeeCents,
@@ -53,6 +58,7 @@ import { getBikeSizeWarning } from "@/lib/bikes/size-fit";
 import { bikeMatchesRequestedLabel } from "@/lib/inventory/display-name";
 import { getComputerMountTypeLabel, getPedalTypeLabel } from "@/lib/inquiries/catalog";
 import type { BookingStatus } from "@/lib/db/schema";
+import type { BookingAssigneeUser } from "@/lib/bookings/assignees";
 
 type OfferAccessorySelection = {
   needsPedals: boolean;
@@ -299,6 +305,14 @@ export function BookingCommandActions({
   senderName,
   canExecuteActions,
   isAdmin,
+  bookingLocationLabel,
+  assignee,
+  eligibleAssignees,
+  currentUserId,
+  canSelfAssign,
+  requiresCustomerNotification,
+  salaryRecipients,
+  salaryRecipientIds,
   hasActiveOffer,
   offers,
   requestedItems,
@@ -323,6 +337,14 @@ export function BookingCommandActions({
   senderName: string;
   canExecuteActions: boolean;
   isAdmin: boolean;
+  bookingLocationLabel: string;
+  assignee: BookingAssigneeUser | null;
+  eligibleAssignees: BookingAssigneeUser[];
+  currentUserId: string;
+  canSelfAssign: boolean;
+  requiresCustomerNotification: boolean;
+  salaryRecipients: BookingSalaryRecipientUser[];
+  salaryRecipientIds: string[];
   hasActiveOffer: boolean;
   offers: OfferOption[];
   requestedItems: RequestedItem[];
@@ -1037,6 +1059,22 @@ ${senderName.trim().split(/\s+/)[0] || senderName}`;
         </div>
       ) : null}
       <ItemGroup className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <BookingAssigneeCard
+          bookingId={bookingId}
+          bookingLocationLabel={bookingLocationLabel}
+          assignee={assignee}
+          eligibleUsers={eligibleAssignees}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+          canSelfAssign={canSelfAssign}
+          requiresCustomerNotification={requiresCustomerNotification}
+        />
+        <BookingSalaryAllocationAction
+          bookingId={bookingId}
+          recipients={salaryRecipients}
+          selectedRecipientIds={salaryRecipientIds}
+          isAdmin={isAdmin}
+        />
         {confirmedBookingEdit ? (
           <BookingEditDialog
             bookingId={bookingId}

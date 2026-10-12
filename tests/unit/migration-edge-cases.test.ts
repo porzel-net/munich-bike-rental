@@ -8,6 +8,8 @@ import { createDatabaseConnection } from "../../lib/db/client";
 
 const connections: Array<ReturnType<typeof createDatabaseConnection>> = [];
 const temporaryDirectories: string[] = [];
+const migrationCount = JSON.parse(readFileSync(resolve(process.cwd(), "drizzle/meta/_journal.json"), "utf8")).entries
+  .length;
 
 afterEach(() => {
   while (connections.length) connections.pop()?.close();
@@ -127,6 +129,37 @@ describe("migration edge cases", () => {
     expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });
 
+  it("preserves existing bookings and cascades their salary-recipient configuration", () => {
+    const migrated = migrateFrom(110, (db) => {
+      run(
+        db,
+        `
+          INSERT INTO user (id, name, email, role, created_at, updated_at)
+          VALUES ('admin', 'Admin', 'admin@example.com', 'admin', 1000, 1000);
+          INSERT INTO bookings (
+            id, order_number, customer_name, customer_email, customer_phone, location,
+            period_from, period_to, pickup_time, dropoff_time, source, created_at, updated_at
+          ) VALUES (
+            1, 'SALARY-MIGRATION', 'Ada Lovelace', 'ada@example.com', '+49', 'munich',
+            '2026-08-20', '2026-08-21', '10:00', '10:00', 'manual', 1000, 1000
+          );
+        `,
+      );
+    });
+
+    run(
+      migrated.db,
+      "INSERT INTO booking_salary_recipients (booking_id, user_id, created_at) VALUES (1, 'admin', 2000);",
+    );
+    expect(migrated.db.get<{ customer_name: string }>(sql`SELECT customer_name FROM bookings WHERE id = 1`)).toEqual({
+      customer_name: "Ada Lovelace",
+    });
+    migrated.db.run(sql`DELETE FROM bookings WHERE id = 1`);
+    expect(migrated.db.all(sql`SELECT * FROM booking_salary_recipients`)).toHaveLength(0);
+    expect(migrated.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
+    expect(migrated.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
+  });
+
   it("runs every migration on an empty database, reopens cleanly, and keeps SQLite integrity", () => {
     const databaseDirectory = mkdtempSync(join(process.env.TMPDIR ?? "/tmp", "munich-bike-rental-fresh-db-"));
     temporaryDirectories.push(databaseDirectory);
@@ -134,7 +167,9 @@ describe("migration edge cases", () => {
 
     const first = createDatabaseConnection(databasePath);
     connections.push(first);
-    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(110);
+    expect(first.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(
+      migrationCount,
+    );
     expect(first.db.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)?.integrity_check).toBe("ok");
     expect(first.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
     first.close();
@@ -143,7 +178,7 @@ describe("migration edge cases", () => {
     const reopened = createDatabaseConnection(databasePath);
     connections.push(reopened);
     expect(reopened.db.get<{ count: number }>(sql`SELECT COUNT(*) AS count FROM __drizzle_migrations`)?.count).toBe(
-      110,
+      migrationCount,
     );
     expect(reopened.db.all(sql`PRAGMA foreign_key_check`)).toHaveLength(0);
   });

@@ -186,6 +186,24 @@ export const bookings = sqliteTable(
   ],
 );
 
+/** Optional recipients for the income from one booking; no rows means all salary recipients share it equally. */
+export const bookingSalaryRecipients = sqliteTable(
+  "booking_salary_recipients",
+  {
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("booking_salary_recipients_booking_user_unique").on(table.bookingId, table.userId),
+    index("booking_salary_recipients_user_idx").on(table.userId),
+  ],
+);
+
 /** Stable customer-facing link for viewing the current booking state. */
 export const bookingPublicLinks = sqliteTable(
   "booking_public_links",

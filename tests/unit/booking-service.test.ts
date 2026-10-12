@@ -14,6 +14,7 @@ import {
   bookingOfferItems,
   bookingOffers,
   bookingRequestedItems,
+  bookingSalaryRecipients,
   bookings,
   financialAccounts,
   financialCategories,
@@ -49,6 +50,7 @@ import {
   setBookingEmailQuestionsResolved,
   updateBooking,
   setHistoricalBookingStatus,
+  setBookingSalaryRecipients,
 } from "../../lib/bookings/service";
 import { berlinYear } from "../../lib/datetime";
 import { renderBookingNotice, renderOfferMail } from "../../lib/bookings/messages";
@@ -1345,6 +1347,76 @@ describe("booking commands", () => {
     expect(() => assignBooking(db, { bookingId: booking.id, assigneeUserId: "admin", actorUserId: "local" })).toThrow(
       BookingCommandError,
     );
+  });
+
+  it("stores selected salary recipients and keeps all admins as the default", () => {
+    const { db } = setup();
+    db.insert(authUser)
+      .values({
+        id: "payroll",
+        name: "Payroll",
+        email: "payroll@example.com",
+        role: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
+    db.insert(authUser)
+      .values({
+        id: "local",
+        name: "Local",
+        email: "local@example.com",
+        role: "standortuser",
+        locationKey: "munich",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .run();
+    const booking = inquiry(db, "2026-08-20", "2026-08-21");
+
+    expect(() =>
+      setBookingSalaryRecipients(db, {
+        bookingId: booking.id,
+        recipientUserIds: ["payroll"],
+        actorUserId: "local",
+      }),
+    ).toThrow("Nur Administratoren");
+
+    expect(
+      setBookingSalaryRecipients(db, {
+        bookingId: booking.id,
+        recipientUserIds: ["payroll"],
+        actorUserId: "admin",
+      }),
+    ).toMatchObject({ recipientUserIds: ["payroll"] });
+    expect(
+      db
+        .select({ userId: bookingSalaryRecipients.userId })
+        .from(bookingSalaryRecipients)
+        .where(eq(bookingSalaryRecipients.bookingId, booking.id))
+        .all(),
+    ).toEqual([{ userId: "payroll" }]);
+
+    expect(() =>
+      setBookingSalaryRecipients(db, {
+        bookingId: booking.id,
+        recipientUserIds: ["local"],
+        actorUserId: "admin",
+      }),
+    ).toThrow("Gehaltsübersicht");
+
+    setBookingSalaryRecipients(db, {
+      bookingId: booking.id,
+      recipientUserIds: ["admin", "payroll"],
+      actorUserId: "admin",
+    });
+    expect(
+      db
+        .select({ userId: bookingSalaryRecipients.userId })
+        .from(bookingSalaryRecipients)
+        .where(eq(bookingSalaryRecipients.bookingId, booking.id))
+        .all(),
+    ).toHaveLength(0);
   });
 
   it("creates a direct booking, allocation, accepted snapshot and receivable in one command", () => {

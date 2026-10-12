@@ -7,7 +7,6 @@ import { notFound } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BookingAttentionAcknowledgedButton } from "@/components/booking-attention-acknowledged-button";
 import { BookingAssigneeBadge } from "@/components/booking-assignee-badge";
-import { BookingAssigneeCard } from "@/components/booking-assignee-card";
 import { BookingCommandActions } from "@/components/booking-command-actions";
 import { BookingEditDialog } from "@/components/booking-edit-dialog";
 import { BookingMailThreadSync } from "@/components/booking-mail-thread-sync";
@@ -55,6 +54,7 @@ import {
   bookingOfferItems,
   bookingOffers,
   bookingRequestedItems,
+  bookingSalaryRecipients,
   bookings,
   mailOutbox,
   financialAccounts,
@@ -106,6 +106,21 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     ? getAssignableBookingUsers(db, booking.location as RentalLocation)
     : [];
   const canSelfAssign = !isAdmin(session.user) && assignee === null;
+  const salaryRecipients = db
+    .select({ id: authUser.id, name: authUser.name })
+    .from(authUser)
+    .where(eq(authUser.role, "admin"))
+    .orderBy(authUser.name)
+    .all();
+  const configuredSalaryRecipientIds = db
+    .select({ userId: bookingSalaryRecipients.userId })
+    .from(bookingSalaryRecipients)
+    .where(eq(bookingSalaryRecipients.bookingId, id))
+    .all()
+    .map((recipient) => recipient.userId);
+  const salaryRecipientIds = configuredSalaryRecipientIds.length
+    ? configuredSalaryRecipientIds
+    : salaryRecipients.map((recipient) => recipient.id);
 
   const items = db.select().from(bookingRequestedItems).where(eq(bookingRequestedItems.bookingId, id)).all();
   const offers = db
@@ -541,23 +556,6 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 </div>
               </CardHeader>
               <CardContent className="space-y-5 pt-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-muted/25 p-3 sm:px-4">
-                  <div>
-                    <p className="text-sm font-medium">Zuständigkeit</p>
-                    <p className="text-sm text-muted-foreground">
-                      {assignee ? `${assignee.name} bearbeitet diese Buchung.` : "Noch niemand zugewiesen."}
-                    </p>
-                  </div>
-                  <BookingAssigneeCard
-                    bookingId={booking.id}
-                    bookingLocationLabel={locationLabel}
-                    assignee={assignee}
-                    eligibleUsers={eligibleAssignees}
-                    currentUserId={session.user.id}
-                    isAdmin={isAdmin(session.user)}
-                    canSelfAssign={canSelfAssign}
-                  />
-                </div>
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-sm font-medium">Aktionen</h3>
@@ -580,6 +578,17 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                       hasAssignedCaseworker && (isAdmin(session.user) || booking.assignedUserId === session.user.id)
                     }
                     isAdmin={isAdmin(session.user)}
+                    bookingLocationLabel={locationLabel}
+                    assignee={assignee}
+                    eligibleAssignees={eligibleAssignees}
+                    currentUserId={session.user.id}
+                    canSelfAssign={canSelfAssign}
+                    requiresCustomerNotification={
+                      Boolean(assignee) &&
+                      (hasActiveOffer || ["confirmed", "checked_out", "completed"].includes(booking.status))
+                    }
+                    salaryRecipients={salaryRecipients}
+                    salaryRecipientIds={salaryRecipientIds}
                     hasActiveOffer={hasActiveOffer}
                     offers={offers.map((offer) => ({
                       id: offer.id,

@@ -13,7 +13,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getServerSession, isAdmin } from "@/lib/auth/session";
 import { getDatabase } from "@/lib/db/client";
 import { authUser } from "@/lib/db/schema/auth";
-import { salaryTaxRates } from "@/lib/db/schema/accounting";
+import { bookingSalaryRecipients, salaryTaxRates } from "@/lib/db/schema";
 import { getEuerSummary } from "@/lib/financial/euer";
 import { buildSalaryBreakdowns } from "@/lib/financial/salary-allocation";
 
@@ -44,10 +44,19 @@ export default async function SalariesPage() {
     })
     .from(salaryTaxRates)
     .all();
+  const salaryRecipientsByBooking = new Map<number, string[]>();
+  for (const recipient of db.select().from(bookingSalaryRecipients).all()) {
+    const recipients = salaryRecipientsByBooking.get(recipient.bookingId) ?? [];
+    recipients.push(recipient.userId);
+    salaryRecipientsByBooking.set(recipient.bookingId, recipients);
+  }
   const salaryBreakdownsByYear = new Map(
     salaryYears.map((year) => {
       const incomeTaxBasisPoints = configuredTaxRates.find((rate) => rate.year === year)?.incomeTaxBasisPoints ?? null;
-      return [year, buildSalaryBreakdowns(getEuerSummary(db, year), admins, incomeTaxBasisPoints)] as const;
+      return [
+        year,
+        buildSalaryBreakdowns(getEuerSummary(db, year), admins, incomeTaxBasisPoints, salaryRecipientsByBooking),
+      ] as const;
     }),
   );
 
