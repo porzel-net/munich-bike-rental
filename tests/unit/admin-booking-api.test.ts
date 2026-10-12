@@ -16,6 +16,7 @@ const bookingApiMocks = vi.hoisted(() => ({
   dispatchNextOutboxMail: vi.fn(),
   getStripeCheckoutSession: vi.fn(),
   importStripeCheckoutPayment: vi.fn(),
+  resolveMatchedStripePayment: vi.fn(),
   refundStripeBookingPayment: vi.fn(),
 }));
 
@@ -38,6 +39,9 @@ vi.mock("@/lib/bookings/outbox", () => ({ dispatchNextOutboxMail: bookingApiMock
 vi.mock("@/lib/stripe", () => ({ getStripeCheckoutSession: bookingApiMocks.getStripeCheckoutSession }));
 vi.mock("@/lib/financial/stripe-payment", () => ({
   importStripeCheckoutPayment: bookingApiMocks.importStripeCheckoutPayment,
+}));
+vi.mock("@/lib/financial/stripe-unmatched-payment", () => ({
+  resolveMatchedStripePayment: bookingApiMocks.resolveMatchedStripePayment,
 }));
 vi.mock("@/lib/financial/stripe-refunds", () => ({
   refundStripeBookingPayment: bookingApiMocks.refundStripeBookingPayment,
@@ -79,6 +83,7 @@ describe("admin booking command API", () => {
     bookingApiMocks.getStripeCheckoutSession.mockReset();
     bookingApiMocks.importStripeCheckoutPayment.mockReset();
     bookingApiMocks.importStripeCheckoutPayment.mockResolvedValue(undefined);
+    bookingApiMocks.resolveMatchedStripePayment.mockReset();
     bookingApiMocks.refundStripeBookingPayment.mockReset();
     bookingApiMocks.refundStripeBookingPayment.mockResolvedValue({ alreadyRefunded: false, journalEntryId: 8 });
   });
@@ -329,5 +334,6 @@ describe("admin booking command API", () => {
 
     expect(response.status).toBe(200);
     expect(bookingApiMocks.dispatchNextOutboxMail).not.toHaveBeenCalled();
+    expect(bookingApiMocks.resolveMatchedStripePayment).toHaveBeenCalledWith(db, "cs_test_manual_assignment");
   });
 });
