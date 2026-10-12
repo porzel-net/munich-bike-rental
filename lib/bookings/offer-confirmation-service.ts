@@ -10,6 +10,8 @@ import {
   bookingOffers,
   bookings,
   financialTransactions,
+  journalEntries,
+  journalLines,
   rentalAssets,
 } from "../db/schema";
 
@@ -34,6 +36,60 @@ function assertStripePaymentReference(payment: StripeOfferPayment) {
     throw new BookingCommandError("Für die Stripe-Zahlung fehlt eine gültige Payment-Intent-Referenz.");
 }
 
+/**
+ * Older successful Stripe confirmations kept the session in the booking event
+ * and receivable journal, but not on the offer row. Use both immutable records
+ * to distinguish a replay of that same payment from a genuinely second payment.
+ */
+function hasLegacyStripeConfirmationEvidence(
+  db: AppDatabase,
+  offer: typeof bookingOffers.$inferSelect,
+  payment: StripeOfferPayment,
+) {
+  const matchingEvent = db
+    .select({ payloadJson: bookingEvents.payloadJson })
+    .from(bookingEvents)
+    .where(and(eq(bookingEvents.bookingId, offer.bookingId), eq(bookingEvents.eventType, "offer_confirmed")))
+    .all()
+    .some(({ payloadJson }) => {
+      try {
+        const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+        return (
+          payload.offerId === offer.id &&
+          payload.stripeSessionId === payment.sessionId &&
+          payload.paidAmountCents === payment.amountCents
+        );
+      } catch {
+        return false;
+      }
+    });
+  if (!matchingEvent) return false;
+
+  const paymentEntry = db
+    .select({ id: journalEntries.id })
+    .from(journalEntries)
+    .where(
+      and(
+        eq(journalEntries.bookingId, offer.bookingId),
+        eq(journalEntries.kind, "payment_received"),
+        eq(journalEntries.reason, `Stripe-Zahlung ${payment.sessionId}`),
+      ),
+    )
+    .get();
+  if (!paymentEntry) return false;
+
+  const lines = db
+    .select({ account: journalLines.account, amountCents: journalLines.amountCents })
+    .from(journalLines)
+    .where(eq(journalLines.entryId, paymentEntry.id))
+    .all();
+  return (
+    lines.length === 2 &&
+    lines.some((line) => line.account === "stripe_clearing" && line.amountCents === payment.amountCents) &&
+    lines.some((line) => line.account === "accounts_receivable" && line.amountCents === -payment.amountCents)
+  );
+}
+
 function confirmOfferRecord(
   db: AppDatabase,
   offer: typeof bookingOffers.$inferSelect,
@@ -56,14 +112,23 @@ function confirmOfferRecord(
     );
   if (offer.status === "accepted") {
     if (!payment) return { bookingId: offer.bookingId, alreadyConfirmed: true };
-    if (
-      !offer.stripeSessionId ||
-      offer.stripeSessionId !== payment.sessionId ||
-      (offer.stripePaymentIntentId && offer.stripePaymentIntentId !== payment.paymentIntentId)
-    )
+    const matchingStoredPayment =
+      offer.stripeSessionId === payment.sessionId &&
+      (!offer.stripePaymentIntentId || offer.stripePaymentIntentId === payment.paymentIntentId);
+    const matchingLegacyPayment =
+      !offer.stripeSessionId &&
+      (!offer.stripePaymentIntentId || offer.stripePaymentIntentId === payment.paymentIntentId) &&
+      hasLegacyStripeConfirmationEvidence(db, offer, payment);
+    if (!matchingStoredPayment && !matchingLegacyPayment)
       throw new BookingCommandError(
         "Dieses Angebot wurde bereits mit einer anderen Zahlung bestätigt. Eine zweite Stripe-Zahlung wird nicht angenommen.",
       );
+    if (matchingLegacyPayment) {
+      db.update(bookingOffers)
+        .set({ stripeSessionId: payment.sessionId, stripePaymentIntentId: payment.paymentIntentId ?? null })
+        .where(eq(bookingOffers.id, offer.id))
+        .run();
+    }
     return { bookingId: offer.bookingId, alreadyConfirmed: true };
   }
   const offerExpired = offer.status === "expired" || offer.expiresAt.getTime() <= Date.now();

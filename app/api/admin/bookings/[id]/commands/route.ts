@@ -24,6 +24,7 @@ import { readBoundedJson } from "@/lib/security/request-body";
 import { isValidIsoDate, isValidTime } from "@/lib/bookings/validation";
 import { getStripeCheckoutSession } from "@/lib/stripe";
 import { importStripeCheckoutPayment } from "@/lib/financial/stripe-payment";
+import { resolveMatchedStripePayment } from "@/lib/financial/stripe-unmatched-payment";
 import { refundStripeBookingPayment } from "@/lib/financial/stripe-refunds";
 
 export const runtime = "nodejs";
@@ -358,6 +359,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           actorUserId: command.user.id,
           sendMail: input.data.sendMail,
         });
+        resolveMatchedStripePayment(command.db, session.id);
         let accountingWarning: string | null = null;
         try {
           await importStripeCheckoutPayment(command.db, { sessionId: session.id, bookingId: id });
