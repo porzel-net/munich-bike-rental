@@ -1,4 +1,4 @@
-import { ImapFlow, type SearchObject } from "imapflow";
+import { type ImapFlow, type SearchObject } from "imapflow";
 
 import { and, eq, inArray, ne } from "drizzle-orm";
 
@@ -9,6 +9,14 @@ import { readSecret } from "./server";
 import { parseMailMessageIds } from "./mail-thread";
 import { repairMojibake } from "./text";
 import { reviewBookingEmailThread, reviewLatestUnprocessedEmailThread } from "./email-action";
+import {
+  closeImapClient,
+  createImapClient,
+  getImapCooldownFailure,
+  logImapFailure,
+  recordImapFailure,
+  withExclusiveImap,
+} from "./imap-client";
 
 type MailboxConfig = {
   host: string;
@@ -18,20 +26,6 @@ type MailboxConfig = {
   password: string;
   ownAddresses: string[];
 };
-
-async function closeImapClient(client: ImapFlow) {
-  try {
-    await client.logout();
-  } catch {
-    try {
-      await client.close();
-    } catch {
-      // The server may already have closed the socket, especially after an
-      // authentication failure. Cleanup must never turn a handled IMAP
-      // outage into an unhandled rejection or HTTP 500 response.
-    }
-  }
-}
 
 const MAX_MAIL_SOURCE_BYTES = 1_000_000;
 const MAX_MAIL_PARSE_DEPTH = 10;
@@ -100,19 +94,27 @@ export async function verifyImapConnection(environment: Partial<NodeJS.ProcessEn
   const config = await getMailboxConfig(environment);
   if (!config) throw new Error("IMAP-Konfiguration ist unvollständig");
 
-  const client = new ImapFlow({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: { user: config.user, pass: config.password },
-    logger: false,
+  return withExclusiveImap(async () => {
+    const client = createImapClient(
+      {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.user, pass: config.password },
+        disableAutoIdle: true,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      },
+      "verify-connection",
+    );
+    try {
+      await client.connect();
+    } finally {
+      await closeImapClient(client);
+    }
+    return { host: config.host, port: config.port };
   });
-  try {
-    await client.connect();
-  } finally {
-    await closeImapClient(client);
-  }
-  return { host: config.host, port: config.port };
 }
 
 function unfoldHeaders(source: string) {
@@ -242,123 +244,135 @@ export async function syncBookingMailThread(
 ) {
   const config = await getMailboxConfig();
   if (!config) return { configured: false, synced: 0 };
-  const client = new ImapFlow({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: { user: config.user, pass: config.password },
-    disableAutoIdle: true,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
-  });
-  let synced = 0;
-  let inferredLocale: "de" | "en" | null = null;
-  const newMessageIds: number[] = [];
-  try {
-    await client.connect();
-    const archivedMessages = db
-      .select({ subject: communicationMessages.subject, rfcMessageId: communicationMessages.rfcMessageId })
-      .from(communicationMessages)
-      .where(eq(communicationMessages.bookingId, bookingId))
-      .all();
-    const searchQueries: SearchObject[] = [{ text: orderNumber }];
-    if (orderNumber.startsWith("#")) searchQueries.push({ text: orderNumber.slice(1) });
-    for (const { subject, rfcMessageId } of archivedMessages) {
-      if (subject.trim()) searchQueries.push({ subject });
-      for (const term of subject.match(ORDER_NUMBER_RE) ?? []) searchQueries.push({ text: term });
-      if (rfcMessageId) {
-        searchQueries.push({ header: { "In-Reply-To": rfcMessageId } }, { header: { References: rfcMessageId } });
+  const sync = await withExclusiveImap(async () => {
+    const cooldownFailure = getImapCooldownFailure();
+    if (cooldownFailure) return { configured: true, synced: 0, error: cooldownFailure };
+
+    const client = createImapClient(
+      {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.user, pass: config.password },
+        disableAutoIdle: true,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      },
+      "sync-booking-thread",
+    );
+    let synced = 0;
+    let inferredLocale: "de" | "en" | null = null;
+    const newMessageIds: number[] = [];
+    try {
+      await client.connect();
+      const archivedMessages = db
+        .select({ subject: communicationMessages.subject, rfcMessageId: communicationMessages.rfcMessageId })
+        .from(communicationMessages)
+        .where(eq(communicationMessages.bookingId, bookingId))
+        .all();
+      const searchQueries: SearchObject[] = [{ text: orderNumber }];
+      if (orderNumber.startsWith("#")) searchQueries.push({ text: orderNumber.slice(1) });
+      for (const { subject, rfcMessageId } of archivedMessages) {
+        if (subject.trim()) searchQueries.push({ subject });
+        for (const term of subject.match(ORDER_NUMBER_RE) ?? []) searchQueries.push({ text: term });
+        if (rfcMessageId) {
+          searchQueries.push({ header: { "In-Reply-To": rfcMessageId } }, { header: { References: rfcMessageId } });
+        }
       }
-    }
-    for (const mailbox of await getSearchMailboxes(client)) {
-      let lock;
-      try {
-        lock = await client.getMailboxLock(mailbox, { readOnly: true });
-        const matchSets = await Promise.all(
-          uniqueSearchQueries(searchQueries).map((query) => client.search(query, { uid: true })),
-        );
-        const matches = [...new Set(matchSets.flatMap((set) => (set === false ? [] : set)))].sort(
-          (left, right) => left - right,
-        );
-        if (!matches || !matches.length) continue;
-        for await (const message of client.fetch(
-          matches.slice(-50),
-          { envelope: true, source: { start: 0, maxLength: MAX_MAIL_SOURCE_BYTES }, internalDate: true },
-          { uid: true },
-        )) {
-          const messageId = message.envelope?.messageId;
-          if (!messageId) continue;
-          const sender = message.envelope?.from?.[0]?.address ?? "unknown";
-          const recipients = (message.envelope?.to ?? [])
-            .map((address) => address.address ?? "")
-            .filter(Boolean)
-            .join(", ");
-          const subject = message.envelope?.subject ?? "";
-          const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
-          const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
-          const referencesHeader = headers.get("references")?.trim() || null;
-          const references = parseMailMessageIds(referencesHeader);
-          if (/^New bike inquiry\b/i.test(subject)) inferredLocale = "en";
-          if (/^Neue Bike-Anfrage\b/i.test(subject)) inferredLocale = "de";
-          const sentAt =
-            message.internalDate instanceof Date
-              ? message.internalDate
-              : message.internalDate
-                ? new Date(message.internalDate)
-                : new Date();
-          const existing = db
-            .select({ id: communicationMessages.id })
-            .from(communicationMessages)
-            .where(eq(communicationMessages.rfcMessageId, messageId))
-            .get();
-          const values = {
-            bookingId,
-            direction: config.ownAddresses.includes(sender.toLocaleLowerCase()) ? "outbound" : "inbound",
-            rfcMessageId: messageId,
-            threadMessageId: references[0] ?? inReplyTo ?? messageId,
-            inReplyTo,
-            referencesHeader,
-            sender,
-            recipients,
-            subject,
-            plainText: plainTextFromSource(message.source),
-            sentAt,
-            archivedAt: new Date(),
-          } as const;
-          if (existing) {
-            db.update(communicationMessages).set(values).where(eq(communicationMessages.id, existing.id)).run();
-          } else {
-            db.insert(communicationMessages).values(values).run();
-            const inserted = db
+      for (const mailbox of await getSearchMailboxes(client)) {
+        let lock;
+        try {
+          lock = await client.getMailboxLock(mailbox, { readOnly: true });
+          const matchSets = await Promise.all(
+            uniqueSearchQueries(searchQueries).map((query) => client.search(query, { uid: true })),
+          );
+          const matches = [...new Set(matchSets.flatMap((set) => (set === false ? [] : set)))].sort(
+            (left, right) => left - right,
+          );
+          if (!matches || !matches.length) continue;
+          for await (const message of client.fetch(
+            matches.slice(-50),
+            { envelope: true, source: { start: 0, maxLength: MAX_MAIL_SOURCE_BYTES }, internalDate: true },
+            { uid: true },
+          )) {
+            const messageId = message.envelope?.messageId;
+            if (!messageId) continue;
+            const sender = message.envelope?.from?.[0]?.address ?? "unknown";
+            const recipients = (message.envelope?.to ?? [])
+              .map((address) => address.address ?? "")
+              .filter(Boolean)
+              .join(", ");
+            const subject = message.envelope?.subject ?? "";
+            const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
+            const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
+            const referencesHeader = headers.get("references")?.trim() || null;
+            const references = parseMailMessageIds(referencesHeader);
+            if (/^New bike inquiry\b/i.test(subject)) inferredLocale = "en";
+            if (/^Neue Bike-Anfrage\b/i.test(subject)) inferredLocale = "de";
+            const sentAt =
+              message.internalDate instanceof Date
+                ? message.internalDate
+                : message.internalDate
+                  ? new Date(message.internalDate)
+                  : new Date();
+            const existing = db
               .select({ id: communicationMessages.id })
               .from(communicationMessages)
               .where(eq(communicationMessages.rfcMessageId, messageId))
               .get();
-            if (inserted) newMessageIds.push(inserted.id);
+            const values = {
+              bookingId,
+              direction: config.ownAddresses.includes(sender.toLocaleLowerCase()) ? "outbound" : "inbound",
+              rfcMessageId: messageId,
+              threadMessageId: references[0] ?? inReplyTo ?? messageId,
+              inReplyTo,
+              referencesHeader,
+              sender,
+              recipients,
+              subject,
+              plainText: plainTextFromSource(message.source),
+              sentAt,
+              archivedAt: new Date(),
+            } as const;
+            if (existing) {
+              db.update(communicationMessages).set(values).where(eq(communicationMessages.id, existing.id)).run();
+            } else {
+              db.insert(communicationMessages).values(values).run();
+              const inserted = db
+                .select({ id: communicationMessages.id })
+                .from(communicationMessages)
+                .where(eq(communicationMessages.rfcMessageId, messageId))
+                .get();
+              if (inserted) newMessageIds.push(inserted.id);
+            }
+            synced += 1;
           }
-          synced += 1;
+        } catch {
+          // A localized or unavailable mailbox should not prevent checking the next one.
+        } finally {
+          lock?.release();
         }
-      } catch {
-        // A localized or unavailable mailbox should not prevent checking the next one.
-      } finally {
-        lock?.release();
       }
+      return { configured: true, synced, inferredLocale, newMessageIds };
+    } catch (error) {
+      logImapFailure("sync-booking-thread", error);
+      return { configured: true, synced, error: recordImapFailure(error) };
+    } finally {
+      await closeImapClient(client);
     }
-    if (inferredLocale)
-      db.update(bookings)
-        .set({ communicationLocale: inferredLocale, updatedAt: new Date() })
-        .where(eq(bookings.id, bookingId))
-        .run();
-    if (options.reviewNewMessages !== false) {
-      for (const newMessageId of newMessageIds) await reviewBookingEmailThread(db, bookingId, newMessageId);
-    }
-    return { configured: true, synced };
-  } catch {
-    return { configured: true, synced, error: "imap_unavailable" as const };
-  } finally {
-    await closeImapClient(client);
+  });
+
+  if ("error" in sync) return sync;
+  if (sync.inferredLocale)
+    db.update(bookings)
+      .set({ communicationLocale: sync.inferredLocale, updatedAt: new Date() })
+      .where(eq(bookings.id, bookingId))
+      .run();
+  if (options.reviewNewMessages !== false) {
+    for (const newMessageId of sync.newMessageIds) await reviewBookingEmailThread(db, bookingId, newMessageId);
   }
+  return { configured: true, synced: sync.synced };
 }
 
 /**
@@ -460,60 +474,66 @@ export async function findLatestBookingThreadMessage(orderNumber: string): Promi
   const config = await getMailboxConfig();
   if (!config) return null;
 
-  const client = new ImapFlow({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: { user: config.user, pass: config.password },
-    disableAutoIdle: true,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
-  });
-  let latest: LatestBookingThreadMessage | null = null;
+  return withExclusiveImap(async () => {
+    const client = createImapClient(
+      {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.user, pass: config.password },
+        disableAutoIdle: true,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      },
+      "find-booking-thread-message",
+    );
+    let latest: LatestBookingThreadMessage | null = null;
 
-  try {
-    await client.connect();
-    for (const mailbox of await getSearchMailboxes(client)) {
-      let lock;
-      try {
-        lock = await client.getMailboxLock(mailbox, { readOnly: true });
-        const matches = await client.search({ text: orderNumber }, { uid: true });
-        if (matches && matches.length) {
-          for await (const message of client.fetch(
-            matches.slice(-50),
-            { envelope: true, internalDate: true, source: { start: 0, maxLength: MAX_MAIL_SOURCE_BYTES } },
-            { uid: true },
-          )) {
-            const messageId = message.envelope?.messageId;
-            if (!messageId) continue;
-            const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
-            const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
-            const referencesHeader = headers.get("references")?.trim() || null;
-            const internalDate =
-              message.internalDate instanceof Date
-                ? message.internalDate
-                : message.internalDate
-                  ? new Date(message.internalDate)
-                  : message.envelope?.date;
-            const timestamp = internalDate?.getTime() ?? 0;
-            if (!latest || timestamp >= latest.timestamp)
-              latest = { messageId, inReplyTo, referencesHeader, timestamp };
+    try {
+      await client.connect();
+      for (const mailbox of await getSearchMailboxes(client)) {
+        let lock;
+        try {
+          lock = await client.getMailboxLock(mailbox, { readOnly: true });
+          const matches = await client.search({ text: orderNumber }, { uid: true });
+          if (matches && matches.length) {
+            for await (const message of client.fetch(
+              matches.slice(-50),
+              { envelope: true, internalDate: true, source: { start: 0, maxLength: MAX_MAIL_SOURCE_BYTES } },
+              { uid: true },
+            )) {
+              const messageId = message.envelope?.messageId;
+              if (!messageId) continue;
+              const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
+              const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
+              const referencesHeader = headers.get("references")?.trim() || null;
+              const internalDate =
+                message.internalDate instanceof Date
+                  ? message.internalDate
+                  : message.internalDate
+                    ? new Date(message.internalDate)
+                    : message.envelope?.date;
+              const timestamp = internalDate?.getTime() ?? 0;
+              if (!latest || timestamp >= latest.timestamp)
+                latest = { messageId, inReplyTo, referencesHeader, timestamp };
+            }
           }
+        } catch {
+          // A localized or unavailable mailbox should not prevent checking the next one.
+        } finally {
+          lock?.release();
         }
-      } catch {
-        // A localized or unavailable mailbox should not prevent checking the next one.
-      } finally {
-        lock?.release();
       }
+    } catch (error) {
+      logImapFailure("find-booking-thread-message", error);
+      return null;
+    } finally {
+      await closeImapClient(client);
     }
-  } catch {
-    return null;
-  } finally {
-    await closeImapClient(client);
-  }
 
-  return latest;
+    return latest;
+  });
 }
 
 export async function findBookingThreadMessageId(orderNumber: string): Promise<string | null> {
@@ -528,48 +548,54 @@ export async function moveMailToMailbox(
   if (!config) return { configured: false, moved: false, reason: "not_configured" };
   if (!messageId) return { configured: true, moved: false, reason: "not_found" };
 
-  const client = new ImapFlow({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: { user: config.user, pass: config.password },
-    disableAutoIdle: true,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
-  });
+  return withExclusiveImap(async () => {
+    const client = createImapClient(
+      {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.user, pass: config.password },
+        disableAutoIdle: true,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      },
+      "move-mail",
+    );
 
-  try {
-    await client.connect();
-    const mailboxes = await client.list();
-    if (!mailboxes.some((mailbox) => mailbox.path === targetMailbox)) {
-      await client.mailboxCreate(targetMailbox).catch(() => undefined);
-    }
-
-    let moveFailed = false;
-    const listedPaths = new Set(mailboxes.map((mailbox) => mailbox.path));
-    for (const mailbox of getMailboxPaths(mailboxes)) {
-      let lock;
-      try {
-        lock = await client.getMailboxLock(mailbox);
-        const matches = await client.search({ text: messageId }, { uid: true });
-        if (matches && matches.length) {
-          const moved = await client.messageMove(matches.slice(-1), targetMailbox, { uid: true });
-          if (moved) return { configured: true, moved: true };
-        }
-      } catch {
-        // Missing fallback aliases are expected on many IMAP servers.
-        if (listedPaths.has(mailbox) || mailbox === "INBOX") moveFailed = true;
-      } finally {
-        lock?.release();
+    try {
+      await client.connect();
+      const mailboxes = await client.list();
+      if (!mailboxes.some((mailbox) => mailbox.path === targetMailbox)) {
+        await client.mailboxCreate(targetMailbox).catch(() => undefined);
       }
+
+      let moveFailed = false;
+      const listedPaths = new Set(mailboxes.map((mailbox) => mailbox.path));
+      for (const mailbox of getMailboxPaths(mailboxes)) {
+        let lock;
+        try {
+          lock = await client.getMailboxLock(mailbox);
+          const matches = await client.search({ text: messageId }, { uid: true });
+          if (matches && matches.length) {
+            const moved = await client.messageMove(matches.slice(-1), targetMailbox, { uid: true });
+            if (moved) return { configured: true, moved: true };
+          }
+        } catch {
+          // Missing fallback aliases are expected on many IMAP servers.
+          if (listedPaths.has(mailbox) || mailbox === "INBOX") moveFailed = true;
+        } finally {
+          lock?.release();
+        }
+      }
+      return { configured: true, moved: false, reason: moveFailed ? "move_failed" : "not_found" };
+    } catch (error) {
+      logImapFailure("move-mail", error);
+      return { configured: true, moved: false, reason: "move_failed" };
+    } finally {
+      await closeImapClient(client);
     }
-    return { configured: true, moved: false, reason: moveFailed ? "move_failed" : "not_found" };
-  } catch {
-    return { configured: true, moved: false, reason: "move_failed" };
-  } finally {
-    await closeImapClient(client);
-  }
+  });
 }
 
 export async function moveMailToRejectedMailbox(messageId: string | null): Promise<MailboxOperationResult> {

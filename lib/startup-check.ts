@@ -12,6 +12,7 @@ import { checkNevloConnection } from "./financial/nevlo-sync";
 import { seedRentalInventoryIfEmpty } from "./inventory/seed";
 import { getMailConfig, readSecret, verifyMailConnection } from "./inquiries/server";
 import { verifyImapConnection } from "./inquiries/mailbox";
+import { logImapFailure } from "./inquiries/imap-client";
 import { listStripeCheckoutSessions } from "./stripe";
 
 export type StartupCheckStatus = "ok" | "warn" | "skipped" | "failed";
@@ -497,10 +498,17 @@ export async function runStartupChecks(
   }
 
   const imapNames = ["IMAP_MAIN_HOST", "IMAP_MAIN_USER", "IMAP_MAIN_PASSWORD", "IMAP_MAIN_PASSWORD_FILE"] as const;
-  await runCheck(checks, "imap-main", true, async () => {
+  // IMAP is an optional archive/integration. If IONOS is temporarily down,
+  // keep the website available so booking data and archived messages remain usable.
+  await runCheck(checks, "imap-main", false, async () => {
     if (!hasAny(environment, imapNames)) return { status: "skipped", message: "IMAP ist nicht konfiguriert" };
-    const result = await withTimeout(verifyImapConnection(environment));
-    return { status: "ok", message: "IMAP-Verbindung ist erreichbar", details: result };
+    try {
+      const result = await withTimeout(verifyImapConnection(environment));
+      return { status: "ok", message: "IMAP-Verbindung ist erreichbar", details: result };
+    } catch (error) {
+      logImapFailure("startup-check", error);
+      return { status: "warn", message: "IMAP beim Start nicht verfügbar; Website und Archiv bleiben aktiv" };
+    }
   });
 
   await runCheck(checks, "nevlo", true, async () => {

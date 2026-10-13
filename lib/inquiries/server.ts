@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import MailComposer from "nodemailer/lib/mail-composer";
 import type { SendMailOptions } from "nodemailer";
@@ -18,6 +17,7 @@ import { BUSINESS_TIME_ZONE } from "../datetime";
 import { readBoundedText } from "../security/request-body";
 import { siteConfig } from "../site";
 import { EMAIL_LOGO_CID, emailCard, emailParagraph, renderEmailLayout } from "./email-template";
+import { closeImapClient, createImapClient, logImapFailure, withExclusiveImap } from "./imap-client";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1_000;
@@ -33,18 +33,6 @@ type ApiErrorCode =
   | "send_failed"
   | "unsupported_content_type"
   | "validation_error";
-
-async function closeImapClient(client: ImapFlow) {
-  try {
-    await client.logout();
-  } catch {
-    try {
-      await client.close();
-    } catch {
-      // The server may already have closed the socket after an IMAP error.
-    }
-  }
-}
 
 export function jsonError(status: number, code: ApiErrorCode, error: string) {
   return NextResponse.json({ ok: false, code, error }, { status, headers: { "Cache-Control": "no-store" } });
@@ -329,34 +317,40 @@ async function appendToMainSentMailbox(rawMessage: Buffer, sentAt: Date): Promis
     return { configured: false, copied: false, mailbox: null, reason: "not_configured" };
   }
 
-  const client = new ImapFlow({
-    host,
-    port,
-    secure: process.env.IMAP_MAIN_SECURE !== "false",
-    auth: { user, pass: password },
-    disableAutoIdle: true,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
+  return withExclusiveImap(async () => {
+    const client = createImapClient(
+      {
+        host,
+        port,
+        secure: process.env.IMAP_MAIN_SECURE !== "false",
+        auth: { user, pass: password },
+        disableAutoIdle: true,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      },
+      "copy-sent-mail",
+    );
+
+    try {
+      await client.connect();
+      const mailboxes = await client.list();
+      const target = [...mailboxes]
+        .filter((mailbox) => sentMailboxName(mailbox) !== null)
+        .sort((left, right) => (sentMailboxName(left) ?? 99) - (sentMailboxName(right) ?? 99))[0];
+      if (!target) return { configured: true, copied: false, mailbox: null, reason: "no_sent_mailbox" };
+
+      const result = await client.append(target.path, rawMessage, ["\\Seen"], sentAt);
+      return result
+        ? { configured: true, copied: true, mailbox: target.path }
+        : { configured: true, copied: false, mailbox: target.path, reason: "append_failed" };
+    } catch (error) {
+      logImapFailure("copy-sent-mail", error);
+      return { configured: true, copied: false, mailbox: null, reason: "append_failed" };
+    } finally {
+      await closeImapClient(client);
+    }
   });
-
-  try {
-    await client.connect();
-    const mailboxes = await client.list();
-    const target = [...mailboxes]
-      .filter((mailbox) => sentMailboxName(mailbox) !== null)
-      .sort((left, right) => (sentMailboxName(left) ?? 99) - (sentMailboxName(right) ?? 99))[0];
-    if (!target) return { configured: true, copied: false, mailbox: null, reason: "no_sent_mailbox" };
-
-    const result = await client.append(target.path, rawMessage, ["\\Seen"], sentAt);
-    return result
-      ? { configured: true, copied: true, mailbox: target.path }
-      : { configured: true, copied: false, mailbox: target.path, reason: "append_failed" };
-  } catch {
-    return { configured: true, copied: false, mailbox: null, reason: "append_failed" };
-  } finally {
-    await closeImapClient(client);
-  }
 }
 
 export async function sendConfiguredMail({

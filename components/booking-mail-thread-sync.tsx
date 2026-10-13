@@ -23,9 +23,10 @@ type MailThreadResponse = {
   sync?: {
     configured: boolean;
     synced: number;
-    error?: string;
+    error?: "authentication_failed" | "temporarily_unavailable";
   };
   messages?: MailMessage[];
+  message?: string;
 };
 
 function formatMailSubject(subject: string) {
@@ -45,7 +46,10 @@ function formatMailText(text: string) {
 }
 
 function formatSyncNotice(sync: MailThreadResponse["sync"], automatic = false) {
-  if (sync?.error) return "IMAP derzeit nicht erreichbar. Archivierte Mails werden angezeigt.";
+  if (sync?.error === "authentication_failed")
+    return "Die Anmeldung beim IONOS-Postfach ist fehlgeschlagen. Bitte prüfe die IMAP-Zugangsdaten und den IONOS-Maildienst. Bereits archivierte Mails bleiben sichtbar.";
+  if (sync?.error === "temporarily_unavailable")
+    return "IONOS hat die IMAP-Verbindung beendet oder antwortet gerade nicht. Bereits archivierte Mails bleiben sichtbar; bitte versuche es später erneut.";
   if (!sync?.configured) return "IMAP ist nicht konfiguriert. Archivierte Mails werden angezeigt.";
   return automatic
     ? `${sync.synced} Nachricht(en) beim Öffnen synchronisiert.`
@@ -85,6 +89,7 @@ function MailThreadSkeleton() {
 export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeIsError, setNoticeIsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -97,6 +102,7 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
         setFailed(false);
       }
       setNotice(automatic ? "Synchronisiere mit dem Mailserver …" : null);
+      setNoticeIsError(false);
       try {
         const response = await fetch(`/api/admin/bookings/${bookingId}/messages`, {
           method: "POST",
@@ -106,17 +112,21 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
         });
         const result = (await response.json().catch(() => null)) as MailThreadResponse | null;
         if (!response.ok || !result?.messages)
-          throw new Error("Der Mailverlauf konnte nicht synchronisiert werden. Prüfe IMAP-Zugang und Buchungsnummer.");
+          throw new Error(
+            result?.message ?? "Der Mailverlauf konnte nicht synchronisiert werden. Bitte versuche es erneut.",
+          );
         setMessages(result.messages);
         const sync = result.sync;
         setNotice(formatSyncNotice(sync, automatic));
+        setNoticeIsError(Boolean(sync?.error));
         setFailed(false);
       } catch (error) {
         if (automatic) setFailed(true);
+        setNoticeIsError(true);
         setNotice(
           error instanceof Error
             ? error.message
-            : "Der Mailverlauf konnte nicht synchronisiert werden. Prüfe IMAP-Zugang und Buchungsnummer.",
+            : "Der Mailverlauf konnte nicht synchronisiert werden. Bitte versuche es erneut.",
         );
       } finally {
         setSyncing(false);
@@ -164,7 +174,14 @@ export function BookingMailThreadSync({ bookingId }: { bookingId: number }) {
         </Button>
       </div>
 
-      {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+      {notice ? (
+        <p
+          role={noticeIsError ? "alert" : "status"}
+          className={`text-sm ${noticeIsError ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {notice}
+        </p>
+      ) : null}
 
       {failed && !messages.length ? (
         <div className="rounded-2xl border border-dashed bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
