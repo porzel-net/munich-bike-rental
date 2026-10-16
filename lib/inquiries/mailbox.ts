@@ -287,9 +287,13 @@ export async function syncBookingMailThread(
           const matchSets = await Promise.all(
             uniqueSearchQueries(searchQueries).map((query) => client.search(query, { uid: true })),
           );
-          const matches = [...new Set(matchSets.flatMap((set) => (set === false ? [] : set)))].sort(
-            (left, right) => left - right,
-          );
+          const matches = [
+            ...new Set(
+              matchSets
+                .flatMap((set) => (set === false ? [] : set))
+                .filter((uid): uid is number => typeof uid === "number"),
+            ),
+          ].sort((left, right) => left - right);
           if (!matches || !matches.length) continue;
           for await (const message of client.fetch(
             matches.slice(-50),
@@ -508,12 +512,9 @@ export async function findLatestBookingThreadMessage(orderNumber: string): Promi
               const headers = unfoldHeaders(message.source?.toString() ?? "").headers;
               const inReplyTo = message.envelope?.inReplyTo ?? headers.get("in-reply-to") ?? null;
               const referencesHeader = headers.get("references")?.trim() || null;
+              const messageDate = message.internalDate ?? message.envelope?.date;
               const internalDate =
-                message.internalDate instanceof Date
-                  ? message.internalDate
-                  : message.internalDate
-                    ? new Date(message.internalDate)
-                    : message.envelope?.date;
+                messageDate instanceof Date ? messageDate : messageDate ? new Date(messageDate) : undefined;
               const timestamp = internalDate?.getTime() ?? 0;
               if (!latest || timestamp >= latest.timestamp)
                 latest = { messageId, inReplyTo, referencesHeader, timestamp };

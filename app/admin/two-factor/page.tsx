@@ -61,6 +61,11 @@ export default function TwoFactorPage() {
       return;
     }
 
+    if (data.method !== "totp") {
+      setError("Die TOTP-Einrichtung konnte nicht gestartet werden.");
+      return;
+    }
+
     setTotpURI(data.totpURI);
     setBackupCodes(data.backupCodes);
     setPassword("");
