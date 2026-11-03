@@ -16,6 +16,12 @@ overrides:
   source-map-js: 1.2.2
   sharp: 0.35.5
   vite: 8.3.5
+  body-parser@>=2.0.0 <2.4.0: ^2.4.0
+  ip-address@<=10.7.3: ^10.7.4
+  minimatch@<11.0.1: ^11.0.1
+
+patchedDependencies:
+  deepmerge@4.3.1: 9bed148308df697e8fc7975161b482997068fd17d2749b389018f5265e9b99c9
 
 importers:
 
@@ -1081,6 +1087,9 @@ packages:
     engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [win32]
+
+  '@isaacs/nonrecursive-glob-match@1.0.3':
+    resolution: {integrity: sha512-SI7kyKHq4XXDRozw+r9GlRZkia1ZkFrpLW98r2IC2Bpr8YkFGE3fvjzmxCG0x78A++69HmDNrDvSMYBZmHGpKA==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2197,9 +2206,6 @@ packages:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
     engines: {node: '>= 0.4'}
 
-  balanced-match@1.0.2:
-    resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
-
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
@@ -2283,12 +2289,9 @@ packages:
   bn.js@4.12.5:
     resolution: {integrity: sha512-3aRg6/JxfffFD+OlOjOFR3Vo79l39ooBTFucxx+MT3dhCtzn3EmiUPQo+6/OZuI2jbXi3YKgmiTFBgChQMwIRQ==}
 
-  body-parser@2.3.0:
-    resolution: {integrity: sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==}
+  body-parser@2.4.0:
+    resolution: {integrity: sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==}
     engines: {node: '>=18'}
-
-  brace-expansion@1.1.21:
-    resolution: {integrity: sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==}
 
   brace-expansion@5.0.12:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
@@ -2398,9 +2401,6 @@ packages:
   commander@14.0.3:
     resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
     engines: {node: '>=20'}
-
-  concat-map@0.0.1:
-    resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
   conf@10.2.0:
     resolution: {integrity: sha512-8fLl9F04EJqjSqH+QjITQfJF8BrOVaYr1jewVgSRAEWePfxT0sku4w2hrGQ60BC/TNLGQ2pgxNlTbWQmMPFvXg==}
@@ -3266,8 +3266,8 @@ packages:
     resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
     engines: {node: '>=12'}
 
-  ip-address@10.7.1:
-    resolution: {integrity: sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA==}
+  ip-address@10.7.5:
+    resolution: {integrity: sha512-t2v0rkILYv9WXmSL7TpAaU3HXgaFYOPUcH3QHgwQ++gpJuH3bqyMy4Fvt/DJCTKwzH3Cf+bAp5W/mFL39KPLzA==}
     engines: {node: '>= 12'}
 
   ipaddr.js@1.9.1:
@@ -3814,12 +3814,9 @@ packages:
   minimalistic-assert@1.0.1:
     resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}
 
-  minimatch@10.2.6:
-    resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
-    engines: {node: 18 || 20 || >=22}
-
-  minimatch@3.1.5:
-    resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
+  minimatch@11.0.4:
+    resolution: {integrity: sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==}
+    engines: {node: 20 || >=22}
 
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
@@ -5515,7 +5512,7 @@ snapshots:
     dependencies:
       '@eslint/object-schema': 2.1.7
       debug: 4.4.3(supports-color@7.2.0)
-      minimatch: 3.1.5
+      minimatch: 11.0.4
     transitivePeerDependencies:
       - supports-color
 
@@ -5536,7 +5533,7 @@ snapshots:
       ignore: 5.3.2
       import-fresh: 3.3.1
       js-yaml: 4.3.2
-      minimatch: 3.1.5
+      minimatch: 11.0.4
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -5700,6 +5697,8 @@ snapshots:
 
   '@img/sharp-win32-x64@0.35.5':
     optional: true
+
+  '@isaacs/nonrecursive-glob-match@1.0.3': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -6148,7 +6147,7 @@ snapshots:
       '@dotenvx/dotenvx': 1.75.1
       cn: 0.2.6
       code-block-writer: 13.0.3
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=9bed148308df697e8fc7975161b482997068fd17d2749b389018f5265e9b99c9)
       execa: 9.6.1
       fast-glob: 3.3.3
       fs-extra: 11.4.1
@@ -6279,7 +6278,7 @@ snapshots:
   '@ts-morph/common@0.27.0':
     dependencies:
       fast-glob: 3.3.3
-      minimatch: 10.2.6
+      minimatch: 11.0.4
       path-browserify: 1.0.1
 
   '@tybys/wasm-util@0.10.4':
@@ -6423,7 +6422,7 @@ snapshots:
       '@typescript-eslint/types': 8.72.0
       '@typescript-eslint/visitor-keys': 8.72.0
       debug: 4.4.3(supports-color@7.2.0)
-      minimatch: 10.2.6
+      minimatch: 11.0.4
       semver: 7.8.5
       tinyglobby: 0.2.17
       ts-api-utils: 2.5.0(typescript@6.0.3)
@@ -6708,8 +6707,6 @@ snapshots:
 
   axobject-query@4.1.0: {}
 
-  balanced-match@1.0.2: {}
-
   balanced-match@4.0.4: {}
 
   baseline-browser-mapping@2.11.30: {}
@@ -6758,7 +6755,7 @@ snapshots:
 
   bn.js@4.12.5: {}
 
-  body-parser@2.3.0(supports-color@7.2.0):
+  body-parser@2.4.0(supports-color@7.2.0):
     dependencies:
       bytes: 3.1.2
       content-type: 2.1.0
@@ -6771,11 +6768,6 @@ snapshots:
       type-is: 2.1.0
     transitivePeerDependencies:
       - supports-color
-
-  brace-expansion@1.1.21:
-    dependencies:
-      balanced-match: 1.0.2
-      concat-map: 0.0.1
 
   brace-expansion@5.0.12:
     dependencies:
@@ -6876,8 +6868,6 @@ snapshots:
   commander@11.1.0: {}
 
   commander@14.0.3: {}
-
-  concat-map@0.0.1: {}
 
   conf@10.2.0:
     dependencies:
@@ -7005,7 +6995,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge@4.3.1: {}
+  deepmerge@4.3.1(patch_hash=9bed148308df697e8fc7975161b482997068fd17d2749b389018f5265e9b99c9): {}
 
   default-browser-id@5.0.1: {}
 
@@ -7347,7 +7337,7 @@ snapshots:
       hasown: 2.0.4
       is-core-module: 2.17.0
       is-glob: 4.0.3
-      minimatch: 3.1.5
+      minimatch: 11.0.4
       object.fromentries: 2.0.8
       object.groupby: 1.0.3
       object.values: 1.2.1
@@ -7375,7 +7365,7 @@ snapshots:
       hasown: 2.0.4
       jsx-ast-utils: 3.3.5
       language-tags: 1.0.9
-      minimatch: 3.1.5
+      minimatch: 11.0.4
       object.fromentries: 2.0.8
       safe-regex-test: 1.1.0
       string.prototype.includes: 2.0.1
@@ -7403,7 +7393,7 @@ snapshots:
       estraverse: 5.3.0
       hasown: 2.0.4
       jsx-ast-utils: 3.3.5
-      minimatch: 3.1.5
+      minimatch: 11.0.4
       object.entries: 1.1.9
       object.fromentries: 2.0.8
       object.values: 1.2.1
@@ -7457,7 +7447,7 @@ snapshots:
       is-glob: 4.0.3
       json-stable-stringify-without-jsonify: 1.0.1
       lodash.merge: 4.6.2
-      minimatch: 3.1.5
+      minimatch: 11.0.4
       natural-compare: 1.4.0
       optionator: 0.9.4
     optionalDependencies:
@@ -7532,14 +7522,14 @@ snapshots:
     dependencies:
       debug: 4.4.3(supports-color@7.2.0)
       express: 5.3.0(supports-color@7.2.0)
-      ip-address: 10.7.1
+      ip-address: 10.7.5
     transitivePeerDependencies:
       - supports-color
 
   express@5.3.0(supports-color@7.2.0):
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0(supports-color@7.2.0)
+      body-parser: 2.4.0(supports-color@7.2.0)
       content-disposition: 2.0.1
       content-type: 2.1.0
       cookie: 0.7.2
@@ -7859,7 +7849,7 @@ snapshots:
 
   internmap@2.0.3: {}
 
-  ip-address@10.7.1: {}
+  ip-address@10.7.5: {}
 
   ipaddr.js@1.9.1: {}
 
@@ -8304,13 +8294,10 @@ snapshots:
 
   minimalistic-assert@1.0.1: {}
 
-  minimatch@10.2.6:
+  minimatch@11.0.4:
     dependencies:
+      '@isaacs/nonrecursive-glob-match': 1.0.3
       brace-expansion: 5.0.12
-
-  minimatch@3.1.5:
-    dependencies:
-      brace-expansion: 1.1.21
 
   minimist@1.2.8: {}
 
@@ -8969,7 +8956,7 @@ snapshots:
       cn: 0.2.6
       commander: 14.0.3
       dedent: 1.7.2
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=9bed148308df697e8fc7975161b482997068fd17d2749b389018f5265e9b99c9)
       diff: 8.0.4
       execa: 9.6.1
       fast-glob: 3.3.3
@@ -9071,7 +9058,7 @@ snapshots:
 
   socks@2.8.10:
     dependencies:
-      ip-address: 10.7.1
+      ip-address: 10.7.5
       smart-buffer: 4.2.0
 
   sonic-boom@4.2.1:

@@ -132,6 +132,59 @@ der aktuellen Advisories bleiben ein Go-Live-Gate.
 8. Datenschutz/Retention für Buchungen, Mailinhalte, AI-Logs, WhatsApp-State,
    Finanzbelege und Backups fachlich/organisatorisch freigeben.
 
+## Follow-up und Maßnahmenplan – 2026-10-02
+
+Die Findings wurden einzeln mit dem aktuellen Repository-Stand abgeglichen.
+Bereits umgesetzte Kontrollen wurden nicht erneut verändert.
+
+- **SEC-01 – behoben:** Standortfilter und Abbruch bei ungültigem Standort
+  bleiben aktiv. Die Rollenfälle sind in
+  `tests/unit/auth-authorization.test.ts` abgedeckt; die Dashboard- und
+  Autorisierungstests wurden erneut ausgeführt.
+- **SEC-02 – behoben:** Stiller Baileys-Logger und deaktivierter History-Sync
+  bleiben aktiv (`lib/whatsapp/connection.ts`). WhatsApp-Verbindungs- und
+  Receipt-Tests wurden erneut ausgeführt.
+- **SEC-03 – Paket aktualisiert, Betriebsfreigabe offen:** Das Projekt
+  verwendet bereits die gepatchte Baileys-Version `7.0.0-rc14`; das Advisory
+  nennt `7.0.0-rc12` als erste gepatchte 7.x-Version. RC14 ist weiterhin ein
+  Release Candidate. QR-Pairing, Reconnect, Auth-State und Logout müssen in
+  Staging geprüft werden, bevor die Produktionsfreigabe vollständig ist.
+- **SEC-04 – lokaler Audit bestanden:** `pnpm audit` mit den Parametern
+  `--prod --audit-level=high` meldete am 2026-10-02 „No known vulnerabilities
+  found“. Der GitHub Dependency Review läuft nur bei Pull Requests und bleibt
+  dort zusätzlich zu prüfen.
+
+### Schrittfolge
+
+1. **SEC-01:** Standortautorisierung und Filter aller Dashboard-Aggregate
+   nachvollziehen; die bestehende Rollenabdeckung erneut ausführen. Kein
+   weiterer Codefix nötig.
+2. **SEC-02:** Logger-Konfiguration und History-Sync-Sperre nachvollziehen;
+   WhatsApp- und Receipt-Tests erneut ausführen. Kein weiterer Codefix nötig.
+3. **SEC-03:** Gepatchte Baileys-Version im Manifest und Lockfile bestätigen;
+   vorhandene WhatsApp-Unit-Tests ausführen. Die nicht lokal beweisbaren
+   Pairing- und Reconnect-Abläufe bleiben ein Staging-Gate.
+4. **SEC-04:** lokalen Dependency-Audit ausführen. Der Lauf am 2026-10-02 war
+   erfolgreich; den GitHub Dependency Review zusätzlich im Pull Request
+   prüfen.
+
+### Ausdrücklich beibehaltenes Buchhaltungsverhalten
+
+Eine ignorierte, einer Zahlung zugeordnete Transaktion wird aus der EÜR
+ausgeschlossen; der zugehörige Journaleintrag bleibt bestehen. Dieses Verhalten
+ist fachlich gewünscht und wird durch dieses Security-Follow-up nicht geändert.
+
+### Erneut ausgeführte Tests
+
+`vitest` wurde direkt aus den installierten Projektabhängigkeiten auf diese
+vier Dateien ausgeführt: `auth-authorization.test.ts`,
+`dashboard-metrics.test.ts`, `whatsapp-connection.test.ts` und
+`financial-receipt-matching.test.ts`. Ergebnis: 4 Testdateien und 21 Tests
+bestanden.
+
+Der Produktions-Dependency-Audit war erfolgreich. Die Staging-Prüfung von
+Baileys 7.x und die externen Freigabe-Gates oben wurden nicht lokal ausgeführt.
+
 ## Quellen
 
 - [OWASP API Security Top 10 – BOLA](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
