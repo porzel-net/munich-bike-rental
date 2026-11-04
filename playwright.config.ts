@@ -1,16 +1,18 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const browserPort = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
+
 export default defineConfig({
   testDir: "./tests/browser",
   fullyParallel: true,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: `http://127.0.0.1:${browserPort}`,
     trace: "retain-on-failure",
   },
   webServer: {
     command: "node scripts/start-browser-server.mjs",
-    port: 3000,
+    port: browserPort,
     reuseExistingServer: !process.env.CI,
     env: {
       NODE_ENV: "development",
@@ -26,6 +28,7 @@ export default defineConfig({
       NEVLO_CLIENT_ID: "",
       NEVLO_ACCESS_TOKEN: "",
       NEVLO_REFRESH_TOKEN: "",
+      PORT: String(browserPort),
     },
   },
   projects: [
